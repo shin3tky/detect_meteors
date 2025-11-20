@@ -8,18 +8,18 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
 - Provides region-of-interest (ROI) cropping and Hough transform tuning to focus on likely meteor streaks.
 
 ## Requirements
-- Python 3.13.7 (tested).
+- Python 3.12.12 (tested).
 - macOS Tahoe (tested); other Unix-like systems may work.
 - Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`.
 
 ## Installation
-1) Set up Python (example uses `pyenv`).
+1) Set up Python (example uses `brew`).
    ```bash
-   pyenv local 3.13.7
+   brew install python@3.12
    ```
 2) Create and activate a virtual environment.
    ```bash
-   python3 -m venv venv
+   /usr/local/opt/python@3.12/bin/python3.12 -m venv venv
    source ./venv/bin/activate
    ```
 3) Install dependencies.
