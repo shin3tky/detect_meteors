@@ -14,7 +14,7 @@ from typing import Tuple, List, Optional
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 DEFAULT_TARGET_FOLDER = "examples"
 DEFAULT_OUTPUT_FOLDER = "candidates"
@@ -617,14 +617,42 @@ def build_arg_parser():
         help=f"Minimum aspect ratio (long side/short side) (default: {DEFAULT_MIN_ASPECT_RATIO})",
     )
 
-    parser.add_argument("--hough-threshold", type=int, default=DEFAULT_HOUGH_THRESHOLD)
     parser.add_argument(
-        "--hough-min-line-length", type=int, default=DEFAULT_HOUGH_MIN_LINE_LENGTH
+        "--hough-threshold",
+        type=int,
+        default=DEFAULT_HOUGH_THRESHOLD,
+        help=(
+            "Accumulator threshold for Hough line detection "
+            f"(default: {DEFAULT_HOUGH_THRESHOLD})"
+        ),
     )
     parser.add_argument(
-        "--hough-max-line-gap", type=int, default=DEFAULT_HOUGH_MAX_LINE_GAP
+        "--hough-min-line-length",
+        type=int,
+        default=DEFAULT_HOUGH_MIN_LINE_LENGTH,
+        help=(
+            "Minimum length of a line to detect with Hough transform "
+            f"(default: {DEFAULT_HOUGH_MIN_LINE_LENGTH})"
+        ),
     )
-    parser.add_argument("--min-line-score", type=float, default=DEFAULT_MIN_LINE_SCORE)
+    parser.add_argument(
+        "--hough-max-line-gap",
+        type=int,
+        default=DEFAULT_HOUGH_MAX_LINE_GAP,
+        help=(
+            "Maximum allowed gap between points on the same Hough line "
+            f"(default: {DEFAULT_HOUGH_MAX_LINE_GAP})"
+        ),
+    )
+    parser.add_argument(
+        "--min-line-score",
+        type=float,
+        default=DEFAULT_MIN_LINE_SCORE,
+        help=(
+            "Minimum total line length score required to mark a meteor candidate "
+            f"(default: {DEFAULT_MIN_LINE_SCORE})"
+        ),
+    )
 
     parser.add_argument(
         "--no-roi",
