@@ -447,6 +447,7 @@ def detect_meteors_advanced(
     auto_batch_size=False,
     enable_parallel=True,
     profile=False,
+    validate_raw=False,
 ):
     """
     Main processing: detect meteor candidates from consecutive RAW images
@@ -466,77 +467,94 @@ def detect_meteors_advanced(
 
     print(f"Found {len(files)} files")
 
-    # Validate files and load the first usable image
+    # Validate files and load the first usable image (optional)
     t_load = time.time()
     valid_files: List[str] = []
     total_files = len(files)
+    prev_img: Optional[np.ndarray] = None
 
-    print("Validating files...")
-    last_progress_report = t_load
+    if validate_raw:
+        print("Validating files...")
+        last_progress_report = t_load
 
-    if enable_parallel and num_workers > 1:
-        validation_results: List[Tuple[int, str]] = []
+        if enable_parallel and num_workers > 1:
+            validation_results: List[Tuple[int, str]] = []
 
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            futures = [
-                executor.submit(validate_raw_file, idx, raw_file)
-                for idx, raw_file in enumerate(files)
-            ]
+            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+                futures = [
+                    executor.submit(validate_raw_file, idx, raw_file)
+                    for idx, raw_file in enumerate(files)
+                ]
 
-            for processed, future in enumerate(as_completed(futures), start=1):
-                idx, raw_file, exc = future.result()
+                for processed, future in enumerate(as_completed(futures), start=1):
+                    idx, raw_file, exc = future.result()
 
-                if exc:
+                    if exc:
+                        print(
+                            f"\nSkipping corrupted RAW file: {os.path.basename(raw_file)} ({exc})"
+                        )
+                    else:
+                        validation_results.append((idx, raw_file))
+
+                    if (
+                        time.time() - last_progress_report >= 1.0
+                        or processed == total_files
+                    ):
+                        suffix = "" if processed == total_files else "\r"
+                        print(
+                            f"Validated {processed}/{total_files} files",
+                            end=suffix,
+                            flush=True,
+                        )
+                        last_progress_report = time.time()
+
+            validation_results.sort(key=lambda item: item[0])
+            valid_files = [path for _, path in validation_results]
+        else:
+            for idx, raw_file in enumerate(files, start=1):
+                try:
+                    _ = load_and_bin_raw_fast(raw_file)
+                except Exception as exc:
                     print(
-                        f"\nSkipping corrupted RAW file: {os.path.basename(raw_file)} ({exc})"
+                        f"Skipping corrupted RAW file: {os.path.basename(raw_file)} ({exc})"
                     )
-                else:
-                    validation_results.append((idx, raw_file))
+                    continue
 
-                if (
-                    time.time() - last_progress_report >= 1.0
-                    or processed == total_files
-                ):
-                    suffix = "" if processed == total_files else "\r"
+                valid_files.append(raw_file)
+
+                if time.time() - last_progress_report >= 1.0 or idx == total_files:
+                    suffix = "" if idx == total_files else "\r"
                     print(
-                        f"Validated {processed}/{total_files} files",
-                        end=suffix,
-                        flush=True,
+                        f"Validated {idx}/{total_files} files", end=suffix, flush=True
                     )
                     last_progress_report = time.time()
 
-        validation_results.sort(key=lambda item: item[0])
-        valid_files = [path for _, path in validation_results]
+        print()
+
+        if len(valid_files) < 2:
+            print("Need at least 2 valid images. Exiting.")
+            return 0
+
+        try:
+            prev_img = load_and_bin_raw_fast(valid_files[0])
+        except Exception as exc:
+            print(
+                f"Failed to load first RAW file: {os.path.basename(valid_files[0])} ({exc})"
+            )
+            return 0
+
+        files = valid_files
     else:
-        for idx, raw_file in enumerate(files, start=1):
-            try:
-                _ = load_and_bin_raw_fast(raw_file)
-            except Exception as exc:
-                print(
-                    f"Skipping corrupted RAW file: {os.path.basename(raw_file)} ({exc})"
-                )
-                continue
+        try:
+            prev_img = load_and_bin_raw_fast(files[0])
+        except Exception as exc:
+            print(
+                f"Failed to load first RAW file: {os.path.basename(files[0])} ({exc})"
+            )
+            return 0
 
-            valid_files.append(raw_file)
-
-            if time.time() - last_progress_report >= 1.0 or idx == total_files:
-                suffix = "" if idx == total_files else "\r"
-                print(
-                    f"Validated {idx}/{total_files} files", end=suffix, flush=True
-                )
-                last_progress_report = time.time()
-
-    print()
-
-    if len(valid_files) < 2:
-        print("Need at least 2 valid images. Exiting.")
-        return 0
-
-    prev_img = load_and_bin_raw_fast(valid_files[0])
     if profile:
         timing["first_load"] = time.time() - t_load
-
-    files = valid_files
     height, width = prev_img.shape
 
     # ROI setup
@@ -839,7 +857,7 @@ def build_arg_parser():
         action="store_true",
         help=(
             "Automatically reduce batch size to fit available memory "
-            f"(uses {int(AUTO_BATCH_MEMORY_FRACTION * 100)}% of free RAM)"
+            f"(uses {int(AUTO_BATCH_MEMORY_FRACTION * 100)}%% of free RAM)"
         ),
     )
     parser.add_argument(
@@ -847,6 +865,11 @@ def build_arg_parser():
     )
     parser.add_argument(
         "--profile", action="store_true", help="Display execution time profiling"
+    )
+    parser.add_argument(
+        "--validate-raw",
+        action="store_true",
+        help="Validate RAW files for corruption before processing",
     )
 
     return parser
@@ -883,6 +906,7 @@ def main():
         auto_batch_size=args.auto_batch_size,
         enable_parallel=not args.no_parallel,
         profile=args.profile,
+        validate_raw=args.validate_raw,
     )
 
 
