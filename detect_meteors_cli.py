@@ -419,6 +419,16 @@ def collect_files(target_folder):
     return files
 
 
+def validate_raw_file(index: int, raw_file: str):
+    """Attempt to load a RAW file, returning any validation error."""
+
+    try:
+        load_and_bin_raw_fast(raw_file)
+        return index, raw_file, None
+    except Exception as exc:  # pragma: no cover - best-effort validation
+        return index, raw_file, exc
+
+
 def detect_meteors_advanced(
     target_folder=DEFAULT_TARGET_FOLDER,
     output_folder=DEFAULT_OUTPUT_FOLDER,
@@ -459,40 +469,72 @@ def detect_meteors_advanced(
     # Validate files and load the first usable image
     t_load = time.time()
     valid_files: List[str] = []
-    prev_img: Optional[np.ndarray] = None
     total_files = len(files)
 
     print("Validating files...")
     last_progress_report = t_load
 
-    for idx, raw_file in enumerate(files, start=1):
-        try:
-            img = load_and_bin_raw_fast(raw_file)
-        except Exception as exc:
-            print(
-                f"Skipping corrupted RAW file: {os.path.basename(raw_file)} ({exc})"
-            )
-            continue
+    if enable_parallel and num_workers > 1:
+        validation_results: List[Tuple[int, str]] = []
 
-        if prev_img is None:
-            prev_img = img
-            if profile:
-                timing["first_load"] = time.time() - t_load
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = [
+                executor.submit(validate_raw_file, idx, raw_file)
+                for idx, raw_file in enumerate(files)
+            ]
 
-        valid_files.append(raw_file)
+            for processed, future in enumerate(as_completed(futures), start=1):
+                idx, raw_file, exc = future.result()
 
-        if time.time() - last_progress_report >= 1.0 or idx == total_files:
-            suffix = "" if idx == total_files else "\r"
-            print(
-                f"Validated {idx}/{total_files} files", end=suffix, flush=True
-            )
-            last_progress_report = time.time()
+                if exc:
+                    print(
+                        f"\nSkipping corrupted RAW file: {os.path.basename(raw_file)} ({exc})"
+                    )
+                else:
+                    validation_results.append((idx, raw_file))
+
+                if (
+                    time.time() - last_progress_report >= 1.0
+                    or processed == total_files
+                ):
+                    suffix = "" if processed == total_files else "\r"
+                    print(
+                        f"Validated {processed}/{total_files} files",
+                        end=suffix,
+                        flush=True,
+                    )
+                    last_progress_report = time.time()
+
+        validation_results.sort(key=lambda item: item[0])
+        valid_files = [path for _, path in validation_results]
+    else:
+        for idx, raw_file in enumerate(files, start=1):
+            try:
+                _ = load_and_bin_raw_fast(raw_file)
+            except Exception as exc:
+                print(
+                    f"Skipping corrupted RAW file: {os.path.basename(raw_file)} ({exc})"
+                )
+                continue
+
+            valid_files.append(raw_file)
+
+            if time.time() - last_progress_report >= 1.0 or idx == total_files:
+                suffix = "" if idx == total_files else "\r"
+                print(
+                    f"Validated {idx}/{total_files} files", end=suffix, flush=True
+                )
+                last_progress_report = time.time()
 
     print()
 
-    if prev_img is None or len(valid_files) < 2:
+    if len(valid_files) < 2:
         print("Need at least 2 valid images. Exiting.")
         return 0
+
+    prev_img = load_and_bin_raw_fast(valid_files[0])
+    if profile:
+        timing["first_load"] = time.time() - t_load
 
     files = valid_files
     height, width = prev_img.shape
