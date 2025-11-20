@@ -143,7 +143,9 @@ def estimate_batch_size(
     base_bytes = height * width * np.dtype(np.uint16).itemsize
 
     # Two RAW frames + diff buffer + mask + modest overhead for temporaries
-    estimated_pair_bytes = int(base_bytes * 2 + base_bytes + (height * width) + base_bytes * 0.5)
+    estimated_pair_bytes = int(
+        base_bytes * 2 + base_bytes + (height * width) + base_bytes * 0.5
+    )
     if estimated_pair_bytes <= 0:
         return requested_batch_size
 
