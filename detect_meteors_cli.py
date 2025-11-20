@@ -184,7 +184,7 @@ def load_progress(progress_path: str) -> Optional[Dict]:
 def save_progress(progress_path: str, progress_data: Dict) -> None:
     """Persist progress JSON to disk."""
 
-    now_iso = datetime.utcnow().isoformat(timespec="seconds")
+    now_iso = datetime.now(datetime.UTC).isoformat(timespec="seconds")
     progress_data.setdefault("created_at", now_iso)
     progress_data["last_updated"] = now_iso
 
