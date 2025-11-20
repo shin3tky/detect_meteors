@@ -16,7 +16,7 @@ from typing import Tuple, List, Optional
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 
 DEFAULT_TARGET_FOLDER = "rawfiles"
 DEFAULT_OUTPUT_FOLDER = "candidates"
