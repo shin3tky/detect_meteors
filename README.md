@@ -2,6 +2,8 @@
 
 Detect meteors in batches of RAW photos using configurable image processing pipelines.
 
+**Note:** This software detects meteors by identifying changes between the current RAW photo and the previous one. The first RAW photo is not processed, so please check it manually.
+
 ## Overview
 - CLI-first workflow for scanning folders of RAW photos and flagging potential meteors.
 - Works with RAW photos supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested with ORF files).
