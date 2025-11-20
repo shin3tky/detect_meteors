@@ -49,10 +49,12 @@ Process the entire frame (disable ROI cropping):
 python detect_meteors_cli.py --no-roi
 ```
 
-Limit processing to a region of the starry sky:
+Limit processing to a region of the starry sky using a polygon ROI (quote the value so the shell keeps the semicolons intact):
 ```bash
-python detect_meteors_cli.py --roi 10,10,4000,2000
+python detect_meteors_cli.py --roi "10,10;4000,10;4000,2000;10,2000"
 ```
+
+When selecting the ROI in the GUI, left-click to place vertices. Press `ESC` to remove the last point, and move the cursor back near the first point until a circle appears; left-click there to close the polygon.
 
 Tune for short meteor streaks:
 ```bash
