@@ -225,7 +225,9 @@ def select_roi(image_data):
     window_name = "Select Sky Area"
 
     print("\n--- ROI Selection Mode ---")
-    print("Left click: add vertex | Esc: delete last vertex | Close by clicking the start circle")
+    print(
+        "Left click: add vertex | Esc: delete last vertex | Close by clicking the start circle"
+    )
 
     points: List[Tuple[int, int]] = []
     mouse_pos: Optional[Tuple[int, int]] = None
@@ -238,7 +240,9 @@ def select_roi(image_data):
         canvas = display_img.copy()
 
         if points:
-            cv2.polylines(canvas, [np.array(points, dtype=np.int32)], False, (0, 255, 0), 2)
+            cv2.polylines(
+                canvas, [np.array(points, dtype=np.int32)], False, (0, 255, 0), 2
+            )
             for px, py in points:
                 cv2.circle(canvas, (px, py), 3, (0, 0, 255), -1)
 
@@ -262,7 +266,10 @@ def select_roi(image_data):
         mouse_pos = (x, y)
 
         if event == cv2.EVENT_LBUTTONDOWN:
-            if len(points) >= 3 and math.hypot(x - points[0][0], y - points[0][1]) <= closable_threshold:
+            if (
+                len(points) >= 3
+                and math.hypot(x - points[0][0], y - points[0][1]) <= closable_threshold
+            ):
                 polygon_closed = True
             else:
                 points.append((x, y))
@@ -275,7 +282,9 @@ def select_roi(image_data):
         cv2.imshow(window_name, canvas)
 
         if polygon_closed:
-            cv2.polylines(canvas, [np.array(points, dtype=np.int32)], True, (0, 255, 0), 2)
+            cv2.polylines(
+                canvas, [np.array(points, dtype=np.int32)], True, (0, 255, 0), 2
+            )
             cv2.imshow(window_name, canvas)
             cv2.waitKey(300)
             break
@@ -311,9 +320,13 @@ def select_roi(image_data):
 def parse_roi_polygon_string(roi_str: str) -> List[List[int]]:
     """Parse --roi polygon format x1,y1;x2,y2;..."""
 
-    segments = [seg.strip() for seg in roi_str.replace(" ", "").split(";") if seg.strip()]
+    segments = [
+        seg.strip() for seg in roi_str.replace(" ", "").split(";") if seg.strip()
+    ]
     if len(segments) < 3:
-        raise ValueError("ROI polygon must have at least 3 vertices in the format x1,y1;x2,y2;...")
+        raise ValueError(
+            "ROI polygon must have at least 3 vertices in the format x1,y1;x2,y2;..."
+        )
 
     polygon: List[List[int]] = []
     for seg in segments:
@@ -399,9 +412,7 @@ def detect_meteors_advanced(
             f"polygon={format_polygon_string(roi_polygon_cli)}"
         )
         roi_mask = np.zeros((height, width), dtype=np.uint8)
-        cv2.fillPoly(
-            roi_mask, [np.array(roi_polygon_cli, dtype=np.int32)], 255
-        )
+        cv2.fillPoly(roi_mask, [np.array(roi_polygon_cli, dtype=np.int32)], 255)
         roi_polygon = roi_polygon_cli
     elif enable_roi_selection:
         roi_selection = select_roi(prev_img)
@@ -409,8 +420,7 @@ def detect_meteors_advanced(
             roi_mask = roi_selection["mask"]
             roi_polygon = roi_selection["polygon"]
             print(
-                "ROI setup complete: "
-                f"polygon={format_polygon_string(roi_polygon)}"
+                "ROI setup complete: " f"polygon={format_polygon_string(roi_polygon)}"
             )
         else:
             print("No ROI selected. Processing entire image.")
@@ -603,18 +613,14 @@ def build_arg_parser():
         help=f"Minimum aspect ratio (long side/short side) (default: {DEFAULT_MIN_ASPECT_RATIO})",
     )
 
-    parser.add_argument(
-        "--hough-threshold", type=int, default=DEFAULT_HOUGH_THRESHOLD
-    )
+    parser.add_argument("--hough-threshold", type=int, default=DEFAULT_HOUGH_THRESHOLD)
     parser.add_argument(
         "--hough-min-line-length", type=int, default=DEFAULT_HOUGH_MIN_LINE_LENGTH
     )
     parser.add_argument(
         "--hough-max-line-gap", type=int, default=DEFAULT_HOUGH_MAX_LINE_GAP
     )
-    parser.add_argument(
-        "--min-line-score", type=float, default=DEFAULT_MIN_LINE_SCORE
-    )
+    parser.add_argument("--min-line-score", type=float, default=DEFAULT_MIN_LINE_SCORE)
 
     parser.add_argument(
         "--no-roi",
