@@ -396,12 +396,32 @@ def detect_meteors_advanced(
 
     print(f"Found {len(files)} files")
 
-    # Load first image
+    # Validate files and load the first usable image
     t_load = time.time()
-    prev_img = load_and_bin_raw_fast(files[0])
-    if profile:
-        timing["first_load"] = time.time() - t_load
+    valid_files: List[str] = []
+    prev_img: Optional[np.ndarray] = None
 
+    for raw_file in files:
+        try:
+            img = load_and_bin_raw_fast(raw_file)
+        except Exception as exc:
+            print(
+                f"Skipping corrupted RAW file: {os.path.basename(raw_file)} ({exc})"
+            )
+            continue
+
+        if prev_img is None:
+            prev_img = img
+            if profile:
+                timing["first_load"] = time.time() - t_load
+
+        valid_files.append(raw_file)
+
+    if prev_img is None or len(valid_files) < 2:
+        print("Need at least 2 valid images. Exiting.")
+        return 0
+
+    files = valid_files
     height, width = prev_img.shape
 
     # ROI setup
