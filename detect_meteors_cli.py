@@ -24,10 +24,10 @@ DEFAULT_DIFF_THRESHOLD = 8
 DEFAULT_MIN_AREA = 10
 DEFAULT_MIN_ASPECT_RATIO = 3.0
 
-HOUGH_THRESHOLD = 10
-HOUGH_MIN_LINE_LENGTH = 15
-HOUGH_MAX_LINE_GAP = 5
-MIN_LINE_SCORE = 80.0
+DEFAULT_HOUGH_THRESHOLD = 10
+DEFAULT_HOUGH_MIN_LINE_LENGTH = 15
+DEFAULT_HOUGH_MAX_LINE_GAP = 5
+DEFAULT_MIN_LINE_SCORE = 80.0
 
 DEFAULT_ENABLE_ROI_SELECTION = True
 DEFAULT_NUM_WORKERS = max(1, mp.cpu_count() - 1)
@@ -273,6 +273,10 @@ def detect_meteors_advanced(
     diff_threshold=DEFAULT_DIFF_THRESHOLD,
     min_area=DEFAULT_MIN_AREA,
     min_aspect_ratio=DEFAULT_MIN_ASPECT_RATIO,
+    hough_threshold=DEFAULT_HOUGH_THRESHOLD,
+    hough_min_line_length=DEFAULT_HOUGH_MIN_LINE_LENGTH,
+    hough_max_line_gap=DEFAULT_HOUGH_MAX_LINE_GAP,
+    min_line_score=DEFAULT_MIN_LINE_SCORE,
     enable_roi_selection=DEFAULT_ENABLE_ROI_SELECTION,
     roi_rect_cli=None,
     num_workers=DEFAULT_NUM_WORKERS,
@@ -333,10 +337,10 @@ def detect_meteors_advanced(
         "diff_threshold": diff_threshold,
         "min_area": min_area,
         "min_aspect_ratio": min_aspect_ratio,
-        "hough_threshold": HOUGH_THRESHOLD,
-        "hough_min_line_length": HOUGH_MIN_LINE_LENGTH,
-        "hough_max_line_gap": HOUGH_MAX_LINE_GAP,
-        "min_line_score": MIN_LINE_SCORE,
+        "hough_threshold": hough_threshold,
+        "hough_min_line_length": hough_min_line_length,
+        "hough_max_line_gap": hough_max_line_gap,
+        "min_line_score": min_line_score,
     }
 
     print(f"Starting processing: {len(files)} images")
@@ -510,12 +514,18 @@ def build_arg_parser():
         help=f"Minimum aspect ratio (long side/short side) (default: {DEFAULT_MIN_ASPECT_RATIO})",
     )
 
-    parser.add_argument("--hough-threshold", type=int, default=HOUGH_THRESHOLD)
     parser.add_argument(
-        "--hough-min-line-length", type=int, default=HOUGH_MIN_LINE_LENGTH
+        "--hough-threshold", type=int, default=DEFAULT_HOUGH_THRESHOLD
     )
-    parser.add_argument("--hough-max-line-gap", type=int, default=HOUGH_MAX_LINE_GAP)
-    parser.add_argument("--min-line-score", type=float, default=MIN_LINE_SCORE)
+    parser.add_argument(
+        "--hough-min-line-length", type=int, default=DEFAULT_HOUGH_MIN_LINE_LENGTH
+    )
+    parser.add_argument(
+        "--hough-max-line-gap", type=int, default=DEFAULT_HOUGH_MAX_LINE_GAP
+    )
+    parser.add_argument(
+        "--min-line-score", type=float, default=DEFAULT_MIN_LINE_SCORE
+    )
 
     parser.add_argument(
         "--no-roi",
@@ -552,12 +562,6 @@ def main():
     parser = build_arg_parser()
     args = parser.parse_args()
 
-    global HOUGH_THRESHOLD, HOUGH_MIN_LINE_LENGTH, HOUGH_MAX_LINE_GAP, MIN_LINE_SCORE
-    HOUGH_THRESHOLD = args.hough_threshold
-    HOUGH_MIN_LINE_LENGTH = args.hough_min_line_length
-    HOUGH_MAX_LINE_GAP = args.hough_max_line_gap
-    MIN_LINE_SCORE = args.min_line_score
-
     roi_rect_cli = None
     enable_roi_selection = DEFAULT_ENABLE_ROI_SELECTION
 
@@ -574,6 +578,10 @@ def main():
         diff_threshold=args.diff_threshold,
         min_area=args.min_area,
         min_aspect_ratio=args.min_aspect_ratio,
+        hough_threshold=args.hough_threshold,
+        hough_min_line_length=args.hough_min_line_length,
+        hough_max_line_gap=args.hough_max_line_gap,
+        min_line_score=args.min_line_score,
         enable_roi_selection=enable_roi_selection,
         roi_rect_cli=roi_rect_cli,
         num_workers=args.workers,
