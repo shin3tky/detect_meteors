@@ -204,7 +204,8 @@ def process_image_batch(
 
 
 def select_roi(image_data):
-    """Function to select processing region (ROI) with mouse"""
+    """Polygon ROI selection with vertex editing and close hint."""
+
     disp_img = image_data.astype(np.float32)
     disp_img = disp_img / np.max(disp_img)
     disp_img = (disp_img * 255).astype(np.uint8)
@@ -220,30 +221,91 @@ def select_roi(image_data):
     else:
         disp_img_resized = disp_img
 
+    display_img = cv2.cvtColor(disp_img_resized, cv2.COLOR_GRAY2BGR)
+    window_name = "Select Sky Area"
+
     print("\n--- ROI Selection Mode ---")
-    print(
-        "1. In the displayed window, drag with your mouse to outline the 'sky area (where you want to search for meteors)'."
-    )
-    print("2. Press Enter to confirm, or Esc to cancel.\n")
+    print("Left click: add vertex | Esc: delete last vertex | Close by clicking the start circle")
 
-    cv2.namedWindow("Select Sky Area", cv2.WINDOW_NORMAL)
-    cv2.imshow("Select Sky Area", disp_img_resized)
+    points: List[Tuple[int, int]] = []
+    mouse_pos: Optional[Tuple[int, int]] = None
+    polygon_closed = False
+    closable_threshold = 12
+    closable_radius = 6
+    cancelled = False
 
-    r = cv2.selectROI(
-        "Select Sky Area", disp_img_resized, showCrosshair=True, fromCenter=False
-    )
-    cv2.destroyWindow("Select Sky Area")
+    def draw_canvas():
+        canvas = display_img.copy()
+
+        if points:
+            cv2.polylines(canvas, [np.array(points, dtype=np.int32)], False, (0, 255, 0), 2)
+            for px, py in points:
+                cv2.circle(canvas, (px, py), 3, (0, 0, 255), -1)
+
+        if mouse_pos and points:
+            cv2.line(canvas, points[-1], mouse_pos, (255, 255, 0), 1)
+
+        if len(points) >= 3:
+            first = points[0]
+            hover_distance = (
+                math.hypot(mouse_pos[0] - first[0], mouse_pos[1] - first[1])
+                if mouse_pos
+                else None
+            )
+            if hover_distance is not None and hover_distance <= closable_threshold:
+                cv2.circle(canvas, first, closable_radius, (0, 255, 255), -1)
+
+        return canvas
+
+    def on_mouse(event, x, y, *_):
+        nonlocal mouse_pos, polygon_closed
+        mouse_pos = (x, y)
+
+        if event == cv2.EVENT_LBUTTONDOWN:
+            if len(points) >= 3 and math.hypot(x - points[0][0], y - points[0][1]) <= closable_threshold:
+                polygon_closed = True
+            else:
+                points.append((x, y))
+
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    cv2.setMouseCallback(window_name, on_mouse)
+
+    while True:
+        canvas = draw_canvas()
+        cv2.imshow(window_name, canvas)
+
+        if polygon_closed:
+            cv2.polylines(canvas, [np.array(points, dtype=np.int32)], True, (0, 255, 0), 2)
+            cv2.imshow(window_name, canvas)
+            cv2.waitKey(300)
+            break
+
+        key = cv2.waitKey(20) & 0xFF
+
+        if key == 27:  # ESC: delete last vertex
+            if points:
+                points.pop()
+        elif key == ord("q"):
+            cancelled = True
+            break
+
+    cv2.destroyWindow(window_name)
     cv2.waitKey(1)
 
-    if r == (0, 0, 0, 0):
+    if cancelled or len(points) < 3:
         return None
 
-    x = int(r[0] / scale_factor)
-    y = int(r[1] / scale_factor)
-    w = int(r[2] / scale_factor)
-    h = int(r[3] / scale_factor)
+    points_scaled = [
+        (int(px / scale_factor), int(py / scale_factor)) for px, py in points
+    ]
+    polygon = np.array(points_scaled, dtype=np.int32)
 
-    return (x, y, w, h)
+    mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.fillPoly(mask, [polygon], 255)
+
+    bounding_rect = cv2.boundingRect(polygon)
+
+    return {"mask": mask, "polygon": polygon.tolist(), "bounding_rect": bounding_rect}
 
 
 def parse_roi_string(roi_str):
@@ -313,6 +375,7 @@ def detect_meteors_advanced(
     # ROI setup
     roi_mask = np.full((height, width), 255, dtype=np.uint8)
     roi_rect = None
+    roi_polygon = None
 
     if roi_rect_cli:
         x, y, w, h = roi_rect_cli
@@ -320,13 +383,22 @@ def detect_meteors_advanced(
         roi_mask = np.zeros((height, width), dtype=np.uint8)
         roi_mask[y : y + h, x : x + w] = 255
         roi_rect = roi_rect_cli
+        roi_polygon = [
+            [x, y],
+            [x + w, y],
+            [x + w, y + h],
+            [x, y + h],
+        ]
     elif enable_roi_selection:
-        roi_rect = select_roi(prev_img)
-        if roi_rect:
+        roi_selection = select_roi(prev_img)
+        if roi_selection:
+            roi_mask = roi_selection["mask"]
+            roi_polygon = roi_selection["polygon"]
+            roi_rect = roi_selection["bounding_rect"]
             x, y, w, h = roi_rect
-            print(f"ROI setup complete: x={x}, y={y}, w={w}, h={h}")
-            roi_mask = np.zeros((height, width), dtype=np.uint8)
-            roi_mask[y : y + h, x : x + w] = 255
+            print(
+                f"ROI setup complete: x={x}, y={y}, w={w}, h={h} (polygon vertices: {len(roi_polygon)})"
+            )
         else:
             print("No ROI selected. Processing entire image.")
     else:
@@ -398,7 +470,15 @@ def detect_meteors_advanced(
                             shutil.copy(filepath, os.path.join(output_folder, filename))
 
                             if debug_img is not None:
-                                if roi_rect:
+                                if roi_polygon:
+                                    cv2.polylines(
+                                        debug_img,
+                                        [np.array(roi_polygon, dtype=np.int32)],
+                                        True,
+                                        (0, 255, 0),
+                                        2,
+                                    )
+                                elif roi_rect:
                                     x, y, w, h = roi_rect
                                     cv2.rectangle(
                                         debug_img,
@@ -446,9 +526,19 @@ def detect_meteors_advanced(
                 shutil.copy(filepath, os.path.join(output_folder, filename))
 
                 if debug_img is not None:
-                    if roi_rect:
+                    if roi_polygon:
+                        cv2.polylines(
+                            debug_img,
+                            [np.array(roi_polygon, dtype=np.int32)],
+                            True,
+                            (0, 255, 0),
+                            2,
+                        )
+                    elif roi_rect:
                         x, y, w, h = roi_rect
-                        cv2.rectangle(debug_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                        cv2.rectangle(
+                            debug_img, (x, y), (x + w, y + h), (0, 255, 0), 2
+                        )
                     cv2.imwrite(
                         os.path.join(debug_folder, f"mask_{filename}.png"), debug_img
                     )
