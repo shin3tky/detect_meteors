@@ -308,13 +308,30 @@ def select_roi(image_data):
     return {"mask": mask, "polygon": polygon.tolist(), "bounding_rect": bounding_rect}
 
 
-def parse_roi_string(roi_str):
-    """Parse --roi "x,y,w,h" format"""
-    parts = roi_str.split(",")
-    if len(parts) != 4:
-        raise ValueError("ROI must be specified with 4 integers in the format x,y,w,h")
-    x, y, w, h = map(int, parts)
-    return (x, y, w, h)
+def parse_roi_polygon_string(roi_str: str) -> List[List[int]]:
+    """Parse --roi polygon format x1,y1;x2,y2;..."""
+
+    segments = [seg.strip() for seg in roi_str.replace(" ", "").split(";") if seg.strip()]
+    if len(segments) < 3:
+        raise ValueError("ROI polygon must have at least 3 vertices in the format x1,y1;x2,y2;...")
+
+    polygon: List[List[int]] = []
+    for seg in segments:
+        try:
+            x_str, y_str = seg.split(",")
+            polygon.append([int(x_str), int(y_str)])
+        except Exception as exc:
+            raise ValueError(
+                "ROI polygon must be specified as pairs like x1,y1;x2,y2;..."
+            ) from exc
+
+    return polygon
+
+
+def format_polygon_string(polygon: List[List[int]]) -> str:
+    """Format polygon vertices into "x1,y1;x2,y2;..." string"""
+
+    return ";".join(f"{x},{y}" for x, y in polygon)
 
 
 def collect_files(target_folder):
@@ -340,7 +357,7 @@ def detect_meteors_advanced(
     hough_max_line_gap=DEFAULT_HOUGH_MAX_LINE_GAP,
     min_line_score=DEFAULT_MIN_LINE_SCORE,
     enable_roi_selection=DEFAULT_ENABLE_ROI_SELECTION,
-    roi_rect_cli=None,
+    roi_polygon_cli=None,
     num_workers=DEFAULT_NUM_WORKERS,
     batch_size=DEFAULT_BATCH_SIZE,
     enable_parallel=True,
@@ -374,30 +391,26 @@ def detect_meteors_advanced(
 
     # ROI setup
     roi_mask = np.full((height, width), 255, dtype=np.uint8)
-    roi_rect = None
     roi_polygon = None
 
-    if roi_rect_cli:
-        x, y, w, h = roi_rect_cli
-        print(f"ROI specified via command line: x={x}, y={y}, w={w}, h={h}")
+    if roi_polygon_cli:
+        print(
+            "ROI specified via command line: "
+            f"polygon={format_polygon_string(roi_polygon_cli)}"
+        )
         roi_mask = np.zeros((height, width), dtype=np.uint8)
-        roi_mask[y : y + h, x : x + w] = 255
-        roi_rect = roi_rect_cli
-        roi_polygon = [
-            [x, y],
-            [x + w, y],
-            [x + w, y + h],
-            [x, y + h],
-        ]
+        cv2.fillPoly(
+            roi_mask, [np.array(roi_polygon_cli, dtype=np.int32)], 255
+        )
+        roi_polygon = roi_polygon_cli
     elif enable_roi_selection:
         roi_selection = select_roi(prev_img)
         if roi_selection:
             roi_mask = roi_selection["mask"]
             roi_polygon = roi_selection["polygon"]
-            roi_rect = roi_selection["bounding_rect"]
-            x, y, w, h = roi_rect
             print(
-                f"ROI setup complete: x={x}, y={y}, w={w}, h={h} (polygon vertices: {len(roi_polygon)})"
+                "ROI setup complete: "
+                f"polygon={format_polygon_string(roi_polygon)}"
             )
         else:
             print("No ROI selected. Processing entire image.")
@@ -478,15 +491,6 @@ def detect_meteors_advanced(
                                         (0, 255, 0),
                                         2,
                                     )
-                                elif roi_rect:
-                                    x, y, w, h = roi_rect
-                                    cv2.rectangle(
-                                        debug_img,
-                                        (x, y),
-                                        (x + w, y + h),
-                                        (0, 255, 0),
-                                        2,
-                                    )
                                 cv2.imwrite(
                                     os.path.join(debug_folder, f"mask_{filename}.png"),
                                     debug_img,
@@ -533,11 +537,6 @@ def detect_meteors_advanced(
                             True,
                             (0, 255, 0),
                             2,
-                        )
-                    elif roi_rect:
-                        x, y, w, h = roi_rect
-                        cv2.rectangle(
-                            debug_img, (x, y), (x + w, y + h), (0, 255, 0), 2
                         )
                     cv2.imwrite(
                         os.path.join(debug_folder, f"mask_{filename}.png"), debug_img
@@ -623,7 +622,10 @@ def build_arg_parser():
         help="Skip ROI selection and process entire image",
     )
     parser.add_argument(
-        "--roi", type=str, default=None, help='Specify ROI directly in "x,y,w,h" format'
+        "--roi",
+        type=str,
+        default=None,
+        help='Specify ROI polygon as "x1,y1;x2,y2;..." (requires at least 3 vertices)',
     )
 
     parser.add_argument(
@@ -652,11 +654,11 @@ def main():
     parser = build_arg_parser()
     args = parser.parse_args()
 
-    roi_rect_cli = None
+    roi_polygon_cli = None
     enable_roi_selection = DEFAULT_ENABLE_ROI_SELECTION
 
     if args.roi is not None:
-        roi_rect_cli = parse_roi_string(args.roi)
+        roi_polygon_cli = parse_roi_polygon_string(args.roi)
         enable_roi_selection = False
     elif args.no_roi:
         enable_roi_selection = False
@@ -673,7 +675,7 @@ def main():
         hough_max_line_gap=args.hough_max_line_gap,
         min_line_score=args.min_line_score,
         enable_roi_selection=enable_roi_selection,
-        roi_rect_cli=roi_rect_cli,
+        roi_polygon_cli=roi_polygon_cli,
         num_workers=args.workers,
         batch_size=args.batch_size,
         enable_parallel=not args.no_parallel,
