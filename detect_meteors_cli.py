@@ -167,6 +167,14 @@ def compute_params_hash(params: Dict) -> str:
     return hashlib.sha256(params_json.encode("utf-8")).hexdigest()
 
 
+def _init_worker_ignore_interrupt() -> None:
+    """Ignore SIGINT in worker processes so the main process handles Ctrl-C."""
+
+    import signal
+
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
 def load_progress(progress_path: str) -> Optional[Dict]:
     """Load progress JSON if it exists."""
 
@@ -525,7 +533,9 @@ def detect_meteors_advanced(
         if enable_parallel and num_workers > 1:
             validation_results: List[Tuple[int, str]] = []
             futures: List = []
-            executor = ProcessPoolExecutor(max_workers=num_workers)
+            executor = ProcessPoolExecutor(
+                max_workers=num_workers, initializer=_init_worker_ignore_interrupt
+            )
             wait_for_tasks = True
 
             try:
@@ -778,7 +788,9 @@ def detect_meteors_advanced(
 
             print(f"Number of batches: {len(batches)}")
 
-            executor = ProcessPoolExecutor(max_workers=num_workers)
+            executor = ProcessPoolExecutor(
+                max_workers=num_workers, initializer=_init_worker_ignore_interrupt
+            )
             futures: List = []
             wait_for_tasks = True
 
