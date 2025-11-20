@@ -857,7 +857,7 @@ def build_arg_parser():
         action="store_true",
         help=(
             "Automatically reduce batch size to fit available memory "
-            f"(uses {int(AUTO_BATCH_MEMORY_FRACTION * 100)}% of free RAM)"
+            f"(uses {int(AUTO_BATCH_MEMORY_FRACTION * 100)}%% of free RAM)"
         ),
     )
     parser.add_argument(
