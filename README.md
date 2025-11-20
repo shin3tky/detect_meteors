@@ -101,6 +101,9 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--no-parallel`**: Force single-threaded execution. Handy for debugging or when parallelism conflicts with other workloads.
 - **`--profile`**: Print timing breakdowns (first load, processing time, totals) after the run.
 - **`--validate-raw`**: Pre-validate RAW files to catch corruption before processing. Adds a quick sanity check step on large batches.
+- **`--progress-file`** (default: `progress.json`): Path to the JSON file that tracks processed and detected frames so long runs can resume safely.
+- **`--no-resume`**: Ignore and remove any existing progress file before processing. Use when you want a clean run without picking up past state.
+- **`--remove-progress`**: Delete the progress file and exit immediately. Handy for clearing progress without starting a new detection pass.
 
 ## Build a single binary with Nuitka
 If you want to distribute `detect_meteors_cli` as a standalone executable, you can bundle it with [Nuitka](https://nuitka.net/):
