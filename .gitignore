@@ -212,3 +212,5 @@ __marimo__/
 *.onefile-build
 *.bin
 
+# detect_meteors.py
+progress.json
