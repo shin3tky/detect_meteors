@@ -9,14 +9,19 @@ import time
 import shutil
 import argparse
 import math
+import json
+import hashlib
+from datetime import datetime, timezone
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing as mp
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.0.3"
+VERSION = "1.1.0"
+
+DEFAULT_PROGRESS_FILE = "progress.json"
 
 DEFAULT_TARGET_FOLDER = "rawfiles"
 DEFAULT_OUTPUT_FOLDER = "candidates"
@@ -153,6 +158,50 @@ def estimate_batch_size(
     max_pairs = max(1, int(per_worker_budget // estimated_pair_bytes))
 
     return max(1, min(requested_batch_size, max_pairs))
+
+
+def compute_params_hash(params: Dict) -> str:
+    """Create a stable hash from parameter dictionary."""
+
+    params_json = json.dumps(params, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(params_json.encode("utf-8")).hexdigest()
+
+
+def _init_worker_ignore_interrupt() -> None:
+    """Ignore SIGINT in worker processes so the main process handles Ctrl-C."""
+
+    import signal
+
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def load_progress(progress_path: str) -> Optional[Dict]:
+    """Load progress JSON if it exists."""
+
+    if not os.path.exists(progress_path):
+        return None
+
+    try:
+        with open(progress_path, encoding="utf-8") as fp:
+            return json.load(fp)
+    except Exception as exc:
+        print(f"Failed to read progress file {progress_path}: {exc}")
+        return None
+
+
+def save_progress(progress_path: str, progress_data: Dict) -> None:
+    """Persist progress JSON to disk."""
+
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    progress_data.setdefault("created_at", now_iso)
+    progress_data["last_updated"] = now_iso
+
+    try:
+        os.makedirs(os.path.dirname(progress_path) or ".", exist_ok=True)
+        with open(progress_path, "w", encoding="utf-8") as fp:
+            json.dump(progress_data, fp, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        print(f"Failed to write progress file {progress_path}: {exc}")
 
 
 def process_image_batch(
@@ -450,6 +499,8 @@ def detect_meteors_advanced(
     enable_parallel=True,
     profile=False,
     validate_raw=False,
+    progress_file=DEFAULT_PROGRESS_FILE,
+    resume=True,
 ):
     """
     Main processing: detect meteor candidates from consecutive RAW images
@@ -481,8 +532,13 @@ def detect_meteors_advanced(
 
         if enable_parallel and num_workers > 1:
             validation_results: List[Tuple[int, str]] = []
+            futures: List = []
+            executor = ProcessPoolExecutor(
+                max_workers=num_workers, initializer=_init_worker_ignore_interrupt
+            )
+            wait_for_tasks = True
 
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            try:
                 futures = [
                     executor.submit(validate_raw_file, idx, raw_file)
                     for idx, raw_file in enumerate(files)
@@ -509,6 +565,14 @@ def detect_meteors_advanced(
                             flush=True,
                         )
                         last_progress_report = time.time()
+            except KeyboardInterrupt:
+                print("\nInterrupted by user. Cancelling validation workers...")
+                wait_for_tasks = False
+                for future in futures:
+                    future.cancel()
+                raise
+            finally:
+                executor.shutdown(wait=wait_for_tasks, cancel_futures=not wait_for_tasks)
 
             validation_results.sort(key=lambda item: item[0])
             valid_files = [path for _, path in validation_results]
@@ -595,6 +659,88 @@ def detect_meteors_advanced(
         "min_line_score": min_line_score,
     }
 
+    params_for_hash = {
+        "target_folder": target_folder,
+        "output_folder": output_folder,
+        "debug_folder": debug_folder,
+        "roi_polygon": roi_polygon,
+        "params": params,
+        "enable_parallel": enable_parallel,
+        "num_workers": num_workers,
+        "batch_size": batch_size,
+        "auto_batch_size": auto_batch_size,
+        "validate_raw": validate_raw,
+        "files": [os.path.basename(path) for path in files],
+    }
+
+    progress_data: Dict = {
+        "version": VERSION,
+        "params_hash": compute_params_hash(params_for_hash),
+        "processed_files": [],
+        "detected_files": [],
+        "total_processed": 0,
+        "total_detected": 0,
+    }
+
+    loaded_progress = load_progress(progress_file) if resume else None
+
+    if loaded_progress:
+        if loaded_progress.get("params_hash") == progress_data["params_hash"]:
+            progress_data.update(
+                {
+                    key: loaded_progress.get(key, progress_data.get(key))
+                    for key in [
+                        "version",
+                        "params_hash",
+                        "processed_files",
+                        "detected_files",
+                        "total_processed",
+                        "total_detected",
+                        "created_at",
+                        "last_updated",
+                    ]
+                }
+            )
+            print(
+                f"Resuming from progress file: {progress_file} "
+                f"(processed={progress_data['total_processed']}, "
+                f"detected={progress_data['total_detected']})"
+            )
+        else:
+            print(
+                "Progress file exists but parameters differ. Starting with fresh progress."
+            )
+
+    existing_basenames = {os.path.basename(path) for path in files}
+    progress_data["processed_files"] = [
+        name for name in progress_data.get("processed_files", []) if name in existing_basenames
+    ]
+    progress_data["detected_files"] = [
+        name for name in progress_data.get("detected_files", []) if name in existing_basenames
+    ]
+
+    processed_set = set(progress_data["processed_files"])
+    detected_set = set(progress_data["detected_files"])
+
+    progress_data["total_processed"] = len(processed_set)
+    progress_data["total_detected"] = len(detected_set)
+
+    save_progress(progress_file, progress_data)
+
+    def record_result(filename: str, is_candidate: bool) -> None:
+        processed_set.add(filename)
+        if filename not in progress_data["processed_files"]:
+            progress_data["processed_files"].append(filename)
+
+        if is_candidate:
+            detected_set.add(filename)
+            if filename not in progress_data["detected_files"]:
+                progress_data["detected_files"].append(filename)
+
+        progress_data["total_processed"] = len(processed_set)
+        progress_data["total_detected"] = len(detected_set)
+        save_progress(progress_file, progress_data)
+
     print(f"Starting processing: {len(files)} images")
     if enable_parallel:
         print(f"Parallel processing: {num_workers} workers, batch size: {batch_size}")
@@ -620,119 +766,151 @@ def detect_meteors_advanced(
             else:
                 print("Auto batch sizing: requested batch size fits available memory")
 
-    detected_count = 0
+    detected_count = len(detected_set)
     t_process = time.time()
 
     # Create image pairs
     image_pairs = [(files[i], files[i - 1]) for i in range(1, len(files))]
+    image_pairs = [
+        pair for pair in image_pairs if os.path.basename(pair[0]) not in processed_set
+    ]
 
-    if enable_parallel and num_workers > 1:
-        # Split into batches
-        batches = [
-            image_pairs[i : i + batch_size]
-            for i in range(0, len(image_pairs), batch_size)
-        ]
+    resume_offset = len(processed_set)
+    overall_total = resume_offset + len(image_pairs)
 
-        print(f"Number of batches: {len(batches)}")
+    try:
+        if enable_parallel and num_workers > 1:
+            # Split into batches
+            batches = [
+                image_pairs[i : i + batch_size]
+                for i in range(0, len(image_pairs), batch_size)
+            ]
 
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            futures = []
+            print(f"Number of batches: {len(batches)}")
 
-            for batch in batches:
-                future = executor.submit(process_image_batch, batch, roi_mask, params)
-                futures.append(future)
+            executor = ProcessPoolExecutor(
+                max_workers=num_workers, initializer=_init_worker_ignore_interrupt
+            )
+            futures: List = []
+            wait_for_tasks = True
 
-            # Collect results
-            processed = 0
-            for future in as_completed(futures):
-                try:
-                    batch_results = future.result()
+            try:
+                for batch in batches:
+                    future = executor.submit(process_image_batch, batch, roi_mask, params)
+                    futures.append(future)
 
-                    for result in batch_results:
-                        (
-                            is_candidate,
-                            filename,
-                            filepath,
-                            line_score,
-                            debug_img,
-                            aspect_ratio,
-                            num_lines,
-                        ) = result
+                # Collect results
+                processed = 0
+                for future in as_completed(futures):
+                    try:
+                        batch_results = future.result()
 
-                        processed += 1
+                        for result in batch_results:
+                            (
+                                is_candidate,
+                                filename,
+                                filepath,
+                                line_score,
+                                debug_img,
+                                aspect_ratio,
+                                num_lines,
+                            ) = result
 
-                        if line_score > 0:
-                            print(
-                                f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
-                            )
+                            processed += 1
 
-                        if is_candidate:
-                            detected_count += 1
-                            shutil.copy(filepath, os.path.join(output_folder, filename))
-
-                            if debug_img is not None:
-                                if roi_polygon:
-                                    cv2.polylines(
-                                        debug_img,
-                                        [np.array(roi_polygon, dtype=np.int32)],
-                                        True,
-                                        (0, 255, 0),
-                                        2,
-                                    )
-                                cv2.imwrite(
-                                    os.path.join(debug_folder, f"mask_{filename}.png"),
-                                    debug_img,
+                            if line_score > 0:
+                                print(
+                                    f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
                                 )
 
-                            print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
-                        else:
-                            print(
-                                f"\rChecking... {processed}/{len(image_pairs)}",
-                                end="",
-                                flush=True,
+                            if is_candidate:
+                                shutil.copy(filepath, os.path.join(output_folder, filename))
+
+                                if debug_img is not None:
+                                    if roi_polygon:
+                                        cv2.polylines(
+                                            debug_img,
+                                            [np.array(roi_polygon, dtype=np.int32)],
+                                            True,
+                                            (0, 255, 0),
+                                            2,
+                                        )
+                                    cv2.imwrite(
+                                        os.path.join(debug_folder, f"mask_{filename}.png"),
+                                        debug_img,
+                                    )
+
+                                print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                            else:
+                                print(
+                                    f"\rChecking... {resume_offset + processed}/{overall_total}",
+                                    end="",
+                                    flush=True,
+                                )
+
+                            record_result(filename, is_candidate)
+                            detected_count = progress_data["total_detected"]
+
+                    except Exception as e:
+                        print(f"\nBatch processing error: {e}")
+            except KeyboardInterrupt:
+                print("\nInterrupted by user. Cancelling worker processes...")
+                wait_for_tasks = False
+                for future in futures:
+                    future.cancel()
+                raise
+            finally:
+                executor.shutdown(wait=wait_for_tasks, cancel_futures=not wait_for_tasks)
+
+        else:
+            # Sequential processing
+            batch_results = process_image_batch(image_pairs, roi_mask, params)
+
+            for idx, result in enumerate(batch_results):
+                (
+                    is_candidate,
+                    filename,
+                    filepath,
+                    line_score,
+                    debug_img,
+                    aspect_ratio,
+                    num_lines,
+                ) = result
+
+                if line_score > 0:
+                    print(f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}")
+
+                if is_candidate:
+                    shutil.copy(filepath, os.path.join(output_folder, filename))
+
+                    if debug_img is not None:
+                        if roi_polygon:
+                            cv2.polylines(
+                                debug_img,
+                                [np.array(roi_polygon, dtype=np.int32)],
+                                True,
+                                (0, 255, 0),
+                                2,
                             )
-
-                except Exception as e:
-                    print(f"\nBatch processing error: {e}")
-
-    else:
-        # Sequential processing
-        batch_results = process_image_batch(image_pairs, roi_mask, params)
-
-        for idx, result in enumerate(batch_results):
-            (
-                is_candidate,
-                filename,
-                filepath,
-                line_score,
-                debug_img,
-                aspect_ratio,
-                num_lines,
-            ) = result
-
-            if line_score > 0:
-                print(f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}")
-
-            if is_candidate:
-                detected_count += 1
-                shutil.copy(filepath, os.path.join(output_folder, filename))
-
-                if debug_img is not None:
-                    if roi_polygon:
-                        cv2.polylines(
-                            debug_img,
-                            [np.array(roi_polygon, dtype=np.int32)],
-                            True,
-                            (0, 255, 0),
-                            2,
+                        cv2.imwrite(
+                            os.path.join(debug_folder, f"mask_{filename}.png"), debug_img
                         )
-                    cv2.imwrite(
-                        os.path.join(debug_folder, f"mask_{filename}.png"), debug_img
+
+                    print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                else:
+                    print(
+                        f"\rChecking... {resume_offset + idx + 1}/{overall_total}",
+                        end="",
+                        flush=True,
                     )
 
-                print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
-            else:
-                print(f"\rChecking... {idx + 1}/{len(image_pairs)}", end="", flush=True)
+                record_result(filename, is_candidate)
+                detected_count = progress_data["total_detected"]
+
+    except KeyboardInterrupt:
+        print(f"\nInterrupted by user. Progress saved to {progress_file}.")
+        save_progress(progress_file, progress_data)
+        return detected_count
 
     if profile:
         timing["processing"] = time.time() - t_process
@@ -748,6 +926,7 @@ def detect_meteors_advanced(
             f"Speedup potential: {(len(files) - 1) * 0.5 / timing['processing']:.2f}x"
         )
 
+    save_progress(progress_file, progress_data)
     print(f"\nComplete! {detected_count} candidates extracted")
     return detected_count
 
@@ -873,6 +1052,21 @@ def build_arg_parser():
         action="store_true",
         help="Validate RAW files for corruption before processing",
     )
+    parser.add_argument(
+        "--progress-file",
+        default=DEFAULT_PROGRESS_FILE,
+        help="Path to progress JSON file (default: progress.json)",
+    )
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Ignore and remove existing progress file before processing",
+    )
+    parser.add_argument(
+        "--remove-progress",
+        action="store_true",
+        help="Delete the progress file and exit",
+    )
 
     return parser
 
@@ -880,6 +1074,23 @@ def build_arg_parser():
 def main():
     parser = build_arg_parser()
     args = parser.parse_args()
+
+    progress_file = args.progress_file
+
+    if args.remove_progress:
+        if os.path.exists(progress_file):
+            os.remove(progress_file)
+            print(f"Removed progress file: {progress_file}")
+        else:
+            print(f"Progress file not found: {progress_file}")
+        return
+
+    if args.no_resume and os.path.exists(progress_file):
+        try:
+            os.remove(progress_file)
+            print(f"Progress file removed before processing: {progress_file}")
+        except Exception as exc:
+            print(f"Failed to remove progress file {progress_file}: {exc}")
 
     roi_polygon_cli = None
     enable_roi_selection = DEFAULT_ENABLE_ROI_SELECTION
@@ -909,6 +1120,8 @@ def main():
         enable_parallel=not args.no_parallel,
         profile=args.profile,
         validate_raw=args.validate_raw,
+        progress_file=progress_file,
+        resume=not args.no_resume,
     )
 
 
