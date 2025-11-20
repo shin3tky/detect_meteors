@@ -460,8 +460,12 @@ def detect_meteors_advanced(
     t_load = time.time()
     valid_files: List[str] = []
     prev_img: Optional[np.ndarray] = None
+    total_files = len(files)
 
-    for raw_file in files:
+    print("Validating files...")
+    last_progress_report = t_load
+
+    for idx, raw_file in enumerate(files, start=1):
         try:
             img = load_and_bin_raw_fast(raw_file)
         except Exception as exc:
@@ -476,6 +480,15 @@ def detect_meteors_advanced(
                 timing["first_load"] = time.time() - t_load
 
         valid_files.append(raw_file)
+
+        if time.time() - last_progress_report >= 1.0 or idx == total_files:
+            suffix = "" if idx == total_files else "\r"
+            print(
+                f"Validated {idx}/{total_files} files", end=suffix, flush=True
+            )
+            last_progress_report = time.time()
+
+    print()
 
     if prev_img is None or len(valid_files) < 2:
         print("Need at least 2 valid images. Exiting.")
