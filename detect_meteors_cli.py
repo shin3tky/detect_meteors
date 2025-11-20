@@ -524,8 +524,11 @@ def detect_meteors_advanced(
 
         if enable_parallel and num_workers > 1:
             validation_results: List[Tuple[int, str]] = []
+            futures: List = []
+            executor = ProcessPoolExecutor(max_workers=num_workers)
+            wait_for_tasks = True
 
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            try:
                 futures = [
                     executor.submit(validate_raw_file, idx, raw_file)
                     for idx, raw_file in enumerate(files)
@@ -552,6 +555,14 @@ def detect_meteors_advanced(
                             flush=True,
                         )
                         last_progress_report = time.time()
+            except KeyboardInterrupt:
+                print("\nInterrupted by user. Cancelling validation workers...")
+                wait_for_tasks = False
+                for future in futures:
+                    future.cancel()
+                raise
+            finally:
+                executor.shutdown(wait=wait_for_tasks, cancel_futures=not wait_for_tasks)
 
             validation_results.sort(key=lambda item: item[0])
             valid_files = [path for _, path in validation_results]
@@ -767,9 +778,11 @@ def detect_meteors_advanced(
 
             print(f"Number of batches: {len(batches)}")
 
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
-                futures = []
+            executor = ProcessPoolExecutor(max_workers=num_workers)
+            futures: List = []
+            wait_for_tasks = True
 
+            try:
                 for batch in batches:
                     future = executor.submit(process_image_batch, batch, roi_mask, params)
                     futures.append(future)
@@ -828,6 +841,14 @@ def detect_meteors_advanced(
 
                     except Exception as e:
                         print(f"\nBatch processing error: {e}")
+            except KeyboardInterrupt:
+                print("\nInterrupted by user. Cancelling worker processes...")
+                wait_for_tasks = False
+                for future in futures:
+                    future.cancel()
+                raise
+            finally:
+                executor.shutdown(wait=wait_for_tasks, cancel_futures=not wait_for_tasks)
 
         else:
             # Sequential processing
