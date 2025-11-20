@@ -70,7 +70,7 @@ python detect_meteors_cli.py \
   --min-line-score 120
 ```
 
-### Build a single binary with Nuitka
+## Build a single binary with Nuitka
 If you want to distribute `detect_meteors_cli` as a standalone executable, you can bundle it with [Nuitka](https://nuitka.net/):
 
 ```bash
