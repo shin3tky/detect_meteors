@@ -12,7 +12,7 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
 - Python 3.12.12 (tested).
 - macOS Tahoe on an Intel MacBook Pro (tested); other Unix-like systems may work.
 - Help wanted: verification on Apple Silicon Macs, Windows, and Linux would be greatly appreciated.
-- Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`.
+- Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`, `psutil`.
 
 ## Installation
 1) Set up Python (example uses `brew`).
@@ -26,7 +26,7 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
    ```
 3) Install dependencies.
    ```bash
-   pip install numpy matplotlib opencv-python rawpy
+   pip install numpy matplotlib opencv-python rawpy psutil
    ```
 
 ## Usage
