@@ -1,53 +1,60 @@
 # detect_meteors
-Detecting meteors from a set of RAW images
 
-## What does this solve?
-- This helps with the task of searching for meteors in thousands of RAW photos every time a meteor shower occurs.
+Detect meteors in batches of RAW photos using configurable image processing pipelines.
 
-## System Requirements
-- Tested on macOS Tahoe.
-- Tested on Python 3.13.7.
-- Compatible with RAW photos supported by rawpy (Tested on ORF).
+## Overview
+- CLI-first workflow for scanning folders of RAW photos and flagging potential meteors.
+- Works with RAW photos supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested with ORF files).
+- Provides region-of-interest (ROI) cropping and Hough transform tuning to focus on likely meteor streaks.
 
-## Environment setup
+## Requirements
+- Python 3.13.7 (tested).
+- macOS Tahoe (tested); other Unix-like systems may work.
+- Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`.
 
-```
-pyenv local 3.13.7
+## Installation
+1) Set up Python (example uses `pyenv`).
+   ```bash
+   pyenv local 3.13.7
+   ```
+2) Create and activate a virtual environment.
+   ```bash
+   python3 -m venv venv
+   source ./venv/bin/activate
+   ```
+3) Install dependencies.
+   ```bash
+   pip install numpy matplotlib opencv-python rawpy
+   ```
 
-python3 -m venv venv
-source ./venv/bin/activate
-pip install numpy matplotlib opencv-python rawpy
-```
-
-## How to use
-
-Show help
-```
+## Usage
+Show help:
+```bash
 python detect_meteors_cli.py --help
 ```
 
-Use by default (-t examples -o candidates --debug-dir debug_masks)
-```
+Quick start (defaults to `examples` as input, `candidates` as output, and `debug_masks` for debug images):
+```bash
 python detect_meteors_cli.py
 ```
 
-Specify the input and output folders
-```
+Specify input/output folders and a debug directory:
+```bash
 python detect_meteors_cli.py -t /path/to/raws -o meteors_out --debug-dir debug_out
 ```
 
-Apply to the entire image
-```
+Process the entire frame (disable ROI cropping):
+```bash
 python detect_meteors_cli.py --no-roi
 ```
 
-Specify the region of the starry sky
-```
+Limit processing to a region of the starry sky:
+```bash
 python detect_meteors_cli.py --roi 10,10,4000,2000
 ```
 
-Candidate short-line-length meteors
-```
+Tune for short meteor streaks:
+```bash
 python detect_meteors_cli.py \
   --hough-threshold 10 \
   --hough-min-line-length 15 \
@@ -55,11 +62,22 @@ python detect_meteors_cli.py \
   --min-line-score 40
 ```
 
-Candidate long-line-length meteors
-```
+Tune for long meteor streaks:
+```bash
 python detect_meteors_cli.py \
   --hough-threshold 15 \
   --hough-min-line-length 40 \
   --min-line-score 120
 ```
 
+## Inputs and outputs
+- **Inputs:** A directory of RAW photos (all files supported by `rawpy` will be considered).
+- **Outputs:**
+  - Candidate images saved to the directory provided with `-o/--output`.
+  - Optional debug masks written to the directory provided with `--debug-dir`.
+
+## Contributing
+Issues and pull requests are welcome. Please open an issue to discuss substantial changes before submitting a PR.
+
+## License
+This project is licensed under the terms of the [Apache License 2.0](LICENSE).
