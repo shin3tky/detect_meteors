@@ -35,7 +35,7 @@ Show help:
 python detect_meteors_cli.py --help
 ```
 
-Quick start (defaults to `examples` as input, `candidates` as output, and `debug_masks` for debug images):
+Quick start (defaults to `rawfiles` as input, `candidates` as output, and `debug_masks` for debug images):
 ```bash
 python detect_meteors_cli.py
 ```
@@ -83,7 +83,7 @@ python detect_meteors_cli.py --auto-batch-size --workers 4 --batch-size 20
 
 All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 
-- **`-t`/`--target`** (default: `examples`): Source folder that contains RAW images to scan. All files supported by `rawpy` are considered.
+- **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan. All files supported by `rawpy` are considered.
 - **`-o`/`--output`** (default: `candidates`): Destination folder for RAW files flagged as meteor candidates.
 - **`--debug-dir`** (default: `debug_masks`): Where to save generated mask and debug images. Create the directory beforehand to keep outputs organized.
 - **`--diff-threshold`** (default: `8`): Pixel-difference threshold used to binarize frame-to-frame differences. Raise to suppress noise; lower to capture faint streaks.

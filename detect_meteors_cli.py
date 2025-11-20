@@ -18,7 +18,7 @@ from typing import Tuple, List, Optional
 # ==========================================
 VERSION = "1.0.2"
 
-DEFAULT_TARGET_FOLDER = "examples"
+DEFAULT_TARGET_FOLDER = "rawfiles"
 DEFAULT_OUTPUT_FOLDER = "candidates"
 DEFAULT_DEBUG_FOLDER = "debug_masks"
 
