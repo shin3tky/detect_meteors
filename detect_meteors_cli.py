@@ -14,6 +14,8 @@ from typing import Tuple, List, Optional
 # ==========================================
 # Default Settings
 # ==========================================
+VERSION = "1.0.1"
+
 DEFAULT_TARGET_FOLDER = "examples"
 DEFAULT_OUTPUT_FOLDER = "candidates"
 DEFAULT_DEBUG_FOLDER = "debug_masks"
@@ -578,6 +580,8 @@ def build_arg_parser():
     parser = argparse.ArgumentParser(
         description="Tool to detect meteor candidates from sequential RAW images"
     )
+
+    parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
 
     parser.add_argument(
         "-t", "--target", default=DEFAULT_TARGET_FOLDER, help="Input RAW image folder"

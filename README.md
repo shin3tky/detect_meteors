@@ -6,6 +6,7 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
 - CLI-first workflow for scanning folders of RAW photos and flagging potential meteors.
 - Works with RAW photos supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested with ORF files).
 - Provides region-of-interest (ROI) cropping and Hough transform tuning to focus on likely meteor streaks.
+- See the [CHANGELOG](CHANGELOG.md) for release history.
 
 ## Requirements
 - Python 3.12.12 (tested).
