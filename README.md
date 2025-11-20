@@ -70,6 +70,14 @@ python detect_meteors_cli.py \
   --min-line-score 120
 ```
 
+### Build a single binary with Nuitka
+If you want to distribute `detect_meteors_cli` as a standalone executable, you can bundle it with [Nuitka](https://nuitka.net/):
+
+```bash
+pip install nuitka
+python -m nuitka --onefile --standalone detect_meteors_cli.py
+```
+
 ## Inputs and outputs
 - **Inputs:** A directory of RAW photos (all files supported by `rawpy` will be considered).
 - **Outputs:**
