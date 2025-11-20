@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import rawpy
 import numpy as np
 import os
