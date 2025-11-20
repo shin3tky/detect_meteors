@@ -34,6 +34,7 @@ DEFAULT_MIN_LINE_SCORE = 80.0
 DEFAULT_ENABLE_ROI_SELECTION = True
 DEFAULT_NUM_WORKERS = max(1, mp.cpu_count() - 1)
 DEFAULT_BATCH_SIZE = 10  # Batch processing size
+AUTO_BATCH_MEMORY_FRACTION = 0.6  # Portion of free RAM to use when auto-sizing batches
 
 
 def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
@@ -92,6 +93,62 @@ def compute_line_score_fast(mask: np.ndarray, hough_params: dict) -> Tuple[float
     ]
 
     return score, line_segments
+
+
+def get_available_memory_bytes() -> Optional[int]:
+    """Return available system memory in bytes (best-effort)."""
+
+    try:
+        import psutil
+
+        return int(psutil.virtual_memory().available)
+    except Exception:
+        pass
+
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as meminfo:
+            for line in meminfo:
+                if line.startswith("MemAvailable:"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        return int(parts[1]) * 1024
+    except Exception:
+        pass
+
+    return None
+
+
+def estimate_batch_size(
+    requested_batch_size: int,
+    image_shape: Tuple[int, int],
+    num_workers: int,
+    safety_fraction: float = AUTO_BATCH_MEMORY_FRACTION,
+    available_mem: Optional[int] = None,
+) -> int:
+    """
+    Estimate a safe batch size based on available memory.
+
+    The calculation uses the first loaded image to approximate memory usage
+    of two RAW frames plus intermediate arrays within one worker process.
+    """
+
+    if available_mem is None:
+        available_mem = get_available_memory_bytes()
+    if available_mem is None:
+        return requested_batch_size
+
+    height, width = image_shape
+    base_bytes = height * width * np.dtype(np.uint16).itemsize
+
+    # Two RAW frames + diff buffer + mask + modest overhead for temporaries
+    estimated_pair_bytes = int(base_bytes * 2 + base_bytes + (height * width) + base_bytes * 0.5)
+    if estimated_pair_bytes <= 0:
+        return requested_batch_size
+
+    per_worker_budget = available_mem * safety_fraction / max(1, num_workers)
+    max_pairs = max(1, int(per_worker_budget // estimated_pair_bytes))
+
+    return max(1, min(requested_batch_size, max_pairs))
 
 
 def process_image_batch(
@@ -375,6 +432,7 @@ def detect_meteors_advanced(
     roi_polygon_cli=None,
     num_workers=DEFAULT_NUM_WORKERS,
     batch_size=DEFAULT_BATCH_SIZE,
+    auto_batch_size=False,
     enable_parallel=True,
     profile=False,
 ):
@@ -443,6 +501,27 @@ def detect_meteors_advanced(
     print(f"Starting processing: {len(files)} images")
     if enable_parallel:
         print(f"Parallel processing: {num_workers} workers, batch size: {batch_size}")
+
+    if auto_batch_size:
+        available_mem = get_available_memory_bytes()
+        if available_mem is None:
+            print(
+                "Auto batch sizing: unable to read system memory; "
+                "keeping requested batch size"
+            )
+        else:
+            adjusted_batch_size = estimate_batch_size(
+                batch_size, prev_img.shape, num_workers, available_mem=available_mem
+            )
+            if adjusted_batch_size != batch_size:
+                print(
+                    "Auto batch sizing: adjusting batch size "
+                    f"from {batch_size} to {adjusted_batch_size} "
+                    f"(free memory {available_mem / (1024 ** 3):.2f} GB)"
+                )
+                batch_size = adjusted_batch_size
+            else:
+                print("Auto batch sizing: requested batch size fits available memory")
 
     detected_count = 0
     t_process = time.time()
@@ -679,6 +758,14 @@ def build_arg_parser():
         help=f"Batch processing size (default: {DEFAULT_BATCH_SIZE})",
     )
     parser.add_argument(
+        "--auto-batch-size",
+        action="store_true",
+        help=(
+            "Automatically reduce batch size to fit available memory "
+            f"(uses {int(AUTO_BATCH_MEMORY_FRACTION * 100)}% of free RAM)"
+        ),
+    )
+    parser.add_argument(
         "--no-parallel", action="store_true", help="Disable parallel processing"
     )
     parser.add_argument(
@@ -716,6 +803,7 @@ def main():
         roi_polygon_cli=roi_polygon_cli,
         num_workers=args.workers,
         batch_size=args.batch_size,
+        auto_batch_size=args.auto_batch_size,
         enable_parallel=not args.no_parallel,
         profile=args.profile,
     )

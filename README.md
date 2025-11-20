@@ -74,6 +74,11 @@ python detect_meteors_cli.py \
   --min-line-score 120
 ```
 
+Automatically shrink batch size when RAM is tight (uses up to 60% of free memory):
+```bash
+python detect_meteors_cli.py --auto-batch-size --workers 4 --batch-size 20
+```
+
 ## Build a single binary with Nuitka
 If you want to distribute `detect_meteors_cli` as a standalone executable, you can bundle it with [Nuitka](https://nuitka.net/):
 
