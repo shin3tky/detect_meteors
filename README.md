@@ -31,7 +31,7 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
    ```
 3) Install dependencies.
    ```bash
-   pip install numpy matplotlib opencv-python rawpy psutil
+   pip install -r requirements.txt
    ```
 
 ## Usage
