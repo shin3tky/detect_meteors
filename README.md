@@ -10,6 +10,9 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
 - Provides region-of-interest (ROI) cropping and Hough transform tuning to focus on likely meteor streaks.
 - See the [CHANGELOG](CHANGELOG.md) for release history.
 
+## Loadmap
+- Upcoming plans are outlined in [LOADMAP](LOADMAP.md).
+
 ## Technical Overview
 - See the project wiki for a deeper technical walkthrough: [Technical Processing Overview](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview)
 
