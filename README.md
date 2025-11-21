@@ -6,21 +6,21 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
 
 ## Overview
 - CLI-first workflow for scanning folders of RAW photos and flagging potential meteors.
-- Works with RAW photos supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested with ORF files).
+- Works with RAW photos supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested with Olympus Raw Files (ORF) files).
 - Provides region-of-interest (ROI) cropping and Hough transform tuning to focus on likely meteor streaks.
 - See the [CHANGELOG](CHANGELOG.md) for release history.
 
 ## Technical Overview
-- See the project wiki for a deeper technical walkthrough: https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview
+- See the project wiki for a deeper technical walkthrough: [Technical Processing Overview](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview)
 
 ## Requirements
 - Python 3.12.12 (tested).
-- macOS Tahoe on an Intel MacBook Pro (tested); other Unix-like systems may work.
+- macOS Tahoe 26.1 on an Intel MacBook Pro (tested); other Unix-like systems may work.
 - Help wanted: verification on Apple Silicon Macs, Windows, and Linux would be greatly appreciated.
 - Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`, `psutil`.
 
 ## Installation
-1) Set up Python (example uses `brew`).
+1) Set up Python (example uses `Homebrew`).
    ```bash
    brew install python@3.12
    ```
