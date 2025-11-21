@@ -10,6 +10,9 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
 - Provides region-of-interest (ROI) cropping and Hough transform tuning to focus on likely meteor streaks.
 - See the [CHANGELOG](CHANGELOG.md) for release history.
 
+## Technical Overview
+- See the project wiki for a deeper technical walkthrough: https://github.com/shin3tky/detect_meteors.wiki.git
+
 ## Requirements
 - Python 3.12.12 (tested).
 - macOS Tahoe on an Intel MacBook Pro (tested); other Unix-like systems may work.
