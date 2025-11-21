@@ -11,7 +11,7 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
 - See the [CHANGELOG](CHANGELOG.md) for release history.
 
 ## Technical Overview
-- See the project wiki for a deeper technical walkthrough: https://github.com/shin3tky/detect_meteors.wiki.git
+- See the project wiki for a deeper technical walkthrough: https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview
 
 ## Requirements
 - Python 3.12.12 (tested).
