@@ -8,10 +8,11 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
 - CLI-first workflow for scanning folders of RAW photos and flagging potential meteors.
 - Works with RAW photos supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested with Olympus Raw Files (ORF) files).
 - Provides region-of-interest (ROI) cropping and Hough transform tuning to focus on likely meteor streaks.
+- **NEW in v1.2**: Automatic parameter estimation based on image statistics for optimal detection without manual tuning.
 - See the [CHANGELOG](CHANGELOG.md) for release history.
 
-## Loadmap
-- Upcoming plans are outlined in [LOADMAP](LOADMAP.md).
+## Roadmap
+- Upcoming plans are outlined in [ROADMAP](ROADMAP.md).
 
 ## Technical Overview
 - See the project wiki for a deeper technical walkthrough: [Technical Processing Overview](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview)
@@ -38,6 +39,53 @@ Detect meteors in batches of RAW photos using configurable image processing pipe
    ```
 
 ## Usage
+
+### Quick Start with Auto-Parameter Estimation (NEW in v1.2)
+
+The simplest way to get started - let the software determine optimal detection parameters:
+```bash
+python detect_meteors_cli.py --auto-params
+```
+
+This will:
+1. Analyze the first 5 sample images
+2. Calculate ROI brightness statistics
+3. Automatically estimate the optimal `diff_threshold`
+4. Display detailed statistical analysis
+
+Example output:
+```
+==================================================
+Auto-estimating diff_threshold from 5 samples
+Percentile-based approach
+==================================================
+Loading samples... ✓ Loaded 5 images
+Analyzing frame-to-frame differences in ROI... ✓
+
+──────────────────────────────────────────────────
+ROI Difference Statistics (from 1,234,567 pixels):
+──────────────────────────────────────────────────
+  Mean:         6.63
+  Std Dev:      7.24
+  Median:       5.00
+  90th %ile:    14.00
+  95th %ile:    17.00
+  98th %ile:    20.00
+  99th %ile:    23.00
+──────────────────────────────────────────────────
+Estimation methods:
+  [1] 98th percentile:      20
+  [2] Mean + 1.5σ:          17
+  [3] Median × 3:           15
+──────────────────────────────────────────────────
+✓ Selected threshold: 15 (minimum of all methods)
+  → Optimized for peaked sky brightness distributions
+  → Based on real-world meteor detection feedback
+==================================================
+```
+
+### Traditional Manual Configuration
+
 Show help:
 ```bash
 python detect_meteors_cli.py --help
@@ -65,6 +113,25 @@ python detect_meteors_cli.py --roi "10,10;4000,10;4000,2000;10,2000"
 
 When selecting the ROI in the GUI, left-click to place vertices. Press `ESC` to remove the last point, and move the cursor back near the first point until a circle appears; left-click there to close the polygon.
 
+### Combining Auto-Parameters with Manual Overrides
+
+You can use `--auto-params` while still manually specifying certain parameters:
+```bash
+# Auto-estimate diff_threshold, but manually set other parameters
+python detect_meteors_cli.py --auto-params \
+  --min-area 15 \
+  --min-aspect-ratio 4.0
+
+# Override auto-estimation with your own diff_threshold
+python detect_meteors_cli.py --auto-params --diff-threshold 12
+
+# Use auto-params with pre-defined ROI
+python detect_meteors_cli.py --auto-params \
+  --roi "100,100;3900,100;3900,2900;100,2900"
+```
+
+### Tuning Examples
+
 Tune for short meteor streaks:
 ```bash
 python detect_meteors_cli.py \
@@ -91,29 +158,57 @@ python detect_meteors_cli.py --auto-batch-size --workers 4 --batch-size 20
 
 All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 
+### Input/Output Options
 - **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan. All files supported by `rawpy` are considered.
 - **`-o`/`--output`** (default: `candidates`): Destination folder for RAW files flagged as meteor candidates.
 - **`--debug-dir`** (default: `debug_masks`): Where to save generated mask and debug images. Create the directory beforehand to keep outputs organized.
-- **`--diff-threshold`** (default: `8`): Pixel-difference threshold used to binarize frame-to-frame differences. Raise to suppress noise; lower to capture faint streaks.
+
+### Detection Parameters
+- **`--diff-threshold`** (default: `8`): Pixel-difference threshold used to binarize frame-to-frame differences. Raise to suppress noise; lower to capture faint streaks. **TIP**: Use `--auto-params` to estimate this automatically.
 - **`--min-area`** (default: `10`): Smallest allowed contour area in pixels. Increase to ignore tiny speckles or hot pixels; decrease to detect very small objects.
-- **`--min-aspect-ratio`** (default: `3.0`): Minimum ratio of a contour’s long side to its short side. Meteors are elongated; higher values enforce skinnier shapes.
+- **`--min-aspect-ratio`** (default: `3.0`): Minimum ratio of a contour's long side to its short side. Meteors are elongated; higher values enforce skinnier shapes.
+
+### Hough Transform Parameters
 - **`--hough-threshold`** (default: `10`): Accumulator threshold for the probabilistic Hough transform. Higher values demand stronger line evidence and reduce false positives.
 - **`--hough-min-line-length`** (default: `15`): Minimum line length (in pixels) accepted by the Hough transform. Tune together with `--hough-max-line-gap` to match expected streak lengths.
 - **`--hough-max-line-gap`** (default: `5`): Maximum gap (in pixels) that can exist between segments on the same detected line. Lower gaps favor continuous streaks; higher gaps tolerate breaks from noise.
 - **`--min-line-score`** (default: `80.0`): Minimum summed line length score required to mark a meteor candidate. Raise to capture only the clearest streaks; lower to catch faint or short lines.
+
+### Region of Interest (ROI) Options
 - **`--no-roi`**: Skip ROI selection and process the entire frame. Useful for wide-field captures where meteors could appear anywhere.
 - **`--roi`**: Explicit polygon ROI as `"x1,y1;x2,y2;..."` (needs ≥3 vertices). Overrides interactive ROI selection and can be scripted for repeatable crops.
+
+### Auto-Parameter Estimation (NEW in v1.2)
+- **`--auto-params`**: Automatically estimate optimal `diff_threshold` from sample images using ROI statistics. The algorithm analyzes the first 5 images and uses percentile-based estimation optimized for peaked night sky brightness distributions. Manual parameter specifications always take priority over auto-estimation.
+
+### Performance Options
 - **`--workers`** (default: `psutil.cpu_count(logical=True)`): Number of parallel worker processes. Increase to speed up on multi-core machines; reduce if the system feels sluggish.
 - **`--batch-size`** (default: `10`): How many RAW files each worker processes at a time. Larger batches reduce I/O overhead but consume more memory.
 - **`--auto-batch-size`**: Dynamically shrink batch size to stay within ~60% of available RAM. Pair with `--workers` to balance speed and memory safety.
 - **`--no-parallel`**: Force single-threaded execution. Handy for debugging or when parallelism conflicts with other workloads.
+
+### Utility Options
 - **`--profile`**: Print timing breakdowns (first load, processing time, totals) after the run.
 - **`--validate-raw`**: Pre-validate RAW files to catch corruption before processing. Adds a quick sanity check step on large batches.
 - **`--progress-file`** (default: `progress.json`): Path to the JSON file that tracks processed and detected frames so long runs can resume safely.
 - **`--no-resume`**: Ignore and remove any existing progress file before processing. Use when you want a clean run without picking up past state.
 - **`--remove-progress`**: Delete the progress file and exit immediately. Handy for clearing progress without starting a new detection pass.
 
-## Build a single binary with Nuitka
+## What's New in v1.2
+
+### v1.2.1 - Improved Auto-Parameter Estimation
+- **Percentile-based estimation**: Switched from 3-sigma rule to percentile-based approach for better handling of peaked night sky distributions
+- **Real-world validated**: Reduced typical thresholds from 25 to 15, significantly improving meteor detection
+- **Enhanced output**: Added detailed statistical breakdown with multiple estimation methods
+- See [RELEASE_NOTES_1.2.1.md](RELEASE_NOTES_1.2.1.md) for detailed improvements
+
+### v1.2.0 - Auto-Parameter Estimation
+- Introduced `--auto-params` flag for automatic `diff_threshold` estimation
+- Analyzes first 5 sample images to calculate optimal detection parameters
+- Detailed statistical output (mean, std dev, median, percentiles)
+- Manual parameters always take priority over auto-estimation
+
+## Build a Single Binary with Nuitka
 If you want to distribute `detect_meteors_cli` as a standalone executable, you can bundle it with [Nuitka](https://nuitka.net/):
 
 ```bash
@@ -121,11 +216,28 @@ pip install nuitka
 python -m nuitka --onefile --standalone detect_meteors_cli.py
 ```
 
-## Inputs and outputs
+## Inputs and Outputs
 - **Inputs:** A directory of RAW photos (all files supported by `rawpy` will be considered).
 - **Outputs:**
   - Candidate images saved to the directory provided with `-o/--output`.
   - Optional debug masks written to the directory provided with `--debug-dir`.
+
+## Tips for Best Results
+
+### Using Auto-Parameter Estimation
+1. **Select a good ROI**: The auto-estimation works best when the ROI contains only pure night sky without artificial lights or ground objects.
+2. **Consistent shooting conditions**: Auto-estimation analyzes the first 5 images, so ensure your shooting conditions are consistent throughout the session.
+3. **Manual override when needed**: You can still override the auto-estimated value if you know your specific conditions require different settings.
+
+### Shooting Conditions and Expected Thresholds
+- **Low ISO (≤1600)**: Expect auto-estimated thresholds around 3-5
+- **Medium ISO (~3200)**: Expect auto-estimated thresholds around 6-10
+- **High ISO (≥6400)**: Expect auto-estimated thresholds around 10-18
+
+### When to Use Manual Parameters
+- When you have very specific requirements
+- When the auto-estimation doesn't work well for your particular setup
+- When you want to fine-tune based on initial results
 
 ## Contributing
 Issues and pull requests are welcome. Please open an issue to discuss substantial changes before submitting a PR.
