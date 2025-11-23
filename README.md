@@ -1,14 +1,14 @@
-# detect_meteors
+# Detect Meteors CLI
 
-Detect meteors in batches of RAW photos using configurable image processing pipelines.
+Detect Meteors CLI for batch processing of RAW night-sky images.
 
-**Note:** This software detects meteors by identifying changes between the current RAW photo and the previous one. The first RAW photo is not processed, so please check it manually.
+**Note:** This software detects meteors by identifying changes between the current RAW image and the previous one. The first RAW image is not processed, so please check it manually.
 
 ## Overview
-- CLI-first workflow for scanning folders of RAW photos and flagging potential meteors.
-- Works with RAW photos supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested with Olympus Raw Files (ORF) files).
-- Provides region-of-interest (ROI) cropping and Hough transform tuning to focus on likely meteor streaks.
-- **NEW in v1.3**: Complete automatic parameter estimation - all three critical parameters auto-tuned from your images.
+- CLI-first workflow for scanning folders of RAW images and flagging potential meteors.
+- Works with RAW images supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested with Olympus Raw Files (ORF) files).
+- Provides Region of Interest (ROI) cropping and Hough transform tuning to focus on likely meteor streaks.
+- **NEW in v1.3**: Complete Auto-Parameter Estimation - all three critical parameters auto-tuned from your images.
 - **NEW in v1.3**: Focal length support for optimal lens-specific detection.
 - See the [CHANGELOG](CHANGELOG.md) for release history.
 
@@ -247,7 +247,7 @@ python -m nuitka --onefile --standalone detect_meteors_cli.py
 ```
 
 ## Inputs and Outputs
-- **Inputs:** A directory of RAW photos (all files supported by `rawpy` will be considered).
+- **Inputs:** A directory of RAW images (all files supported by `rawpy` will be considered).
 - **Outputs:**
   - Candidate images saved to the directory provided with `-o/--output`.
   - Optional debug masks written to the directory provided with `--debug-dir`.

@@ -2,7 +2,7 @@
 
 ## 🎉 Comprehensive Auto-Parameter Estimation - Complete Automation Success
 
-Version 1.3.1 brings **complete auto-parameter estimation** for all three critical detection parameters, enabling fully automatic meteor detection without manual tuning. Based on extensive real-world testing with Olympus OM-1 RAW images, this release successfully detects meteors with zero configuration.
+Version 1.3.1 brings **complete Auto-Parameter Estimation** for all three critical detection parameters, enabling fully automatic meteor detection without manual tuning. Based on extensive real-world testing with Olympus OM-1 RAW images, this release successfully detects meteors with zero configuration.
 
 ## Evolution from v1.2.1
 
@@ -16,7 +16,7 @@ Version 1.3.1 brings **complete auto-parameter estimation** for all three critic
 - ✅ `min_area`: **NEW** - Auto-estimated from star size distribution
 - ✅ `min_line_score`: **NEW** - Auto-estimated from image geometry
 
-## Real-World Validation
+## Real-world validation
 
 ### Test Environment
 - **Camera**: Olympus OM-1
@@ -378,9 +378,9 @@ Special thanks to the user who provided detailed test results showing the focal 
 ## Version Information
 
 - **Version**: 1.3.1
-- **Release Date**: November 23, 2025
+- **Release Date**: 2025-11-23
 - **Major Changes**: 
-  - Complete auto-parameter estimation (all 3 parameters)
+  - Complete Auto-Parameter Estimation (all 3 parameters)
   - Focal length support
   - Progress tracking restored
   - Critical bug fixes from v1.3.0

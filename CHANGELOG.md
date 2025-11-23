@@ -1,7 +1,7 @@
 # Changelog
 
-## 1.3.1 - 2025.11.23
-- **Complete auto-parameter estimation**: Extended `--auto-params` to automatically estimate all three critical detection parameters: `diff_threshold` (v1.2.1), `min_area` (NEW), and `min_line_score` (NEW).
+## v1.3.1 - 2025-11-23
+- **Complete Auto-Parameter Estimation**: Extended `--auto-params` to automatically estimate all three critical detection parameters: `diff_threshold` (v1.2.1), `min_area` (NEW), and `min_line_score` (NEW).
 - **Star size distribution analysis**: Introduced automatic `min_area` estimation by detecting and analyzing star sizes in sample images, using 98th percentile brightness threshold and robust 75th percentile × 2.0 formula.
 - **Image geometry-based scoring**: Implemented automatic `min_line_score` estimation from image diagonal length (2.5% coefficient), with optional focal length adjustment for different lens types.
 - **Focal length support**: Added `--focal-length` option to optimize meteor trail length expectations for wide-angle (14mm), standard (24mm), and telephoto (50mm+) lenses.
@@ -12,30 +12,30 @@
   - Improved star detection threshold from 95th to 98th percentile with size filtering (2-100 pixels²)
 - **Real-world validation**: Tested with Olympus OM-1 (24mm, ISO 1600, 5s exposure) achieving 100% detection rate (2/2 meteors) with automatic parameters.
 
-## 1.2.1 - 2025.11.22
-- **Improved auto-parameter estimation**: Revised `diff_threshold` auto-estimation algorithm from 3-sigma rule to percentile-based approach for better handling of peaked night sky brightness distributions.
+## v1.2.1 - 2025-11-22
+- **Improved Auto-Parameter Estimation**: Revised `diff_threshold` auto-estimation algorithm from 3-sigma rule to percentile-based approach for better handling of peaked night sky brightness distributions.
 - **Real-world validation**: Based on actual RAW image testing, reduced typical estimated thresholds from 25 to 15, significantly improving meteor detection sensitivity.
 - **Enhanced statistics output**: Added 98th and 99th percentile reporting, plus detailed breakdown of three estimation methods (98th percentile, mean + 1.5σ, median × 3).
 - **Optimized threshold range**: Adjusted clamp range from 4-25 to 3-18 based on real-world feedback for more sensitive meteor detection.
 
-## 1.2.0 - 2025.11.22 (unreleased)
-- **NEW: Auto-parameter estimation**: Added `--auto-params` flag to automatically estimate optimal `diff_threshold` from sample images using ROI statistics.
+## v1.2.0 - 2025-11-22 (unreleased)
+- **NEW: Auto-Parameter Estimation**: Added `--auto-params` flag to automatically estimate optimal `diff_threshold` from sample images using ROI statistics.
 - Implemented 3-sigma rule-based estimation from first 5 sample images for initial auto-tuning capability.
 - Added detailed statistical output (mean, std dev, median, percentiles) during auto-estimation.
 - Preserves manual parameter specification priority when both `--auto-params` and explicit values are provided.
 
-## 1.1.0 - 2025.11.22
+## v1.1.0 - 2025-11-22
 - Added resumable processing with a JSON progress file that keeps processed/detected counts and resumes only when parameters match, bringing first-class support for both progress tracking and safe resumes.
 - Added `--progress-file`, `--no-resume`, and `--remove-progress` flags to manage progress tracking or clear saved state before runs.
 - Allow safe interruption with `Ctrl-C` without losing tracked progress so long runs can be paused and resumed later.
 
-## 1.0.3 - 2025.11.21
+## v1.0.3 - 2025-11-21
 - Added optional RAW file validation with progress reporting to skip corrupted inputs before processing.
 - Added automatic batch-size tuning based on available memory (requires `psutil`) and a profiling flag for timing insights.
 - Defaulted the input folder to `rawfiles` and expanded the CLI option reference in the README for easier configuration.
 
-## 1.0.2 - 2025.11.20
+## v1.0.2 - 2025-11-20
 - Added help descriptions with defaults for Hough transform parameters and minimum line score.
 
-## 1.0.1 - 2025.11.20
+## v1.0.1 - 2025-11-20
 - Initial release.

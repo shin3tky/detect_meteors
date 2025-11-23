@@ -1,8 +1,8 @@
 # Version 1.2.1 Release Notes
 
-## 🎉 Improved Auto-Parameter Estimation - Real-World Validation Success
+## 🎉 Improved Auto-Parameter Estimation - Real-world validation Success
 
-Version 1.2.1 brings significant improvements to the `--auto-params` feature based on real-world RAW photos testing and user feedback. The `diff_threshold` auto-estimation algorithm has been completely revised to handle the highly peaked brightness distributions found in actual night sky photography.
+Version 1.2.1 brings significant improvements to the `--auto-params` feature based on real-world RAW images testing and user feedback. The `diff_threshold` auto-estimation algorithm has been completely revised to handle the highly peaked brightness distributions found in actual night sky photography.
 
 ## The Problem in v1.2.0
 
@@ -193,7 +193,7 @@ Version 1.2.1's improvements were made possible by real-world RAW image testing 
 ## Version Information
 
 - **Version**: 1.2.1
-- **Release Date**: November 22, 2025
+- **Release Date**: 2025-11-22
 - **Major Change**: Percentile-based `diff_threshold` auto-estimation
 
 ## Download
