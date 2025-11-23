@@ -230,7 +230,7 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **Image geometry scoring**: NEW automatic `min_line_score` estimation from image diagonal
 - **Focal length support**: NEW `--focal-length` option optimizes for wide-angle to telephoto lenses
 - **Progress tracking**: Restored from v1.1.0 with `progress.json` support for resumable processing
-- **Real-world validated**: 100% detection rate (2/2 meteors) on Olympus OM-D E-M1 mk2 test dataset
+- **Real-world validated**: 100% detection rate (2/2 meteors) on Olympus OM-1 test dataset
 - See [RELEASE_NOTES_1.3.1.md](RELEASE_NOTES_1.3.1.md) for comprehensive details
 
 ### v1.2.1 - Improved Auto-Parameter Estimation
