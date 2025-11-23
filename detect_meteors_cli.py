@@ -20,7 +20,7 @@ from typing import Tuple, List, Optional, Dict
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.2.1"
+VERSION = "1.3.1"
 
 DEFAULT_PROGRESS_FILE = "progress.json"
 
@@ -185,7 +185,7 @@ def estimate_diff_threshold_from_samples(
 
     sample_size = min(sample_size, len(files))
     if sample_size < 2:
-        print("⚠ Not enough samples for auto-estimation, using default")
+        print("⚠ Not enough samples, using default")
         return DEFAULT_DIFF_THRESHOLD
 
     samples = []
@@ -257,32 +257,211 @@ def estimate_diff_threshold_from_samples(
     print(f"  [2] Mean + 1.5σ:          {method_2}")
     print(f"  [3] Median × 3:           {method_3}")
     print(f"{'─'*50}")
-    print(f"✓ Selected threshold: {estimated_threshold} (minimum of all methods)")
-    print(f"  → Optimized for peaked sky brightness distributions")
-    print(f"  → Based on real-world meteor detection feedback")
+    print(f"✓ Selected threshold: {estimated_threshold} (minimum)")
     print(f"{'='*50}\n")
 
     return estimated_threshold
 
 
-def compute_params_hash(params: Dict) -> str:
-    """Create a stable hash from parameter dictionary."""
+def estimate_min_area_from_samples(
+    files: List[str], roi_mask: np.ndarray, diff_threshold: int, sample_size: int = 3
+) -> int:
+    """
+    v1.3.1: Improved min_area estimation with better star detection
 
-    params_json = json.dumps(params, sort_keys=True, ensure_ascii=False)
+    Args:
+        files: List of RAW file paths
+        roi_mask: ROI mask to focus on sky area
+        diff_threshold: Threshold for star detection
+        sample_size: Number of images to analyze
+
+    Returns:
+        Estimated min_area value
+    """
+    print(f"\n{'='*50}")
+    print(f"Auto-estimating min_area from {sample_size} samples")
+    print(f"Star size distribution analysis")
+    print(f"{'='*50}")
+
+    sample_size = min(sample_size, len(files))
+    if sample_size < 1:
+        print("⚠ Not enough samples, using default")
+        return DEFAULT_MIN_AREA
+
+    samples = []
+    print(f"Loading samples... ", end="", flush=True)
+    for i in range(sample_size):
+        try:
+            img = load_and_bin_raw_fast(files[i])
+            samples.append(img)
+        except Exception as exc:
+            print(f"\n⚠ Warning: Failed to load sample {i}: {exc}")
+            continue
+    print(f"✓ Loaded {len(samples)} images")
+
+    if not samples:
+        print("⚠ No valid samples, using default")
+        return DEFAULT_MIN_AREA
+
+    print("Detecting stars in ROI... ", end="", flush=True)
+    all_star_areas = []
+
+    for img in samples:
+        roi_pixels = img[roi_mask == 255]
+
+        if len(roi_pixels) < 100:
+            continue
+
+        # v1.3.1: Use 98th percentile (brighter stars only, avoid noise)
+        threshold = np.percentile(roi_pixels, 98)
+
+        _, star_mask = cv2.threshold(img, int(threshold), 255, cv2.THRESH_BINARY)
+        star_mask = cv2.bitwise_and(star_mask.astype(np.uint8), roi_mask)
+
+        contours, _ = cv2.findContours(
+            star_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+
+        # v1.3.1: Filter by area range to exclude noise and large artifacts
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if 2.0 <= area <= 100.0:  # Exclude tiny noise and large artifacts
+                all_star_areas.append(area)
+
+    print(f"✓ Detected {len(all_star_areas)} stars")
+
+    if len(all_star_areas) < 10:
+        print("⚠ Not enough stars detected, using default")
+        return DEFAULT_MIN_AREA
+
+    star_areas = np.array(all_star_areas)
+    median_star = np.median(star_areas)
+    mean_star = np.mean(star_areas)
+    p75_star = np.percentile(star_areas, 75)
+    p90_star = np.percentile(star_areas, 90)
+
+    # v1.3.1: Use 75th percentile × 2.0 for more robust estimation
+    estimated_min_area = int(p75_star * 2.0)
+
+    # Ensure minimum is at least default value
+    estimated_min_area = max(estimated_min_area, DEFAULT_MIN_AREA)
+
+    # Clamp to reasonable range
+    estimated_min_area = np.clip(estimated_min_area, 8, 50)
+
+    print(f"\n{'─'*50}")
+    print(f"Star Size Statistics (from {len(all_star_areas)} stars):")
+    print(f"{'─'*50}")
+    print(f"  Median:       {median_star:.1f} pixels²")
+    print(f"  Mean:         {mean_star:.1f} pixels²")
+    print(f"  75th %ile:    {p75_star:.1f} pixels²")
+    print(f"  90th %ile:    {p90_star:.1f} pixels²")
+    print(f"{'─'*50}")
+    print(f"✓ Estimated min_area: {estimated_min_area}")
+    print(f"  → 75th percentile × 2.0 (robust to outliers)")
+    print(f"{'='*50}\n")
+
+    return estimated_min_area
+
+
+def estimate_min_line_score_from_image(
+    image_shape: Tuple[int, int], focal_length_mm: Optional[float] = None
+) -> float:
+    """
+    v1.3.1: Fixed min_line_score estimation with corrected focal length logic
+
+    Args:
+        image_shape: (height, width) of image
+        focal_length_mm: Focal length in mm (optional)
+
+    Returns:
+        Estimated min_line_score value
+    """
+    print(f"\n{'='*50}")
+    print(f"Auto-estimating min_line_score from image geometry")
+    print(f"{'='*50}")
+
+    height, width = image_shape
+    diagonal = np.sqrt(height**2 + width**2)
+
+    # v1.3.1: Reduced base coefficient from 4% to 2.5% based on real data
+    base_score = diagonal * 0.025
+
+    if focal_length_mm:
+        # v1.3.1: FIXED - Corrected focal length logic
+        # Wide angle (14mm) → shorter trails → LOWER scores
+        # Telephoto (50mm+) → longer relative trails → HIGHER scores
+        # Factor calculation: focal_length / 50.0 (NOT 50.0 / focal_length)
+        focal_factor = focal_length_mm / 50.0
+        adjusted_score = base_score * focal_factor
+
+        print(f"\n{'─'*50}")
+        print(f"Image Geometry:")
+        print(f"{'─'*50}")
+        print(f"  Dimensions:   {width}×{height} pixels")
+        print(f"  Diagonal:     {diagonal:.0f} pixels")
+        print(f"  Focal length: {focal_length_mm}mm")
+        print(f"  Focal factor: {focal_factor:.2f}×")
+        print(f"  Base score:   {base_score:.1f}")
+        print(f"  Adjusted:     {adjusted_score:.1f}")
+    else:
+        adjusted_score = base_score
+        print(f"\n{'─'*50}")
+        print(f"Image Geometry:")
+        print(f"{'─'*50}")
+        print(f"  Dimensions:   {width}×{height} pixels")
+        print(f"  Diagonal:     {diagonal:.0f} pixels")
+        print(f"  Base score:   {base_score:.1f}")
+        print(f"  (No focal length provided)")
+
+    # v1.3.1: Adjusted clamp range based on real meteor data
+    estimated_score = np.clip(adjusted_score, 40.0, 150.0)
+
+    print(f"{'─'*50}")
+    print(f"✓ Estimated min_line_score: {estimated_score:.1f}")
+    print(f"  → ~2.5% of image diagonal")
+    print(f"{'='*50}\n")
+
+    return estimated_score
+
+
+def compute_params_hash(params: Dict) -> str:
+    """Create a stable hash from parameter dictionary"""
+    # Convert NumPy types to native Python types for JSON serialization
+    params_clean = {}
+    for key, value in params.items():
+        if isinstance(value, np.integer):
+            params_clean[key] = int(value)
+        elif isinstance(value, np.floating):
+            params_clean[key] = float(value)
+        elif isinstance(value, np.ndarray):
+            params_clean[key] = value.tolist()
+        elif isinstance(value, list):
+            # Handle list of lists (like roi_polygon)
+            params_clean[key] = [
+                (
+                    [int(x) if isinstance(x, np.integer) else x for x in item]
+                    if isinstance(item, (list, np.ndarray))
+                    else item
+                )
+                for item in value
+            ]
+        else:
+            params_clean[key] = value
+
+    params_json = json.dumps(params_clean, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(params_json.encode("utf-8")).hexdigest()
 
 
 def _init_worker_ignore_interrupt() -> None:
-    """Ignore SIGINT in worker processes so the main process handles Ctrl-C."""
-
+    """Ignore SIGINT in worker processes"""
     import signal
 
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 def load_progress(progress_path: str) -> Optional[Dict]:
-    """Load progress JSON if it exists."""
-
+    """Load progress JSON if it exists"""
     if not os.path.exists(progress_path):
         return None
 
@@ -295,8 +474,7 @@ def load_progress(progress_path: str) -> Optional[Dict]:
 
 
 def save_progress(progress_path: str, progress_data: Dict) -> None:
-    """Persist progress JSON to disk."""
-
+    """Persist progress JSON to disk"""
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
     progress_data.setdefault("created_at", now_iso)
     progress_data["last_updated"] = now_iso
@@ -421,8 +599,7 @@ def process_image_batch(
 
 
 def select_roi(image_data):
-    """Polygon ROI selection with vertex editing and close hint."""
-
+    """Polygon ROI selection with vertex editing"""
     disp_img = image_data.astype(np.float32)
     disp_img = disp_img / np.max(disp_img)
     disp_img = (disp_img * 255).astype(np.uint8)
@@ -581,7 +758,7 @@ def validate_raw_file(index: int, raw_file: str):
     try:
         load_and_bin_raw_fast(raw_file)
         return index, raw_file, None
-    except Exception as exc:  # pragma: no cover - best-effort validation
+    except Exception as exc:
         return index, raw_file, exc
 
 
@@ -608,6 +785,9 @@ def detect_meteors_advanced(
     resume=True,
     auto_params=False,
     user_specified_diff_threshold=False,
+    user_specified_min_area=False,
+    user_specified_min_line_score=False,
+    focal_length_mm=None,
 ):
     """
     Main processing: detect meteor candidates from consecutive RAW images
@@ -645,8 +825,7 @@ def detect_meteors_advanced(
 
     if roi_polygon_cli:
         print(
-            "ROI specified via command line: "
-            f"polygon={format_polygon_string(roi_polygon_cli)}"
+            f"ROI specified via command line: polygon={format_polygon_string(roi_polygon_cli)}"
         )
         roi_mask = np.zeros((height, width), dtype=np.uint8)
         cv2.fillPoly(roi_mask, [np.array(roi_polygon_cli, dtype=np.int32)], 255)
@@ -656,26 +835,41 @@ def detect_meteors_advanced(
         if roi_selection:
             roi_mask = roi_selection["mask"]
             roi_polygon = roi_selection["polygon"]
-            print(
-                "ROI setup complete: " f"polygon={format_polygon_string(roi_polygon)}"
-            )
+            print(f"ROI setup complete: polygon={format_polygon_string(roi_polygon)}")
         else:
             print("No ROI selected. Processing entire image.")
     else:
         print("Skipping ROI selection. Processing entire image.")
 
-    # Auto-parameter estimation (improved diff_threshold)
+    # Auto-parameter estimation
     if auto_params:
+        # Phase 1: diff_threshold
         if not user_specified_diff_threshold:
-            estimated_diff_threshold = estimate_diff_threshold_from_samples(
+            diff_threshold = estimate_diff_threshold_from_samples(
                 files, roi_mask, sample_size=5
             )
-            diff_threshold = estimated_diff_threshold
             print(f"→ Using auto-estimated diff_threshold: {diff_threshold}")
         else:
             print(f"→ Using user-specified diff_threshold: {diff_threshold}")
 
-    # Prepare parameters
+        # Phase 2.1: min_area
+        if not user_specified_min_area:
+            min_area = estimate_min_area_from_samples(
+                files, roi_mask, diff_threshold, sample_size=3
+            )
+            print(f"→ Using auto-estimated min_area: {min_area}")
+        else:
+            print(f"→ Using user-specified min_area: {min_area}")
+
+        # Phase 2.2: min_line_score
+        if not user_specified_min_line_score:
+            min_line_score = estimate_min_line_score_from_image(
+                prev_img.shape, focal_length_mm
+            )
+            print(f"→ Using auto-estimated min_line_score: {min_line_score:.1f}")
+        else:
+            print(f"→ Using user-specified min_line_score: {min_line_score}")
+
     params = {
         "diff_threshold": diff_threshold,
         "min_area": min_area,
@@ -695,17 +889,99 @@ def detect_meteors_advanced(
     print(f"  hough_threshold:       {hough_threshold}")
     print(f"  hough_min_line_length: {hough_min_line_length}")
     print(f"  hough_max_line_gap:    {hough_max_line_gap}")
-    print(f"  min_line_score:        {min_line_score}")
+    print(f"  min_line_score:        {min_line_score:.1f}")
     print(f"{'='*50}\n")
 
-    # Create image pairs
+    # Progress tracking setup
+    params_for_hash = params.copy()
+    if roi_polygon:
+        params_for_hash["roi_polygon"] = roi_polygon
+
+    progress_data: Dict = {
+        "version": VERSION,
+        "params_hash": compute_params_hash(params_for_hash),
+        "processed_files": [],
+        "detected_files": [],
+        "total_processed": 0,
+        "total_detected": 0,
+    }
+
+    loaded_progress = load_progress(progress_file) if resume else None
+
+    if loaded_progress:
+        if loaded_progress.get("params_hash") == progress_data["params_hash"]:
+            progress_data.update(
+                {
+                    key: loaded_progress.get(key, progress_data.get(key))
+                    for key in [
+                        "version",
+                        "params_hash",
+                        "processed_files",
+                        "detected_files",
+                        "total_processed",
+                        "total_detected",
+                        "created_at",
+                        "last_updated",
+                    ]
+                }
+            )
+            print(
+                f"Resuming from progress file: {progress_file} "
+                f"(processed={progress_data['total_processed']}, "
+                f"detected={progress_data['total_detected']})"
+            )
+        else:
+            print(
+                "Progress file exists but parameters differ. Starting with fresh progress."
+            )
+
+    existing_basenames = {os.path.basename(path) for path in files}
+    progress_data["processed_files"] = [
+        name
+        for name in progress_data.get("processed_files", [])
+        if name in existing_basenames
+    ]
+    progress_data["detected_files"] = [
+        name
+        for name in progress_data.get("detected_files", [])
+        if name in existing_basenames
+    ]
+
+    processed_set = set(progress_data["processed_files"])
+    detected_set = set(progress_data["detected_files"])
+
+    progress_data["total_processed"] = len(processed_set)
+    progress_data["total_detected"] = len(detected_set)
+
+    save_progress(progress_file, progress_data)
+
+    def record_result(filename: str, is_candidate: bool) -> None:
+        processed_set.add(filename)
+        if filename not in progress_data["processed_files"]:
+            progress_data["processed_files"].append(filename)
+
+        if is_candidate:
+            detected_set.add(filename)
+            if filename not in progress_data["detected_files"]:
+                progress_data["detected_files"].append(filename)
+
+        progress_data["total_processed"] = len(processed_set)
+        progress_data["total_detected"] = len(detected_set)
+        save_progress(progress_file, progress_data)
+
     image_pairs = [(files[i], files[i - 1]) for i in range(1, len(files))]
+    image_pairs = [
+        pair for pair in image_pairs if os.path.basename(pair[0]) not in processed_set
+    ]
+
+    resume_offset = len(processed_set)
+    overall_total = resume_offset + len(image_pairs)
 
     print(f"Starting processing: {len(image_pairs)} image pairs")
     if enable_parallel:
         print(f"Parallel processing: {num_workers} workers, batch size: {batch_size}")
 
-    detected_count = 0
+    detected_count = len(detected_set)
     t_process = time.time()
 
     try:
@@ -722,6 +998,7 @@ def detect_meteors_advanced(
                 max_workers=num_workers, initializer=_init_worker_ignore_interrupt
             )
             futures: List = []
+            wait_for_tasks = True
 
             try:
                 for batch in batches:
@@ -733,53 +1010,67 @@ def detect_meteors_advanced(
                 # Collect results
                 processed = 0
                 for future in as_completed(futures):
-                    batch_results = future.result()
+                    try:
+                        batch_results = future.result()
+                        for result in batch_results:
+                            (
+                                is_candidate,
+                                filename,
+                                filepath,
+                                line_score,
+                                debug_img,
+                                aspect_ratio,
+                                num_lines,
+                            ) = result
+                            processed += 1
 
-                    for result in batch_results:
-                        (
-                            is_candidate,
-                            filename,
-                            filepath,
-                            line_score,
-                            debug_img,
-                            aspect_ratio,
-                            num_lines,
-                        ) = result
-
-                        processed += 1
-
-                        if line_score > 0:
-                            print(
-                                f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
-                            )
-
-                        if is_candidate:
-                            shutil.copy(filepath, os.path.join(output_folder, filename))
-
-                            if debug_img is not None:
-                                if roi_polygon:
-                                    cv2.polylines(
-                                        debug_img,
-                                        [np.array(roi_polygon, dtype=np.int32)],
-                                        True,
-                                        (0, 255, 0),
-                                        2,
-                                    )
-                                cv2.imwrite(
-                                    os.path.join(debug_folder, f"mask_{filename}.png"),
-                                    debug_img,
+                            if line_score > 0:
+                                print(
+                                    f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
                                 )
 
-                            print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
-                            detected_count += 1
-                        else:
-                            print(
-                                f"\rChecking... {processed}/{len(image_pairs)}",
-                                end="",
-                                flush=True,
-                            )
+                            if is_candidate:
+                                shutil.copy(
+                                    filepath, os.path.join(output_folder, filename)
+                                )
+                                if debug_img is not None:
+                                    if roi_polygon:
+                                        cv2.polylines(
+                                            debug_img,
+                                            [np.array(roi_polygon, dtype=np.int32)],
+                                            True,
+                                            (0, 255, 0),
+                                            2,
+                                        )
+                                    cv2.imwrite(
+                                        os.path.join(
+                                            debug_folder, f"mask_{filename}.png"
+                                        ),
+                                        debug_img,
+                                    )
+                                print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                            else:
+                                print(
+                                    f"\rChecking... {resume_offset + processed}/{overall_total}",
+                                    end="",
+                                    flush=True,
+                                )
+
+                            record_result(filename, is_candidate)
+                            detected_count = progress_data["total_detected"]
+
+                    except Exception as e:
+                        print(f"\nBatch processing error: {e}")
+            except KeyboardInterrupt:
+                print("\nInterrupted by user. Cancelling worker processes...")
+                wait_for_tasks = False
+                for future in futures:
+                    future.cancel()
+                raise
             finally:
-                executor.shutdown(wait=True)
+                executor.shutdown(
+                    wait=wait_for_tasks, cancel_futures=not wait_for_tasks
+                )
         else:
             # Sequential processing
             batch_results = process_image_batch(image_pairs, roi_mask, params)
@@ -818,16 +1109,19 @@ def detect_meteors_advanced(
                         )
 
                     print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
-                    detected_count += 1
                 else:
                     print(
-                        f"\rChecking... {idx + 1}/{len(image_pairs)}",
+                        f"\rChecking... {resume_offset + idx + 1}/{overall_total}",
                         end="",
                         flush=True,
                     )
 
+                record_result(filename, is_candidate)
+                detected_count = progress_data["total_detected"]
+
     except KeyboardInterrupt:
-        print("\nInterrupted by user.")
+        print(f"\nInterrupted by user. Progress saved to {progress_file}.")
+        save_progress(progress_file, progress_data)
         return detected_count
 
     if profile:
@@ -847,7 +1141,7 @@ def detect_meteors_advanced(
 
 def build_arg_parser():
     parser = argparse.ArgumentParser(
-        description="Meteor detection tool with auto-parameter estimation)"
+        description="Meteor detection tool with comprehensive auto-parameter estimation (v1.3.1)"
     )
 
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
@@ -949,11 +1243,17 @@ def build_arg_parser():
         "--remove-progress", action="store_true", help="Delete progress and exit"
     )
 
-    # auto-params
+    # Auto-params (v1.3.1: fixed focal length logic)
     parser.add_argument(
         "--auto-params",
         action="store_true",
-        help="Auto-estimate diff_threshold (percentile-based)",
+        help="Auto-estimate diff_threshold, min_area, and min_line_score (v1.3.1)",
+    )
+    parser.add_argument(
+        "--focal-length",
+        type=float,
+        default=None,
+        help="Focal length in mm (used for min_line_score estimation)",
     )
 
     return parser
@@ -980,8 +1280,10 @@ def main():
     elif args.no_roi:
         enable_roi_selection = False
 
-    # Determine if user explicitly specified diff_threshold
+    # Determine user specifications
     user_specified_diff_threshold = "--diff-threshold" in sys.argv
+    user_specified_min_area = "--min-area" in sys.argv
+    user_specified_min_line_score = "--min-line-score" in sys.argv
 
     detect_meteors_advanced(
         target_folder=args.target,
@@ -1006,6 +1308,9 @@ def main():
         resume=not args.no_resume,
         auto_params=args.auto_params,
         user_specified_diff_threshold=user_specified_diff_threshold,
+        user_specified_min_area=user_specified_min_area,
+        user_specified_min_line_score=user_specified_min_line_score,
+        focal_length_mm=args.focal_length,
     )
 
 
