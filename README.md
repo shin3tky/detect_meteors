@@ -29,12 +29,16 @@ Detect Meteors CLI for batch processing of RAW night-sky images.
    ```bash
    brew install python@3.12
    ```
-2) Create and activate a virtual environment.
+2) Install OpenCV and LibRaw.
+   ```bash
+   brew install opencv libraw
+   ```
+3) Create and activate a virtual environment.
    ```bash
    /usr/local/opt/python@3.12/bin/python3.12 -m venv venv
    source ./venv/bin/activate
    ```
-3) Install dependencies.
+4) Install dependencies.
    ```bash
    pip install -r requirements.txt
    ```
