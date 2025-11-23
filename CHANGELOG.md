@@ -1,12 +1,24 @@
 # Changelog
 
+## 1.3.1 - 2025.11.23
+- **Complete auto-parameter estimation**: Extended `--auto-params` to automatically estimate all three critical detection parameters: `diff_threshold` (v1.2.1), `min_area` (NEW), and `min_line_score` (NEW).
+- **Star size distribution analysis**: Introduced automatic `min_area` estimation by detecting and analyzing star sizes in sample images, using 98th percentile brightness threshold and robust 75th percentile × 2.0 formula.
+- **Image geometry-based scoring**: Implemented automatic `min_line_score` estimation from image diagonal length (2.5% coefficient), with optional focal length adjustment for different lens types.
+- **Focal length support**: Added `--focal-length` option to optimize meteor trail length expectations for wide-angle (14mm), standard (24mm), and telephoto (50mm+) lenses.
+- **Progress tracking restored**: Re-integrated resumable processing from v1.1.0 with `progress.json` file, supporting safe Ctrl-C interruption and automatic parameter validation via hash.
+- **Critical bug fixes from v1.3.0 (unreleased)**:
+  - Fixed inverted focal length adjustment logic (was multiplying instead of dividing)
+  - Reduced base coefficient from 4% to 2.5% based on real-world meteor data
+  - Improved star detection threshold from 95th to 98th percentile with size filtering (2-100 pixels²)
+- **Real-world validation**: Tested with Olympus OM-1 (24mm, ISO 1600, 5s exposure) achieving 100% detection rate (2/2 meteors) with automatic parameters.
+
 ## 1.2.1 - 2025.11.22
 - **Improved auto-parameter estimation**: Revised `diff_threshold` auto-estimation algorithm from 3-sigma rule to percentile-based approach for better handling of peaked night sky brightness distributions.
 - **Real-world validation**: Based on actual RAW image testing, reduced typical estimated thresholds from 25 to 15, significantly improving meteor detection sensitivity.
 - **Enhanced statistics output**: Added 98th and 99th percentile reporting, plus detailed breakdown of three estimation methods (98th percentile, mean + 1.5σ, median × 3).
 - **Optimized threshold range**: Adjusted clamp range from 4-25 to 3-18 based on real-world feedback for more sensitive meteor detection.
 
-## 1.2.0 - 2025.11.22 (Not release)
+## 1.2.0 - 2025.11.22 (unreleased)
 - **NEW: Auto-parameter estimation**: Added `--auto-params` flag to automatically estimate optimal `diff_threshold` from sample images using ROI statistics.
 - Implemented 3-sigma rule-based estimation from first 5 sample images for initial auto-tuning capability.
 - Added detailed statistical output (mean, std dev, median, percentiles) during auto-estimation.
