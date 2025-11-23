@@ -1253,7 +1253,7 @@ def build_arg_parser():
         "--focal-length",
         type=float,
         default=None,
-        help="Focal length in mm (used for min_line_score estimation)",
+        help="Focal length in mm (35mm equivalent; used for min_line_score estimation)",
     )
 
     return parser
