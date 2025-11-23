@@ -1072,52 +1072,71 @@ def detect_meteors_advanced(
                     wait=wait_for_tasks, cancel_futures=not wait_for_tasks
                 )
         else:
-            # Sequential processing
-            batch_results = process_image_batch(image_pairs, roi_mask, params)
+            # Sequential processing with progress display
+            for idx, pair in enumerate(image_pairs):
+                current_index = resume_offset + idx + 1
+                current_file = os.path.basename(pair[0])
+                progress_line_active = True
 
-            for idx, result in enumerate(batch_results):
-                (
-                    is_candidate,
-                    filename,
-                    filepath,
-                    line_score,
-                    debug_img,
-                    aspect_ratio,
-                    num_lines,
-                ) = result
+                print(
+                    f"\rProcessing {current_index}/{overall_total}: {current_file}",
+                    end="",
+                    flush=True,
+                )
 
-                if line_score > 0:
-                    print(
-                        f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
-                    )
+                batch_results = process_image_batch([pair], roi_mask, params)
 
-                if is_candidate:
-                    shutil.copy(filepath, os.path.join(output_folder, filename))
+                for result in batch_results:
+                    (
+                        is_candidate,
+                        filename,
+                        filepath,
+                        line_score,
+                        debug_img,
+                        aspect_ratio,
+                        num_lines,
+                    ) = result
 
-                    if debug_img is not None:
-                        if roi_polygon:
-                            cv2.polylines(
-                                debug_img,
-                                [np.array(roi_polygon, dtype=np.int32)],
-                                True,
-                                (0, 255, 0),
-                                2,
-                            )
-                        cv2.imwrite(
-                            os.path.join(debug_folder, f"mask_{filename}.png"),
-                            debug_img,
+                    if line_score > 0:
+                        if progress_line_active:
+                            print()
+                            progress_line_active = False
+                        print(
+                            f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
                         )
 
-                    print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
-                else:
-                    print(
-                        f"\rChecking... {resume_offset + idx + 1}/{overall_total}",
-                        end="",
-                        flush=True,
-                    )
+                    if is_candidate:
+                        if progress_line_active:
+                            print()
+                            progress_line_active = False
 
-                record_result(filename, is_candidate)
-                detected_count = progress_data["total_detected"]
+                        shutil.copy(filepath, os.path.join(output_folder, filename))
+
+                        if debug_img is not None:
+                            if roi_polygon:
+                                cv2.polylines(
+                                    debug_img,
+                                    [np.array(roi_polygon, dtype=np.int32)],
+                                    True,
+                                    (0, 255, 0),
+                                    2,
+                                )
+                            cv2.imwrite(
+                                os.path.join(debug_folder, f"mask_{filename}.png"),
+                                debug_img,
+                            )
+
+                        print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                    else:
+                        print(
+                            f"\rChecking... {current_index}/{overall_total}",
+                            end="",
+                            flush=True,
+                        )
+                        progress_line_active = True
+
+                    record_result(filename, is_candidate)
+                    detected_count = progress_data["total_detected"]
 
     except KeyboardInterrupt:
         print(f"\nInterrupted by user. Progress saved to {progress_file}.")
