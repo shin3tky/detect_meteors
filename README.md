@@ -21,7 +21,8 @@ Automatically detect meteors in RAW astrophotography images using frame-to-frame
 
 ## Requirements
 - Python 3.12.12 (tested).
-- macOS Tahoe 26.1 on an Intel MacBook Pro (tested); other Unix-like systems may work.
+- macOS Tahoe 26.1 on an Intel MacBook Pro 16-inch, 2019 (tested); other Unix-like systems may work.
+- Windows 11 Pro 25H2 on HP ZBook 14u G5 (tested).
 - Help wanted: verification on Apple Silicon Macs, Windows, and Linux would be greatly appreciated.
 - Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`, `psutil`, `pillow`.
 
