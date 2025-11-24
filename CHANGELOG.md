@@ -1,7 +1,7 @@
 # Changelog
 
 ## v1.4.1 - 2025-11-24
-- **NPF Rule-based Scientific Optimization**: Implemented PhotoPills NPF Rule for scientifically accurate exposure time validation and parameter optimization, marking a milestone in physics-based meteor detection.
+- **NPF Rule-based Scientific Optimization**: Implemented the NPF Rule (Frédéric Michaud) for scientifically accurate exposure time validation and parameter optimization, marking a milestone in physics-based meteor detection.
 - **EXIF Metadata Integration**: Comprehensive automatic extraction of shooting conditions (ISO, exposure time, aperture, focal length, resolution) from RAW files using multi-strategy approach (embedded thumbnail → PIL → rawpy).
 - **Sensor Characterization**: Introduced pixel pitch calculation from sensor width and image resolution, with support for direct specification or sensor type lookup (MFT, APS-C, FF).
 - **Star Trail Physics Estimation**: Implemented Earth's rotation-based calculation (15°/hour sidereal rate) to estimate star movement during exposure, accounting for field of view and declination.

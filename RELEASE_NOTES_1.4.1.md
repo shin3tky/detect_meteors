@@ -2,7 +2,7 @@
 
 ## 🎉 NPF Rule-based Scientific Optimization - Milestone Release
 
-Version 1.4.1 brings **scientific parameter optimization** using the PhotoPills NPF Rule and comprehensive EXIF metadata integration. This milestone release enables fully automatic, physics-based meteor detection parameter tuning based on actual shooting conditions extracted from RAW files.
+Version 1.4.1 brings **scientific parameter optimization** using the NPF Rule (Frédéric Michaud) and comprehensive EXIF metadata integration. This milestone release enables fully automatic, physics-based meteor detection parameter tuning based on actual shooting conditions extracted from RAW files.
 
 ## Evolution from v1.3.1
 
@@ -99,7 +99,7 @@ Camera Settings (EXIF Metadata)
 
 **Purpose**: Scientific validation of exposure time against star trailing
 
-**NPF Rule Formula** (PhotoPills):
+**NPF Rule Formula** (Frédéric Michaud):
 ```
 Exposure Time (seconds) = (35 × Aperture + 30 × Pixel Pitch) / Focal Length
 ```
@@ -664,7 +664,7 @@ python detect_meteors_cli.py --auto-params --focal-factor [MFT|APS-C|FF]
 
 Version 1.4.1's NPF Rule implementation and EXIF integration were made possible by:
 - Real-world testing with Olympus OM-1
-- PhotoPills NPF Rule scientific foundation
+- NPF Rule (Frédéric Michaud) scientific foundation
 - User feedback on parameter optimization
 - Extensive validation with actual meteor images
 

@@ -35,7 +35,7 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 ## What's New in v1.4
 
 ### v1.4.1 - NPF Rule-based Scientific Optimization (Latest)
-- **NPF Rule integration**: Physics-based exposure validation using PhotoPills NPF Rule with EXIF metadata extraction
+- **NPF Rule integration**: Physics-based exposure validation using the NPF Rule (Frédéric Michaud) with EXIF metadata extraction
 - **Complete scientific automation**: All three detection parameters optimized based on ISO, exposure time, aperture, focal length, and star trail physics
 - **Shooting quality assessment**: Comprehensive 0.0-1.0 scoring system evaluates NPF compliance, ISO sensitivity, and focal length
 - **Real-world validated**: 100% detection rate (9/9 candidates including 2 confirmed meteors) on Olympus OM-1 dataset
@@ -77,7 +77,7 @@ Camera Settings (EXIF Metadata)
 
 **Step 2: Run Auto-Parameter Optimization**
 
-The most scientific approach - let the software automatically optimize detection parameters using the PhotoPills NPF Rule and EXIF metadata:
+The most scientific approach - let the software automatically optimize detection parameters using the NPF Rule (Frédéric Michaud) and EXIF metadata:
 
 **Option A: Focal length detected in EXIF (recommended)**
 ```bash
@@ -149,7 +149,7 @@ Parameter Adjustments:
 
 ### Understanding NPF Rule
 
-The **NPF Rule** (developed by PhotoPills) is a scientific method to calculate the maximum exposure time before stars show trailing due to Earth's rotation. Unlike traditional "500 Rule" or "600 Rule", it accounts for modern camera sensor pixel pitch:
+The **NPF Rule** (developed by Frédéric Michaud) is a scientific method to calculate the maximum exposure time before stars show trailing due to Earth's rotation. Unlike traditional "500 Rule" or "600 Rule", it accounts for modern camera sensor pixel pitch:
 
 ```
 NPF Exposure (seconds) = (35 × F-number + 30 × Pixel Pitch) / Focal Length
