@@ -684,7 +684,7 @@ Special thanks to the astrophotography community for sharing best practices on e
 ## Download
 
 - **Main Program**: `detect_meteors_cli.py`
-- **Documentation**: This file (`RELEASE_NOTES_1.4.1.md`)
+- **Documentation**: This file (`RELEASE_NOTES_1.4.md`)
 
 ## Quick Reference
 

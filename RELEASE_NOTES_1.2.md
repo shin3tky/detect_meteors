@@ -199,7 +199,7 @@ Version 1.2.1's improvements were made possible by real-world RAW image testing 
 ## Download
 
 - **Main Program**: `detect_meteors_cli.py` (v1.2.1)
-- **Documentation**: This file (`RELEASE_NOTES_1.2.1.md`)
+- **Documentation**: This file (`RELEASE_NOTES_1.2.md`)
 
 ---
 

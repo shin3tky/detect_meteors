@@ -388,7 +388,7 @@ Special thanks to the user who provided detailed test results showing the focal 
 ## Download
 
 - **Main Program**: `detect_meteors_cli.py` (v1.3.1)
-- **Documentation**: This file (`RELEASE_NOTES_1.3.1.md`)
+- **Documentation**: This file (`RELEASE_NOTES_1.3.md`)
 
 ## Quick Reference
 

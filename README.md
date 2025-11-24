@@ -38,11 +38,11 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 - **Shooting quality assessment**: Comprehensive 0.0-1.0 scoring system evaluates NPF compliance, ISO sensitivity, and focal length
 - **Real-world validated**: 100% detection rate (9/9 candidates including 2 confirmed meteors) on Olympus OM-1 dataset
 
-👉 See [RELEASE_NOTES_1.4.1.md](RELEASE_NOTES_1.4.1.md) for complete details, algorithms, and usage examples.
+👉 See [RELEASE_NOTES_1.4.md](RELEASE_NOTES_1.4.md) for complete details, algorithms, and usage examples.
 
 ### Earlier Versions
-- **v1.3.1**: Complete auto-parameter estimation with star size and image geometry analysis ([details](RELEASE_NOTES_1.3.1.md))
-- **v1.2.1**: Percentile-based threshold estimation ([details](RELEASE_NOTES_1.2.1.md))
+- **v1.3.1**: Complete auto-parameter estimation with star size and image geometry analysis ([details](RELEASE_NOTES_1.3.md))
+- **v1.2.1**: Percentile-based threshold estimation ([details](RELEASE_NOTES_1.2.md))
 
 ## Usage
 
