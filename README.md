@@ -28,23 +28,68 @@ Detect Meteors CLI for batch processing of RAW night-sky images.
 - Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`, `psutil`, `pillow`.
 
 ## Installation
-1) Set up Python (example uses `Homebrew`).
-   ```bash
-   brew install python@3.12
-   ```
-2) Install OpenCV and LibRaw.
-   ```bash
-   brew install opencv libraw
-   ```
-3) Create and activate a virtual environment.
-   ```bash
-   /usr/local/opt/python@3.12/bin/python3.12 -m venv venv
-   source ./venv/bin/activate
-   ```
-4) Install dependencies.
-   ```bash
-   pip install -r requirements.txt
-   ```
+
+### Step 1: Clone the Repository
+
+```bash
+# Clone the repository
+git clone https://github.com/shin3tky/detect_meteors.git
+cd detect_meteors
+```
+
+### Step 2: Set up Python
+
+Install Python 3.12 (example uses `Homebrew` on macOS):
+```bash
+brew install python@3.12
+```
+
+### Step 3: Install System Dependencies
+
+Install OpenCV and LibRaw:
+```bash
+brew install opencv libraw
+```
+
+### Step 4: Create Virtual Environment
+
+Create and activate a Python virtual environment:
+```bash
+# Create virtual environment
+/usr/local/opt/python@3.12/bin/python3.12 -m venv venv
+
+# Activate virtual environment
+source ./venv/bin/activate
+```
+
+**Note**: On subsequent uses, you only need to activate the environment:
+```bash
+source ./venv/bin/activate
+```
+
+### Step 5: Install Python Dependencies
+
+Install required Python packages from `requirements.txt`:
+```bash
+pip install -r requirements.txt
+```
+
+This will install:
+- `numpy` - Numerical computing
+- `matplotlib` - Plotting and visualization
+- `opencv-python` - Image processing
+- `rawpy` - RAW image reading
+- `psutil` - System utilities
+- `pillow` - Image handling and EXIF extraction
+
+### Verification
+
+Verify the installation:
+```bash
+python detect_meteors_cli.py --help
+```
+
+You should see the help message with all available options.
 
 ## Usage
 
