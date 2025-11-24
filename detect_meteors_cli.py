@@ -1759,12 +1759,39 @@ def format_polygon_string(polygon: List[List[int]]) -> str:
 
 
 def collect_files(target_folder):
-    """Collect RAW files"""
+    """Collect RAW files from the specified folder
+    
+    Args:
+        target_folder: Path to the folder to search for RAW files
+        
+    Returns:
+        Sorted list of RAW file paths
+        
+    Raises:
+        FileNotFoundError: If the directory doesn't exist
+        NotADirectoryError: If the path is not a directory
+        FileNotFoundError: If no RAW files are found in the directory
+    """
+    # Check if the directory exists
+    if not os.path.exists(target_folder):
+        raise FileNotFoundError(f"Directory does not exist: {target_folder}")
+    
+    # Check if the path is a directory
+    if not os.path.isdir(target_folder):
+        raise NotADirectoryError(f"Path is not a directory: {target_folder}")
+    
+    # Collect RAW files
     files = []
     for ext in EXTENSIONS:
         files.extend(glob.glob(os.path.join(target_folder, ext)))
+    
+    # Check if any RAW files were found
     if not files:
-        raise FileNotFoundError(f"No RAW image files found in folder: {target_folder}")
+        raise FileNotFoundError(
+            f"No RAW image files found in directory: {target_folder}\n"
+            f"Supported formats: {', '.join(EXTENSIONS)}"
+        )
+    
     files.sort()
     return files
 
