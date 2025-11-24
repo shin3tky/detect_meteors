@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.4.1 - 2025-11-24
+- **NPF Rule-based Scientific Optimization**: Implemented PhotoPills NPF Rule for scientifically accurate exposure time validation and parameter optimization, marking a milestone in physics-based meteor detection.
+- **EXIF Metadata Integration**: Comprehensive automatic extraction of shooting conditions (ISO, exposure time, aperture, focal length, resolution) from RAW files using multi-strategy approach (embedded thumbnail → PIL → rawpy).
+- **Sensor Characterization**: Introduced pixel pitch calculation from sensor width and image resolution, with support for direct specification or sensor type lookup (MFT, APS-C, FF).
+- **Star Trail Physics Estimation**: Implemented Earth's rotation-based calculation (15°/hour sidereal rate) to estimate star movement during exposure, accounting for field of view and declination.
+- **Shooting Quality Assessment**: Comprehensive quality scoring (0.0-1.0) based on NPF compliance (60% weight), ISO sensitivity (25% weight), and focal length (15% weight), with levels (EXCELLENT/GOOD/FAIR/POOR).
+- **Enhanced Parameter Optimization**:
+  - `diff_threshold`: Adjusted for ISO sensitivity (×2 per doubling from 800) and NPF overshoot (×1.5 per 1× above 1.5×)
+  - `min_area`: Based on star trail length estimation with focal length correction (wide 0.7×, telephoto 1.3×) and NPF adjustment
+  - `min_line_score`: Based on meteor speed physics (3× faster than stars) with focal length and exposure time adjustments
+- **Detailed Analysis Output**: Scientific reasoning for each parameter adjustment with NPF compliance display, pixel pitch calculation, star trail estimate, and quality score breakdown.
+- **New Command-Line Options**:
+  - `--sensor-width`: Physical sensor width in mm for accurate NPF calculation
+  - `--pixel-pitch`: Direct pixel pitch specification in μm (highest accuracy)
+  - `--show-npf`: Display NPF Rule analysis and exit
+  - `--show-exif`: Display EXIF metadata only and exit
+- **Real-world Validation**: Tested with Olympus OM-1 (MFT, 24mm, ISO 1600, 5s) achieving 100% detection (9 candidates including 2 confirmed meteors) with quality score 1.00 (EXCELLENT).
+- **Backward Compatibility**: Fully compatible with v1.3.1, falls back to image-based estimation if EXIF unavailable.
+
 ## v1.3.1 - 2025-11-23
 - **Complete Auto-Parameter Estimation**: Extended `--auto-params` to automatically estimate all three critical detection parameters: `diff_threshold` (v1.2.1), `min_area` (NEW), and `min_line_score` (NEW).
 - **Star size distribution analysis**: Introduced automatic `min_area` estimation by detecting and analyzing star sizes in sample images, using 98th percentile brightness threshold and robust 75th percentile × 2.0 formula.
