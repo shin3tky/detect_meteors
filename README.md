@@ -19,7 +19,8 @@ Detect Meteors CLI for batch processing of RAW night-sky images.
 
 ## Technical Overview
 - See the project wiki for a deeper technical walkthrough: [Technical Processing Overview](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview)
-- v1.4.1 NPF Rule additions: [Technical Processing Overview v1.4.1](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.4.1-Additions)
+- v1.3.1 Auto-Parameter Estimation Extensions: [v1.3.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.3.1-Additions)
+- v1.4.1 NPF Rule-based Scientific Optimization: [v1.4.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.4.1-Additions)
 
 ## Requirements
 - Python 3.12.12 (tested).
