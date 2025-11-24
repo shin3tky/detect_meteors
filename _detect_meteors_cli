@@ -1,0 +1,70 @@
+#compdef detect_meteors_cli.py
+# Zsh completion for detect_meteors_cli.py
+#
+# Installation:
+#   1. Copy this file to a directory in your $fpath (e.g., ~/.zsh/completions/)
+#   2. Rename it to _detect_meteors_cli (no .zsh extension)
+#   3. Make sure the directory is in your fpath in ~/.zshrc:
+#      fpath=(~/.zsh/completions $fpath)
+#      autoload -Uz compinit && compinit
+#   4. Restart your shell or run: exec zsh
+
+_detect_meteors_cli() {
+    local -a args
+
+    args=(
+        '(- *)'{-h,--help}'[Show help message and exit]'
+        '(- *)--version[Show version and exit]'
+        
+        # Input/Output options
+        '(-t --target)'{-t,--target}'[Input RAW image folder]:directory:_directories'
+        '(-o --output)'{-o,--output}'[Output folder for candidate RAW files]:directory:_directories'
+        '--debug-dir[Folder to save mask/debug images]:directory:_directories'
+        
+        # Detection parameters
+        '--diff-threshold[Threshold for difference binarization (default: 8)]:threshold:(5 8 10 15 20)'
+        '--min-area[Minimum contour area (default: 10)]:area:(5 10 15 20 30)'
+        '--min-aspect-ratio[Minimum aspect ratio (default: 3.0)]:ratio:(2.0 3.0 4.0 5.0)'
+        
+        # Hough parameters
+        '--hough-threshold[Hough line detection threshold (default: 10)]:threshold:(5 10 15 20)'
+        '--hough-min-line-length[Minimum line length (default: 15)]:length:(10 15 20 30)'
+        '--hough-max-line-gap[Maximum line gap (default: 5)]:gap:(3 5 10 15)'
+        '--min-line-score[Minimum line score (default: 80.0)]:score:(50.0 80.0 100.0 120.0)'
+        
+        # ROI options
+        '--no-roi[Skip ROI selection]'
+        '--roi[Specify ROI polygon]:polygon:_message -r "x1,y1;x2,y2;x3,y3"'
+        
+        # Performance options
+        '--workers[Number of parallel workers]:workers:(1 2 4 8 12 16)'
+        '--batch-size[Batch size for processing]:batch:(5 10 20 30 50)'
+        '--auto-batch-size[Auto-adjust batch size based on memory]'
+        '--no-parallel[Disable parallel processing]'
+        
+        # Progress and debugging
+        '--profile[Display timing profile]'
+        '--validate-raw[Validate RAW files before processing]'
+        '--progress-file[Progress JSON file path]:file:_files -g "*.json"'
+        '--no-resume[Ignore existing progress and start fresh]'
+        '--remove-progress[Delete progress file and exit]'
+        
+        # Auto-parameter estimation (NPF Rule)
+        '--auto-params[Auto-estimate parameters based on EXIF (NPF Rule)]'
+        '--focal-length[Focal length in mm (35mm equivalent)]:focal_length:(14 16 20 24 35 50 85)'
+        '--focal-factor[Crop factor or sensor type]:factor:(MFT APS-C APS-C_CANON APS-H FF FULLFRAME 1INCH 1.0 1.3 1.5 1.6 2.0 2.7)'
+        '--sensor-width[Sensor width in mm]:width:(17.3 22.3 23.5 27.9 36.0)'
+        '--pixel-pitch[Pixel pitch in micrometers]:pitch:(3.0 3.5 4.0 4.5 5.0 5.5 6.0)'
+        
+        # Information display
+        '--show-exif[Display EXIF metadata and exit]'
+        '--show-npf[Display NPF Rule analysis details and exit]'
+        
+        # Output control
+        '--output-overwrite[Force overwrite existing files in output folder]'
+    )
+
+    _arguments -s -S $args
+}
+
+_detect_meteors_cli "$@"
