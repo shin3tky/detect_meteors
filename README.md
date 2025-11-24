@@ -32,6 +32,20 @@ Detect Meteors CLI for batch processing of RAW night-sky images.
 
 For detailed installation instructions for macOS and Windows, please refer to [INSTALL.md](INSTALL.md).
 
+## What's New in v1.4
+
+### v1.4.1 - NPF Rule-based Scientific Optimization (Latest)
+- **NPF Rule integration**: Physics-based exposure validation using PhotoPills NPF Rule with EXIF metadata extraction
+- **Complete scientific automation**: All three detection parameters optimized based on ISO, exposure time, aperture, focal length, and star trail physics
+- **Shooting quality assessment**: Comprehensive 0.0-1.0 scoring system evaluates NPF compliance, ISO sensitivity, and focal length
+- **Real-world validated**: 100% detection rate (9/9 candidates including 2 confirmed meteors) on Olympus OM-1 dataset
+
+👉 See [RELEASE_NOTES_1.4.1.md](RELEASE_NOTES_1.4.1.md) for complete details, algorithms, and usage examples.
+
+### Earlier Versions
+- **v1.3.1**: Complete auto-parameter estimation with star size and image geometry analysis ([details](RELEASE_NOTES_1.3.1.md))
+- **v1.2.1**: Percentile-based threshold estimation ([details](RELEASE_NOTES_1.2.1.md))
+
 ## Usage
 
 ### Quick Start with NPF Rule-based Auto-Parameters (NEW in v1.4)
@@ -305,33 +319,6 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--progress-file`** (default: `progress.json`): Path to the JSON file that tracks processed frames.
 - **`--no-resume`**: Ignore and remove any existing progress file before processing.
 - **`--remove-progress`**: Delete the progress file and exit immediately.
-
-## What's New in v1.4
-
-### v1.4.1 - NPF Rule-based Scientific Optimization (Latest)
-- **NPF Rule integration**: Implemented PhotoPills NPF Rule for scientifically accurate exposure time validation
-- **EXIF metadata extraction**: Automatic extraction of focal length, ISO, exposure time, aperture, and resolution from RAW files
-- **Sensor characterization**: Pixel pitch calculation from sensor width and image resolution
-- **Star trail estimation**: Physics-based calculation of star movement during exposure (Earth's rotation: 15°/hour)
-- **Shooting quality score**: Comprehensive assessment (0.0-1.0) based on NPF compliance, ISO sensitivity, and focal length
-- **Intelligent parameter optimization**: 
-  - `diff_threshold`: Adjusted for ISO sensitivity and NPF overshoot
-  - `min_area`: Based on estimated star trail length
-  - `min_line_score`: Based on expected meteor trail length (meteors move ~3× faster than stars)
-- **Detailed analysis output**: Shows NPF compliance, pixel pitch, star trail estimate, quality score, and optimization reasoning
-- **Real-world validated**: 100% detection rate (9 candidates including 2 confirmed meteors) on Olympus OM-1 test dataset
-- See [RELEASE_NOTES_1.4.1.md](RELEASE_NOTES_1.4.1.md) for comprehensive details
-
-### v1.3.1 - Complete Auto-Parameter Estimation
-- **Complete automation**: `--auto-params` estimates **all three** critical parameters automatically
-- **Star size analysis**: Automatic `min_area` estimation from detected star sizes
-- **Image geometry scoring**: Automatic `min_line_score` estimation from image diagonal
-- **Focal length support**: `--focal-length` option optimizes for wide-angle to telephoto lenses
-- **Progress tracking**: Restored from v1.1.0 with `progress.json` support
-
-### v1.2.1 - Improved Auto-Parameter Estimation
-- **Percentile-based estimation**: Switched from 3-sigma rule to percentile-based approach for `diff_threshold`
-- **Real-world validated**: Reduced typical thresholds from 25 to 15, significantly improving meteor detection
 
 ## Build a Single Binary with Nuitka
 If you want to distribute `detect_meteors_cli` as a standalone executable, you can bundle it with [Nuitka](https://nuitka.net/):
