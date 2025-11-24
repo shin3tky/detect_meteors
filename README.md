@@ -8,6 +8,8 @@ Automatically detect meteors in RAW astrophotography images using frame-to-frame
 
 During meteor shower events, manually reviewing thousands of RAW images to find meteors is tedious and time-consuming. This tool automates the initial detection process, allowing astrophotographers to quickly identify candidate images for further review.
 
+I developed this tool hoping it would be useful for fellow astrophotography enthusiasts who face the same challenge.
+
 ## Overview
 - **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata (ISO, exposure, focal length) and scientifically tunes all detection parameters
 - **Scientifically validated**: 100% detection rate on real-world test dataset (Olympus OM-1, 1000+ RAW images)
