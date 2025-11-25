@@ -28,7 +28,13 @@
   - [x] Shooting condition quality scoring
   - [x] Sensor characterization (pixel pitch calculation)
 
-### Remaining Goals for v1.x
+### Safety Enhancement
+- [x] **v1.4.2** - Output file protection and safety features
+  - [x] Skip overwriting existing output files by default
+  - [x] `--output-overwrite` flag for explicit overwrite permission
+  - [x] Warning and exit when target and output directories are identical
+
+### Remaining Goals for v1.x (-2025 4Q)
 - [ ] Camera model database for automatic sensor detection
 - [ ] Per-image adaptive parameter adjustment
 - [ ] Declination support with GPS coordinate extraction
@@ -37,7 +43,7 @@
 
 ## Version 2.x - Architecture and Extensibility
 
-- 2026 1Q
+- 2026 1Q-
 - Implementation of plugin architecture
 - Modular detection pipeline
 - Custom filter and processor support
@@ -45,7 +51,7 @@
 
 ## Version 3.x - Intelligence and Learning
 
-- 2026 2Q
+- 2026 2Q-
 - Integration of Machine Learning-based detection
 - Training on labeled meteor datasets
 - Advanced pattern recognition
@@ -53,5 +59,5 @@
 
 ---
 
-**Current Status**: v1.4.1 (NPF Rule-based Scientific Optimization - Milestone Release)  
+**Current Status**: v1.4.2 (Safety Enhancement - Output File Protection)  
 **Next Focus**: Camera database and adaptive parameter adjustment
