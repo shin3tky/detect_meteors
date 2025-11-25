@@ -1843,6 +1843,22 @@ def detect_meteors_advanced(
     timing = {}
     t_total = time.time()
 
+    # Safety check: prevent overwriting source files
+    target_fullpath = os.path.abspath(target_folder)
+    output_fullpath = os.path.abspath(output_folder)
+
+    if target_fullpath == output_fullpath:
+        print(f"\n{'='*60}")
+        print("⚠ ERROR: Target and output directories are the same!")
+        print(f"{'='*60}")
+        print(f"  Target:  {target_folder}")
+        print(f"  Output:  {output_folder}")
+        print(f"  Resolved to: {target_fullpath}")
+        print(f"\nThis configuration would overwrite original RAW files.")
+        print(f"Please specify a different output directory.")
+        print(f"{'='*60}\n")
+        return 0
+
     os.makedirs(output_folder, exist_ok=True)
     os.makedirs(debug_folder, exist_ok=True)
 
