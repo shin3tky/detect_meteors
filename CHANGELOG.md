@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.4.2 - 2025-11-25
+- **Output File Protection**: Changed behavior to skip overwriting existing files at the output destination instead of overwriting them.
+- **New Command-Line Option**: Added `--output-overwrite` flag to allow overwriting existing output files when explicitly requested.
+- **Safety Check**: Added warning and exit when `--target` and `--output` directories are identical to prevent accidental data loss.
+
 ## v1.4.1 - 2025-11-24
 - **NPF Rule-based Scientific Optimization**: Implemented the NPF Rule (Frédéric Michaud) for scientifically accurate exposure time validation and parameter optimization, marking a milestone in physics-based meteor detection.
 - **EXIF Metadata Integration**: Comprehensive automatic extraction of shooting conditions (ISO, exposure time, aperture, focal length, resolution) from RAW files using multi-strategy approach (embedded thumbnail → PIL → rawpy).

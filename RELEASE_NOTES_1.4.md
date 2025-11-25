@@ -1,6 +1,22 @@
-# Version 1.4.1 Release Notes
+# Version 1.4 Release Notes
 
-## 🎉 NPF Rule-based Scientific Optimization - Milestone Release
+## Version 1.4.2 (2025-11-25)
+
+### Output File Protection and Safety Enhancements
+
+Version 1.4.2 introduces important safety features to prevent accidental file overwrites and data loss:
+
+- **Output File Protection**: Changed behavior to skip overwriting existing files at the output destination instead of overwriting them. This prevents accidental loss of previously processed results.
+- **New Command-Line Option**: Added `--output-overwrite` flag to allow overwriting existing output files when explicitly requested. Users must opt-in to overwrite behavior.
+- **Safety Check**: Added warning and exit when `--target` and `--output` directories are identical to prevent accidental data loss. This protects source files from being overwritten.
+
+These changes ensure safer operation during batch processing, protecting existing output files unless explicitly requested.
+
+---
+
+## Version 1.4.1 (2025-11-24)
+
+### 🎉 NPF Rule-based Scientific Optimization - Milestone Release
 
 Version 1.4.1 brings **scientific parameter optimization** using the NPF Rule (Frédéric Michaud) and comprehensive EXIF metadata integration. This milestone release enables fully automatic, physics-based meteor detection parameter tuning based on actual shooting conditions extracted from RAW files.
 
