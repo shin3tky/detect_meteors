@@ -23,8 +23,8 @@ I developed this tool hoping it would be useful for fellow astrophotography enth
 ## Technical Overview
 - See the project wiki for a technical summary: [Technical Processing Summary](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Summary)
 - See the project wiki for a deeper technical walkthrough: [Technical Processing Overview](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview)
-- v1.3.1 Auto-Parameter Estimation Extensions: [v1.3.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.3.1-Additions)
-- v1.4.1 NPF Rule-based Scientific Optimization: [v1.4.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.4.1-Additions)
+- Auto-Parameter Estimation Extensions: [v1.3.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.3.1-Additions)
+- NPF Rule-based Scientific Optimization: [v1.4.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.4.1-Additions)
 
 ## Requirements
 - Python 3.12.12 (tested).
@@ -43,7 +43,7 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 - **Output file protection**: Changed behavior to skip overwriting existing files at the output destination instead of overwriting them. This prevents accidental loss of previously processed results.
 
 ### v1.4.1 - NPF Rule-based Scientific Optimization
-- **NPF Rule integration**: Physics-based exposure validation using the NPF Rule (Frédéric Michaud) with EXIF metadata extraction
+- **NPF Rule integration**: Physics-based exposure validation using the NPF Rule with EXIF metadata extraction
 - **Complete scientific automation**: All three detection parameters optimized based on ISO, exposure time, aperture, focal length, and star trail physics
 - **Shooting quality assessment**: Comprehensive 0.0-1.0 scoring system evaluates NPF compliance, ISO sensitivity, and focal length
 - **Real-world validated**: 100% detection rate (9/9 candidates including 2 confirmed meteors) on Olympus OM-1 dataset
@@ -85,7 +85,7 @@ Camera Settings (EXIF Metadata)
 
 **Step 2: Run Auto-Parameter Optimization**
 
-The most scientific approach - let the software automatically optimize detection parameters using the NPF Rule (Frédéric Michaud) and EXIF metadata:
+The most scientific approach - let the software automatically optimize detection parameters using the NPF Rule and EXIF metadata:
 
 **Option A: Focal length detected in EXIF (recommended)**
 ```bash
@@ -99,11 +99,6 @@ python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-length 24
 
 # Or specify crop factor (system will calculate from actual focal length)
 python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-factor MFT
-```
-
-**Option C: Use sensor type shortcut**
-```bash
-python detect_meteors_cli.py --auto-params --focal-factor MFT
 ```
 
 This will:
@@ -210,13 +205,10 @@ python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-length 24
 
 ### Using NPF Rule-based Auto-Parameters (v1.4+)
 
-1. **Provide sensor information**: Use `--sensor-width MM` or `--focal-factor TYPE` for accurate pixel pitch calculation
+1. **Provide sensor information**: Use `--sensor-width MM` for accurate pixel pitch calculation
    ```bash
    # Micro Four Thirds
-   python detect_meteors_cli.py --auto-params --sensor-width 17.3
-   
-   # Or use sensor type
-   python detect_meteors_cli.py --auto-params --focal-factor MFT
+   python detect_meteors_cli.py --auto-params --sensor-width 17.3   
    ```
 
 2. **Check EXIF before processing**: Use `--show-exif` to verify focal length extraction

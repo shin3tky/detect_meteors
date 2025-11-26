@@ -18,7 +18,7 @@ These changes ensure safer operation during batch processing, protecting existin
 
 ### 🎉 NPF Rule-based Scientific Optimization - Milestone Release
 
-Version 1.4.1 brings **scientific parameter optimization** using the NPF Rule (Frédéric Michaud) and comprehensive EXIF metadata integration. This milestone release enables fully automatic, physics-based meteor detection parameter tuning based on actual shooting conditions extracted from RAW files.
+Version 1.4.1 brings **scientific parameter optimization** using the NPF Rule and comprehensive EXIF metadata integration. This milestone release enables fully automatic, physics-based meteor detection parameter tuning based on actual shooting conditions extracted from RAW files.
 
 ## Evolution from v1.3.1
 
@@ -48,7 +48,7 @@ Version 1.4.1 brings **scientific parameter optimization** using the NPF Rule (F
 - **ISO**: 1600
 - **Exposure**: 5 seconds
 - **Aperture**: f/2.8
-- **Images**: 1000 RAW files (ORF)
+- **Images**: 1000+ RAW files (ORF)
 - **Image size**: 5240×3912 pixels (2620×1956 after 2×2 binning)
 
 ### NPF Rule Analysis
@@ -115,7 +115,7 @@ Camera Settings (EXIF Metadata)
 
 **Purpose**: Scientific validation of exposure time against star trailing
 
-**NPF Rule Formula** (Frédéric Michaud):
+**NPF Rule Formula**:
 ```
 Exposure Time (seconds) = (35 × Aperture + 30 × Pixel Pitch) / Focal Length
 ```
@@ -413,18 +413,14 @@ Each adjustment shows:
 # Option 1: Sensor width (recommended)
 python detect_meteors_cli.py --auto-params --sensor-width 17.3
 
-# Option 2: Sensor type
-python detect_meteors_cli.py --auto-params --focal-factor MFT
-
-# Option 3: Direct pixel pitch
+# Option 2: Direct pixel pitch
 python detect_meteors_cli.py --auto-params --pixel-pitch 3.30
 ```
 
 **Priority Order**:
 1. `--pixel-pitch` (highest accuracy, if specified)
 2. `--sensor-width` + image dimensions (calculated)
-3. `--focal-factor` → sensor width lookup → calculated
-4. Default value (4.0μm, fallback)
+3. Default value (4.0μm, fallback)
 
 **Sensor Width Reference**:
 ```python
@@ -457,9 +453,6 @@ python detect_meteors_cli.py --auto-params
 ```bash
 # Micro Four Thirds
 python detect_meteors_cli.py --auto-params --sensor-width 17.3
-
-# Or use sensor type
-python detect_meteors_cli.py --auto-params --focal-factor MFT
 ```
 
 **Benefits**:
@@ -614,9 +607,6 @@ python detect_meteors_cli.py --auto-params
 ```bash
 # Add sensor information for best results
 python detect_meteors_cli.py --auto-params --sensor-width [your_sensor_mm]
-
-# Or use sensor type
-python detect_meteors_cli.py --auto-params --focal-factor [MFT|APS-C|FF]
 ```
 
 ## Known Limitations
@@ -680,7 +670,7 @@ python detect_meteors_cli.py --auto-params --focal-factor [MFT|APS-C|FF]
 
 Version 1.4.1's NPF Rule implementation and EXIF integration were made possible by:
 - Real-world testing with Olympus OM-1
-- NPF Rule (Frédéric Michaud) scientific foundation
+- NPF Rule scientific foundation
 - User feedback on parameter optimization
 - Extensive validation with actual meteor images
 

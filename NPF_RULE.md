@@ -31,19 +31,7 @@ python detect_meteors_cli.py --auto-params --sensor-width 23.5
 python detect_meteors_cli.py --auto-params --sensor-width 36.0
 ```
 
-Or use sensor type shortcuts:
-
-```bash
-# Predefined sensor types
-python detect_meteors_cli.py --auto-params --focal-factor MFT    # Micro Four Thirds
-python detect_meteors_cli.py --auto-params --focal-factor APS-C  # APS-C
-python detect_meteors_cli.py --auto-params --focal-factor FF     # Full Frame
-
-# Or specify numeric crop factor
-python detect_meteors_cli.py --auto-params --focal-factor 2.0    # 2.0× crop
-```
-
-If neither `--sensor-width` nor `--focal-factor` is provided, the system uses a default pixel pitch of 4.0μm.
+If `--sensor-width` is not provided, the system uses a default pixel pitch of 4.0μm.
 
 ## Focal Length Handling
 
