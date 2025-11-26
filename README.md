@@ -38,7 +38,10 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ## What's New in v1.4
 
-### v1.4.1 - NPF Rule-based Scientific Optimization (Latest)
+### v1.4.2 - Output File Protection
+- **Output file protection**: Changed behavior to skip overwriting existing files at the output destination instead of overwriting them. This prevents accidental loss of previously processed results.
+
+### v1.4.1 - NPF Rule-based Scientific Optimization
 - **NPF Rule integration**: Physics-based exposure validation using the NPF Rule (Frédéric Michaud) with EXIF metadata extraction
 - **Complete scientific automation**: All three detection parameters optimized based on ISO, exposure time, aperture, focal length, and star trail physics
 - **Shooting quality assessment**: Comprehensive 0.0-1.0 scoring system evaluates NPF compliance, ISO sensitivity, and focal length
@@ -52,7 +55,7 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ## Usage
 
-### Quick Start with NPF Rule-based Auto-Parameters (NEW in v1.4)
+### Quick Start
 
 **Step 1: Check EXIF Metadata (Recommended)**
 
@@ -151,178 +154,9 @@ Parameter Adjustments:
 ============================================================
 ```
 
-### Understanding NPF Rule
+For more details on the NPF Rule and focal length handling, see [NPF_RULE.md](NPF_RULE.md).
 
-The **NPF Rule** (developed by Frédéric Michaud) is a scientific method to calculate the maximum exposure time before stars show trailing due to Earth's rotation. Unlike traditional "500 Rule" or "600 Rule", it accounts for modern camera sensor pixel pitch:
-
-```
-NPF Exposure (seconds) = (35 × F-number + 30 × Pixel Pitch) / Focal Length
-```
-
-Where:
-- **F-number**: Aperture (e.g., f/2.8 → 2.8)
-- **Pixel Pitch**: Physical pixel size in micrometers (μm)
-- **Focal Length**: 35mm equivalent in millimeters
-
-The software uses this to:
-- Assess whether your exposure settings are optimal
-- Estimate star trail length during actual exposure
-- Adjust detection parameters based on NPF compliance
-
-### Sensor Width Specification
-
-For best accuracy, specify your camera's sensor width:
-
-```bash
-# Micro Four Thirds (17.3mm)
-python detect_meteors_cli.py --auto-params --sensor-width 17.3
-
-# APS-C (23.5mm)
-python detect_meteors_cli.py --auto-params --sensor-width 23.5
-
-# Full Frame (36.0mm)
-python detect_meteors_cli.py --auto-params --sensor-width 36.0
-```
-
-Or use sensor type shortcuts:
-```bash
-python detect_meteors_cli.py --auto-params --focal-factor MFT
-python detect_meteors_cli.py --auto-params --focal-factor APS-C
-python detect_meteors_cli.py --auto-params --focal-factor FF
-```
-
-### Traditional Manual Configuration
-
-Show help:
-```bash
-python detect_meteors_cli.py --help
-```
-
-Quick start (defaults to `rawfiles` as input, `candidates` as output, and `debug_masks` for debug images):
-```bash
-python detect_meteors_cli.py
-```
-
-Specify input/output folders and a debug directory:
-```bash
-python detect_meteors_cli.py -t /path/to/raws -o meteors_out --debug-dir debug_out
-```
-
-Process the entire frame (disable ROI cropping):
-```bash
-python detect_meteors_cli.py --no-roi
-```
-
-Limit processing to a region of the starry sky using a polygon ROI:
-```bash
-python detect_meteors_cli.py --roi "10,10;4000,10;4000,2000;10,2000"
-```
-
-### Combining Auto-Parameters with Manual Overrides
-
-You can use `--auto-params` while still manually specifying certain parameters:
-
-```bash
-# Auto-optimize with manual diff_threshold
-python detect_meteors_cli.py --auto-params \
-  --sensor-width 17.3 \
-  --diff-threshold 12
-
-# Auto-optimize with pre-defined ROI
-python detect_meteors_cli.py --auto-params \
-  --roi "100,100;3900,100;3900,2900;100,2900" \
-  --sensor-width 17.3
-
-# Mix auto and manual parameters
-python detect_meteors_cli.py --auto-params \
-  --sensor-width 17.3 \
-  --min-area 15 \
-  --min-aspect-ratio 4.0
-```
-
-### NPF Analysis Only
-
-Display NPF analysis without processing images:
-
-```bash
-python detect_meteors_cli.py --show-npf --sensor-width 17.3
-```
-
-This shows:
-- Calculated pixel pitch
-- NPF recommended exposure time
-- Your actual exposure time and compliance
-- Estimated star trail length
-- Impact assessment (LOW/MODERATE/HIGH)
-
-### EXIF Metadata Check Only
-
-Display EXIF metadata from your RAW files without processing:
-
-```bash
-python detect_meteors_cli.py --show-exif
-```
-
-**Use this to:**
-- Verify focal length is correctly extracted
-- Check ISO, exposure time, and aperture values
-- Confirm camera and lens information
-- Decide whether manual `--focal-length` or `--focal-factor` is needed
-
-## Option Reference
-
-All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
-
-### Input/Output Options
-- **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan.
-- **`-o`/`--output`** (default: `candidates`): Destination folder for RAW files flagged as meteor candidates.
-- **`--debug-dir`** (default: `debug_masks`): Where to save generated mask and debug images.
-
-### Detection Parameters
-- **`--diff-threshold`** (default: `8`): Pixel-difference threshold used to binarize frame-to-frame differences. **TIP**: Use `--auto-params` to optimize automatically based on ISO and NPF compliance.
-- **`--min-area`** (default: `10`): Smallest allowed contour area in pixels. **TIP**: Use `--auto-params` to optimize based on star trail length.
-- **`--min-aspect-ratio`** (default: `3.0`): Minimum ratio of a contour's long side to its short side.
-
-### Hough Transform Parameters
-- **`--hough-threshold`** (default: `10`): Accumulator threshold for the probabilistic Hough transform.
-- **`--hough-min-line-length`** (default: `15`): Minimum line length (in pixels) accepted by the Hough transform.
-- **`--hough-max-line-gap`** (default: `5`): Maximum gap (in pixels) between segments on the same detected line.
-- **`--min-line-score`** (default: `80.0`): Minimum summed line length score required to mark a meteor candidate. **TIP**: Use `--auto-params` to optimize based on expected meteor trail length.
-
-### Region of Interest (ROI) Options
-- **`--no-roi`**: Skip ROI selection and process the entire frame.
-- **`--roi`**: Explicit polygon ROI as `"x1,y1;x2,y2;..."` (needs ≥3 vertices).
-
-### NPF Rule-based Auto-Parameter Optimization (NEW in v1.4)
-- **`--auto-params`**: Automatically optimize all three critical detection parameters using NPF Rule and EXIF metadata. The algorithm:
-  - Extracts EXIF data (ISO, exposure, aperture, focal length, resolution)
-  - Calculates NPF recommended exposure and star trail length
-  - Evaluates shooting condition quality (EXCELLENT/GOOD/FAIR/POOR)
-  - Optimizes `diff_threshold` based on ISO sensitivity and NPF overshoot
-  - Optimizes `min_area` based on star trail length
-  - Optimizes `min_line_score` based on meteor speed (3× faster than stars)
-  - Manual parameter specifications always take priority over auto-optimization
-
-### NPF Rule Options (NEW in v1.4)
-- **`--sensor-width`**: Physical sensor width in millimeters (e.g., `17.3` for MFT, `23.5` for APS-C, `36.0` for Full Frame). Used to calculate pixel pitch for NPF Rule. Significantly improves optimization accuracy.
-- **`--pixel-pitch`**: Direct pixel pitch specification in micrometers (μm). If not specified, calculated from `--sensor-width` and image resolution, or uses default value (4.0μm).
-- **`--focal-length`**: Focal length in 35mm equivalent (mm). If not specified, automatically extracted from EXIF metadata. Can be manually specified to override EXIF value.
-- **`--focal-factor`**: Sensor type or crop factor (e.g., `MFT`, `APS-C`, `FF`, or numeric like `2.0`). Used to convert actual focal length to 35mm equivalent.
-- **`--show-npf`**: Display detailed NPF Rule analysis and exit without processing. Shows pixel pitch, NPF recommended exposure, compliance level, star trail estimate, and impact assessment.
-- **`--show-exif`**: Display EXIF metadata only and exit without processing. **Use this first** to verify focal length extraction before running `--auto-params`.
-
-### Performance Options
-- **`--workers`** (default: CPU count - 1): Number of parallel worker processes.
-- **`--batch-size`** (default: `10`): How many RAW files each worker processes at a time.
-- **`--auto-batch-size`**: Dynamically shrink batch size to stay within ~60% of available RAM.
-- **`--no-parallel`**: Force single-threaded execution.
-
-### Utility Options
-- **`--profile`**: Print timing breakdowns after the run.
-- **`--validate-raw`**: Pre-validate RAW files to catch corruption before processing.
-- **`--progress-file`** (default: `progress.json`): Path to the JSON file that tracks processed frames.
-- **`--no-resume`**: Ignore and remove any existing progress file before processing.
-- **`--remove-progress`**: Delete the progress file and exit immediately.
+For complete command line options reference, see [COMMAND_OPTIONS.md](COMMAND_OPTIONS.md).
 
 ## Build a Single Binary with Nuitka
 If you want to distribute `detect_meteors_cli` as a standalone executable, you can bundle it with [Nuitka](https://nuitka.net/):
@@ -463,17 +297,6 @@ The software provides a quality score (0.0-1.0) based on:
 - Known problematic conditions (aurora, airglow, unusual atmospheric phenomena)
 - Fine-tuning based on initial auto-params results
 - Special requirements for specific research or publication needs
-
-## Common Sensor Widths Reference
-
-| Camera System | Sensor Width (mm) | Crop Factor | Typical Pixel Pitch (μm) |
-|--------------|-------------------|-------------|-------------------------|
-| Micro Four Thirds | 17.3 | 2.0 | 3.3-3.7 |
-| APS-C (Sony, Nikon, Fuji) | 23.5 | 1.5 | 3.9-4.3 |
-| APS-C (Canon) | 22.3 | 1.6 | 4.1-4.5 |
-| APS-H (Canon) | 27.9 | 1.3 | 5.0-6.4 |
-| Full Frame | 36.0 | 1.0 | 4.3-8.4 |
-| 1-inch | 13.2 | 2.7 | 2.4-2.9 |
 
 ## Contributing
 Issues and pull requests are welcome. Please open an issue to discuss substantial changes before submitting a PR.
