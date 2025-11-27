@@ -37,12 +37,22 @@ I developed this tool hoping it would be useful for fellow astrophotography enth
 
 For detailed installation instructions for macOS and Windows, please refer to [INSTALL.md](INSTALL.md).
 
-## What's New in v1.4
+## What's New in v1.5
 
-### v1.4.2 - Output File Protection
+### v1.5.0 - Sensor Type Presets
+- **New `--sensor-type` option**: Simplified NPF configuration with a single parameter instead of multiple sensor specifications
+- **Unified sensor presets**: `MFT`, `APS-C`, `APS-C_CANON`, `APS-H`, `FF`, `1INCH` automatically set focal factor, sensor width, and pixel pitch
+- **New `--list-sensor-types` option**: Display available sensor presets and their configurations
+- **Override support**: Individual parameters (`--sensor-width`, `--pixel-pitch`, `--focal-factor`) override preset values when needed
+
+👉 See [RELEASE_NOTES_1.5.md](RELEASE_NOTES_1.5.md) for complete details and usage examples.
+
+### Earlier Versions
+
+#### v1.4.2 - Output File Protection
 - **Output file protection**: Changed behavior to skip overwriting existing files at the output destination instead of overwriting them. This prevents accidental loss of previously processed results.
 
-### v1.4.1 - NPF Rule-based Scientific Optimization
+#### v1.4.1 - NPF Rule-based Scientific Optimization
 - **NPF Rule integration**: Physics-based exposure validation using the NPF Rule with EXIF metadata extraction
 - **Complete scientific automation**: All three detection parameters optimized based on ISO, exposure time, aperture, focal length, and star trail physics
 - **Shooting quality assessment**: Comprehensive 0.0-1.0 scoring system evaluates NPF compliance, ISO sensitivity, and focal length
@@ -50,7 +60,6 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 👉 See [RELEASE_NOTES_1.4.md](RELEASE_NOTES_1.4.md) for complete details, algorithms, and usage examples.
 
-### Earlier Versions
 - **v1.3.1**: Complete auto-parameter estimation with star size and image geometry analysis ([details](RELEASE_NOTES_1.3.md))
 - **v1.2.1**: Percentile-based threshold estimation ([details](RELEASE_NOTES_1.2.md))
 
@@ -87,17 +96,32 @@ Camera Settings (EXIF Metadata)
 
 The most scientific approach - let the software automatically optimize detection parameters using the NPF Rule and EXIF metadata:
 
-**Option A: Focal length detected in EXIF (recommended)**
+**Option A: Use sensor type preset (recommended, v1.5+)**
 ```bash
-python detect_meteors_cli.py --auto-params --sensor-width 17.3
+# Micro Four Thirds
+python detect_meteors_cli.py --auto-params --sensor-type MFT
+
+# APS-C (Sony/Nikon/Fuji)
+python detect_meteors_cli.py --auto-params --sensor-type APS-C
+
+# APS-C (Canon)
+python detect_meteors_cli.py --auto-params --sensor-type APS-C_CANON
+
+# Full Frame
+python detect_meteors_cli.py --auto-params --sensor-type FF
 ```
 
-**Option B: Focal length missing - specify manually**
+**Option B: If focal length is missing in EXIF - specify manually**
 ```bash
 # Specify exact focal length (35mm equivalent)
-python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-length 24
+python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 24
 
-# Or specify crop factor (system will calculate from actual focal length)
+# Or override specific values from preset
+python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
+```
+
+**Option C: Legacy manual specification (still supported)**
+```bash
 python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-factor MFT
 ```
 
@@ -183,7 +207,7 @@ python detect_meteors_cli.py --show-exif
 
 **Step 2: Verify NPF compliance (optional)**
 ```bash
-python detect_meteors_cli.py --show-npf --sensor-width 17.3
+python detect_meteors_cli.py --show-npf --sensor-type MFT
 ```
 - Check if your exposure time is within NPF recommendation
 - Understand your shooting quality score
@@ -191,11 +215,14 @@ python detect_meteors_cli.py --show-npf --sensor-width 17.3
 
 **Step 3: Run auto-parameter optimization**
 ```bash
-# If focal length was detected in EXIF
-python detect_meteors_cli.py --auto-params --sensor-width 17.3
+# Use sensor type preset (recommended, v1.5+)
+python detect_meteors_cli.py --auto-params --sensor-type MFT
 
-# If focal length was missing in EXIF
-python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-length 24
+# If focal length was missing in EXIF, add --focal-length
+python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 24
+
+# Or override specific preset values if needed
+python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
 ```
 
 **Step 4: Review results and adjust if needed**
@@ -203,26 +230,41 @@ python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-length 24
 - If too many false positives: increase thresholds manually
 - If missing meteors: decrease thresholds manually
 
-### Using NPF Rule-based Auto-Parameters (v1.4+)
+### Using NPF Rule-based Auto-Parameters (v1.4+, simplified in v1.5)
 
-1. **Provide sensor information**: Use `--sensor-width MM` for accurate pixel pitch calculation
+1. **Use sensor type preset (v1.5+, recommended)**: Use `--sensor-type TYPE` for automatic configuration
    ```bash
    # Micro Four Thirds
-   python detect_meteors_cli.py --auto-params --sensor-width 17.3   
+   python detect_meteors_cli.py --auto-params --sensor-type MFT
+   
+   # APS-C (Sony/Nikon/Fuji)
+   python detect_meteors_cli.py --auto-params --sensor-type APS-C
+   
+   # Full Frame
+   python detect_meteors_cli.py --auto-params --sensor-type FF
+   
+   # List all available sensor types
+   python detect_meteors_cli.py --list-sensor-types
    ```
 
-2. **Check EXIF before processing**: Use `--show-exif` to verify focal length extraction
+2. **Override preset values when needed**: Individual parameters take priority over presets
+   ```bash
+   # Use MFT preset but override pixel pitch for specific camera
+   python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
+   ```
+
+3. **Check EXIF before processing**: Use `--show-exif` to verify focal length extraction
    ```bash
    python detect_meteors_cli.py --show-exif
    ```
-   - If focal length is missing: add `--focal-length MM` or `--focal-factor TYPE`
+   - If focal length is missing: add `--focal-length MM`
 
-3. **Check NPF compliance first**: Use `--show-npf` to understand your shooting conditions
+4. **Check NPF compliance first**: Use `--show-npf` to understand your shooting conditions
    ```bash
-   python detect_meteors_cli.py --show-npf --sensor-width 17.3
+   python detect_meteors_cli.py --show-npf --sensor-type MFT
    ```
 
-4. **Optimal shooting conditions**:
+5. **Optimal shooting conditions**:
    - **Exposure time**: Keep within NPF recommended limit for best results
    - **ISO**: Lower ISO reduces noise but requires longer exposure
    - **Aperture**: Wider aperture (lower f-number) allows shorter exposures
