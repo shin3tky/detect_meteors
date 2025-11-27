@@ -36,10 +36,12 @@ _detect_meteors_cli_completion() {
           --no-resume
           --remove-progress
           --auto-params
+          --sensor-type
           --focal-length
           --focal-factor
           --sensor-width
           --pixel-pitch
+          --list-sensor-types
           --show-exif
           --show-npf
           --output-overwrite"
@@ -58,6 +60,12 @@ _detect_meteors_cli_completion() {
             ;;
         --focal-factor)
             # Suggest common sensor types
+            local sensor_types="MFT APS-C APS-C_CANON APS-H FF FULLFRAME 1INCH"
+            COMPREPLY=( $(compgen -W "${sensor_types}" -- "${cur}") )
+            return 0
+            ;;
+        --sensor-type)
+            # Suggest available sensor type presets
             local sensor_types="MFT APS-C APS-C_CANON APS-H FF FULLFRAME 1INCH"
             COMPREPLY=( $(compgen -W "${sensor_types}" -- "${cur}") )
             return 0
