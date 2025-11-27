@@ -28,7 +28,7 @@ except ImportError:
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.4.2"
+VERSION = "1.5.0"
 
 DEFAULT_PROGRESS_FILE = "progress.json"
 
@@ -53,33 +53,89 @@ DEFAULT_BATCH_SIZE = 10  # Batch processing size
 AUTO_BATCH_MEMORY_FRACTION = 0.6  # Portion of free RAM to use when auto-sizing batches
 
 # NPF Rule related default values
-# Common sensor sizes (width in mm)
-DEFAULT_SENSOR_WIDTHS = {
-    "MFT": 17.3,
-    "APSC": 23.5,
-    "APSC_CANON": 22.3,
-    "APSH": 27.9,
-    "FF": 36.0,
-    "FULLFRAME": 36.0,
-}
-
 # Default pixel pitch for fallback (μm)
 DEFAULT_PIXEL_PITCH_UM = 4.0  # Typical value for APS-C/MFT cameras
 
-# Crop factors for sensor sizes (35mm equivalent conversion)
-CROP_FACTORS = {
-    "MFT": 2.0,  # Micro Four Thirds
-    "APSC": 1.5,  # APS-C (non-Canon)
-    "APS_C": 1.5,  # APS-C (non-Canon)
-    "APSC_CANON": 1.6,  # APS-C (Canon)
-    "APS_C_CANON": 1.6,  # APS-C (Canon)
-    "APSH": 1.3,  # APS-H (Canon)
-    "APS_H": 1.3,  # APS-H (Canon)
-    "FF": 1.0,  # Full Frame (35mm)
-    "FULLFRAME": 1.0,  # Full Frame
-    "1INCH": 2.7,  # 1-inch sensor
-    "1_INCH": 2.7,  # 1-inch sensor
+# Sensor presets: unified configuration for each sensor type
+# Each preset contains:
+#   - focal_factor: Crop factor for 35mm equivalent conversion
+#   - sensor_width: Sensor width in mm
+#   - pixel_pitch: Typical pixel pitch in μm (None = calculate from resolution)
+#   - description: Human-readable description
+SENSOR_PRESETS = {
+    "MFT": {
+        "focal_factor": 2.0,
+        "sensor_width": 17.3,
+        "pixel_pitch": 3.7,  # Typical for 20MP MFT (e.g., OM-1, GH6)
+        "description": "Micro Four Thirds (17.3×13mm)",
+    },
+    "APSC": {
+        "focal_factor": 1.5,
+        "sensor_width": 23.5,
+        "pixel_pitch": 3.9,  # Typical for 26MP APS-C (e.g., Sony a6700, Fuji X-T5)
+        "description": "APS-C Sony/Nikon/Fuji (23.5×15.6mm)",
+    },
+    "APS_C": {  # Alias for APSC
+        "focal_factor": 1.5,
+        "sensor_width": 23.5,
+        "pixel_pitch": 3.9,
+        "description": "APS-C Sony/Nikon/Fuji (23.5×15.6mm)",
+    },
+    "APSC_CANON": {
+        "focal_factor": 1.6,
+        "sensor_width": 22.3,
+        "pixel_pitch": 3.2,  # Typical for 32MP Canon APS-C (e.g., R7)
+        "description": "APS-C Canon (22.3×14.9mm)",
+    },
+    "APS_C_CANON": {  # Alias for APSC_CANON
+        "focal_factor": 1.6,
+        "sensor_width": 22.3,
+        "pixel_pitch": 3.2,
+        "description": "APS-C Canon (22.3×14.9mm)",
+    },
+    "APSH": {
+        "focal_factor": 1.3,
+        "sensor_width": 27.9,
+        "pixel_pitch": 5.7,  # Typical for 16MP APS-H (e.g., Canon 1D Mark IV)
+        "description": "APS-H Canon (27.9×18.6mm)",
+    },
+    "APS_H": {  # Alias for APSH
+        "focal_factor": 1.3,
+        "sensor_width": 27.9,
+        "pixel_pitch": 5.7,
+        "description": "APS-H Canon (27.9×18.6mm)",
+    },
+    "FF": {
+        "focal_factor": 1.0,
+        "sensor_width": 36.0,
+        "pixel_pitch": 4.3,  # Typical for 45-50MP FF (e.g., Sony a7RV, Canon R5)
+        "description": "Full Frame 35mm (36×24mm)",
+    },
+    "FULLFRAME": {  # Alias for FF
+        "focal_factor": 1.0,
+        "sensor_width": 36.0,
+        "pixel_pitch": 4.3,
+        "description": "Full Frame 35mm (36×24mm)",
+    },
+    "1INCH": {
+        "focal_factor": 2.7,
+        "sensor_width": 13.2,
+        "pixel_pitch": 2.4,  # Typical for 20MP 1-inch (e.g., Sony RX100)
+        "description": "1-inch sensor (13.2×8.8mm)",
+    },
+    "1_INCH": {  # Alias for 1INCH
+        "focal_factor": 2.7,
+        "sensor_width": 13.2,
+        "pixel_pitch": 2.4,
+        "description": "1-inch sensor (13.2×8.8mm)",
+    },
 }
+
+# Legacy compatibility: CROP_FACTORS dictionary for parse_focal_factor()
+CROP_FACTORS = {key: preset["focal_factor"] for key, preset in SENSOR_PRESETS.items()}
+
+# Legacy compatibility: DEFAULT_SENSOR_WIDTHS dictionary
+DEFAULT_SENSOR_WIDTHS = {key: preset["sensor_width"] for key, preset in SENSOR_PRESETS.items()}
 
 
 def parse_focal_factor(focal_factor_str: str) -> Optional[float]:
@@ -118,6 +174,147 @@ def parse_focal_factor(focal_factor_str: str) -> Optional[float]:
     # Normalize hyphens/spaces to underscores, convert to uppercase
     key = focal_factor_str.upper().replace("-", "_").replace(" ", "_")
     return CROP_FACTORS.get(key)
+
+
+def get_sensor_preset(sensor_type: str) -> Optional[Dict[str, any]]:
+    """
+    Get sensor preset configuration by sensor type name.
+
+    Args:
+        sensor_type: Sensor type string (e.g., "MFT", "APS-C", "FF")
+
+    Returns:
+        Sensor preset dictionary or None if not found
+
+    Examples:
+        >>> get_sensor_preset("MFT")
+        {'focal_factor': 2.0, 'sensor_width': 17.3, 'pixel_pitch': 3.7, ...}
+        >>> get_sensor_preset("APS-C")
+        {'focal_factor': 1.5, 'sensor_width': 23.5, 'pixel_pitch': 3.9, ...}
+    """
+    if not sensor_type:
+        return None
+
+    # Normalize hyphens/spaces to underscores, convert to uppercase
+    key = sensor_type.upper().replace("-", "_").replace(" ", "_")
+    return SENSOR_PRESETS.get(key)
+
+
+def apply_sensor_preset(
+    args,
+    verbose: bool = False
+) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
+    """
+    Apply sensor preset values, with individual arguments taking priority.
+
+    Priority order (highest to lowest):
+    1. Individual CLI arguments (--focal-factor, --sensor-width, --focal-length, --pixel-pitch)
+    2. --sensor-type preset values
+    3. None (not specified)
+
+    Args:
+        args: Parsed argparse namespace with:
+            - sensor_type: str or None
+            - focal_factor: str or None
+            - sensor_width: float or None
+            - focal_length: float or None
+            - pixel_pitch: float or None
+        verbose: If True, print which values are being used
+
+    Returns:
+        Tuple of (focal_factor, sensor_width, focal_length, pixel_pitch)
+        Each value is either from CLI argument, preset, or None.
+
+    Examples:
+        # --sensor-type MFT (no overrides)
+        >>> apply_sensor_preset(args)  # args.sensor_type="MFT"
+        (2.0, 17.3, None, 3.7)
+
+        # --sensor-type MFT --sensor-width 18.0 (override sensor_width)
+        >>> apply_sensor_preset(args)  # args.sensor_type="MFT", args.sensor_width=18.0
+        (2.0, 18.0, None, 3.7)
+    """
+    # Initialize with CLI argument values (may be None)
+    focal_factor_value = None
+    sensor_width_value = args.sensor_width
+    focal_length_value = args.focal_length
+    pixel_pitch_value = args.pixel_pitch
+
+    # Parse focal_factor from CLI argument
+    if args.focal_factor:
+        focal_factor_value = parse_focal_factor(args.focal_factor)
+
+    # Get preset if --sensor-type is specified
+    preset = None
+    if hasattr(args, 'sensor_type') and args.sensor_type:
+        preset = get_sensor_preset(args.sensor_type)
+        if preset is None:
+            # Invalid sensor type - will be handled by caller
+            return (focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value)
+
+    # Apply preset values where CLI arguments are not specified
+    if preset:
+        preset_applied = []
+
+        # focal_factor: CLI --focal-factor takes priority
+        if focal_factor_value is None:
+            focal_factor_value = preset.get("focal_factor")
+            if focal_factor_value is not None:
+                preset_applied.append(f"focal_factor={focal_factor_value}")
+
+        # sensor_width: CLI --sensor-width takes priority
+        if sensor_width_value is None:
+            sensor_width_value = preset.get("sensor_width")
+            if sensor_width_value is not None:
+                preset_applied.append(f"sensor_width={sensor_width_value}mm")
+
+        # pixel_pitch: CLI --pixel-pitch takes priority
+        if pixel_pitch_value is None:
+            pixel_pitch_value = preset.get("pixel_pitch")
+            if pixel_pitch_value is not None:
+                preset_applied.append(f"pixel_pitch={pixel_pitch_value}μm")
+
+        # focal_length is not in preset (it depends on actual lens used)
+
+        if verbose and preset_applied:
+            print(f"  Sensor preset [{args.sensor_type}]: {', '.join(preset_applied)}")
+
+    return (focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value)
+
+
+def list_sensor_types() -> None:
+    """
+    Display available sensor type presets and their configurations.
+    """
+    print(f"\n{'='*70}")
+    print("Available Sensor Types (--sensor-type)")
+    print(f"{'='*70}\n")
+
+    # Group by primary types (exclude aliases)
+    primary_types = ["MFT", "APSC", "APSC_CANON", "APSH", "FF", "1INCH"]
+
+    for sensor_type in primary_types:
+        preset = SENSOR_PRESETS.get(sensor_type)
+        if preset:
+            print(f"  {sensor_type:12}  {preset['description']}")
+            print(f"                  focal_factor={preset['focal_factor']}, "
+                  f"sensor_width={preset['sensor_width']}mm, "
+                  f"pixel_pitch={preset['pixel_pitch']}μm")
+            print()
+
+    print(f"{'='*70}")
+    print("Aliases:")
+    print("  APS-C, APS_C        → APSC")
+    print("  APS-C_CANON         → APSC_CANON")
+    print("  APS-H, APS_H        → APSH")
+    print("  FULLFRAME           → FF")
+    print("  1-INCH, 1_INCH      → 1INCH")
+    print(f"{'='*70}")
+    print("\nUsage Examples:")
+    print("  --sensor-type MFT")
+    print("  --sensor-type APS-C")
+    print("  --sensor-type FF --pixel-pitch 5.9   # Override pixel pitch")
+    print(f"{'='*70}\n")
 
 
 def extract_exif_metadata(filepath: str) -> Dict[str, any]:
@@ -2455,17 +2652,28 @@ def build_arg_parser():
         "--remove-progress", action="store_true", help="Delete progress and exit"
     )
 
-    # Auto-params (v1.4.0: NPF Rule support)
+    # Auto-params (v1.4.0: NPF Rule support, v1.5.0: --sensor-type shortcut)
     parser.add_argument(
         "--auto-params",
         action="store_true",
         help="Auto-estimate diff_threshold, min_area, and min_line_score based on EXIF (v1.4.0 with NPF Rule)",
     )
     parser.add_argument(
+        "--sensor-type",
+        type=str,
+        default=None,
+        metavar="TYPE",
+        help="Sensor type preset for NPF Rule parameters. "
+        "Sets focal_factor, sensor_width, and pixel_pitch automatically. "
+        "Valid types: MFT, APS-C, APS-C_CANON, APS-H, FF (FULLFRAME), 1INCH. "
+        "Individual options (--focal-factor, --sensor-width, --pixel-pitch) override preset values.",
+    )
+    parser.add_argument(
         "--focal-length",
         type=float,
         default=None,
-        help="Focal length in mm (35mm equivalent; used for NPF Rule and parameter estimation)",
+        help="Focal length in mm (35mm equivalent; used for NPF Rule and parameter estimation). "
+        "Overrides --sensor-type preset if specified.",
     )
     parser.add_argument(
         "--focal-factor",
@@ -2473,21 +2681,29 @@ def build_arg_parser():
         default=None,
         help="Crop factor for 35mm equivalent calculation. "
         "Use sensor type (MFT, APS-C, APS-H, etc.) or numeric value (e.g., 2.0, 1.5). "
-        "Common values: MFT=2.0, APS-C=1.5, APS-C_CANON=1.6, APS-H=1.3, FF=1.0",
+        "Common values: MFT=2.0, APS-C=1.5, APS-C_CANON=1.6, APS-H=1.3, FF=1.0. "
+        "Overrides --sensor-type preset if specified.",
     )
     parser.add_argument(
         "--sensor-width",
         type=float,
         default=None,
         help="Sensor width in mm (for NPF Rule calculation). "
-        "Common values: MFT=17.3, APS-C=23.5, APS-C(Canon)=22.3, FF=36.0",
+        "Common values: MFT=17.3, APS-C=23.5, APS-C(Canon)=22.3, FF=36.0. "
+        "Overrides --sensor-type preset if specified.",
     )
     parser.add_argument(
         "--pixel-pitch",
         type=float,
         default=None,
         help="Pixel pitch in micrometers (μm) for NPF Rule. "
-        "If not specified, calculated from sensor width and image resolution, or uses default.",
+        "If not specified, calculated from sensor width and image resolution, or uses default. "
+        "Overrides --sensor-type preset if specified.",
+    )
+    parser.add_argument(
+        "--list-sensor-types",
+        action="store_true",
+        help="Display available sensor type presets and exit",
     )
     parser.add_argument(
         "--show-exif",
@@ -2520,6 +2736,11 @@ def main():
             print(f"Progress file not found: {args.progress_file}")
         return
 
+    # --list-sensor-types: Display available sensor types and exit
+    if args.list_sensor_types:
+        list_sensor_types()
+        return
+
     # --show-exif or --show-npf: Display EXIF info and NPF analysis then exit
     if args.show_exif or args.show_npf:
         print(f"\n{'='*60}")
@@ -2530,14 +2751,21 @@ def main():
         print(f"{'='*60}\n")
         print(f"Target folder: {args.target}")
 
-        # Parse focal_factor
-        focal_factor_value = None
-        if args.focal_factor:
-            focal_factor_value = parse_focal_factor(args.focal_factor)
-            if focal_factor_value is None:
-                print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
-                print(f"  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
-                return
+        # Validate --sensor-type if specified
+        if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
+            print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
+            print(f"  Valid types: MFT, APS-C, APS-C_CANON, APS-H, FF, FULLFRAME, 1INCH")
+            return
+
+        # Apply sensor preset (with individual args taking priority)
+        focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value = \
+            apply_sensor_preset(args, verbose=True)
+
+        # Validate focal_factor if specified directly
+        if args.focal_factor and focal_factor_value is None:
+            print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
+            print(f"  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
+            return
 
         try:
             files = collect_files(args.target)
@@ -2552,13 +2780,16 @@ def main():
 
             # Focal length priority processing
             focal_length_source = "Unknown"
-            if args.focal_length:
+            if focal_length_value:
                 focal_length_source = "CLI (--focal-length)"
-                exif_data["focal_length_35mm"] = args.focal_length
+                exif_data["focal_length_35mm"] = focal_length_value
             elif exif_data.get("focal_length_35mm"):
                 focal_length_source = "EXIF"
             elif exif_data.get("focal_length") and focal_factor_value:
-                focal_length_source = f"Calculated (--focal-factor {args.focal_factor})"
+                if args.focal_factor:
+                    focal_length_source = f"Calculated (--focal-factor {args.focal_factor})"
+                else:
+                    focal_length_source = f"Calculated (--sensor-type {args.sensor_type})"
                 exif_data["focal_length_35mm"] = (
                     exif_data["focal_length"] * focal_factor_value
                 )
@@ -2572,8 +2803,8 @@ def main():
             ):
                 npf_metrics = calculate_npf_metrics(
                     exif_data,
-                    sensor_width_mm=args.sensor_width,
-                    pixel_pitch_um=args.pixel_pitch,
+                    sensor_width_mm=sensor_width_value,
+                    pixel_pitch_um=pixel_pitch_value,
                 )
 
             display_exif_info(
@@ -2585,16 +2816,16 @@ def main():
             if (
                 not exif_data.get("focal_length")
                 and not exif_data.get("focal_length_35mm")
-                and not args.focal_length
+                and not focal_length_value
             ):
                 warnings.append("Focal length not available")
             elif (
                 not exif_data.get("focal_length_35mm")
                 and not focal_factor_value
-                and not args.focal_length
+                and not focal_length_value
             ):
                 warnings.append(
-                    f"35mm equivalent not found. Consider using --focal-factor (e.g., --focal-factor MFT)"
+                    f"35mm equivalent not found. Consider using --sensor-type or --focal-factor"
                 )
             if not exif_data.get("iso"):
                 warnings.append("ISO value not available")
@@ -2603,9 +2834,9 @@ def main():
 
             # NPF-related warnings
             if args.show_npf or npf_metrics:
-                if not args.sensor_width and not exif_data.get("image_width"):
+                if not sensor_width_value and not exif_data.get("image_width"):
                     warnings.append(
-                        "Sensor width not specified. Use --sensor-width for accurate NPF calculation"
+                        "Sensor width not specified. Use --sensor-type or --sensor-width for accurate NPF calculation"
                     )
                 if npf_metrics and not npf_metrics.get("has_complete_data"):
                     warnings.append("NPF calculation using default/estimated values")
@@ -2622,18 +2853,21 @@ def main():
                 print(f"{'='*60}")
                 print("Usage Examples:")
                 print(f"{'='*60}")
-                print("\nFor more accurate NPF calculation, specify sensor width:")
-                print(f"  --sensor-width 17.3   # Micro Four Thirds")
-                print(f"  --sensor-width 23.5   # APS-C (Sony/Nikon/Fuji)")
-                print(f"  --sensor-width 22.3   # APS-C (Canon)")
-                print(f"  --sensor-width 36.0   # Full Frame")
-                print("\nOr specify pixel pitch directly:")
-                print(f"  --pixel-pitch 3.7     # in micrometers")
+                print("\nUse --sensor-type for easy setup (recommended):")
+                print(f"  --sensor-type MFT           # Micro Four Thirds")
+                print(f"  --sensor-type APS-C         # APS-C (Sony/Nikon/Fuji)")
+                print(f"  --sensor-type APS-C_CANON   # APS-C (Canon)")
+                print(f"  --sensor-type FF            # Full Frame")
+                print("\nOr specify individual parameters (overrides --sensor-type):")
+                print(f"  --sensor-width 17.3   # Sensor width in mm")
+                print(f"  --pixel-pitch 3.7     # Pixel pitch in micrometers")
+                print(f"  --focal-factor 2.0    # Crop factor")
                 print(f"\n{'='*60}\n")
-                print("⚠ Warnings:")
-                for warning in warnings:
-                    print(f"  • {warning}")
-                print(f"{'='*60}\n")
+                if warnings:
+                    print("⚠ Warnings:")
+                    for warning in warnings:
+                        print(f"  • {warning}")
+                    print(f"{'='*60}\n")
 
         except FileNotFoundError as e:
             print(f"⚠ Error: {e}")
@@ -2656,14 +2890,21 @@ def main():
     user_specified_min_area = "--min-area" in sys.argv
     user_specified_min_line_score = "--min-line-score" in sys.argv
 
-    # Parse focal_factor
-    focal_factor_value = None
-    if args.focal_factor:
-        focal_factor_value = parse_focal_factor(args.focal_factor)
-        if focal_factor_value is None:
-            print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
-            print(f"  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
-            return
+    # Validate --sensor-type if specified
+    if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
+        print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
+        print(f"  Valid types: MFT, APS-C, APS-C_CANON, APS-H, FF, FULLFRAME, 1INCH")
+        return
+
+    # Apply sensor preset (with individual args taking priority)
+    focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value = \
+        apply_sensor_preset(args, verbose=False)
+
+    # Validate focal_factor if specified directly
+    if args.focal_factor and focal_factor_value is None:
+        print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
+        print(f"  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
+        return
 
     detect_meteors_advanced(
         target_folder=args.target,
@@ -2690,10 +2931,10 @@ def main():
         user_specified_diff_threshold=user_specified_diff_threshold,
         user_specified_min_area=user_specified_min_area,
         user_specified_min_line_score=user_specified_min_line_score,
-        focal_length_mm=args.focal_length,
+        focal_length_mm=focal_length_value,
         focal_factor=focal_factor_value,
-        sensor_width_mm=args.sensor_width,
-        pixel_pitch_um=args.pixel_pitch,
+        sensor_width_mm=sensor_width_value,
+        pixel_pitch_um=pixel_pitch_value,
         output_overwrite=args.output_overwrite,
     )
 
