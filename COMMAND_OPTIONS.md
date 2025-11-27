@@ -32,11 +32,13 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
   - Optimizes `min_line_score` based on meteor speed (3× faster than stars)
   - Manual parameter specifications always take priority over auto-optimization
 
-## NPF Rule Options (NEW in v1.4)
-- **`--sensor-width`**: Physical sensor width in millimeters (e.g., `17.3` for MFT, `23.5` for APS-C, `36.0` for Full Frame). Used to calculate pixel pitch for NPF Rule. Significantly improves optimization accuracy.
-- **`--pixel-pitch`**: Direct pixel pitch specification in micrometers (μm). If not specified, calculated from `--sensor-width` and image resolution, or uses default value (4.0μm).
+## NPF Rule Options (Updated in v1.5)
+- **`--sensor-type`** *(NEW in v1.5)*: Sensor type preset that automatically sets `--focal-factor`, `--sensor-width`, and `--pixel-pitch`. Valid types: `MFT`, `APS-C`, `APS-C_CANON`, `APS-H`, `FF` (or `FULLFRAME`), `1INCH`. Individual options below override preset values when specified.
+- **`--sensor-width`**: Physical sensor width in millimeters (e.g., `17.3` for MFT, `23.5` for APS-C, `36.0` for Full Frame). Used to calculate pixel pitch for NPF Rule. Overrides `--sensor-type` preset if specified.
+- **`--pixel-pitch`**: Direct pixel pitch specification in micrometers (μm). If not specified, calculated from `--sensor-width` and image resolution, or uses default value (4.0μm). Overrides `--sensor-type` preset if specified.
 - **`--focal-length`**: Focal length in 35mm equivalent (mm). If not specified, automatically extracted from EXIF metadata. Can be manually specified to override EXIF value.
-- **`--focal-factor`**: Sensor type or crop factor (e.g., `MFT`, `APS-C`, `FF`, or numeric like `2.0`). Used to convert actual focal length to 35mm equivalent.
+- **`--focal-factor`**: Sensor type or crop factor (e.g., `MFT`, `APS-C`, `FF`, or numeric like `2.0`). Used to convert actual focal length to 35mm equivalent. Overrides `--sensor-type` preset if specified.
+- **`--list-sensor-types`** *(NEW in v1.5)*: Display available sensor type presets with their configurations and exit.
 - **`--show-npf`**: Display detailed NPF Rule analysis and exit without processing. Shows pixel pitch, NPF recommended exposure, compliance level, star trail estimate, and impact assessment.
 - **`--show-exif`**: Display EXIF metadata only and exit without processing. **Use this first** to verify focal length extraction before running `--auto-params`.
 
