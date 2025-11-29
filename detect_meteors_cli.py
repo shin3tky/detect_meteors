@@ -135,7 +135,9 @@ SENSOR_PRESETS = {
 CROP_FACTORS = {key: preset["focal_factor"] for key, preset in SENSOR_PRESETS.items()}
 
 # Legacy compatibility: DEFAULT_SENSOR_WIDTHS dictionary
-DEFAULT_SENSOR_WIDTHS = {key: preset["sensor_width"] for key, preset in SENSOR_PRESETS.items()}
+DEFAULT_SENSOR_WIDTHS = {
+    key: preset["sensor_width"] for key, preset in SENSOR_PRESETS.items()
+}
 
 
 def parse_focal_factor(focal_factor_str: str) -> Optional[float]:
@@ -201,8 +203,7 @@ def get_sensor_preset(sensor_type: str) -> Optional[Dict[str, any]]:
 
 
 def apply_sensor_preset(
-    args,
-    verbose: bool = False
+    args, verbose: bool = False
 ) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
     """
     Apply sensor preset values, with individual arguments taking priority.
@@ -246,11 +247,16 @@ def apply_sensor_preset(
 
     # Get preset if --sensor-type is specified
     preset = None
-    if hasattr(args, 'sensor_type') and args.sensor_type:
+    if hasattr(args, "sensor_type") and args.sensor_type:
         preset = get_sensor_preset(args.sensor_type)
         if preset is None:
             # Invalid sensor type - will be handled by caller
-            return (focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value)
+            return (
+                focal_factor_value,
+                sensor_width_value,
+                focal_length_value,
+                pixel_pitch_value,
+            )
 
     # Apply preset values where CLI arguments are not specified
     if preset:
@@ -279,7 +285,12 @@ def apply_sensor_preset(
         if verbose and preset_applied:
             print(f"  Sensor preset [{args.sensor_type}]: {', '.join(preset_applied)}")
 
-    return (focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value)
+    return (
+        focal_factor_value,
+        sensor_width_value,
+        focal_length_value,
+        pixel_pitch_value,
+    )
 
 
 def list_sensor_types() -> None:
@@ -297,9 +308,11 @@ def list_sensor_types() -> None:
         preset = SENSOR_PRESETS.get(sensor_type)
         if preset:
             print(f"  {sensor_type:12}  {preset['description']}")
-            print(f"                  focal_factor={preset['focal_factor']}, "
-                  f"sensor_width={preset['sensor_width']}mm, "
-                  f"pixel_pitch={preset['pixel_pitch']}μm")
+            print(
+                f"                  focal_factor={preset['focal_factor']}, "
+                f"sensor_width={preset['sensor_width']}mm, "
+                f"pixel_pitch={preset['pixel_pitch']}μm"
+            )
             print()
 
     print(f"{'='*70}")
@@ -2754,12 +2767,18 @@ def main():
         # Validate --sensor-type if specified
         if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
             print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
-            print(f"  Valid types: MFT, APS-C, APS-C_CANON, APS-H, FF, FULLFRAME, 1INCH")
+            print(
+                f"  Valid types: MFT, APS-C, APS-C_CANON, APS-H, FF, FULLFRAME, 1INCH"
+            )
             return
 
         # Apply sensor preset (with individual args taking priority)
-        focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value = \
-            apply_sensor_preset(args, verbose=True)
+        (
+            focal_factor_value,
+            sensor_width_value,
+            focal_length_value,
+            pixel_pitch_value,
+        ) = apply_sensor_preset(args, verbose=True)
 
         # Validate focal_factor if specified directly
         if args.focal_factor and focal_factor_value is None:
@@ -2787,9 +2806,13 @@ def main():
                 focal_length_source = "EXIF"
             elif exif_data.get("focal_length") and focal_factor_value:
                 if args.focal_factor:
-                    focal_length_source = f"Calculated (--focal-factor {args.focal_factor})"
+                    focal_length_source = (
+                        f"Calculated (--focal-factor {args.focal_factor})"
+                    )
                 else:
-                    focal_length_source = f"Calculated (--sensor-type {args.sensor_type})"
+                    focal_length_source = (
+                        f"Calculated (--sensor-type {args.sensor_type})"
+                    )
                 exif_data["focal_length_35mm"] = (
                     exif_data["focal_length"] * focal_factor_value
                 )
@@ -2897,8 +2920,9 @@ def main():
         return
 
     # Apply sensor preset (with individual args taking priority)
-    focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value = \
+    focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value = (
         apply_sensor_preset(args, verbose=False)
+    )
 
     # Validate focal_factor if specified directly
     if args.focal_factor and focal_factor_value is None:
