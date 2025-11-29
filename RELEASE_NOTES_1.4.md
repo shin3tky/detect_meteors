@@ -42,7 +42,7 @@ Version 1.4.1 brings **scientific parameter optimization** using the NPF Rule an
 ## Real-world Validation
 
 ### Test Environment
-- **Camera**: Olympus OM-1 (Micro Four Thirds)
+- **Camera**: OM Digital OM-1 (Micro Four Thirds)
 - **Lens**: 12-40mm F2.8 (24-80mm equiv. in 35mm)
 - **Actual focal length**: 24mm (35mm equivalent, from EXIF)
 - **ISO**: 1600
@@ -102,7 +102,7 @@ Impact:           LOW
 ```
 Camera Settings (EXIF Metadata)
 ============================================================
-  Camera:           Olympus OM-1
+  Camera:           OM Digital OM-1
   Focal length:     24.0mm (35mm equiv.)
   ISO:              1600
   Exposure:         5.0s
@@ -133,7 +133,7 @@ def calculate_npf_rule(focal_length_mm, aperture, pixel_pitch_um):
     npf_time = numerator / focal_length_mm
     return npf_time
 
-# Example (Olympus OM-1, 24mm f/2.8):
+# Example (OM Digital OM-1, 24mm f/2.8):
 # pixel_pitch = 17.3mm / 5240px = 3.30μm
 # npf_time = (35 × 2.8 + 30 × 3.30) / 24
 # npf_time = (98 + 99) / 24 = 8.2 seconds
@@ -197,7 +197,7 @@ def estimate_star_trail_length(focal_length_mm, exposure_time_sec,
     return trail_length_px
 ```
 
-**Example Calculation** (Olympus OM-1, 24mm, 5s exposure):
+**Example Calculation** (OM Digital OM-1, 24mm, 5s exposure):
 ```
 Angular movement:  0.00417°/sec × 5sec = 0.0208°
 Field of view:     2 × arctan(36/(2×24)) = 73.7°
@@ -638,7 +638,7 @@ python detect_meteors_cli.py --auto-params --sensor-width [your_sensor_mm]
    ```python
    # Automatic sensor detection
    CAMERA_DATABASE = {
-       'Olympus OM-1': {
+       'OM Digital OM-1': {
            'sensor_width_mm': 17.3,
            'pixel_pitch_um': 3.34,
            'read_noise_e': 3.5,
@@ -669,7 +669,7 @@ python detect_meteors_cli.py --auto-params --sensor-width [your_sensor_mm]
 ## Acknowledgments
 
 Version 1.4.1's NPF Rule implementation and EXIF integration were made possible by:
-- Real-world testing with Olympus OM-1
+- Real-world testing with OM Digital OM-1
 - NPF Rule scientific foundation
 - User feedback on parameter optimization
 - Extensive validation with actual meteor images

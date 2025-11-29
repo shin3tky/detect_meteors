@@ -2,7 +2,7 @@
 
 ## 🎉 Comprehensive Auto-Parameter Estimation - Complete Automation Success
 
-Version 1.3.1 brings **complete Auto-Parameter Estimation** for all three critical detection parameters, enabling fully automatic meteor detection without manual tuning. Based on extensive real-world testing with Olympus OM-1 RAW images, this release successfully detects meteors with zero configuration.
+Version 1.3.1 brings **complete Auto-Parameter Estimation** for all three critical detection parameters, enabling fully automatic meteor detection without manual tuning. Based on extensive real-world testing with OM Digital OM-1 RAW images, this release successfully detects meteors with zero configuration.
 
 ## Evolution from v1.2.1
 
@@ -19,7 +19,7 @@ Version 1.3.1 brings **complete Auto-Parameter Estimation** for all three critic
 ## Real-world validation
 
 ### Test Environment
-- **Camera**: Olympus OM-1
+- **Camera**: OM Digital OM-1
 - **Lens**: 24mm f/2.8 (12mm in Micro Four Thirds)
 - **ISO**: 1600
 - **Exposure**: 5 seconds
@@ -369,7 +369,7 @@ python detect_meteors_cli.py --auto-params --focal-length [your_lens_mm]
 ## Acknowledgments
 
 Version 1.3.1's improvements were made possible by:
-- Real-world testing with Olympus OM-1
+- Real-world testing with OM Digital OM-1
 - User feedback on v1.3.0 bugs
 - Extensive validation with actual meteor images
 

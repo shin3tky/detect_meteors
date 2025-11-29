@@ -12,8 +12,8 @@ I developed this tool hoping it would be useful for fellow astrophotography enth
 
 ## Overview
 - **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata (ISO, exposure, focal length) and scientifically tunes all detection parameters
-- **Scientifically validated**: 100% detection rate on real-world test dataset (Olympus OM-1, 1000+ RAW images)
-- **RAW format support**: Works with any format supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested: Olympus ORF)
+- **Scientifically validated**: 100% detection rate on real-world test dataset (OM Digital OM-1, 1000+ RAW images)
+- **RAW format support**: Works with any format supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested: Olympus/OM Digital ORF)
 - **Intelligent processing**: ROI cropping, Hough transform line detection, and resumable batch processing
 - See [CHANGELOG](CHANGELOG.md) for release history
 
@@ -56,7 +56,7 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 - **NPF Rule integration**: Physics-based exposure validation using the NPF Rule with EXIF metadata extraction
 - **Complete scientific automation**: All three detection parameters optimized based on ISO, exposure time, aperture, focal length, and star trail physics
 - **Shooting quality assessment**: Comprehensive 0.0-1.0 scoring system evaluates NPF compliance, ISO sensitivity, and focal length
-- **Real-world validated**: 100% detection rate (9/9 candidates including 2 confirmed meteors) on Olympus OM-1 dataset
+- **Real-world validated**: 100% detection rate (9/9 candidates including 2 confirmed meteors) on OM Digital OM-1 dataset
 
 👉 See [RELEASE_NOTES_1.4.md](RELEASE_NOTES_1.4.md) for complete details, algorithms, and usage examples.
 
@@ -79,7 +79,7 @@ This displays EXIF metadata from your first RAW file:
 ```
 Camera Settings (EXIF Metadata)
 ============================================================
-  Camera:           Olympus OM-1
+  Camera:           OM Digital OM-1
   Focal length:     24.0mm (35mm equiv.)  ← Check this!
   ISO:              1600
   Exposure:         5.0s
@@ -144,7 +144,7 @@ Auto-params: NPF Rule-based Optimization
 
 Camera Settings (EXIF Metadata)
 ============================================================
-  Camera:           Olympus OM-1
+  Camera:           OM Digital OM-1
   Focal length:     24.0mm (35mm equiv.)
   ISO:              1600
   Exposure:         5.0s

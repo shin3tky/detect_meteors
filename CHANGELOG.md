@@ -30,7 +30,7 @@
   - `--pixel-pitch`: Direct pixel pitch specification in μm (highest accuracy)
   - `--show-npf`: Display NPF Rule analysis and exit
   - `--show-exif`: Display EXIF metadata only and exit
-- **Real-world Validation**: Tested with Olympus OM-1 (MFT, 24mm, ISO 1600, 5s) achieving 100% detection (9 candidates including 2 confirmed meteors) with quality score 1.00 (EXCELLENT).
+- **Real-world Validation**: Tested with OM Digital OM-1 (MFT, 24mm, ISO 1600, 5s) achieving 100% detection (9 candidates including 2 confirmed meteors) with quality score 1.00 (EXCELLENT).
 - **Backward Compatibility**: Fully compatible with v1.3.1, falls back to image-based estimation if EXIF unavailable.
 
 ## v1.3.1 - 2025-11-23
@@ -43,7 +43,7 @@
   - Fixed inverted focal length adjustment logic (was multiplying instead of dividing)
   - Reduced base coefficient from 4% to 2.5% based on real-world meteor data
   - Improved star detection threshold from 95th to 98th percentile with size filtering (2-100 pixels²)
-- **Real-world validation**: Tested with Olympus OM-1 (24mm, ISO 1600, 5s exposure) achieving 100% detection rate (2/2 meteors) with automatic parameters.
+- **Real-world validation**: Tested with OM Digital OM-1 (24mm, ISO 1600, 5s exposure) achieving 100% detection rate (2/2 meteors) with automatic parameters.
 
 ## v1.2.1 - 2025-11-22
 - **Improved Auto-Parameter Estimation**: Revised `diff_threshold` auto-estimation algorithm from 3-sigma rule to percentile-based approach for better handling of peaked night sky brightness distributions.
