@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.5.0 - 2025-11-29 🍖
+- **Sensor Type Presets**: Introduced unified `SENSOR_PRESETS` configuration that consolidates `DEFAULT_SENSOR_WIDTHS` and `CROP_FACTORS` into a single, comprehensive sensor database with typical pixel pitch values.
+- **New `--sensor-type` Option**: Simplified NPF Rule configuration with a single parameter. Automatically sets `--focal-factor`, `--sensor-width`, and `--pixel-pitch` based on sensor type (MFT, APS-C, APS-C_CANON, APS-H, FF, 1INCH).
+- **New `--list-sensor-types` Option**: Display all available sensor type presets with their configurations (focal factor, sensor width, pixel pitch) and exit.
+- **Parameter Override Priority**: Individual CLI arguments (`--focal-factor`, `--sensor-width`, `--focal-length`, `--pixel-pitch`) take priority over `--sensor-type` preset values, allowing fine-tuned customization.
+- **Helper Functions**: Added `get_sensor_preset()` and `apply_sensor_preset()` for programmatic access to sensor configurations.
+- **Updated Shell Completions**: Both bash and zsh completion scripts updated with `--sensor-type` and `--list-sensor-types` support.
+- **Backward Compatibility**: Fully compatible with v1.4.x. All existing command-line options work unchanged; `CROP_FACTORS` and `DEFAULT_SENSOR_WIDTHS` dictionaries preserved for legacy code.
+
 ## v1.4.2 - 2025-11-25
 - **Output File Protection**: Changed behavior to skip overwriting existing files at the output destination instead of overwriting them.
 - **New Command-Line Option**: Added `--output-overwrite` flag to allow overwriting existing output files when explicitly requested.

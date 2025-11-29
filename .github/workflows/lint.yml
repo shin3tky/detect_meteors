@@ -4,14 +4,11 @@ name: Lint
 on: [push, pull_request]
 
 jobs:
-  black:
+  pre-commit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
-      - name: Install black
-        run: pip install black
-      - name: Run black
-        run: black --check .
+      - uses: pre-commit/action@v3.0.1
