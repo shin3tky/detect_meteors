@@ -1,5 +1,7 @@
 # Detect Meteors CLI
 
+[![Python application test](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml/badge.svg)](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml)
+
 Automatically detect meteors in RAW astrophotography images using frame-to-frame difference analysis.
 
 **Note:** Detection compares consecutive RAW images. The first image is skipped—please check it manually.
