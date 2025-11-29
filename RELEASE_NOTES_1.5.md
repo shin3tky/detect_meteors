@@ -1,6 +1,6 @@
 # Version 1.5 Release Notes
 
-## Version 1.5.0 (2025-11-27)
+## Version 1.5.0 (2025-11-29 🍖)
 
 ### 🎯 Sensor Type Presets - Simplified NPF Configuration
 

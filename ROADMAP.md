@@ -34,8 +34,17 @@
   - [x] `--output-overwrite` flag for explicit overwrite permission
   - [x] Warning and exit when target and output directories are identical
 
+### Sensor Type Presets
+- [x] **v1.5.0** - Simplified NPF configuration with sensor presets
+  - [x] Unified `SENSOR_PRESETS` configuration (MFT, APS-C, APS-C_CANON, APS-H, FF, 1INCH)
+  - [x] New `--sensor-type` option for one-stop sensor configuration
+  - [x] New `--list-sensor-types` option to display available presets
+  - [x] Parameter override priority (individual args > preset > default)
+  - [x] Updated shell completion scripts (bash/zsh)
+  - [x] Backward compatibility with v1.4.x options
+
 ### Remaining Goals for v1.x (-2025 4Q)
-- [ ] Camera model database for automatic sensor detection
+- [ ] Camera model database for automatic sensor detection from EXIF
 - [ ] Per-image adaptive parameter adjustment
 - [ ] Declination support with GPS coordinate extraction
 - [ ] Advanced quality metrics (focus quality, atmospheric transparency)
@@ -59,5 +68,5 @@
 
 ---
 
-**Current Status**: v1.4.2 (Safety Enhancement - Output File Protection)  
-**Next Focus**: Camera database and adaptive parameter adjustment
+**Current Status**: v1.5.0 (Sensor Type Presets)  
+**Next Focus**: Camera model database for automatic sensor detection from EXIF
