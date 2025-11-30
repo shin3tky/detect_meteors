@@ -43,6 +43,13 @@
   - [x] Updated shell completion scripts (bash/zsh)
   - [x] Backward compatibility with v1.4.x options
 
+### Medium Format Support
+- [x] **v1.5.1** - Medium format sensor support
+  - [x] MF44X33 preset (Fujifilm GFX, Pentax 645Z, Hasselblad X2D)
+  - [x] MF54X40 preset (Hasselblad H6D-100c)
+  - [x] Sensor size ordering (smallest to largest)
+  - [x] Updated shell completion scripts with medium format types
+
 ### Remaining Goals for v1.x (-2025 4Q)
 - [ ] Camera model database for automatic sensor detection from EXIF
 - [ ] Per-image adaptive parameter adjustment
@@ -68,5 +75,5 @@
 
 ---
 
-**Current Status**: v1.5.0 (Sensor Type Presets)  
+**Current Status**: v1.5.1 (Medium Format Sensor Support)  
 **Next Focus**: Camera model database for automatic sensor detection from EXIF
