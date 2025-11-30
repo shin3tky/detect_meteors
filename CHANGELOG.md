@@ -1,6 +1,13 @@
 # Changelog
 
-## v1.5.0 - 2025-11-29 🍖
+## v1.5.1 - 2025-11-30
+- **Medium Format Sensor Support**: Added support for medium format sensors larger than Full Frame (35mm).
+  - `MF44X33`: Fujifilm GFX series, Pentax 645Z, Hasselblad X2D/X1D (43.8×32.9mm, crop factor 0.79)
+  - `MF54X40`: Hasselblad H6D-100c (53.4×40mm, crop factor 0.64)
+- **Sensor Size Ordering**: Reordered `--sensor-type` options by sensor size (smallest to largest): 1INCH → MFT → APSC → APSC_CANON → APSH → FF → MF44X33 → MF54X40
+- **Updated Shell Completions**: Both bash and zsh completion scripts updated with medium format sensor types
+
+## v1.5.0 - 2025-11-29 🦃
 - **Sensor Type Presets**: Introduced unified `SENSOR_PRESETS` configuration that consolidates `DEFAULT_SENSOR_WIDTHS` and `CROP_FACTORS` into a single, comprehensive sensor database with typical pixel pitch values.
 - **New `--sensor-type` Option**: Simplified NPF Rule configuration with a single parameter. Automatically sets `--focal-factor`, `--sensor-width`, and `--pixel-pitch` based on sensor type (MFT, APS-C, APS-C_CANON, APS-H, FF, 1INCH).
 - **New `--list-sensor-types` Option**: Display all available sensor type presets with their configurations (focal factor, sensor width, pixel pitch) and exit.

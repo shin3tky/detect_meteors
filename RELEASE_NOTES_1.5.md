@@ -1,6 +1,52 @@
 # Version 1.5 Release Notes
 
-## Version 1.5.0 (2025-11-29 🍖)
+## Version 1.5.1 (2025-11-30)
+
+### 📷 Medium Format Sensor Support
+
+Version 1.5.1 adds support for medium format sensors, extending the tool's capabilities to professional medium format camera systems from Fujifilm, Pentax/Ricoh, and Hasselblad.
+
+### New Sensor Types
+
+| Sensor Type | Crop Factor | Sensor Width | Pixel Pitch | Supported Cameras |
+|-------------|-------------|--------------|-------------|-------------------|
+| `MF44X33` | 0.79 | 43.8mm | 3.76μm | Fujifilm GFX series, Pentax 645Z, Hasselblad X2D/X1D |
+| `MF54X40` | 0.64 | 53.4mm | 4.6μm | Hasselblad H6D-100c, H6D-400c MS |
+
+### Usage Examples
+
+```bash
+# Fujifilm GFX100 II
+python detect_meteors_cli.py --auto-params --sensor-type MF44X33
+
+# Pentax 645Z
+python detect_meteors_cli.py --auto-params --sensor-type MF44X33
+
+# Hasselblad X2D 100C
+python detect_meteors_cli.py --auto-params --sensor-type MF44X33
+
+# Hasselblad H6D-100c
+python detect_meteors_cli.py --auto-params --sensor-type MF54X40
+```
+
+### Sensor Size Ordering
+
+All sensor types are now ordered by sensor size (smallest to largest):
+
+```
+1INCH → MFT → APSC → APSC_CANON → APSH → FF → MF44X33 → MF54X40
+```
+
+This ordering is reflected in `--list-sensor-types` output and shell completions.
+
+### Aliases
+
+- `MF44-33`, `MF44_33` → `MF44X33`
+- `MF54-40`, `MF54_40` → `MF54X40`
+
+---
+
+## Version 1.5.0 (2025-11-29 🦃)
 
 ### 🎯 Sensor Type Presets - Simplified NPF Configuration
 
@@ -28,35 +74,49 @@ Version 1.5.0 introduces **sensor type presets** that dramatically simplify NPF 
 
 **Purpose**: Consolidate sensor-related parameters into easy-to-use presets
 
-**Available Presets**:
+**Available Presets** (ordered by sensor size):
 
 | Sensor Type | Crop Factor | Sensor Width | Pixel Pitch | Description |
 |-------------|-------------|--------------|-------------|-------------|
+| `1INCH` | 2.7 | 13.2mm | 2.4μm | 1-inch sensor |
 | `MFT` | 2.0 | 17.3mm | 3.7μm | Micro Four Thirds |
 | `APS-C` | 1.5 | 23.5mm | 3.9μm | APS-C (Sony/Nikon/Fuji) |
 | `APS-C_CANON` | 1.6 | 22.3mm | 3.2μm | APS-C (Canon) |
 | `APS-H` | 1.3 | 27.9mm | 5.7μm | APS-H (Canon) |
 | `FF` | 1.0 | 36.0mm | 4.3μm | Full Frame 35mm |
-| `1INCH` | 2.7 | 13.2mm | 2.4μm | 1-inch sensor |
+| `MF44X33` | 0.79 | 43.8mm | 3.76μm | Medium Format 44×33 |
+| `MF54X40` | 0.64 | 53.4mm | 4.6μm | Medium Format 54×40 |
 
-**Aliases**: `FULLFRAME` → `FF`, `APS_C` → `APS-C`, etc.
+**Aliases**: `FULLFRAME` → `FF`, `APS_C` → `APS-C`, `MF44-33` → `MF44X33`, etc.
 
 **Implementation**:
 ```python
 SENSOR_PRESETS = {
+    "1INCH": {
+        "focal_factor": 2.7,
+        "sensor_width": 13.2,
+        "pixel_pitch": 2.4,
+        "description": "1-inch sensor (13.2×8.8mm)",
+    },
     "MFT": {
         "focal_factor": 2.0,
         "sensor_width": 17.3,
         "pixel_pitch": 3.7,
         "description": "Micro Four Thirds (17.3×13mm)",
     },
-    "APSC": {
-        "focal_factor": 1.5,
-        "sensor_width": 23.5,
-        "pixel_pitch": 3.9,
-        "description": "APS-C Sony/Nikon/Fuji (23.5×15.6mm)",
+    # ... additional presets ordered by sensor size
+    "MF44X33": {
+        "focal_factor": 0.79,
+        "sensor_width": 43.8,
+        "pixel_pitch": 3.76,
+        "description": "Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D",
     },
-    # ... additional presets
+    "MF54X40": {
+        "focal_factor": 0.64,
+        "sensor_width": 53.4,
+        "pixel_pitch": 4.6,
+        "description": "Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c",
+    },
 }
 ```
 
@@ -112,6 +172,9 @@ python detect_meteors_cli.py --list-sensor-types
 Available Sensor Types (--sensor-type)
 ======================================================================
 
+  1INCH         1-inch sensor (13.2×8.8mm)
+                  focal_factor=2.7, sensor_width=13.2mm, pixel_pitch=2.4μm
+
   MFT           Micro Four Thirds (17.3×13mm)
                   focal_factor=2.0, sensor_width=17.3mm, pixel_pitch=3.7μm
 
@@ -127,22 +190,28 @@ Available Sensor Types (--sensor-type)
   FF            Full Frame 35mm (36×24mm)
                   focal_factor=1.0, sensor_width=36.0mm, pixel_pitch=4.3μm
 
-  1INCH         1-inch sensor (13.2×8.8mm)
-                  focal_factor=2.7, sensor_width=13.2mm, pixel_pitch=2.4μm
+  MF44X33       Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D
+                  focal_factor=0.79, sensor_width=43.8mm, pixel_pitch=3.76μm
+
+  MF54X40       Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c
+                  focal_factor=0.64, sensor_width=53.4mm, pixel_pitch=4.6μm
 
 ======================================================================
 Aliases:
+  1-INCH, 1_INCH      → 1INCH
   APS-C, APS_C        → APSC
   APS-C_CANON         → APSC_CANON
   APS-H, APS_H        → APSH
   FULLFRAME           → FF
-  1-INCH, 1_INCH      → 1INCH
+  MF44-33, MF44_33    → MF44X33
+  MF54-40, MF54_40    → MF54X40
 ======================================================================
 
 Usage Examples:
   --sensor-type MFT
   --sensor-type APS-C
   --sensor-type FF --pixel-pitch 5.9   # Override pixel pitch
+  --sensor-type MF44X33                # Fujifilm GFX / Pentax 645Z
 ======================================================================
 ```
 
@@ -151,6 +220,9 @@ Usage Examples:
 ### Basic Usage (Recommended)
 
 ```bash
+# 1-inch sensor camera
+python detect_meteors_cli.py --auto-params --sensor-type 1INCH
+
 # Micro Four Thirds camera
 python detect_meteors_cli.py --auto-params --sensor-type MFT
 
@@ -162,6 +234,12 @@ python detect_meteors_cli.py --auto-params --sensor-type APS-C_CANON
 
 # Full Frame camera
 python detect_meteors_cli.py --auto-params --sensor-type FF
+
+# Medium Format (Fujifilm GFX, Pentax 645Z, Hasselblad X2D)
+python detect_meteors_cli.py --auto-params --sensor-type MF44X33
+
+# Medium Format (Hasselblad H6D-100c)
+python detect_meteors_cli.py --auto-params --sensor-type MF54X40
 ```
 
 ### With Override
@@ -183,6 +261,9 @@ python detect_meteors_cli.py --auto-params \
 ```bash
 # Quick NPF analysis with sensor preset
 python detect_meteors_cli.py --show-npf --sensor-type MFT
+
+# Medium format NPF analysis
+python detect_meteors_cli.py --show-npf --sensor-type MF44X33
 ```
 
 ### Legacy Usage (Still Supported)
@@ -198,10 +279,11 @@ python detect_meteors_cli.py --auto-params \
 
 ### Configuration Effort
 
-| Task | v1.4.x | v1.5.0 |
+| Task | v1.4.x | v1.5.x |
 |------|--------|--------|
 | Basic MFT setup | 3 parameters | 1 parameter |
 | Full Frame setup | 3 parameters | 1 parameter |
+| Medium Format setup | Not supported | 1 parameter |
 | NPF analysis | Manual lookup | Preset available |
 | Custom override | Same | Same (+ preset base) |
 
@@ -212,7 +294,7 @@ python detect_meteors_cli.py --auto-params \
 python detect_meteors_cli.py --auto-params \
   --sensor-width 17.3 --focal-factor 2.0 --pixel-pitch 3.7
 
-# v1.5.0 (concise)
+# v1.5.x (concise)
 python detect_meteors_cli.py --auto-params --sensor-type MFT
 ```
 
@@ -231,6 +313,14 @@ Retrieves sensor preset configuration by type name.
     'pixel_pitch': 3.7,
     'description': 'Micro Four Thirds (17.3×13mm)'
 }
+
+>>> get_sensor_preset("MF44X33")
+{
+    'focal_factor': 0.79,
+    'sensor_width': 43.8,
+    'pixel_pitch': 3.76,
+    'description': 'Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D'
+}
 ```
 
 #### `apply_sensor_preset(args, verbose=False) -> Tuple`
@@ -243,7 +333,7 @@ Applies sensor preset with CLI argument priority.
 ```
 
 #### `list_sensor_types() -> None`
-Displays available sensor presets in formatted output.
+Displays available sensor presets in formatted output, ordered by sensor size.
 
 ### Backward Compatibility
 
@@ -254,13 +344,13 @@ Displays available sensor presets in formatted output.
 
 ## Breaking Changes
 
-**None** - v1.5.0 is fully backward compatible with v1.4.x.
+**None** - v1.5.x is fully backward compatible with v1.4.x.
 
 All existing command-line options and behaviors are preserved. The new `--sensor-type` option is purely additive.
 
 ## Migration Guide
 
-### From v1.4.x to v1.5.0
+### From v1.4.x to v1.5.x
 
 No changes required. Existing commands continue to work.
 
@@ -269,7 +359,7 @@ No changes required. Existing commands continue to work.
 # Replace this (v1.4.x)
 python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-factor MFT
 
-# With this (v1.5.0)
+# With this (v1.5.x)
 python detect_meteors_cli.py --auto-params --sensor-type MFT
 ```
 
@@ -278,12 +368,14 @@ python detect_meteors_cli.py --auto-params --sensor-type MFT
 Both bash and zsh completion scripts have been updated:
 
 ### New Completions
-- `--sensor-type` with preset suggestions (`MFT`, `APS-C`, `APS-C_CANON`, `APS-H`, `FF`, `FULLFRAME`, `1INCH`)
+- `--sensor-type` with preset suggestions (ordered by sensor size)
 - `--list-sensor-types` flag
+- Medium format sensor types (`MF44X33`, `MF54X40`)
 
 ### Updated Completions
-- `--sensor-width` values updated to match presets
-- `--pixel-pitch` values updated to match presets
+- `--sensor-width` values updated to include medium format (43.8, 53.4)
+- `--pixel-pitch` values updated to include medium format (3.76, 4.6)
+- `--focal-factor` values updated to include medium format crop factors (0.64, 0.79)
 
 ## Future Enhancements
 
@@ -303,13 +395,11 @@ Both bash and zsh completion scripts have been updated:
 
 ## Version Information
 
-- **Version**: 1.5.0
-- **Release Date**: 2025-11-27
+- **Version**: 1.5.1
+- **Release Date**: 2025-11-30
 - **Major Changes**:
-  - Unified `SENSOR_PRESETS` configuration
-  - New `--sensor-type` option for simplified setup
-  - New `--list-sensor-types` option
-  - Parameter override priority system
+  - Medium format sensor support (MF44X33, MF54X40)
+  - Sensor size ordering (smallest to largest)
   - Updated shell completion scripts
 
 ## Quick Reference
@@ -320,16 +410,17 @@ Both bash and zsh completion scripts have been updated:
 | List presets | `--list-sensor-types` | `python detect_meteors_cli.py --list-sensor-types` |
 | Preset + override | `--sensor-type TYPE --PARAM VALUE` | `--sensor-type FF --pixel-pitch 5.9` |
 | Full auto (MFT) | `--auto-params --sensor-type MFT` | `python detect_meteors_cli.py --auto-params --sensor-type MFT` |
+| Medium Format | `--auto-params --sensor-type MF44X33` | `python detect_meteors_cli.py --auto-params --sensor-type MF44X33` |
 | NPF check | `--show-npf --sensor-type TYPE` | `python detect_meteors_cli.py --show-npf --sensor-type APS-C` |
 
 ## Files Updated
 
 | File | Changes |
 |------|---------|
-| `detect_meteors_cli.py` | Added `SENSOR_PRESETS`, new functions, `--sensor-type`, `--list-sensor-types` |
-| `detect_meteors_cli_completion.bash` | Added `--sensor-type`, `--list-sensor-types` completions |
-| `_detect_meteors_cli` (zsh) | Added `--sensor-type`, `--list-sensor-types` completions |
-| `COMMAND_OPTIONS.md` | Updated NPF Rule Options section |
+| `detect_meteors_cli.py` | Added `SENSOR_PRESETS`, new functions, `--sensor-type`, `--list-sensor-types`, medium format support |
+| `detect_meteors_cli_completion.bash` | Added `--sensor-type`, `--list-sensor-types`, medium format completions |
+| `_detect_meteors_cli` (zsh) | Added `--sensor-type`, `--list-sensor-types`, medium format completions |
+| `COMMAND_OPTIONS.md` | Updated NPF Rule Options section with medium format |
 
 ---
 

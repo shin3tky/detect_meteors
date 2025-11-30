@@ -28,7 +28,7 @@ except ImportError:
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 
 DEFAULT_PROGRESS_FILE = "progress.json"
 
@@ -62,13 +62,29 @@ DEFAULT_PIXEL_PITCH_UM = 4.0  # Typical value for APS-C/MFT cameras
 #   - sensor_width: Sensor width in mm
 #   - pixel_pitch: Typical pixel pitch in μm (None = calculate from resolution)
 #   - description: Human-readable description
+# Ordered by sensor size (smallest to largest)
 SENSOR_PRESETS = {
+    # 1-inch sensor (smallest)
+    "1INCH": {
+        "focal_factor": 2.7,
+        "sensor_width": 13.2,
+        "pixel_pitch": 2.4,  # Typical for 20MP 1-inch (e.g., Sony RX100)
+        "description": "1-inch sensor (13.2×8.8mm)",
+    },
+    "1_INCH": {  # Alias for 1INCH
+        "focal_factor": 2.7,
+        "sensor_width": 13.2,
+        "pixel_pitch": 2.4,
+        "description": "1-inch sensor (13.2×8.8mm)",
+    },
+    # Micro Four Thirds
     "MFT": {
         "focal_factor": 2.0,
         "sensor_width": 17.3,
         "pixel_pitch": 3.7,  # Typical for 20MP MFT (e.g., OM-1, GH6)
         "description": "Micro Four Thirds (17.3×13mm)",
     },
+    # APS-C (Sony/Nikon/Fuji)
     "APSC": {
         "focal_factor": 1.5,
         "sensor_width": 23.5,
@@ -81,6 +97,7 @@ SENSOR_PRESETS = {
         "pixel_pitch": 3.9,
         "description": "APS-C Sony/Nikon/Fuji (23.5×15.6mm)",
     },
+    # APS-C (Canon)
     "APSC_CANON": {
         "focal_factor": 1.6,
         "sensor_width": 22.3,
@@ -93,6 +110,7 @@ SENSOR_PRESETS = {
         "pixel_pitch": 3.2,
         "description": "APS-C Canon (22.3×14.9mm)",
     },
+    # APS-H
     "APSH": {
         "focal_factor": 1.3,
         "sensor_width": 27.9,
@@ -105,6 +123,7 @@ SENSOR_PRESETS = {
         "pixel_pitch": 5.7,
         "description": "APS-H Canon (27.9×18.6mm)",
     },
+    # Full Frame 35mm
     "FF": {
         "focal_factor": 1.0,
         "sensor_width": 36.0,
@@ -117,17 +136,31 @@ SENSOR_PRESETS = {
         "pixel_pitch": 4.3,
         "description": "Full Frame 35mm (36×24mm)",
     },
-    "1INCH": {
-        "focal_factor": 2.7,
-        "sensor_width": 13.2,
-        "pixel_pitch": 2.4,  # Typical for 20MP 1-inch (e.g., Sony RX100)
-        "description": "1-inch sensor (13.2×8.8mm)",
+    # Medium Format 44x33 (Fujifilm GFX, Pentax 645Z, Hasselblad X)
+    "MF44X33": {
+        "focal_factor": 0.79,
+        "sensor_width": 43.8,
+        "pixel_pitch": 3.76,  # Typical for 100MP (e.g., GFX100, X2D 100C)
+        "description": "Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D",
     },
-    "1_INCH": {  # Alias for 1INCH
-        "focal_factor": 2.7,
-        "sensor_width": 13.2,
-        "pixel_pitch": 2.4,
-        "description": "1-inch sensor (13.2×8.8mm)",
+    "MF44_33": {  # Alias for MF44X33
+        "focal_factor": 0.79,
+        "sensor_width": 43.8,
+        "pixel_pitch": 3.76,
+        "description": "Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D",
+    },
+    # Medium Format 54x40 (Hasselblad H6D-100c)
+    "MF54X40": {
+        "focal_factor": 0.64,
+        "sensor_width": 53.4,
+        "pixel_pitch": 4.6,  # 100MP H6D-100c (11600×8700, 4.6μm)
+        "description": "Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c",
+    },
+    "MF54_40": {  # Alias for MF54X40
+        "focal_factor": 0.64,
+        "sensor_width": 53.4,
+        "pixel_pitch": 4.6,
+        "description": "Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c",
     },
 }
 
@@ -296,13 +329,23 @@ def apply_sensor_preset(
 def list_sensor_types() -> None:
     """
     Display available sensor type presets and their configurations.
+    Ordered by sensor size (smallest to largest).
     """
     print(f"\n{'='*70}")
     print("Available Sensor Types (--sensor-type)")
     print(f"{'='*70}\n")
 
-    # Group by primary types (exclude aliases)
-    primary_types = ["MFT", "APSC", "APSC_CANON", "APSH", "FF", "1INCH"]
+    # Group by primary types (exclude aliases), ordered by sensor size
+    primary_types = [
+        "1INCH",
+        "MFT",
+        "APSC",
+        "APSC_CANON",
+        "APSH",
+        "FF",
+        "MF44X33",
+        "MF54X40",
+    ]
 
     for sensor_type in primary_types:
         preset = SENSOR_PRESETS.get(sensor_type)
@@ -317,16 +360,19 @@ def list_sensor_types() -> None:
 
     print(f"{'='*70}")
     print("Aliases:")
+    print("  1-INCH, 1_INCH      → 1INCH")
     print("  APS-C, APS_C        → APSC")
     print("  APS-C_CANON         → APSC_CANON")
     print("  APS-H, APS_H        → APSH")
     print("  FULLFRAME           → FF")
-    print("  1-INCH, 1_INCH      → 1INCH")
+    print("  MF44-33, MF44_33    → MF44X33")
+    print("  MF54-40, MF54_40    → MF54X40")
     print(f"{'='*70}")
     print("\nUsage Examples:")
     print("  --sensor-type MFT")
     print("  --sensor-type APS-C")
     print("  --sensor-type FF --pixel-pitch 5.9   # Override pixel pitch")
+    print("  --sensor-type MF44X33                # Fujifilm GFX / Pentax 645Z")
     print(f"{'='*70}\n")
 
 
@@ -2678,7 +2724,7 @@ def build_arg_parser():
         metavar="TYPE",
         help="Sensor type preset for NPF Rule parameters. "
         "Sets focal_factor, sensor_width, and pixel_pitch automatically. "
-        "Valid types: MFT, APS-C, APS-C_CANON, APS-H, FF (FULLFRAME), 1INCH. "
+        "Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40. "
         "Individual options (--focal-factor, --sensor-width, --pixel-pitch) override preset values.",
     )
     parser.add_argument(
@@ -2768,7 +2814,7 @@ def main():
         if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
             print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
             print(
-                f"  Valid types: MFT, APS-C, APS-C_CANON, APS-H, FF, FULLFRAME, 1INCH"
+                f"  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
             )
             return
 
@@ -2916,7 +2962,9 @@ def main():
     # Validate --sensor-type if specified
     if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
         print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
-        print(f"  Valid types: MFT, APS-C, APS-C_CANON, APS-H, FF, FULLFRAME, 1INCH")
+        print(
+            f"  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
+        )
         return
 
     # Apply sensor preset (with individual args taking priority)

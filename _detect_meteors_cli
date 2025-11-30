@@ -51,11 +51,11 @@ _detect_meteors_cli() {
         
         # Auto-parameter estimation (NPF Rule)
         '--auto-params[Auto-estimate parameters based on EXIF (NPF Rule)]'
-        '--sensor-type[Sensor type preset for NPF Rule parameters]:type:(MFT APS-C APS-C_CANON APS-H FF FULLFRAME 1INCH)'
+        '--sensor-type[Sensor type preset for NPF Rule parameters]:type:(1INCH MFT APS-C APS-C_CANON APS-H FF FULLFRAME MF44X33 MF54X40)'
         '--focal-length[Focal length in mm (35mm equivalent)]:focal_length:(14 16 20 24 35 50 85)'
-        '--focal-factor[Crop factor or sensor type]:factor:(MFT APS-C APS-C_CANON APS-H FF FULLFRAME 1INCH 1.0 1.3 1.5 1.6 2.0 2.7)'
-        '--sensor-width[Sensor width in mm]:width:(13.2 17.3 22.3 23.5 27.9 36.0)'
-        '--pixel-pitch[Pixel pitch in micrometers]:pitch:(2.4 3.2 3.7 3.9 4.3 5.7)'
+        '--focal-factor[Crop factor or sensor type]:factor:(1INCH MFT APS-C APS-C_CANON APS-H FF FULLFRAME MF44X33 MF54X40 0.64 0.79 1.0 1.3 1.5 1.6 2.0 2.7)'
+        '--sensor-width[Sensor width in mm]:width:(13.2 17.3 22.3 23.5 27.9 36.0 43.8 53.4)'
+        '--pixel-pitch[Pixel pitch in micrometers]:pitch:(2.4 3.2 3.7 3.76 3.9 4.3 4.6 5.7)'
         '--list-sensor-types[Display available sensor type presets and exit]'
         
         # Information display

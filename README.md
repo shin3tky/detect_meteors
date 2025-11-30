@@ -12,6 +12,8 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 I developed this tool hoping it would be useful for fellow astrophotography enthusiasts who face the same challenge.
 
+📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
+
 ## Overview
 - **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata (ISO, exposure, focal length) and scientifically tunes all detection parameters
 - **Scientifically validated**: 100% detection rate on real-world test dataset (OM Digital OM-1, 1000+ RAW images)
@@ -41,9 +43,13 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ## What's New in v1.5
 
+### v1.5.1 - Medium Format Sensor Support
+- **New sensor types**: Added `MF44X33` (Fujifilm GFX, Pentax 645Z, Hasselblad X2D) and `MF54X40` (Hasselblad H6D-100c)
+- **Sensor size ordering**: All sensor types now ordered by size (1INCH → MFT → APS-C → FF → MF44X33 → MF54X40)
+
 ### v1.5.0 - Sensor Type Presets
 - **New `--sensor-type` option**: Simplified NPF configuration with a single parameter instead of multiple sensor specifications
-- **Unified sensor presets**: `MFT`, `APS-C`, `APS-C_CANON`, `APS-H`, `FF`, `1INCH` automatically set focal factor, sensor width, and pixel pitch
+- **Unified sensor presets**: `1INCH`, `MFT`, `APS-C`, `APS-C_CANON`, `APS-H`, `FF`, `MF44X33`, `MF54X40` automatically set focal factor, sensor width, and pixel pitch
 - **New `--list-sensor-types` option**: Display available sensor presets and their configurations
 - **Override support**: Individual parameters (`--sensor-width`, `--pixel-pitch`, `--focal-factor`) override preset values when needed
 
@@ -51,17 +57,8 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ### Earlier Versions
 
-#### v1.4.2 - Output File Protection
-- **Output file protection**: Changed behavior to skip overwriting existing files at the output destination instead of overwriting them. This prevents accidental loss of previously processed results.
-
-#### v1.4.1 - NPF Rule-based Scientific Optimization
-- **NPF Rule integration**: Physics-based exposure validation using the NPF Rule with EXIF metadata extraction
-- **Complete scientific automation**: All three detection parameters optimized based on ISO, exposure time, aperture, focal length, and star trail physics
-- **Shooting quality assessment**: Comprehensive 0.0-1.0 scoring system evaluates NPF compliance, ISO sensitivity, and focal length
-- **Real-world validated**: 100% detection rate (9/9 candidates including 2 confirmed meteors) on OM Digital OM-1 dataset
-
-👉 See [RELEASE_NOTES_1.4.md](RELEASE_NOTES_1.4.md) for complete details, algorithms, and usage examples.
-
+- **v1.4.2**: Output file protection - skip overwriting existing files by default ([details](RELEASE_NOTES_1.4.md))
+- **v1.4.1**: NPF Rule-based scientific optimization with EXIF metadata extraction ([details](RELEASE_NOTES_1.4.md))
 - **v1.3.1**: Complete auto-parameter estimation with star size and image geometry analysis ([details](RELEASE_NOTES_1.3.md))
 - **v1.2.1**: Percentile-based threshold estimation ([details](RELEASE_NOTES_1.2.md))
 
@@ -111,6 +108,9 @@ python detect_meteors_cli.py --auto-params --sensor-type APS-C_CANON
 
 # Full Frame
 python detect_meteors_cli.py --auto-params --sensor-type FF
+
+# Medium Format (Fujifilm GFX, Pentax 645Z, Hasselblad X2D)
+python detect_meteors_cli.py --auto-params --sensor-type MF44X33
 ```
 
 **Option B: If focal length is missing in EXIF - specify manually**
@@ -239,11 +239,14 @@ python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
    # Micro Four Thirds
    python detect_meteors_cli.py --auto-params --sensor-type MFT
    
-   # APS-C (Sony/Nikon/Fuji)
+   # Sony/Nikon/Fuji APS-C camera
    python detect_meteors_cli.py --auto-params --sensor-type APS-C
    
-   # Full Frame
+   # Full Frame camera
    python detect_meteors_cli.py --auto-params --sensor-type FF
+   
+   # Medium Format (Fujifilm GFX, Pentax 645Z)
+   python detect_meteors_cli.py --auto-params --sensor-type MF44X33
    
    # List all available sensor types
    python detect_meteors_cli.py --list-sensor-types
@@ -282,6 +285,7 @@ python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
 - **Micro Four Thirds (MFT)**: pixel_pitch ~3.3μm, NPF ~6-10s
 - **APS-C**: pixel_pitch ~3.9μm, NPF ~8-12s
 - **Full Frame**: pixel_pitch ~5.9μm, NPF ~12-16s
+- **Medium Format 44×33**: pixel_pitch ~3.76μm, NPF ~10-14s
 
 #### By Shooting Conditions
 - **Low ISO (≤1600), NPF OK**: diff_threshold ~5-7, min_area ~3-5, min_line_score ~30-40

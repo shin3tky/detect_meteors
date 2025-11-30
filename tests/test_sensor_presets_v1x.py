@@ -2,7 +2,7 @@
 Test suite for sensor type presets (v1.5.0+).
 
 Tests the --sensor-type option that provides preset configurations
-for common camera sensor types (MFT, APS-C, FF, etc.).
+for common camera sensor types (MFT, APS-C, FF, MF44X33, MF54X40, etc.).
 """
 
 import unittest
@@ -28,7 +28,16 @@ class TestSensorPresetsStructure(unittest.TestCase):
 
     def test_sensor_presets_contains_required_types(self):
         """Test that SENSOR_PRESETS contains all required sensor types."""
-        required_types = ["MFT", "APSC", "APSC_CANON", "APSH", "FF", "1INCH"]
+        required_types = [
+            "1INCH",
+            "MFT",
+            "APSC",
+            "APSC_CANON",
+            "APSH",
+            "FF",
+            "MF44X33",
+            "MF54X40",
+        ]
         for sensor_type in required_types:
             self.assertIn(sensor_type, SENSOR_PRESETS)
 
@@ -48,17 +57,48 @@ class TestSensorPresetsStructure(unittest.TestCase):
             self.assertGreaterEqual(preset["focal_factor"], 0.5)
             self.assertLessEqual(preset["focal_factor"], 5.0)
 
-            # Sensor width should be between 5mm and 50mm
+            # Sensor width should be between 5mm and 60mm (includes medium format)
             self.assertGreaterEqual(preset["sensor_width"], 5.0)
-            self.assertLessEqual(preset["sensor_width"], 50.0)
+            self.assertLessEqual(preset["sensor_width"], 60.0)
 
             # Pixel pitch should be between 1μm and 10μm
             self.assertGreaterEqual(preset["pixel_pitch"], 1.0)
             self.assertLessEqual(preset["pixel_pitch"], 10.0)
 
+    def test_sensor_presets_ordered_by_size(self):
+        """Test that primary sensor types are ordered by sensor size."""
+        primary_types = [
+            "1INCH",
+            "MFT",
+            "APSC",
+            "APSC_CANON",
+            "APSH",
+            "FF",
+            "MF44X33",
+            "MF54X40",
+        ]
+
+        # Get sensor widths for primary types
+        widths = [SENSOR_PRESETS[t]["sensor_width"] for t in primary_types]
+
+        # Check that widths are in ascending order (with tolerance for APSC vs APSC_CANON)
+        for i in range(len(widths) - 1):
+            # APSC_CANON (22.3) is smaller than APSC (23.5), so skip that comparison
+            if primary_types[i] == "APSC" and primary_types[i + 1] == "APSC_CANON":
+                continue
+            if primary_types[i] == "APSC_CANON" and primary_types[i + 1] == "APSH":
+                self.assertLess(widths[i], widths[i + 1])
+
 
 class TestSensorPresetValues(unittest.TestCase):
     """Test specific sensor preset values."""
+
+    def test_1inch_preset_values(self):
+        """Test 1-inch sensor preset values."""
+        preset = get_sensor_preset("1INCH")
+        self.assertIsNotNone(preset)
+        self.assertEqual(preset["focal_factor"], 2.7)
+        self.assertEqual(preset["sensor_width"], 13.2)
 
     def test_mft_preset_values(self):
         """Test MFT (Micro Four Thirds) preset values."""
@@ -96,12 +136,54 @@ class TestSensorPresetValues(unittest.TestCase):
         self.assertEqual(preset["focal_factor"], 1.0)
         self.assertEqual(preset["sensor_width"], 36.0)
 
-    def test_1inch_preset_values(self):
-        """Test 1-inch sensor preset values."""
-        preset = get_sensor_preset("1INCH")
+    def test_mf44x33_preset_values(self):
+        """Test Medium Format 44x33 preset values."""
+        preset = get_sensor_preset("MF44X33")
         self.assertIsNotNone(preset)
-        self.assertEqual(preset["focal_factor"], 2.7)
-        self.assertEqual(preset["sensor_width"], 13.2)
+        self.assertEqual(preset["focal_factor"], 0.79)
+        self.assertEqual(preset["sensor_width"], 43.8)
+        self.assertAlmostEqual(preset["pixel_pitch"], 3.76, places=2)
+
+    def test_mf54x40_preset_values(self):
+        """Test Medium Format 54x40 preset values."""
+        preset = get_sensor_preset("MF54X40")
+        self.assertIsNotNone(preset)
+        self.assertEqual(preset["focal_factor"], 0.64)
+        self.assertEqual(preset["sensor_width"], 53.4)
+        self.assertAlmostEqual(preset["pixel_pitch"], 4.6, places=1)
+
+
+class TestMediumFormatPresets(unittest.TestCase):
+    """Test medium format sensor presets (v1.5.1+)."""
+
+    def test_mf44x33_crop_factor_less_than_one(self):
+        """Test that MF44X33 has crop factor less than 1.0."""
+        preset = get_sensor_preset("MF44X33")
+        self.assertLess(preset["focal_factor"], 1.0)
+        self.assertGreater(preset["focal_factor"], 0.5)
+
+    def test_mf54x40_crop_factor_less_than_one(self):
+        """Test that MF54X40 has crop factor less than 1.0."""
+        preset = get_sensor_preset("MF54X40")
+        self.assertLess(preset["focal_factor"], 1.0)
+        self.assertGreater(preset["focal_factor"], 0.5)
+
+    def test_mf54x40_larger_than_mf44x33(self):
+        """Test that MF54X40 is larger than MF44X33."""
+        preset_44 = get_sensor_preset("MF44X33")
+        preset_54 = get_sensor_preset("MF54X40")
+
+        self.assertGreater(preset_54["sensor_width"], preset_44["sensor_width"])
+        self.assertLess(preset_54["focal_factor"], preset_44["focal_factor"])
+
+    def test_medium_format_larger_than_full_frame(self):
+        """Test that medium format sensors are larger than full frame."""
+        preset_ff = get_sensor_preset("FF")
+        preset_mf44 = get_sensor_preset("MF44X33")
+        preset_mf54 = get_sensor_preset("MF54X40")
+
+        self.assertGreater(preset_mf44["sensor_width"], preset_ff["sensor_width"])
+        self.assertGreater(preset_mf54["sensor_width"], preset_ff["sensor_width"])
 
 
 class TestGetSensorPreset(unittest.TestCase):
@@ -117,6 +199,10 @@ class TestGetSensorPreset(unittest.TestCase):
             ("FULLFRAME", "FF"),
             ("1-INCH", "1INCH"),
             ("1_INCH", "1INCH"),
+            ("MF44-33", "MF44X33"),
+            ("MF44_33", "MF44X33"),
+            ("MF54-40", "MF54X40"),
+            ("MF54_40", "MF54X40"),
         ]
 
         for alias, canonical in aliases:
@@ -139,12 +225,21 @@ class TestGetSensorPreset(unittest.TestCase):
             self.assertIsNotNone(preset, f"'{case}' should return MFT preset")
             self.assertEqual(preset["focal_factor"], 2.0)
 
+    def test_get_sensor_preset_case_insensitive_medium_format(self):
+        """Test that medium format sensor type lookup is case insensitive."""
+        test_cases = ["mf44x33", "MF44X33", "Mf44x33", "mf44X33"]
+        for case in test_cases:
+            preset = get_sensor_preset(case)
+            self.assertIsNotNone(preset, f"'{case}' should return MF44X33 preset")
+            self.assertEqual(preset["focal_factor"], 0.79)
+
     def test_get_sensor_preset_invalid_type(self):
         """Test that invalid sensor type returns None."""
         self.assertIsNone(get_sensor_preset("INVALID_TYPE"))
         self.assertIsNone(get_sensor_preset(""))
         self.assertIsNone(get_sensor_preset(None))
         self.assertIsNone(get_sensor_preset("MEDIUM_FORMAT"))
+        self.assertIsNone(get_sensor_preset("LARGE_FORMAT"))
 
 
 class TestApplySensorPreset(unittest.TestCase):
@@ -168,6 +263,25 @@ class TestApplySensorPreset(unittest.TestCase):
         self.assertEqual(sensor_width, 17.3)
         self.assertIsNone(focal_length)  # Not in preset
         self.assertAlmostEqual(pixel_pitch, 3.7, places=1)
+
+    def test_apply_sensor_preset_medium_format(self):
+        """Test apply_sensor_preset with medium format sensor type."""
+        args = Namespace(
+            sensor_type="MF44X33",
+            focal_factor=None,
+            sensor_width=None,
+            focal_length=None,
+            pixel_pitch=None,
+        )
+
+        focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(
+            args
+        )
+
+        self.assertEqual(focal_factor, 0.79)
+        self.assertEqual(sensor_width, 43.8)
+        self.assertIsNone(focal_length)
+        self.assertAlmostEqual(pixel_pitch, 3.76, places=2)
 
     def test_apply_sensor_preset_sensor_width_override(self):
         """Test that --sensor-width overrides preset value."""
@@ -290,6 +404,8 @@ class TestLegacyCompatibility(unittest.TestCase):
         self.assertEqual(CROP_FACTORS["APSC"], 1.5)
         self.assertEqual(CROP_FACTORS["APSC_CANON"], 1.6)
         self.assertEqual(CROP_FACTORS["FF"], 1.0)
+        self.assertEqual(CROP_FACTORS["MF44X33"], 0.79)
+        self.assertEqual(CROP_FACTORS["MF54X40"], 0.64)
 
     def test_crop_factors_matches_presets(self):
         """Test that CROP_FACTORS matches SENSOR_PRESETS."""
@@ -305,6 +421,8 @@ class TestLegacyCompatibility(unittest.TestCase):
         self.assertEqual(DEFAULT_SENSOR_WIDTHS["MFT"], 17.3)
         self.assertEqual(DEFAULT_SENSOR_WIDTHS["APSC"], 23.5)
         self.assertEqual(DEFAULT_SENSOR_WIDTHS["FF"], 36.0)
+        self.assertEqual(DEFAULT_SENSOR_WIDTHS["MF44X33"], 43.8)
+        self.assertEqual(DEFAULT_SENSOR_WIDTHS["MF54X40"], 53.4)
 
     def test_sensor_widths_matches_presets(self):
         """Test that DEFAULT_SENSOR_WIDTHS matches SENSOR_PRESETS."""
@@ -325,6 +443,8 @@ class TestParseFocalFactor(unittest.TestCase):
         self.assertEqual(parse_focal_factor("APS-C"), 1.5)
         self.assertEqual(parse_focal_factor("FF"), 1.0)
         self.assertEqual(parse_focal_factor("FULLFRAME"), 1.0)
+        self.assertEqual(parse_focal_factor("MF44X33"), 0.79)
+        self.assertEqual(parse_focal_factor("MF54X40"), 0.64)
 
     def test_parse_focal_factor_with_numeric(self):
         """Test parse_focal_factor with numeric strings."""
@@ -332,11 +452,13 @@ class TestParseFocalFactor(unittest.TestCase):
         self.assertEqual(parse_focal_factor("1.5"), 1.5)
         self.assertEqual(parse_focal_factor("1.0"), 1.0)
         self.assertEqual(parse_focal_factor("1.6"), 1.6)
+        self.assertEqual(parse_focal_factor("0.79"), 0.79)
+        self.assertEqual(parse_focal_factor("0.64"), 0.64)
 
     def test_parse_focal_factor_invalid_string(self):
         """Test parse_focal_factor with invalid string input."""
         self.assertIsNone(parse_focal_factor("INVALID"))
-        self.assertIsNone(parse_focal_factor("MEDIUM_FORMAT"))
+        self.assertIsNone(parse_focal_factor("LARGE_FORMAT"))
         self.assertIsNone(parse_focal_factor("abc"))
 
     def test_parse_focal_factor_empty_or_none(self):
@@ -350,6 +472,13 @@ class TestParseFocalFactor(unittest.TestCase):
         self.assertIsNone(parse_focal_factor("0.4"))  # Below 0.5
         self.assertIsNone(parse_focal_factor("15.0"))  # Above 10.0
         self.assertIsNone(parse_focal_factor("100"))  # Way too large
+
+    def test_parse_focal_factor_medium_format_aliases(self):
+        """Test parse_focal_factor with medium format aliases."""
+        self.assertEqual(parse_focal_factor("MF44-33"), 0.79)
+        self.assertEqual(parse_focal_factor("MF44_33"), 0.79)
+        self.assertEqual(parse_focal_factor("MF54-40"), 0.64)
+        self.assertEqual(parse_focal_factor("MF54_40"), 0.64)
 
 
 if __name__ == "__main__":

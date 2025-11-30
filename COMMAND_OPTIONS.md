@@ -30,14 +30,25 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
   - Optimizes `diff_threshold` based on ISO sensitivity and NPF overshoot
   - Optimizes `min_area` based on star trail length
   - Optimizes `min_line_score` based on meteor speed (3× faster than stars)
-  - Manual parameter specifications always take priority over auto-optimization
+  - Manual parameter specifications always have priority over auto-optimization
 
-## NPF Rule Options (Updated in v1.5)
-- **`--sensor-type`** *(NEW in v1.5)*: Sensor type preset that automatically sets `--focal-factor`, `--sensor-width`, and `--pixel-pitch`. Valid types: `MFT`, `APS-C`, `APS-C_CANON`, `APS-H`, `FF` (or `FULLFRAME`), `1INCH`. Individual options below override preset values when specified.
-- **`--sensor-width`**: Physical sensor width in millimeters (e.g., `17.3` for MFT, `23.5` for APS-C, `36.0` for Full Frame). Used to calculate pixel pitch for NPF Rule. Overrides `--sensor-type` preset if specified.
+## NPF Rule Options (Updated in v1.5.1)
+- **`--sensor-type`** *(NEW in v1.5, updated in v1.5.1)*: Sensor type preset that automatically sets `--focal-factor`, `--sensor-width`, and `--pixel-pitch`. Valid types (ordered by sensor size):
+  - `1INCH` - 1-inch sensor (13.2×8.8mm)
+  - `MFT` - Micro Four Thirds (17.3×13mm)
+  - `APS-C` (or `APSC`) - APS-C Sony/Nikon/Fuji (23.5×15.6mm)
+  - `APS-C_CANON` - APS-C Canon (22.3×14.9mm)
+  - `APS-H` - APS-H Canon (27.9×18.6mm)
+  - `FF` (or `FULLFRAME`) - Full Frame 35mm (36×24mm)
+  - `MF44X33` *(NEW in v1.5.1)* - Medium Format 44×33 (43.8×32.9mm) - Fujifilm GFX, Pentax 645Z, Hasselblad X2D
+  - `MF54X40` *(NEW in v1.5.1)* - Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c
+  
+  Individual options below override preset values when specified.
+
+- **`--sensor-width`**: Physical sensor width in millimeters (e.g., `17.3` for MFT, `23.5` for APS-C, `36.0` for Full Frame, `43.8` for MF44×33, `53.4` for MF54×40). Used to calculate pixel pitch for NPF Rule. Overrides `--sensor-type` preset if specified.
 - **`--pixel-pitch`**: Direct pixel pitch specification in micrometers (μm). If not specified, calculated from `--sensor-width` and image resolution, or uses default value (4.0μm). Overrides `--sensor-type` preset if specified.
 - **`--focal-length`**: Focal length in 35mm equivalent (mm). If not specified, automatically extracted from EXIF metadata. Can be manually specified to override EXIF value.
-- **`--focal-factor`**: Sensor type or crop factor (e.g., `MFT`, `APS-C`, `FF`, or numeric like `2.0`). Used to convert actual focal length to 35mm equivalent. Overrides `--sensor-type` preset if specified.
+- **`--focal-factor`**: Sensor type or crop factor (e.g., `MFT`, `APS-C`, `FF`, `MF44X33`, or numeric like `2.0`, `0.79`). Used to convert actual focal length to 35mm equivalent. Overrides `--sensor-type` preset if specified. Note: Medium format sensors have crop factors less than 1.0 (e.g., `0.79` for MF44×33, `0.64` for MF54×40).
 - **`--list-sensor-types`** *(NEW in v1.5)*: Display available sensor type presets with their configurations and exit.
 - **`--show-npf`**: Display detailed NPF Rule analysis and exit without processing. Shows pixel pitch, NPF recommended exposure, compliance level, star trail estimate, and impact assessment.
 - **`--show-exif`**: Display EXIF metadata only and exit without processing. **Use this first** to verify focal length extraction before running `--auto-params`.
@@ -54,3 +65,4 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--progress-file`** (default: `progress.json`): Path to the JSON file that tracks processed frames.
 - **`--no-resume`**: Ignore and remove any existing progress file before processing.
 - **`--remove-progress`**: Delete the progress file and exit immediately.
+- **`--output-overwrite`**: Force overwrite existing files in output folder (default: skip existing files).
