@@ -123,13 +123,14 @@ python -m unittest tests.test_calculations_v1x.TestCalculateNPFRule.test_npf_rul
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `test_calculations_v1x.py` | 56 | NPF Rule, pixel pitch, star/meteor trail estimation |
+| `test_calculations_v1x.py` | 54 | NPF Rule, pixel pitch, star/meteor trail estimation |
 | `test_integration_v1x.py` | 44 | End-to-end meteor detection with various parameters |
-| `test_sensor_presets_v1x.py` | 28 | Sensor type presets (`--sensor-type`) |
-| `test_sensor_npf_integration_v1x.py` | 8 | Sensor preset integration with NPF calculations |
+| `test_sensor_presets_v1x.py` | 38 | Sensor type presets (`--sensor-type`) |
+| `test_sensor_npf_integration_v1x.py` | 16 | Sensor preset integration with NPF calculations |
+| `test_infrastructure_v1x.py` | 16 | ROI parsing, progress tracking, file collection, auto-estimation logic |
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch size adjustment |
 
-**Total: 142 tests**
+**Total: 174 tests**
 
 ### Writing Tests
 
@@ -223,6 +224,7 @@ detect_meteors/
 │   ├── test_integration_v1x.py
 │   ├── test_sensor_presets_v1x.py
 │   ├── test_sensor_npf_integration_v1x.py
+│   ├── test_infrastructure_v1x.py
 │   └── test_memory_batch_size_v1x.py
 ├── run_tests.py                   # Version-aware test runner
 ├── .pre-commit-config.yaml        # Pre-commit hooks configuration
