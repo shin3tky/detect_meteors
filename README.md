@@ -12,21 +12,7 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 I developed this tool hoping it would be useful for fellow astrophotography enthusiasts who face the same challenge.
 
-```mermaid
-graph TD
-    subgraph "Before: Manual Process"
-    A[📂 Thousands of RAW Images] -->|👀 Human Review| B[⏳ Tedious & Time Consuming]
-    end
-
-    subgraph "After: Automated with Detect Meteors"
-    C[📂 Thousands of RAW Images] -->|🚀 CLI Input| D(⚙️ Detect Meteors)
-    D -->|❌ No Meteor| E[Skip]
-    D -->|✅ Meteor Found| F[🌠 Candidate Images Only]
-    end
-
-    style D fill:#f9f,stroke:#333,stroke-width:2px
-    style F fill:#bbf,stroke:#333,stroke-width:2px
-```
+![workflow](workflow.png)
 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
