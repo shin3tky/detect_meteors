@@ -50,6 +50,14 @@
   - [x] Sensor size ordering (smallest to largest)
   - [x] Updated shell completion scripts with medium format types
 
+### Sensor Override Validation
+- [x] **v1.5.2** - Automatic validation for sensor preset overrides
+  - [x] Warning when `--sensor-width` deviates more than ±30% from preset
+  - [x] Warning when `--pixel-pitch` deviates more than ±50% from preset
+  - [x] Informational warnings only (processing continues normally)
+  - [x] Enhanced `apply_sensor_preset()` with validation support
+  - [x] Comprehensive test coverage (23 test cases)
+
 ### Remaining Goals for v1.x (-2025 4Q)
 - [ ] Camera model database for automatic sensor detection from EXIF
 - [ ] Per-image adaptive parameter adjustment
@@ -75,5 +83,5 @@
 
 ---
 
-**Current Status**: v1.5.1 (Medium Format Sensor Support)  
+**Current Status**: v1.5.2 (Sensor Override Validation)  
 **Next Focus**: Camera model database for automatic sensor detection from EXIF
