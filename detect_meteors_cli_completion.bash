@@ -44,7 +44,8 @@ _detect_meteors_cli_completion() {
           --list-sensor-types
           --show-exif
           --show-npf
-          --output-overwrite"
+          --output-overwrite
+          --fisheye"
 
     # Provide directory completion for path arguments
     case "${prev}" in
