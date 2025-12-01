@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.5.2 - 2024-12-01
+- **Sensor Override Validation**: Added automatic validation when `--sensor-type` preset values are overridden with `--sensor-width` or `--pixel-pitch`.
+  - Warns when `--sensor-width` deviates more than ±30% from preset value
+  - Warns when `--pixel-pitch` deviates more than ±50% from preset value
+  - Warnings are informational only - processing continues normally
+  - Helps catch accidental misconfiguration while preserving flexibility
+- **Enhanced `apply_sensor_preset()` Function**: Now returns sensor preset dictionary along with parameter values for validation
+- **Comprehensive Test Coverage**: Added `test_sensor_validation_v1x.py` with 23 test cases covering validation scenarios
+- **Updated Test Suite**: Modified `test_sensor_presets_v1x.py` to handle new 5-tuple return value from `apply_sensor_preset()`
+
 ## v1.5.1 - 2025-11-30
 - **Medium Format Sensor Support**: Added support for medium format sensors larger than Full Frame (35mm).
   - `MF44X33`: Fujifilm GFX series, Pentax 645Z, Hasselblad X2D/X1D (43.8×32.9mm, crop factor 0.79)

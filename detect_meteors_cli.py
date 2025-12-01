@@ -28,7 +28,7 @@ except ImportError:
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.5.1"
+VERSION = "1.5.2"
 
 DEFAULT_PROGRESS_FILE = "progress.json"
 
@@ -235,9 +235,13 @@ def get_sensor_preset(sensor_type: str) -> Optional[Dict[str, any]]:
     return SENSOR_PRESETS.get(key)
 
 
-def apply_sensor_preset(
-    args, verbose: bool = False
-) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
+def apply_sensor_preset(args, verbose: bool = False) -> Tuple[
+    Optional[float],
+    Optional[float],
+    Optional[float],
+    Optional[float],
+    Optional[Dict[str, any]],
+]:
     """
     Apply sensor preset values, with individual arguments taking priority.
 
@@ -256,17 +260,18 @@ def apply_sensor_preset(
         verbose: If True, print which values are being used
 
     Returns:
-        Tuple of (focal_factor, sensor_width, focal_length, pixel_pitch)
+        Tuple of (focal_factor, sensor_width, focal_length, pixel_pitch, preset)
         Each value is either from CLI argument, preset, or None.
+        preset is the sensor preset dictionary or None.
 
     Examples:
         # --sensor-type MFT (no overrides)
         >>> apply_sensor_preset(args)  # args.sensor_type="MFT"
-        (2.0, 17.3, None, 3.7)
+        (2.0, 17.3, None, 3.7, {...})
 
         # --sensor-type MFT --sensor-width 18.0 (override sensor_width)
         >>> apply_sensor_preset(args)  # args.sensor_type="MFT", args.sensor_width=18.0
-        (2.0, 18.0, None, 3.7)
+        (2.0, 18.0, None, 3.7, {...})
     """
     # Initialize with CLI argument values (may be None)
     focal_factor_value = None
@@ -289,6 +294,7 @@ def apply_sensor_preset(
                 sensor_width_value,
                 focal_length_value,
                 pixel_pitch_value,
+                None,
             )
 
     # Apply preset values where CLI arguments are not specified
@@ -323,7 +329,67 @@ def apply_sensor_preset(
         sensor_width_value,
         focal_length_value,
         pixel_pitch_value,
+        preset,
     )
+
+
+def validate_sensor_overrides(
+    args,
+    preset: Optional[Dict[str, any]],
+    sensor_width_value: Optional[float],
+    pixel_pitch_value: Optional[float],
+) -> None:
+    """
+    Validate that overridden --sensor-width and --pixel-pitch values
+    are not significantly different from --sensor-type preset values.
+
+    Prints warnings if discrepancies are detected, but does not stop processing.
+
+    Thresholds for warnings:
+    - sensor_width: ±30% deviation from preset
+    - pixel_pitch: ±50% deviation from preset
+
+    Args:
+        args: Parsed argparse namespace
+        preset: Sensor preset dictionary (from get_sensor_preset)
+        sensor_width_value: Final sensor width value (mm)
+        pixel_pitch_value: Final pixel pitch value (μm)
+    """
+    if not preset or not args.sensor_type:
+        return
+
+    warnings = []
+
+    # Check sensor_width deviation
+    if args.sensor_width is not None and sensor_width_value is not None:
+        preset_width = preset.get("sensor_width")
+        if preset_width:
+            deviation_pct = abs(sensor_width_value - preset_width) / preset_width * 100
+            if deviation_pct > 30.0:  # 30% threshold
+                warnings.append(
+                    f"⚠ Warning: --sensor-width {sensor_width_value}mm deviates "
+                    f"{deviation_pct:.1f}% from --sensor-type {args.sensor_type} "
+                    f"preset ({preset_width}mm)"
+                )
+
+    # Check pixel_pitch deviation
+    if args.pixel_pitch is not None and pixel_pitch_value is not None:
+        preset_pitch = preset.get("pixel_pitch")
+        if preset_pitch:
+            deviation_pct = abs(pixel_pitch_value - preset_pitch) / preset_pitch * 100
+            if deviation_pct > 50.0:  # 50% threshold
+                warnings.append(
+                    f"⚠ Warning: --pixel-pitch {pixel_pitch_value}μm deviates "
+                    f"{deviation_pct:.1f}% from --sensor-type {args.sensor_type} "
+                    f"preset ({preset_pitch}μm)"
+                )
+
+    # Print warnings if any
+    if warnings:
+        print(f"\n{'='*70}")
+        for warning in warnings:
+            print(warning)
+        print(f"{'='*70}\n")
 
 
 def list_sensor_types() -> None:
@@ -2824,7 +2890,11 @@ def main():
             sensor_width_value,
             focal_length_value,
             pixel_pitch_value,
+            preset,
         ) = apply_sensor_preset(args, verbose=True)
+
+        # Validate sensor overrides
+        validate_sensor_overrides(args, preset, sensor_width_value, pixel_pitch_value)
 
         # Validate focal_factor if specified directly
         if args.focal_factor and focal_factor_value is None:
@@ -2968,9 +3038,16 @@ def main():
         return
 
     # Apply sensor preset (with individual args taking priority)
-    focal_factor_value, sensor_width_value, focal_length_value, pixel_pitch_value = (
-        apply_sensor_preset(args, verbose=False)
-    )
+    (
+        focal_factor_value,
+        sensor_width_value,
+        focal_length_value,
+        pixel_pitch_value,
+        preset,
+    ) = apply_sensor_preset(args, verbose=False)
+
+    # Validate sensor overrides
+    validate_sensor_overrides(args, preset, sensor_width_value, pixel_pitch_value)
 
     # Validate focal_factor if specified directly
     if args.focal_factor and focal_factor_value is None:
