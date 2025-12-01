@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.5.3 - 2025-12-02
+- **Fisheye Lens Correction**: Added `--fisheye` flag for equisolid angle projection compensation
+  - Accounts for varying effective focal length across the fisheye image
+  - Center: nominal focal length preserved
+  - Edge: effective focal length reduced (cos(45°) ≈ 0.707× for 180° diagonal FOV)
+  - Star trail length ratio increases toward edges (up to ~1.414× at corners)
+- **NPF Calculation for Fisheye**: Uses edge (worst case) effective focal length
+  - More conservative/lenient NPF recommended exposure time
+  - Better compliance evaluation for wide-angle fisheye photography
+- **New Fisheye Functions**:
+  - `calculate_fisheye_effective_focal_length()`: Position-dependent focal length
+  - `calculate_fisheye_edge_focal_length()`: Edge focal length for NPF
+  - `calculate_fisheye_trail_length_ratio()`: Trail length variation across image
+  - `get_fisheye_max_trail_ratio()`: Maximum trail ratio at image edge
+  - `display_fisheye_info()`: Display fisheye correction parameters
+- **Projection Model Infrastructure**: Prepared for future projection models (equidistant, stereographic)
+  - Currently implements equisolid angle projection only
+  - `FISHEYE_PROJECTION_MODELS` dictionary for extensibility
+- **Updated Shell Completions**: Both bash and zsh completion scripts updated with `--fisheye` support
+- **Comprehensive Test Coverage**: Added `test_fisheye_v1x.py` with 27 test cases
+
 ## v1.5.2 - 2024-12-01
 - **Sensor Override Validation**: Added automatic validation when `--sensor-type` preset values are overridden with `--sensor-width` or `--pixel-pitch`.
   - Warns when `--sensor-width` deviates more than ±30% from preset value
