@@ -255,8 +255,8 @@ class TestApplySensorPreset(unittest.TestCase):
             pixel_pitch=None,
         )
 
-        focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(
-            args
+        focal_factor, sensor_width, focal_length, pixel_pitch, preset = (
+            apply_sensor_preset(args)
         )
 
         self.assertEqual(focal_factor, 2.0)
@@ -274,8 +274,8 @@ class TestApplySensorPreset(unittest.TestCase):
             pixel_pitch=None,
         )
 
-        focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(
-            args
+        focal_factor, sensor_width, focal_length, pixel_pitch, preset = (
+            apply_sensor_preset(args)
         )
 
         self.assertEqual(focal_factor, 0.79)
@@ -293,8 +293,8 @@ class TestApplySensorPreset(unittest.TestCase):
             pixel_pitch=None,
         )
 
-        focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(
-            args
+        focal_factor, sensor_width, focal_length, pixel_pitch, preset = (
+            apply_sensor_preset(args)
         )
 
         self.assertEqual(focal_factor, 2.0)  # From preset
@@ -311,8 +311,8 @@ class TestApplySensorPreset(unittest.TestCase):
             pixel_pitch=3.3,  # Override
         )
 
-        focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(
-            args
+        focal_factor, sensor_width, focal_length, pixel_pitch, preset = (
+            apply_sensor_preset(args)
         )
 
         self.assertEqual(focal_factor, 2.0)  # From preset
@@ -329,8 +329,8 @@ class TestApplySensorPreset(unittest.TestCase):
             pixel_pitch=None,
         )
 
-        focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(
-            args
+        focal_factor, sensor_width, focal_length, pixel_pitch, preset = (
+            apply_sensor_preset(args)
         )
 
         self.assertEqual(focal_factor, 1.8)  # Overridden
@@ -346,8 +346,8 @@ class TestApplySensorPreset(unittest.TestCase):
             pixel_pitch=3.3,
         )
 
-        focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(
-            args
+        focal_factor, sensor_width, focal_length, pixel_pitch, preset = (
+            apply_sensor_preset(args)
         )
 
         self.assertEqual(focal_factor, 1.8)
@@ -365,8 +365,8 @@ class TestApplySensorPreset(unittest.TestCase):
             pixel_pitch=None,
         )
 
-        focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(
-            args
+        focal_factor, sensor_width, focal_length, pixel_pitch, preset = (
+            apply_sensor_preset(args)
         )
 
         self.assertIsNone(focal_factor)
@@ -384,8 +384,8 @@ class TestApplySensorPreset(unittest.TestCase):
             pixel_pitch=None,
         )
 
-        focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(
-            args
+        focal_factor, sensor_width, focal_length, pixel_pitch, preset = (
+            apply_sensor_preset(args)
         )
 
         # Should return None for all preset values (invalid sensor type)
