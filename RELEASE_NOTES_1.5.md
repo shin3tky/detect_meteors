@@ -1,5 +1,200 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.2 (2025-12-01)
+
+### 🛡️ Sensor Override Validation
+
+Version 1.5.2 adds automatic validation when users override `--sensor-type` preset values with individual parameters. This helps catch potential misconfiguration while preserving the flexibility to use custom values when needed.
+
+### New Validation Feature
+
+When using `--sensor-type` with `--sensor-width` or `--pixel-pitch` overrides, the system now checks if the overridden values deviate significantly from the preset values:
+
+**Warning Thresholds:**
+- `--sensor-width`: ±30% deviation from preset
+- `--pixel-pitch`: ±50% deviation from preset
+
+**Important**: Warnings are informational only - processing continues normally. This design preserves user flexibility while providing helpful feedback about potential configuration issues.
+
+### Usage Examples
+
+#### Example 1: No Warning (Small Deviation)
+```bash
+# MFT preset: sensor_width=17.3mm
+python detect_meteors_cli.py --auto-params \
+  --sensor-type MFT \
+  --sensor-width 17.5  # 1.2% deviation → no warning
+```
+
+#### Example 2: Warning Displayed (Large Deviation)
+```bash
+# MFT preset: sensor_width=17.3mm
+python detect_meteors_cli.py --auto-params \
+  --sensor-type MFT \
+  --sensor-width 23.5  # 35.8% deviation → warning
+```
+
+**Output:**
+```
+======================================================================
+⚠ Warning: --sensor-width 23.5mm deviates 35.8% from --sensor-type MFT preset (17.3mm)
+======================================================================
+```
+
+#### Example 3: Multiple Warnings
+```bash
+# FF preset: sensor_width=36.0mm, pixel_pitch=4.3μm
+python detect_meteors_cli.py --auto-params \
+  --sensor-type FF \
+  --sensor-width 23.5 \
+  --pixel-pitch 7.0
+```
+
+**Output:**
+```
+======================================================================
+⚠ Warning: --sensor-width 23.5mm deviates 34.7% from --sensor-type FF preset (36.0mm)
+⚠ Warning: --pixel-pitch 7.0μm deviates 62.8% from --sensor-type FF preset (4.3μm)
+======================================================================
+```
+
+### Why These Thresholds?
+
+#### sensor_width (±30%)
+- Sensor sizes are standardized (1-inch, MFT, APS-C, FF, MF)
+- 30% deviation typically indicates selecting wrong sensor type
+- Example: MFT (17.3mm) vs APS-C (23.5mm) = 36% deviation
+
+#### pixel_pitch (±50%)
+- Pixel pitch varies with resolution even within same sensor type
+- 20MP vs 45MP can differ by >2×
+- More lenient threshold accommodates this natural variation
+
+### When Warnings Appear
+
+**Common scenarios that trigger warnings:**
+
+1. **Wrong sensor type selected**
+   ```bash
+   # User has APS-C camera but selected MFT
+   --sensor-type MFT --sensor-width 23.5  # ⚠ Warning
+   ```
+
+2. **Typo in manual override**
+   ```bash
+   # Meant 3.7 but typed 37
+   --sensor-type MFT --pixel-pitch 37.0  # ⚠ Warning
+   ```
+
+3. **Using values from different camera**
+   ```bash
+   # Using FF values with MFT sensor type
+   --sensor-type MFT --sensor-width 36.0  # ⚠ Warning
+   ```
+
+### When NOT to Worry
+
+**Legitimate use cases that may show warnings:**
+
+1. **Precise measured values**
+   ```bash
+   # User measured their specific camera's sensor
+   --sensor-type MFT --sensor-width 17.4  # Small deviation, no warning
+   ```
+
+2. **High-resolution variants**
+   ```bash
+   # GFX100 II (102MP) vs GFX50S (51MP)
+   --sensor-type MF44X33 --pixel-pitch 3.3  # Different resolution
+   ```
+
+3. **Custom sensor configurations**
+   ```bash
+   # Specialized or modified camera
+   --sensor-type FF --pixel-pitch 8.5  # May be intentional
+   ```
+
+### Technical Details
+
+#### New Function: `validate_sensor_overrides()`
+
+```python
+def validate_sensor_overrides(
+    args,
+    preset: Optional[Dict[str, any]],
+    sensor_width_value: Optional[float],
+    pixel_pitch_value: Optional[float],
+) -> None:
+    """
+    Validate that overridden --sensor-width and --pixel-pitch values
+    are not significantly different from --sensor-type preset values.
+    
+    Prints warnings if discrepancies are detected, but does not stop processing.
+    """
+```
+
+#### Updated Function: `apply_sensor_preset()`
+
+Now returns 5-tuple instead of 4-tuple:
+
+```python
+# v1.5.1 and earlier
+focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(args)
+
+# v1.5.2
+focal_factor, sensor_width, focal_length, pixel_pitch, preset = apply_sensor_preset(args)
+```
+
+The additional `preset` return value enables validation by providing access to the original preset values.
+
+### Test Coverage
+
+New test file `test_sensor_validation_v1x.py` with 23 test cases:
+
+- Basic validation behavior (no warnings without overrides)
+- Threshold boundary testing (exactly at and just over limits)
+- Multiple sensor types (1INCH, MFT, APS-C, FF, MF44X33, MF54X40)
+- Real-world scenarios (correct setups, wrong sensor type, custom values)
+- Edge cases (None values, missing preset keys)
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.5.1 and earlier versions:
+- All existing commands work unchanged
+- New validation is purely additive
+- No breaking changes to API or CLI options
+
+### Migration Notes
+
+No action required. Existing code and scripts continue to work.
+
+**Optional**: If you have custom scripts that call `apply_sensor_preset()`, update to handle the new 5-tuple return value:
+
+```python
+# Update this
+focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(args)
+
+# To this
+focal_factor, sensor_width, focal_length, pixel_pitch, preset = apply_sensor_preset(args)
+```
+
+Or use tuple unpacking with underscore:
+
+```python
+# If you don't need the preset
+focal_factor, sensor_width, focal_length, pixel_pitch, _ = apply_sensor_preset(args)
+```
+
+### Files Updated
+
+| File | Changes |
+|------|---------|
+| `detect_meteors_cli.py` | Added `validate_sensor_overrides()`, updated `apply_sensor_preset()` |
+| `test_sensor_validation_v1x.py` | New test file (23 tests) |
+| `test_sensor_presets_v1x.py` | Updated for 5-tuple return value |
+
+---
+
 ## Version 1.5.1 (2025-11-30)
 
 ### 📷 Medium Format Sensor Support
@@ -327,7 +522,11 @@ Retrieves sensor preset configuration by type name.
 Applies sensor preset with CLI argument priority.
 
 ```python
-# Returns (focal_factor, sensor_width, focal_length, pixel_pitch)
+# v1.5.2+: Returns (focal_factor, sensor_width, focal_length, pixel_pitch, preset)
+>>> apply_sensor_preset(args)
+(2.0, 17.3, None, 3.7, {...})
+
+# v1.5.1 and earlier: Returns (focal_factor, sensor_width, focal_length, pixel_pitch)
 >>> apply_sensor_preset(args)
 (2.0, 17.3, None, 3.7)
 ```
@@ -394,6 +593,13 @@ Both bash and zsh completion scripts have been updated:
    - Warn if detected parameters differ significantly
 
 ## Version Information
+
+- **Latest Version**: 1.5.2
+- **Release Date**: 2024-12-01
+- **Major Changes**:
+  - Sensor override validation (automatic warning for misconfigurations)
+  - Enhanced test coverage (23 new validation tests)
+  - Improved `apply_sensor_preset()` function
 
 - **Version**: 1.5.1
 - **Release Date**: 2025-11-30

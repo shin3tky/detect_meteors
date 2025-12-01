@@ -45,6 +45,14 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ## What's New in v1.5
 
+### v1.5.2 - Sensor Override Validation
+- **New validation feature**: Automatic checking when overriding `--sensor-type` preset values
+- **Warning thresholds**: 
+  - `--sensor-width`: ±30% deviation from preset
+  - `--pixel-pitch`: ±50% deviation from preset
+- **Safe design**: Warnings are informational only - processing continues normally
+- **Helpful feedback**: Alerts users to potential misconfiguration while preserving flexibility
+
 ### v1.5.1 - Medium Format Sensor Support
 - **New sensor types**: Added `MF44X33` (Fujifilm GFX, Pentax 645Z, Hasselblad X2D) and `MF54X40` (Hasselblad H6D-100c)
 - **Sensor size ordering**: All sensor types now ordered by size (1INCH → MFT → APS-C → FF → MF44X33 → MF54X40)
