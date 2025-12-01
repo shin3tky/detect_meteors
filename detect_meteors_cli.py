@@ -28,7 +28,7 @@ except ImportError:
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.5.2"
+VERSION = "1.5.3"
 
 DEFAULT_PROGRESS_FILE = "progress.json"
 
@@ -55,6 +55,26 @@ AUTO_BATCH_MEMORY_FRACTION = 0.6  # Portion of free RAM to use when auto-sizing 
 # NPF Rule related default values
 # Default pixel pitch for fallback (μm)
 DEFAULT_PIXEL_PITCH_UM = 4.0  # Typical value for APS-C/MFT cameras
+
+# Fisheye projection models
+FISHEYE_PROJECTION_MODELS = {
+    "EQUISOLID": {
+        "name": "Equisolid Angle Projection",
+        "description": "Equal-area projection (r = 2f × sin(θ/2))",
+    },
+    # Future projection models can be added here:
+    # "EQUIDISTANT": {
+    #     "name": "Equidistant Projection",
+    #     "description": "Linear angle-to-distance mapping (r = f × θ)",
+    # },
+    # "STEREOGRAPHIC": {
+    #     "name": "Stereographic Projection",
+    #     "description": "Conformal projection (r = 2f × tan(θ/2))",
+    # },
+}
+
+# Default fisheye projection model
+DEFAULT_FISHEYE_MODEL = "EQUISOLID"
 
 # Sensor presets: unified configuration for each sensor type
 # Each preset contains:
@@ -613,6 +633,173 @@ def extract_exif_metadata(filepath: str) -> Dict[str, any]:
 
 
 # ==========================================
+# Fisheye Correction Functions
+# ==========================================
+
+
+def calculate_fisheye_effective_focal_length(
+    nominal_focal_length_mm: float,
+    normalized_radius: float,
+    projection_model: str = "EQUISOLID",
+) -> float:
+    """
+    Calculate effective focal length at a given position in fisheye image.
+
+    For equisolid angle projection: r = 2f × sin(θ/2)
+    The effective focal length decreases toward the edges because the same
+    angular distance covers fewer pixels (compression effect).
+
+    Args:
+        nominal_focal_length_mm: Nominal (center) focal length in mm
+        normalized_radius: Distance from image center as fraction of image half-diagonal (0.0-1.0)
+                          0.0 = center, 1.0 = corner
+        projection_model: Fisheye projection model (currently only "EQUISOLID" supported)
+
+    Returns:
+        Effective focal length at the given position (mm)
+
+    Note:
+        For equisolid projection with typical full-frame circular fisheye (180° diagonal):
+        - Center (r=0): effective_f = nominal_f
+        - Edge (r=1, θ=90°): effective_f ≈ nominal_f × 0.707 (cos(45°))
+
+        The derivative dr/dθ = f × cos(θ/2) shows the compression effect.
+        At edges, angular changes map to smaller pixel distances.
+    """
+    if normalized_radius < 0 or normalized_radius > 1:
+        normalized_radius = max(0.0, min(1.0, normalized_radius))
+
+    if projection_model.upper() != "EQUISOLID":
+        # Future: support other projection models
+        # For now, only EQUISOLID is implemented
+        return nominal_focal_length_mm
+
+    # For equisolid: r = 2f × sin(θ/2)
+    # Typical fisheye covers 180° diagonal, so max θ = 90° at corners
+    # At normalized_radius = 1.0, θ = 90°
+
+    # Calculate the angle θ at the given radius
+    # Assuming 180° diagonal coverage (typical for circular fisheye)
+    max_theta_rad = math.pi / 2  # 90° at the edge
+    theta_rad = normalized_radius * max_theta_rad
+
+    # The effective focal length is reduced by the compression factor
+    # dr/dθ = f × cos(θ/2), so effective scale = cos(θ/2)
+    # This means the same angular motion covers fewer pixels at edges
+    compression_factor = math.cos(theta_rad / 2)
+
+    # Effective focal length (shorter at edges = wider effective FOV)
+    effective_focal_length = nominal_focal_length_mm * compression_factor
+
+    return effective_focal_length
+
+
+def calculate_fisheye_edge_focal_length(
+    nominal_focal_length_mm: float,
+    projection_model: str = "EQUISOLID",
+) -> float:
+    """
+    Calculate effective focal length at the edge/corner of fisheye image.
+
+    This is used for NPF Rule calculation to ensure the recommended
+    exposure time is based on the worst-case (edge) condition.
+
+    Args:
+        nominal_focal_length_mm: Nominal (center) focal length in mm
+        projection_model: Fisheye projection model
+
+    Returns:
+        Effective focal length at image edge (mm)
+    """
+    return calculate_fisheye_effective_focal_length(
+        nominal_focal_length_mm,
+        normalized_radius=1.0,
+        projection_model=projection_model,
+    )
+
+
+def calculate_fisheye_trail_length_ratio(
+    normalized_radius: float,
+    projection_model: str = "EQUISOLID",
+) -> float:
+    """
+    Calculate the ratio of star trail length at given position vs center.
+
+    For fisheye images, star trails are longer at the edges due to the
+    compression effect of the projection.
+
+    Args:
+        normalized_radius: Distance from image center (0.0-1.0)
+        projection_model: Fisheye projection model
+
+    Returns:
+        Ratio of trail length at position vs center (>= 1.0)
+        1.0 at center, increasing toward edges
+    """
+    if normalized_radius <= 0:
+        return 1.0
+
+    if projection_model.upper() != "EQUISOLID":
+        return 1.0
+
+    # Trail length is inversely proportional to effective focal length
+    # Longer trails where effective focal length is shorter
+    max_theta_rad = math.pi / 2
+    theta_rad = normalized_radius * max_theta_rad
+    compression_factor = math.cos(theta_rad / 2)
+
+    # Ratio = center_f / edge_f = 1 / compression_factor
+    if compression_factor > 0:
+        return 1.0 / compression_factor
+    else:
+        return 1.0
+
+
+def get_fisheye_max_trail_ratio(projection_model: str = "EQUISOLID") -> float:
+    """
+    Get the maximum trail length ratio (at image edge vs center).
+
+    Args:
+        projection_model: Fisheye projection model
+
+    Returns:
+        Maximum trail length ratio at edge
+    """
+    return calculate_fisheye_trail_length_ratio(1.0, projection_model)
+
+
+def display_fisheye_info(
+    nominal_focal_length_mm: float,
+    projection_model: str = "EQUISOLID",
+) -> None:
+    """
+    Display fisheye correction information.
+
+    Args:
+        nominal_focal_length_mm: Nominal focal length in mm
+        projection_model: Fisheye projection model
+    """
+    edge_focal = calculate_fisheye_edge_focal_length(
+        nominal_focal_length_mm, projection_model
+    )
+    max_ratio = get_fisheye_max_trail_ratio(projection_model)
+
+    model_info = FISHEYE_PROJECTION_MODELS.get(
+        projection_model.upper(), {"name": projection_model, "description": ""}
+    )
+
+    print(f"\n{'='*60}")
+    print("Fisheye Correction")
+    print(f"{'='*60}")
+    print(f"  Projection model:   {model_info['name']}")
+    print(f"  Nominal focal:      {nominal_focal_length_mm:.1f}mm (center)")
+    print(f"  Effective focal:    {edge_focal:.1f}mm (edge)")
+    print(f"  Trail length ratio: {max_ratio:.2f}× (edge vs center)")
+    print(f"  NPF calculation:    Based on edge (worst case)")
+    print(f"{'='*60}")
+
+
+# ==========================================
 # NPF Rule Functions
 # ==========================================
 
@@ -749,6 +936,8 @@ def calculate_npf_metrics(
     exif_data: Dict[str, any],
     sensor_width_mm: Optional[float] = None,
     pixel_pitch_um: Optional[float] = None,
+    fisheye: bool = False,
+    fisheye_model: str = "EQUISOLID",
 ) -> Dict[str, any]:
     """
     Calculate NPF Rule-related metrics from EXIF information.
@@ -757,17 +946,23 @@ def calculate_npf_metrics(
         exif_data: Return value from extract_exif_metadata()
         sensor_width_mm: Sensor width in millimeters (None if cannot estimate)
         pixel_pitch_um: Pixel pitch in micrometers (μm) (calculated or default if None)
+        fisheye: Whether to apply fisheye correction
+        fisheye_model: Fisheye projection model (default: "EQUISOLID")
 
     Returns:
         Dictionary of NPF metrics:
         {
             'pixel_pitch_um': float,           # Pixel pitch (μm)
             'npf_recommended_sec': float,      # NPF recommended exposure time (seconds)
-            'star_trail_px': float,            # Star trail length in pixels
+            'star_trail_px': float,            # Star trail length in pixels (at edge for fisheye)
             'compliance_level': str,           # "OK", "WARNING", "CRITICAL"
             'overshoot_factor': float,         # Overshoot factor
             'sensor_width_mm': float,          # Sensor width used
             'has_complete_data': bool,         # Whether complete data is available
+            'fisheye': bool,                   # Whether fisheye correction is applied
+            'fisheye_model': str,              # Fisheye projection model used
+            'effective_focal_length': float,   # Effective focal length (edge for fisheye)
+            'trail_length_ratio': float,       # Trail length ratio (edge vs center for fisheye)
         }
     """
     result = {
@@ -778,6 +973,10 @@ def calculate_npf_metrics(
         "overshoot_factor": 0.0,
         "sensor_width_mm": sensor_width_mm,
         "has_complete_data": False,
+        "fisheye": fisheye,
+        "fisheye_model": fisheye_model if fisheye else None,
+        "effective_focal_length": None,
+        "trail_length_ratio": 1.0,
     }
 
     focal_length = exif_data.get("focal_length_35mm")
@@ -788,6 +987,19 @@ def calculate_npf_metrics(
     # Check for required data
     if not focal_length or not aperture or not exposure_time:
         return result
+
+    # Apply fisheye correction: use effective focal length at edge
+    effective_focal_length = focal_length
+    trail_length_ratio = 1.0
+
+    if fisheye:
+        effective_focal_length = calculate_fisheye_edge_focal_length(
+            focal_length, fisheye_model
+        )
+        trail_length_ratio = get_fisheye_max_trail_ratio(fisheye_model)
+
+    result["effective_focal_length"] = effective_focal_length
+    result["trail_length_ratio"] = trail_length_ratio
 
     # Determine pixel pitch
     if pixel_pitch_um is not None:
@@ -802,15 +1014,19 @@ def calculate_npf_metrics(
         result["pixel_pitch_um"] = DEFAULT_PIXEL_PITCH_UM
 
     # Calculate NPF recommended exposure time
+    # For fisheye, use effective focal length at edge (worst case)
     result["npf_recommended_sec"] = calculate_npf_rule(
-        focal_length, aperture, result["pixel_pitch_um"]
+        effective_focal_length, aperture, result["pixel_pitch_um"]
     )
 
     # Estimate star trail length
+    # For fisheye, estimate at edge (longest trail)
     if image_width:
-        result["star_trail_px"] = estimate_star_trail_length(
+        center_trail = estimate_star_trail_length(
             focal_length, exposure_time, image_width
         )
+        # Apply fisheye trail length ratio
+        result["star_trail_px"] = center_trail * trail_length_ratio
 
     # Evaluate NPF compliance
     result["compliance_level"], result["overshoot_factor"] = evaluate_npf_compliance(
@@ -1166,86 +1382,6 @@ def optimize_params_with_npf(
         min_line_score = current_min_line_score
 
     return diff_threshold, min_area, min_line_score, optimization_info
-
-
-def calculate_npf_metrics(
-    exif_data: Dict[str, any],
-    sensor_width_mm: Optional[float] = None,
-    pixel_pitch_um: Optional[float] = None,
-) -> Dict[str, any]:
-    """
-    Calculate NPF Rule-related metrics from EXIF information.
-
-    Args:
-        exif_data: Return value from extract_exif_metadata()
-        sensor_width_mm: Sensor width in millimeters (None if cannot estimate)
-        pixel_pitch_um: Pixel pitch in micrometers (μm) (calculated or default if None)
-
-    Returns:
-        Dictionary of NPF metrics:
-        {
-            'pixel_pitch_um': float,           # Pixel pitch (μm)
-            'npf_recommended_sec': float,      # NPF recommended exposure time (seconds)
-            'star_trail_px': float,            # Star trail length in pixels
-            'compliance_level': str,           # "OK", "WARNING", "CRITICAL"
-            'overshoot_factor': float,         # Overshoot factor
-            'sensor_width_mm': float,          # Sensor width used
-            'has_complete_data': bool,         # Whether complete data is available
-        }
-    """
-    result = {
-        "pixel_pitch_um": None,
-        "npf_recommended_sec": None,
-        "star_trail_px": None,
-        "compliance_level": "UNKNOWN",
-        "overshoot_factor": 0.0,
-        "sensor_width_mm": sensor_width_mm,
-        "has_complete_data": False,
-    }
-
-    focal_length = exif_data.get("focal_length_35mm")
-    aperture = exif_data.get("f_number")
-    exposure_time = exif_data.get("exposure_time")
-    image_width = exif_data.get("image_width")
-
-    # Check for required data
-    if not focal_length or not aperture or not exposure_time:
-        return result
-
-    # Determine pixel pitch
-    if pixel_pitch_um is not None:
-        # Use explicitly specified value
-        result["pixel_pitch_um"] = pixel_pitch_um
-    elif sensor_width_mm and image_width:
-        # Calculate from sensor width and image width
-        result["pixel_pitch_um"] = calculate_pixel_pitch(sensor_width_mm, image_width)
-        result["sensor_width_mm"] = sensor_width_mm
-    else:
-        # Use default value
-        result["pixel_pitch_um"] = DEFAULT_PIXEL_PITCH_UM
-
-    # Calculate NPF recommended exposure time
-    result["npf_recommended_sec"] = calculate_npf_rule(
-        focal_length, aperture, result["pixel_pitch_um"]
-    )
-
-    # Estimate star trail length
-    if image_width:
-        result["star_trail_px"] = estimate_star_trail_length(
-            focal_length, exposure_time, image_width
-        )
-
-    # Evaluate NPF compliance
-    result["compliance_level"], result["overshoot_factor"] = evaluate_npf_compliance(
-        exposure_time, result["npf_recommended_sec"]
-    )
-
-    # Check if complete data is available
-    result["has_complete_data"] = all(
-        [focal_length, aperture, exposure_time, result["pixel_pitch_um"], image_width]
-    )
-
-    return result
 
 
 def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
@@ -2158,6 +2294,7 @@ def detect_meteors_advanced(
     sensor_width_mm=None,
     pixel_pitch_um=None,
     output_overwrite=False,
+    fisheye=False,
 ):
     """
     Main processing: detect meteor candidates from consecutive RAW images
@@ -2262,8 +2399,16 @@ def detect_meteors_advanced(
         # Step 2: NPF RuleAnalysis
         # ========================================
         npf_metrics = calculate_npf_metrics(
-            exif_data, sensor_width_mm=sensor_width_mm, pixel_pitch_um=pixel_pitch_um
+            exif_data,
+            sensor_width_mm=sensor_width_mm,
+            pixel_pitch_um=pixel_pitch_um,
+            fisheye=fisheye,
+            fisheye_model=DEFAULT_FISHEYE_MODEL,
         )
+
+        # Display fisheye info if enabled
+        if fisheye and exif_data.get("focal_length_35mm"):
+            display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
 
         # Display EXIF Information and NPF Analysis
         display_exif_info(exif_data, focal_length_source, focal_factor, npf_metrics)
@@ -2846,6 +2991,16 @@ def build_arg_parser():
         help="Force overwrite existing files in output folder (default: skip existing files)",
     )
 
+    # Fisheye correction (v1.5.3)
+    parser.add_argument(
+        "--fisheye",
+        action="store_true",
+        help="Enable fisheye lens correction. Applies equisolid angle projection compensation "
+        "to account for varying effective focal length across the image. "
+        "NPF calculation uses edge (worst case) effective focal length. "
+        "Star trail estimation accounts for longer trails at image edges.",
+    )
+
     return parser
 
 
@@ -2944,6 +3099,14 @@ def main():
                     exif_data,
                     sensor_width_mm=sensor_width_value,
                     pixel_pitch_um=pixel_pitch_value,
+                    fisheye=args.fisheye,
+                    fisheye_model=DEFAULT_FISHEYE_MODEL,
+                )
+
+            # Display fisheye info if enabled
+            if args.fisheye and exif_data.get("focal_length_35mm"):
+                display_fisheye_info(
+                    exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL
                 )
 
             display_exif_info(
@@ -3085,6 +3248,7 @@ def main():
         sensor_width_mm=sensor_width_value,
         pixel_pitch_um=pixel_pitch_value,
         output_overwrite=args.output_overwrite,
+        fisheye=args.fisheye,
     )
 
 
