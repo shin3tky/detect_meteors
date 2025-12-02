@@ -29,8 +29,8 @@ I developed this tool hoping it would be useful for fellow astrophotography enth
 ## Technical Overview
 - See the project wiki for a technical summary: [Technical Processing Summary](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Summary)
 - See the project wiki for a deeper technical walkthrough: [Technical Processing Overview](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview)
-- Auto-Parameter Estimation Extensions: [v1.3.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.3.1-Additions)
-- NPF Rule-based Scientific Optimization: [v1.4.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.4.1-Additions)
+- Auto-Parameter Estimation Extensions: [v1.3 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.3-Additions)
+- NPF Rule-based Scientific Optimization: [v1.4 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.4-Additions)
 
 ## Requirements
 - Python 3.12.12 (tested).
