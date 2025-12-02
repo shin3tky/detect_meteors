@@ -29,8 +29,9 @@ I developed this tool hoping it would be useful for fellow astrophotography enth
 ## Technical Overview
 - See the project wiki for a technical summary: [Technical Processing Summary](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Summary)
 - See the project wiki for a deeper technical walkthrough: [Technical Processing Overview](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview)
-- Auto-Parameter Estimation Extensions: [v1.3.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.3.1-Additions)
-- NPF Rule-based Scientific Optimization: [v1.4.1 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.4.1-Additions)
+- Auto-Parameter Estimation Extensions: [v1.3 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.3-Additions)
+- NPF Rule-based Scientific Optimization: [v1.4 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.4-Additions)
+- Sensor presets and fisheye correction: [v1.5 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.5-Additions)
 
 ## Requirements
 - Python 3.12.12 (tested).
@@ -44,6 +45,13 @@ I developed this tool hoping it would be useful for fellow astrophotography enth
 For detailed installation instructions for macOS and Windows, please refer to [INSTALL.md](INSTALL.md).
 
 ## What's New in v1.5
+
+### v1.5.3 - Fisheye Lens Correction
+- **New `--fisheye` flag**: Equisolid angle projection compensation for fisheye lenses
+- **Position-dependent correction**: Effective focal length varies from center (~nominal) to edge (~0.707×)
+- **NPF calculation**: Uses edge focal length (worst case) for conservative recommendations
+- **Star trail estimation**: Accounts for longer trails at image edges (~1.414× at corners)
+- **Tested**: OM-D E-M1 Mark II + M.ZUIKO 8mm F1.8 Fisheye PRO (308 images → 2 candidates)
 
 ### v1.5.2 - Sensor Override Validation
 - **New validation feature**: Automatic checking when overriding `--sensor-type` preset values
@@ -121,6 +129,9 @@ python detect_meteors_cli.py --auto-params --sensor-type FF
 
 # Medium Format (Fujifilm GFX, Pentax 645Z, Hasselblad X2D)
 python detect_meteors_cli.py --auto-params --sensor-type MF44X33
+
+# Fisheye lens (v1.5.3+) - add --fisheye flag
+python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
 ```
 
 **Option B: If focal length is missing in EXIF - specify manually**

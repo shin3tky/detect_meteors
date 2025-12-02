@@ -58,6 +58,15 @@
   - [x] Enhanced `apply_sensor_preset()` with validation support
   - [x] Comprehensive test coverage (23 test cases)
 
+### Fisheye Lens Correction
+- [x] **v1.5.3** - Fisheye lens support with equisolid angle projection
+  - [x] `--fisheye` flag for fisheye correction
+  - [x] Position-dependent effective focal length calculation
+  - [x] NPF calculation based on edge (worst case) focal length
+  - [x] Star trail ratio adjustment for image edges
+  - [x] Extensible projection model infrastructure
+  - [x] Comprehensive test coverage (27 test cases)
+
 ### Remaining Goals for v1.x (-2025 4Q)
 - [ ] Camera model database for automatic sensor detection from EXIF
 - [ ] Per-image adaptive parameter adjustment
@@ -83,5 +92,5 @@
 
 ---
 
-**Current Status**: v1.5.2 (Sensor Override Validation)  
+**Current Status**: v1.5.3 (Fisheye Lens Correction)  
 **Next Focus**: Camera model database for automatic sensor detection from EXIF

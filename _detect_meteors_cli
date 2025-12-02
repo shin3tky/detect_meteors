@@ -64,6 +64,9 @@ _detect_meteors_cli() {
         
         # Output control
         '--output-overwrite[Force overwrite existing files in output folder]'
+        
+        # Fisheye correction (v1.5.3)
+        '--fisheye[Enable fisheye lens correction (equisolid angle projection)]'
     )
 
     _arguments -s -S $args

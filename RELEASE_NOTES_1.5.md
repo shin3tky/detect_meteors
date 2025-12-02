@@ -1,5 +1,169 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.3 (2025-12-02)
+
+### 🐟 Fisheye Lens Correction
+
+Version 1.5.3 adds fisheye lens support with equisolid angle projection compensation. This feature accounts for the varying effective focal length across fisheye images, providing more accurate NPF calculations and star trail estimations.
+
+### The Problem with Fisheye Lenses
+
+Fisheye lenses use special projection geometries that cause the effective focal length to vary across the image:
+
+- **Center**: Uses the nominal focal length (e.g., 8mm → 16mm equiv. on MFT)
+- **Edge/Corner**: Shorter effective focal length due to projection compression
+
+For **equisolid angle projection** (most common fisheye type):
+- Formula: `r = 2f × sin(θ/2)`
+- Edge effective focal length: ~0.707× nominal (at 90° from center)
+- Star trails at edges: ~1.414× longer than at center
+
+Without correction, NPF calculations based on nominal focal length are too conservative for the image center but potentially insufficient for the edges.
+
+### New `--fisheye` Flag
+
+Add `--fisheye` to enable equisolid angle projection compensation:
+
+```bash
+# MFT camera with 8mm fisheye (16mm equiv.)
+python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
+
+# Full Frame with 8mm fisheye
+python detect_meteors_cli.py --auto-params --sensor-type FF --focal-length 8 --fisheye
+
+# Check NPF analysis with fisheye correction
+python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye
+```
+
+### Effect on NPF Calculations
+
+When `--fisheye` is enabled:
+- NPF recommended exposure uses **edge focal length** (worst case)
+- Star trail estimation uses **edge trail length** (longest trails)
+- More lenient/conservative NPF recommendations
+
+### Real-World Example
+
+**Equipment**: OM-D E-M1 Mark II + M.ZUIKO 8mm F1.8 Fisheye PRO
+
+**Without `--fisheye`**:
+```
+NPF Rule Analysis
+============================================================
+  Pixel pitch:      3.70μm (sensor: 17.3mm)
+  NPF recommended:  10.9s
+  Actual exposure:  6.0s ✓ OK
+  Star trail est.:  ~1.4 pixels
+============================================================
+```
+
+**With `--fisheye`**:
+```
+Fisheye Correction
+============================================================
+  Projection model:   Equisolid Angle Projection
+  Nominal focal:      16.0mm (center)
+  Effective focal:    11.3mm (edge)
+  Trail length ratio: 1.41× (edge vs center)
+  NPF calculation:    Based on edge (worst case)
+============================================================
+
+NPF Rule Analysis
+============================================================
+  Pixel pitch:      3.70μm (sensor: 17.3mm)
+  NPF recommended:  15.4s
+  Actual exposure:  6.0s ✓ OK
+  Star trail est.:  ~1.9 pixels
+============================================================
+```
+
+**Detection Results**: 308 images → 2 candidates (successfully detected expected meteors)
+
+### Technical Details
+
+#### New Functions
+
+| Function | Description |
+|----------|-------------|
+| `calculate_fisheye_effective_focal_length()` | Position-dependent focal length calculation |
+| `calculate_fisheye_edge_focal_length()` | Edge focal length for NPF (worst case) |
+| `calculate_fisheye_trail_length_ratio()` | Trail length variation across image |
+| `get_fisheye_max_trail_ratio()` | Maximum trail ratio at image edge |
+| `display_fisheye_info()` | Display fisheye correction parameters |
+
+#### New NPF Metrics Fields
+
+When `--fisheye` is enabled, `calculate_npf_metrics()` returns additional fields:
+
+```python
+{
+    'fisheye': True,
+    'fisheye_model': 'EQUISOLID',
+    'effective_focal_length': 11.3,  # Edge focal length
+    'trail_length_ratio': 1.414,     # Edge vs center ratio
+    # ... existing fields ...
+}
+```
+
+#### Projection Model Infrastructure
+
+The implementation uses an extensible design for future projection models:
+
+```python
+FISHEYE_PROJECTION_MODELS = {
+    "EQUISOLID": {
+        "name": "Equisolid Angle Projection",
+        "description": "Equal-area projection (r = 2f × sin(θ/2))",
+    },
+    # Future: EQUIDISTANT, STEREOGRAPHIC, etc.
+}
+```
+
+### Supported Lenses
+
+The equisolid angle projection covers most common fisheye lenses:
+
+- Olympus M.ZUIKO 8mm F1.8 Fisheye PRO
+- Samyang/Rokinon 8mm F2.8 Fisheye
+- Canon EF 8-15mm F4L Fisheye USM
+- Nikon AF-S Fisheye NIKKOR 8-15mm f/3.5-4.5E ED
+- Sigma 15mm F2.8 EX DG Diagonal Fisheye
+- And most other circular/diagonal fisheye lenses
+
+### Test Coverage
+
+New test file `test_fisheye_v1x.py` with 27 test cases covering:
+- Effective focal length calculations
+- Edge focal length calculations
+- Trail length ratio calculations
+- NPF metrics integration with fisheye
+- Projection model configuration
+
+**Total test count**: 228 tests (previously 201)
+
+### Files Updated
+
+| File | Changes |
+|------|---------|
+| `detect_meteors_cli.py` | Added fisheye functions, `--fisheye` flag, NPF integration |
+| `detect_meteors_cli_completion.bash` | Added `--fisheye` completion |
+| `_detect_meteors_cli` (zsh) | Added `--fisheye` completion |
+| `test_fisheye_v1x.py` | New test file (27 tests) |
+| `CHANGELOG.md` | Added v1.5.3 entry |
+| `COMMAND_OPTIONS.md` | Added Fisheye Correction Options section |
+| `NPF_RULE.md` | Added Fisheye Lens Correction section |
+| `README.md` | Added v1.5.3 section, fisheye usage examples |
+| `ROADMAP.md` | Added v1.5.3 milestone |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.5.2 and earlier:
+- `--fisheye` is optional; default behavior unchanged
+- All existing commands work without modification
+- No breaking changes to API or CLI options
+
+---
+
 ## Version 1.5.2 (2025-12-01)
 
 ### 🛡️ Sensor Override Validation
@@ -594,8 +758,17 @@ Both bash and zsh completion scripts have been updated:
 
 ## Version Information
 
-- **Latest Version**: 1.5.2
-- **Release Date**: 2024-12-01
+- **Latest Version**: 1.5.3
+- **Release Date**: 2025-12-02
+- **Major Changes**:
+  - Fisheye lens correction (`--fisheye` flag)
+  - Equisolid angle projection compensation
+  - Position-dependent effective focal length calculation
+  - Enhanced NPF calculation for fisheye lenses
+  - New test coverage (27 fisheye tests)
+
+- **Version**: 1.5.2
+- **Release Date**: 2025-12-01
 - **Major Changes**:
   - Sensor override validation (automatic warning for misconfigurations)
   - Enhanced test coverage (23 new validation tests)
@@ -617,21 +790,25 @@ Both bash and zsh completion scripts have been updated:
 | Preset + override | `--sensor-type TYPE --PARAM VALUE` | `--sensor-type FF --pixel-pitch 5.9` |
 | Full auto (MFT) | `--auto-params --sensor-type MFT` | `python detect_meteors_cli.py --auto-params --sensor-type MFT` |
 | Medium Format | `--auto-params --sensor-type MF44X33` | `python detect_meteors_cli.py --auto-params --sensor-type MF44X33` |
+| Fisheye lens | `--auto-params --fisheye` | `python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye` |
 | NPF check | `--show-npf --sensor-type TYPE` | `python detect_meteors_cli.py --show-npf --sensor-type APS-C` |
+| NPF + Fisheye | `--show-npf --fisheye` | `python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye` |
 
 ## Files Updated
 
 | File | Changes |
 |------|---------|
-| `detect_meteors_cli.py` | Added `SENSOR_PRESETS`, new functions, `--sensor-type`, `--list-sensor-types`, medium format support |
-| `detect_meteors_cli_completion.bash` | Added `--sensor-type`, `--list-sensor-types`, medium format completions |
-| `_detect_meteors_cli` (zsh) | Added `--sensor-type`, `--list-sensor-types`, medium format completions |
-| `COMMAND_OPTIONS.md` | Updated NPF Rule Options section with medium format |
+| `detect_meteors_cli.py` | Added `SENSOR_PRESETS`, new functions, `--sensor-type`, `--list-sensor-types`, medium format support, `--fisheye` flag |
+| `detect_meteors_cli_completion.bash` | Added `--sensor-type`, `--list-sensor-types`, medium format completions, `--fisheye` |
+| `_detect_meteors_cli` (zsh) | Added `--sensor-type`, `--list-sensor-types`, medium format completions, `--fisheye` |
+| `COMMAND_OPTIONS.md` | Updated NPF Rule Options section with medium format and fisheye |
+| `NPF_RULE.md` | Added Fisheye Lens Correction section |
+| `test_fisheye_v1x.py` | New test file (27 tests) |
 
 ---
 
 **Status**: Production Ready  
 **Compatibility**: Fully backward compatible with v1.4.x  
-**Recommendation**: Use `--sensor-type` for simplified configuration
+**Recommendation**: Use `--sensor-type` for simplified configuration; add `--fisheye` for fisheye lenses
 
 Happy meteor hunting! 🌠
