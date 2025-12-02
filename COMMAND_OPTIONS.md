@@ -66,3 +66,21 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--no-resume`**: Ignore and remove any existing progress file before processing.
 - **`--remove-progress`**: Delete the progress file and exit immediately.
 - **`--output-overwrite`**: Force overwrite existing files in output folder (default: skip existing files).
+
+## Fisheye Correction Options (NEW in v1.5.3)
+- **`--fisheye`**: Enable fisheye lens correction using equisolid angle projection.
+  - Compensates for varying effective focal length across the fisheye image
+  - Center of image uses nominal focal length
+  - Edge of image uses reduced effective focal length (~0.707× for 180° diagonal FOV)
+  - NPF calculation uses edge focal length (worst case) for conservative recommendations
+  - Star trail estimation accounts for longer trails at image edges (~1.414× at corners)
+  - Projection model: Equisolid angle (r = 2f × sin(θ/2))
+  
+  Example usage:
+  ```bash
+  # 8mm fisheye on Full Frame
+  python detect_meteors_cli.py --auto-params --sensor-type FF --focal-length 8 --fisheye
+  
+  # Show NPF analysis with fisheye correction
+  python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 8 --fisheye
+  ```
