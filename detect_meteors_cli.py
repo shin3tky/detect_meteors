@@ -28,7 +28,7 @@ except ImportError:
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.5.3"
+VERSION = "1.5.4"
 
 DEFAULT_PROGRESS_FILE = "progress.json"
 
@@ -2077,6 +2077,8 @@ def select_roi(image_data):
     """Polygon ROI selection with vertex editing"""
     disp_img = image_data.astype(np.float32)
     disp_img = disp_img / np.max(disp_img)
+    # Brighten the image by 50% to improve visibility in dark shooting conditions
+    disp_img = np.clip(disp_img * 1.5, 0, 1)
     disp_img = (disp_img * 255).astype(np.uint8)
 
     h, w = disp_img.shape
@@ -2823,7 +2825,11 @@ def build_arg_parser():
         description="Meteor detection tool with comprehensive auto-parameter estimation (v1.3.1)"
     )
 
-    parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"Detect Meteors CLI (https://github.com/shin3/detect_meteors/) {VERSION}",
+    )
 
     parser.add_argument(
         "-t", "--target", default=DEFAULT_TARGET_FOLDER, help="Input RAW image folder"
