@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+#
+# Copyright (C) 2025 Shinichi Morita (shin3tky). All rights reserved.
+#
 
 import rawpy
 import numpy as np
@@ -2828,7 +2831,7 @@ def build_arg_parser():
     parser.add_argument(
         "--version",
         action="version",
-        version=f"Detect Meteors CLI (https://github.com/shin3/detect_meteors/) {VERSION}",
+        version=f"Detect Meteors CLI (https://github.com/shin3tky/detect_meteors) {VERSION}",
     )
 
     parser.add_argument(
