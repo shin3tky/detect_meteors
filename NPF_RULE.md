@@ -80,3 +80,82 @@ This helps you understand:
 | APS-H (Canon) | 27.9 | 1.3 | 5.0-6.4 |
 | Full Frame | 36.0 | 1.0 | 4.3-8.4 |
 | 1-inch | 13.2 | 2.7 | 2.4-2.9 |
+
+## Fisheye Lens Correction (v1.5.3+)
+
+Fisheye lenses have a unique characteristic: the effective focal length varies across the image due to the projection geometry. The center of the image has the nominal focal length, while the edges have a shorter effective focal length.
+
+### Why Fisheye Needs Special Treatment
+
+For **equisolid angle projection** (the most common fisheye type):
+- **Formula**: r = 2f × sin(θ/2)
+- **Center (θ=0°)**: Effective focal length = nominal focal length
+- **Edge (θ=90°)**: Effective focal length ≈ 0.707× nominal (cos(45°))
+
+This means:
+- Stars at the image edge move across more pixels per unit time
+- Star trails are approximately **1.414× longer** at corners compared to center
+- NPF Rule must use the edge focal length for conservative recommendations
+
+### Using Fisheye Correction
+
+Add the `--fisheye` flag to enable equisolid angle projection compensation:
+
+```bash
+# MFT camera with 8mm fisheye (16mm equiv.)
+python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
+
+# Full Frame with 8mm fisheye
+python detect_meteors_cli.py --auto-params --sensor-type FF --focal-length 8 --fisheye
+
+# Check NPF analysis with fisheye correction
+python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye
+```
+
+### Example: Fisheye vs Standard NPF Analysis
+
+**Without `--fisheye`** (8mm F1.8 on MFT, 16mm equiv.):
+```
+NPF Rule Analysis
+============================================================
+  Pixel pitch:      3.70μm (sensor: 17.3mm)
+  NPF recommended:  10.9s
+  Star trail est.:  ~1.4 pixels
+============================================================
+```
+
+**With `--fisheye`**:
+```
+Fisheye Correction
+============================================================
+  Projection model:   Equisolid Angle Projection
+  Nominal focal:      16.0mm (center)
+  Effective focal:    11.3mm (edge)
+  Trail length ratio: 1.41× (edge vs center)
+  NPF calculation:    Based on edge (worst case)
+============================================================
+
+NPF Rule Analysis
+============================================================
+  Pixel pitch:      3.70μm (sensor: 17.3mm)
+  NPF recommended:  15.4s
+  Star trail est.:  ~1.9 pixels
+============================================================
+```
+
+### When to Use `--fisheye`
+
+Use the `--fisheye` flag when:
+- Using a dedicated fisheye lens (circular or diagonal)
+- Using an ultra-wide rectilinear lens with significant barrel distortion
+- The lens has 180° or greater diagonal field of view
+
+### Supported Projection Model
+
+Currently, only **equisolid angle projection** is implemented. This covers most common fisheye lenses including:
+- Olympus M.ZUIKO 8mm F1.8 Fisheye PRO
+- Samyang/Rokinon 8mm F2.8 Fisheye
+- Canon EF 8-15mm F4L Fisheye USM
+- Nikon AF-S Fisheye NIKKOR 8-15mm f/3.5-4.5E ED
+
+Future versions may add support for other projection models (equidistant, stereographic).
