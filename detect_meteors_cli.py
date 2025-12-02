@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2025 Shinichi Morita (shin3tky). All rights reserved.
+# Detect Meteors CLI
+# © 2025 Shinichi Morita (shin3tky)
 #
 
 import rawpy
