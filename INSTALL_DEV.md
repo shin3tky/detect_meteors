@@ -125,13 +125,14 @@ python -m unittest tests.test_calculations_v1x.TestCalculateNPFRule.test_npf_rul
 |------|-------|-------------|
 | `test_calculations_v1x.py` | 54 | NPF Rule, pixel pitch, star/meteor trail estimation |
 | `test_integration_v1x.py` | 44 | End-to-end meteor detection with various parameters |
-| `test_sensor_presets_v1x.py` | 45 | Sensor type presets (`--sensor-type`) |
+| `test_sensor_presets_v1x.py` | 42 | Sensor type presets (`--sensor-type`) |
 | `test_sensor_validation_v1x.py` | 23 | Sensor override validation (v1.5.2+) |
 | `test_sensor_npf_integration_v1x.py` | 16 | Sensor preset integration with NPF calculations |
 | `test_infrastructure_v1x.py` | 16 | ROI parsing, progress tracking, file collection, auto-estimation logic |
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch size adjustment |
+| `test_fisheye_v1x.py` | 27 | Fisheye lens correction (v1.5.3+) |
 
-**Total: 204 tests**
+**Total: 228 tests**
 
 ### Writing Tests
 
@@ -224,9 +225,11 @@ detect_meteors/
 │   ├── test_calculations_v1x.py
 │   ├── test_integration_v1x.py
 │   ├── test_sensor_presets_v1x.py
+│   ├── test_sensor_validation_v1x.py
 │   ├── test_sensor_npf_integration_v1x.py
 │   ├── test_infrastructure_v1x.py
-│   └── test_memory_batch_size_v1x.py
+│   ├── test_memory_batch_size_v1x.py
+│   └── test_fisheye_v1x.py
 ├── run_tests.py                   # Version-aware test runner
 ├── .pre-commit-config.yaml        # Pre-commit hooks configuration
 ├── requirements.txt               # Python dependencies
