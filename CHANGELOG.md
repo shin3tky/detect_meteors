@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.5.4 - 2025-12-03
+- **Improved ROI Selection Display**: Brightened the ROI selection image for better visibility in dark conditions
+- **NOTICE Document**: Added NOTICE file for third-party license attributions and acknowledgments
+
 ## v1.5.3 - 2025-12-02
 - **Fisheye Lens Correction**: Added `--fisheye` flag for equisolid angle projection compensation
   - Accounts for varying effective focal length across the fisheye image
