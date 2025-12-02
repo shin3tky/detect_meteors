@@ -242,7 +242,9 @@ detect_meteors/
 ├── COMMAND_OPTIONS.md             # CLI options reference
 ├── NPF_RULE.md                    # NPF Rule documentation
 ├── detect_meteors_cli_completion.bash  # Bash completion
-└── _detect_meteors_cli            # Zsh completion
+├── _detect_meteors_cli            # Zsh completion
+├── LICENSE                        # Apache License 2.0
+└── NOTICE                         # Attribution notices
 ```
 
 ## Contribution Workflow
@@ -291,6 +293,16 @@ source ./venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
 pip install pre-commit black
 ```
+
+## License
+
+This project is licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
+
+### NOTICE File
+
+When redistributing this software (in source or binary form), you must include the [NOTICE](NOTICE) file. The NOTICE file contains required attribution notices for this project and any bundled third-party components.
+
+For more information about Apache License 2.0 compliance, see the [Apache License FAQ](https://www.apache.org/foundation/license-faq.html).
 
 ## Resources
 
