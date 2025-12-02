@@ -1,0 +1,24 @@
+Detect Meteors CLI
+© 2025 Shinichi Morita (shin3tky)
+
+This software includes the following third-party components:
+
+================================================================================
+NPF Rule (Nightscape Photography Formula)
+================================================================================
+
+The NPF Rule implementation in this software is based on the formula developed by:
+
+  Frédéric Michaud
+  Société Astronomique du Havre (SAH)
+  https://sahavre.fr/wp/regle-npf-rule/
+
+The NPF Rule provides accurate calculation of maximum exposure time for
+astrophotography to capture point-like stars without trailing.
+
+As required by the original author:
+"This rule has been developed by Frédéric Michaud (the author) from Society of
+Astronomy, Le Havre (SAH) for the use of photographers and amateur astronomers.
+Any development using this formula shall give credit to the author and the SAH."
+
+================================================================================

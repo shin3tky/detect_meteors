@@ -46,6 +46,10 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ## What's New in v1.5
 
+### v1.5.4 - ROI Display Improvement & NOTICE Document
+- **Improved ROI selection**: Brightened the ROI selection image for better visibility in dark conditions
+- **NOTICE document**: Added NOTICE file for third-party license attributions
+
 ### v1.5.3 - Fisheye Lens Correction
 - **New `--fisheye` flag**: Equisolid angle projection compensation for fisheye lenses
 - **Position-dependent correction**: Effective focal length varies from center (~nominal) to edge (~0.707×)

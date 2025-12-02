@@ -1,5 +1,36 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.4 (2025-12-03)
+
+### 🔆 ROI Display Improvement
+
+Version 1.5.4 improves the ROI (Region of Interest) selection experience by brightening the displayed image, making it easier to select regions in dark astrophotography images.
+
+### Changes
+
+- **Brightened ROI Selection Image**: The image displayed during ROI selection is now enhanced for better visibility, helping users accurately select regions even in very dark night sky images
+
+### 📄 NOTICE Document
+
+- **Added NOTICE file**: New NOTICE document containing third-party license attributions and acknowledgments for dependencies used in this project
+
+### Files Updated
+
+| File | Changes |
+|------|---------|
+| `detect_meteors_cli.py` | Brightened ROI selection display |
+| `NOTICE` | New file for third-party attributions |
+| `CHANGELOG.md` | Added v1.5.4 entry |
+| `README.md` | Added v1.5.4 section |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.5.3 and earlier:
+- No breaking changes to API or CLI options
+- All existing commands work without modification
+
+---
+
 ## Version 1.5.3 (2025-12-02)
 
 ### 🐟 Fisheye Lens Correction
@@ -758,7 +789,13 @@ Both bash and zsh completion scripts have been updated:
 
 ## Version Information
 
-- **Latest Version**: 1.5.3
+- **Latest Version**: 1.5.4
+- **Release Date**: 2025-12-03
+- **Major Changes**:
+  - Brightened ROI selection image for better visibility
+  - Added NOTICE document for third-party attributions
+
+- **Version**: 1.5.3
 - **Release Date**: 2025-12-02
 - **Major Changes**:
   - Fisheye lens correction (`--fisheye` flag)
