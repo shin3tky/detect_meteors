@@ -21,7 +21,7 @@
 - **Updated Shell Completions**: Both bash and zsh completion scripts updated with `--fisheye` support
 - **Comprehensive Test Coverage**: Added `test_fisheye_v1x.py` with 27 test cases
 
-## v1.5.2 - 2024-12-01
+## v1.5.2 - 2025-12-01
 - **Sensor Override Validation**: Added automatic validation when `--sensor-type` preset values are overridden with `--sensor-width` or `--pixel-pitch`.
   - Warns when `--sensor-width` deviates more than ±30% from preset value
   - Warns when `--pixel-pitch` deviates more than ±50% from preset value
