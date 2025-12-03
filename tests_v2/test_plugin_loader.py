@@ -1,14 +1,15 @@
+import contextlib
 import logging
-import textwrap
-import types
-from importlib.metadata import EntryPoint
 import sys
-
-import pytest
+import tempfile
+import textwrap
+from importlib.metadata import EntryPoint
+from pathlib import Path
+from unittest import TestCase, mock
 
 # Stub external dependencies used during module import.
-sys.modules.setdefault("cv2", types.ModuleType("cv2"))
-sys.modules.setdefault("rawpy", types.ModuleType("rawpy"))
+sys.modules.setdefault("cv2", type(sys)("cv2"))
+sys.modules.setdefault("rawpy", type(sys)("rawpy"))
 
 from detect_meteors import app, plugin_loader
 
@@ -20,9 +21,7 @@ class FakeEntryPoints(list):
         return []
 
 
-@pytest.fixture(autouse=True)
 def cleanup_registry():
-    yield
     for name in [
         "entry_detector",
         "entry_preprocessor",
@@ -35,249 +34,267 @@ def cleanup_registry():
         "good_preprocessor",
         "good_writer",
     ]:
-        try:
-            app.unregister_detector(name)
-        except KeyError:
-            pass
-        try:
-            app.unregister_preprocessor(name)
-        except KeyError:
-            pass
-        try:
-            app.unregister_output_writer(name)
-        except KeyError:
-            pass
+        for unregister in (
+            app.unregister_detector,
+            app.unregister_preprocessor,
+            app.unregister_output_writer,
+        ):
+            try:
+                unregister(name)
+            except KeyError:
+                pass
 
 
-@pytest.fixture
-def plugin_source(tmp_path, monkeypatch):
-    plugin_folder = tmp_path / "plugins"
-    plugin_folder.mkdir()
-
-    entry_module_name = "entrypoint_plugin"
-    entry_module_path = tmp_path / f"{entry_module_name}.py"
-    entry_module_path.write_text(
-        textwrap.dedent(
-            """
-            from detect_meteors import app
-
-            class EntryDetector(app.Detector):
-                plugin_info = app.PluginInfo(
-                    name="entry_detector", version="0.0.1", capabilities=["detector"]
-                )
-
-                def detect(self, **kwargs):  # type: ignore[override]
-                    return 3
-
-            class EntryPreprocessor:
-                plugin_info = app.PluginInfo(
-                    name="entry_preprocessor", version="0.0.1", capabilities=["preprocessor"]
-                )
-
-                def preprocess(self, target_folder: str) -> str:
-                    return f"processed:{target_folder}"
-
-            class EntryWriter:
-                plugin_info = app.PluginInfo(
-                    name="entry_writer", version="0.0.1", capabilities=["writer"]
-                )
-
-                def write(self, detected_count: int, warnings):
-                    return {"count": detected_count, "warnings": warnings}
-
-            DETECTORS = {"entry_detector": EntryDetector()}
-            PREPROCESSORS = {"entry_preprocessor": EntryPreprocessor()}
-            OUTPUT_WRITERS = {"entry_writer": EntryWriter()}
-            """
-        )
-    )
-
-    folder_plugin = plugin_folder / "folder_plugin.py"
-    folder_plugin.write_text(
-        textwrap.dedent(
-            """
-            from detect_meteors import app
-
-            class FolderDetector(app.Detector):
-                plugin_info = app.PluginInfo(
-                    name="folder_detector", version="0.0.2", capabilities=["detector"]
-                )
-
-                def detect(self, **kwargs):  # type: ignore[override]
-                    return 5
-
-            class FolderPreprocessor:
-                plugin_info = app.PluginInfo(
-                    name="folder_preprocessor", version="0.0.2", capabilities=["preprocessor"]
-                )
-
-                def preprocess(self, target_folder: str) -> str:
-                    return f"folder:{target_folder}"
-
-            class FolderWriter:
-                plugin_info = app.PluginInfo(
-                    name="folder_writer", version="0.0.2", capabilities=["writer"]
-                )
-
-                def write(self, detected_count: int, warnings):
-                    return {"folder": detected_count, "warnings": warnings}
-
-            DETECTORS = {"folder_detector": FolderDetector()}
-            PREPROCESSORS = {"folder_preprocessor": FolderPreprocessor()}
-            OUTPUT_WRITERS = {"folder_writer": FolderWriter()}
-            """
-        )
-    )
-
-    monkeypatch.syspath_prepend(str(tmp_path))
-
-    entry_point = EntryPoint(
-        name="entry-plugin", value=entry_module_name, group=plugin_loader.PLUGIN_ENTRYPOINT_GROUP
-    )
-    fake_eps = FakeEntryPoints([entry_point])
-    monkeypatch.setattr(plugin_loader, "entry_points", lambda: fake_eps)
-
-    return plugin_folder
+@contextlib.contextmanager
+def prepended_sys_path(path: Path):
+    sys.path.insert(0, str(path))
+    try:
+        yield
+    finally:
+        with contextlib.suppress(ValueError):
+            sys.path.remove(str(path))
 
 
-def test_loads_plugins_from_entry_points_and_folder(plugin_source):
-    plugin_loader.load_plugins(plugin_folder=plugin_source)
+class TestPluginLoader(TestCase):
+    def tearDown(self):
+        cleanup_registry()
 
-    preprocessor = app.get_preprocessor("entry_preprocessor")
-    assert preprocessor.preprocess("target") == "processed:target"
+    def _write_plugin(self, path: Path, contents: str) -> None:
+        path.write_text(textwrap.dedent(contents))
 
-    detector = app.get_detector("folder_detector")
-    assert detector.detect() == 5
+    def test_loads_plugins_from_entry_points_and_folder(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            plugin_folder = tmp_path / "plugins"
+            plugin_folder.mkdir()
 
-    writer = app.get_output_writer("entry_writer")
-    assert writer.write(2, ["warn"]) == {"count": 2, "warnings": ["warn"]}
+            entry_module_name = "entrypoint_plugin"
+            entry_module_path = tmp_path / f"{entry_module_name}.py"
+            self._write_plugin(
+                entry_module_path,
+                """
+                from detect_meteors import app
 
-    assert app._DETECTOR_REGISTRY["entry_detector"].info.capabilities == ["detector"]
-    assert app._OUTPUT_WRITER_REGISTRY["folder_writer"].info.capabilities == ["writer"]
+                class EntryDetector(app.Detector):
+                    plugin_info = app.PluginInfo(
+                        name="entry_detector", version="0.0.1", capabilities=["detector"]
+                    )
 
+                    def detect(self, **kwargs):  # type: ignore[override]
+                        return 3
 
-def test_duplicates_and_import_errors_are_logged(tmp_path, monkeypatch, caplog):
-    caplog.set_level(logging.WARNING)
-    monkeypatch.syspath_prepend(str(tmp_path))
+                class EntryPreprocessor:
+                    plugin_info = app.PluginInfo(
+                        name="entry_preprocessor", version="0.0.1", capabilities=["preprocessor"]
+                    )
 
-    duplicate_entry = tmp_path / "duplicate.py"
-    duplicate_entry.write_text(
-        textwrap.dedent(
-            """
-            from detect_meteors import app
+                    def preprocess(self, target_folder: str) -> str:
+                        return f"processed:{target_folder}"
 
-            class DuplicateDetector(app.Detector):
-                plugin_info = app.PluginInfo(
-                    name="shared_detector", version="1.0.0", capabilities=["detector"]
-                )
+                class EntryWriter:
+                    plugin_info = app.PluginInfo(
+                        name="entry_writer", version="0.0.1", capabilities=["writer"]
+                    )
 
-                def detect(self, **kwargs):  # type: ignore[override]
-                    return 10
+                    def write(self, detected_count: int, warnings):
+                        return {"count": detected_count, "warnings": warnings}
 
-            DETECTORS = {"shared_detector": DuplicateDetector()}
-            PREPROCESSORS = {}
-            OUTPUT_WRITERS = {}
-            """
-        )
-    )
+                DETECTORS = {"entry_detector": EntryDetector()}
+                PREPROCESSORS = {"entry_preprocessor": EntryPreprocessor()}
+                OUTPUT_WRITERS = {"entry_writer": EntryWriter()}
+                """,
+            )
 
-    entry_points_list = FakeEntryPoints(
-        [
-            EntryPoint(
-                name="missing-module", value="missing.module", group=plugin_loader.PLUGIN_ENTRYPOINT_GROUP
-            ),
-            EntryPoint(
-                name="duplicate", value="duplicate", group=plugin_loader.PLUGIN_ENTRYPOINT_GROUP
-            ),
-        ]
-    )
-    monkeypatch.setattr(plugin_loader, "entry_points", lambda: entry_points_list)
+            folder_plugin = plugin_folder / "folder_plugin.py"
+            self._write_plugin(
+                folder_plugin,
+                """
+                from detect_meteors import app
 
-    plugin_folder = tmp_path / "plugins"
-    plugin_folder.mkdir()
-    (plugin_folder / "folder_dup.py").write_text(
-        textwrap.dedent(
-            """
-            from detect_meteors import app
+                class FolderDetector(app.Detector):
+                    plugin_info = app.PluginInfo(
+                        name="folder_detector", version="0.0.2", capabilities=["detector"]
+                    )
 
-            class FolderDuplicate(app.Detector):
-                plugin_info = app.PluginInfo(
-                    name="shared_detector", version="2.0.0", capabilities=["detector"]
-                )
+                    def detect(self, **kwargs):  # type: ignore[override]
+                        return 5
 
-                def detect(self, **kwargs):  # type: ignore[override]
-                    return 20
+                class FolderPreprocessor:
+                    plugin_info = app.PluginInfo(
+                        name="folder_preprocessor", version="0.0.2", capabilities=["preprocessor"]
+                    )
 
-            DETECTORS = {"shared_detector": FolderDuplicate()}
-            PREPROCESSORS = {}
-            OUTPUT_WRITERS = {}
-            """
-        )
-    )
+                    def preprocess(self, target_folder: str) -> str:
+                        return f"folder:{target_folder}"
 
-    plugin_loader.load_plugins(plugin_folder=plugin_folder)
+                class FolderWriter:
+                    plugin_info = app.PluginInfo(
+                        name="folder_writer", version="0.0.2", capabilities=["writer"]
+                    )
 
-    detector = app.get_detector("shared_detector")
-    assert detector.detect() == 10
+                    def write(self, detected_count: int, warnings):
+                        return {"folder": detected_count, "warnings": warnings}
 
-    assert any("Failed to load plugin entry point 'missing-module'" in message for message in caplog.messages)
-    assert any("Skipping duplicate detector 'shared_detector'" in message for message in caplog.messages)
+                DETECTORS = {"folder_detector": FolderDetector()}
+                PREPROCESSORS = {"folder_preprocessor": FolderPreprocessor()}
+                OUTPUT_WRITERS = {"folder_writer": FolderWriter()}
+                """,
+            )
 
+            entry_point = EntryPoint(
+                name="entry-plugin", value=entry_module_name, group=plugin_loader.PLUGIN_ENTRYPOINT_GROUP
+            )
+            fake_eps = FakeEntryPoints([entry_point])
 
-def test_folder_import_failures_do_not_block_other_plugins(tmp_path, monkeypatch, caplog):
-    caplog.set_level(logging.ERROR)
-    plugin_folder = tmp_path / "plugins"
-    plugin_folder.mkdir()
+            with prepended_sys_path(tmp_path), mock.patch.object(
+                plugin_loader, "entry_points", return_value=fake_eps
+            ):
+                plugin_loader.load_plugins(plugin_folder=plugin_folder)
 
-    (plugin_folder / "bad_plugin.py").write_text("raise ImportError('boom')\n")
-    (plugin_folder / "good_plugin.py").write_text(
-        textwrap.dedent(
-            """
-            from detect_meteors import app
+            preprocessor = app.get_preprocessor("entry_preprocessor")
+            self.assertEqual(preprocessor.preprocess("target"), "processed:target")
 
-            class GoodDetector(app.Detector):
-                plugin_info = app.PluginInfo(
-                    name="good_detector", version="1.2.3", capabilities=["detector", "tests"]
-                )
+            detector = app.get_detector("folder_detector")
+            self.assertEqual(detector.detect(), 5)
 
-                def detect(self, **kwargs):  # type: ignore[override]
-                    return 42
+            writer = app.get_output_writer("entry_writer")
+            self.assertEqual(writer.write(2, ["warn"]), {"count": 2, "warnings": ["warn"]})
 
-            class GoodPreprocessor:
-                plugin_info = app.PluginInfo(
-                    name="good_preprocessor", version="1.2.3", capabilities=["preprocessor"]
-                )
+            self.assertEqual(app._DETECTOR_REGISTRY["entry_detector"].info.capabilities, ["detector"])
+            self.assertEqual(app._OUTPUT_WRITER_REGISTRY["folder_writer"].info.capabilities, ["writer"])
 
-                def preprocess(self, target_folder: str) -> str:
-                    return f"good:{target_folder}"
+    def test_duplicates_and_import_errors_are_logged(self):
+        with tempfile.TemporaryDirectory() as tmpdir, self.assertLogs(
+            plugin_loader.LOGGER, level=logging.WARNING
+        ) as captured:
+            tmp_path = Path(tmpdir)
+            plugin_folder = tmp_path / "plugins"
+            plugin_folder.mkdir()
 
-            class GoodWriter:
-                plugin_info = app.PluginInfo(
-                    name="good_writer", version="1.2.3", capabilities=["writer"]
-                )
+            duplicate_entry = tmp_path / "duplicate.py"
+            self._write_plugin(
+                duplicate_entry,
+                """
+                from detect_meteors import app
 
-                def write(self, detected_count: int, warnings):
-                    return {"detected": detected_count, "warnings": warnings}
+                class DuplicateDetector(app.Detector):
+                    plugin_info = app.PluginInfo(
+                        name="shared_detector", version="1.0.0", capabilities=["detector"]
+                    )
 
-            DETECTORS = {"good_detector": GoodDetector()}
-            PREPROCESSORS = {"good_preprocessor": GoodPreprocessor()}
-            OUTPUT_WRITERS = {"good_writer": GoodWriter()}
-            """
-        )
-    )
+                    def detect(self, **kwargs):  # type: ignore[override]
+                        return 10
 
-    monkeypatch.syspath_prepend(str(tmp_path))
-    monkeypatch.setattr(plugin_loader, "entry_points", lambda: FakeEntryPoints())
+                DETECTORS = {"shared_detector": DuplicateDetector()}
+                PREPROCESSORS = {}
+                OUTPUT_WRITERS = {}
+                """,
+            )
 
-    plugin_loader.load_plugins(plugin_folder=plugin_folder)
+            entry_points_list = FakeEntryPoints(
+                [
+                    EntryPoint(
+                        name="missing-module", value="missing.module", group=plugin_loader.PLUGIN_ENTRYPOINT_GROUP
+                    ),
+                    EntryPoint(
+                        name="duplicate", value="duplicate", group=plugin_loader.PLUGIN_ENTRYPOINT_GROUP
+                    ),
+                ]
+            )
 
-    detector = app.get_detector("good_detector")
-    assert detector.detect() == 42
-    assert app.get_preprocessor("good_preprocessor").preprocess("target") == "good:target"
-    assert app.get_output_writer("good_writer").write(1, []) == {"detected": 1, "warnings": []}
+            folder_dup = plugin_folder / "folder_dup.py"
+            self._write_plugin(
+                folder_dup,
+                """
+                from detect_meteors import app
 
-    with pytest.raises(KeyError):
-        app.get_detector("bad_plugin")
+                class FolderDuplicate(app.Detector):
+                    plugin_info = app.PluginInfo(
+                        name="shared_detector", version="2.0.0", capabilities=["detector"]
+                    )
 
-    assert any("Failed to import plugin module from" in message for message in caplog.messages)
+                    def detect(self, **kwargs):  # type: ignore[override]
+                        return 20
 
+                DETECTORS = {"shared_detector": FolderDuplicate()}
+                PREPROCESSORS = {}
+                OUTPUT_WRITERS = {}
+                """,
+            )
+
+            with prepended_sys_path(tmp_path), mock.patch.object(
+                plugin_loader, "entry_points", return_value=entry_points_list
+            ):
+                plugin_loader.load_plugins(plugin_folder=plugin_folder)
+
+            detector = app.get_detector("shared_detector")
+            self.assertEqual(detector.detect(), 10)
+
+            self.assertTrue(
+                any("Failed to load plugin entry point 'missing-module'" in message for message in captured.output)
+            )
+            self.assertTrue(
+                any("Skipping duplicate detector 'shared_detector'" in message for message in captured.output)
+            )
+
+    def test_folder_import_failures_do_not_block_other_plugins(self):
+        with tempfile.TemporaryDirectory() as tmpdir, self.assertLogs(
+            plugin_loader.LOGGER, level=logging.ERROR
+        ) as captured:
+            tmp_path = Path(tmpdir)
+            plugin_folder = tmp_path / "plugins"
+            plugin_folder.mkdir()
+
+            (plugin_folder / "bad_plugin.py").write_text("raise ImportError('boom')\n")
+            good_plugin = plugin_folder / "good_plugin.py"
+            self._write_plugin(
+                good_plugin,
+                """
+                from detect_meteors import app
+
+                class GoodDetector(app.Detector):
+                    plugin_info = app.PluginInfo(
+                        name="good_detector", version="1.2.3", capabilities=["detector", "tests"]
+                    )
+
+                    def detect(self, **kwargs):  # type: ignore[override]
+                        return 42
+
+                class GoodPreprocessor:
+                    plugin_info = app.PluginInfo(
+                        name="good_preprocessor", version="1.2.3", capabilities=["preprocessor"]
+                    )
+
+                    def preprocess(self, target_folder: str) -> str:
+                        return f"good:{target_folder}"
+
+                class GoodWriter:
+                    plugin_info = app.PluginInfo(
+                        name="good_writer", version="1.2.3", capabilities=["writer"]
+                    )
+
+                    def write(self, detected_count: int, warnings):
+                        return {"detected": detected_count, "warnings": warnings}
+
+                DETECTORS = {"good_detector": GoodDetector()}
+                PREPROCESSORS = {"good_preprocessor": GoodPreprocessor()}
+                OUTPUT_WRITERS = {"good_writer": GoodWriter()}
+                """,
+            )
+
+            with prepended_sys_path(tmp_path), mock.patch.object(
+                plugin_loader, "entry_points", return_value=FakeEntryPoints()
+            ):
+                plugin_loader.load_plugins(plugin_folder=plugin_folder)
+
+            detector = app.get_detector("good_detector")
+            self.assertEqual(detector.detect(), 42)
+            self.assertEqual(app.get_preprocessor("good_preprocessor").preprocess("target"), "good:target")
+            self.assertEqual(app.get_output_writer("good_writer").write(1, []), {"detected": 1, "warnings": []})
+
+            with self.assertRaises(KeyError):
+                app.get_detector("bad_plugin")
+
+            self.assertTrue(
+                any("Failed to import plugin module from" in message for message in captured.output)
+            )
