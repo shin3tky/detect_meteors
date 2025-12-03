@@ -1,5 +1,6 @@
 """Plugin discovery and registration utilities."""
 
+import inspect
 import logging
 from importlib import util
 from importlib.metadata import entry_points
@@ -24,6 +25,14 @@ class SkippedPlugin(TypedDict):
 class PluginLoadResult(TypedDict):
     loaded: Dict[str, List[str]]
     skipped: List[SkippedPlugin]
+    validation: List["ValidationResult"]
+
+
+class ValidationResult(TypedDict):
+    name: str
+    item_type: str
+    source: str
+    warnings: List[str]
 
 
 def load_plugins(
@@ -40,6 +49,7 @@ def load_plugins(
     load_result: PluginLoadResult = {
         "loaded": {"detectors": [], "preprocessors": [], "output_writers": []},
         "skipped": [],
+        "validation": [],
     }
 
     group = entrypoint_group or PLUGIN_ENTRYPOINT_GROUP
@@ -269,6 +279,24 @@ def _register_items(
             )
             continue
 
+        has_fatal_issues = _validate_plugin(
+            name,
+            implementation,
+            item_type=item_type,
+            source=source,
+            load_result=load_result,
+        )
+        if has_fatal_issues:
+            load_result["skipped"].append(
+                {
+                    "name": name,
+                    "item_type": item_type,
+                    "source": source,
+                    "reason": "plugin_info validation failed",
+                }
+            )
+            continue
+
         try:
             register_func(name, implementation)
         except ValueError as exc:
@@ -298,4 +326,104 @@ def _register_items(
         else:
             seen.add(name)
             load_result["loaded"][registry_key].append(name)
+
+
+def _validate_plugin(
+    name: str,
+    implementation: object,
+    *,
+    item_type: str,
+    source: str,
+    load_result: PluginLoadResult,
+) -> bool:
+    issues: List[str] = []
+    fatal_issues = False
+
+    plugin_info = getattr(implementation, "plugin_info", None)
+    if not isinstance(plugin_info, app.PluginInfo):
+        fatal_issues = True
+        actual_type = type(plugin_info).__name__
+        issues.append(
+            "plugin_info must be detect_meteors.app.PluginInfo"
+            + (f" (got {actual_type})" if plugin_info is not None else "")
+        )
+    else:
+        if not isinstance(plugin_info.name, str) or not plugin_info.name:
+            fatal_issues = True
+            issues.append("plugin_info.name must be a non-empty string")
+        if not isinstance(plugin_info.version, str) or not plugin_info.version:
+            fatal_issues = True
+            issues.append("plugin_info.version must be a non-empty string")
+        if not isinstance(plugin_info.capabilities, list) or not plugin_info.capabilities:
+            fatal_issues = True
+            issues.append("plugin_info.capabilities must be a non-empty list of strings")
+        elif not all(isinstance(capability, str) and capability for capability in plugin_info.capabilities):
+            fatal_issues = True
+            issues.append("plugin_info.capabilities must only contain non-empty strings")
+
+    protocol_issues = _protocol_validation(implementation, item_type)
+    issues.extend(protocol_issues)
+
+    if issues:
+        LOGGER.warning(
+            "Validation issues for %s '%s' from '%s': %s",
+            item_type,
+            name,
+            source,
+            "; ".join(issues),
+        )
+        load_result["validation"].append(
+            {
+                "name": name,
+                "item_type": item_type,
+                "source": source,
+                "warnings": issues,
+            }
+        )
+
+    return fatal_issues
+
+
+def _protocol_validation(implementation: object, item_type: str) -> List[str]:
+    issues: List[str] = []
+
+    if item_type == "detector":
+        if not isinstance(implementation, app.Detector):
+            issues.append("implementation does not subclass detect_meteors.app.Detector")
+    elif item_type == "preprocessor":
+        issues.extend(
+            _validate_callable_signature(
+                implementation, "preprocess", required_parameters=["target_folder"]
+            )
+        )
+    elif item_type == "output writer":
+        issues.extend(
+            _validate_callable_signature(
+                implementation, "write", required_parameters=["detected_count", "warnings"]
+            )
+        )
+
+    return issues
+
+
+def _validate_callable_signature(
+    implementation: object, method_name: str, required_parameters: List[str]
+) -> List[str]:
+    issues: List[str] = []
+    method = getattr(implementation, method_name, None)
+    if not callable(method):
+        issues.append(f"missing callable {method_name} method")
+        return issues
+
+    try:
+        signature = inspect.signature(method)
+    except (TypeError, ValueError):
+        issues.append(f"unable to inspect signature for {method_name}")
+        return issues
+
+    parameters = signature.parameters
+    for param in required_parameters:
+        if param not in parameters:
+            issues.append(f"{method_name}() must accept '{param}' parameter")
+    return issues
 

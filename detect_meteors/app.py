@@ -279,8 +279,23 @@ def _sensor_type_listing() -> Dict[str, Any]:
     return {"list": listing, "aliases": aliases}
 
 
-def _registry_listing(registry: Dict[str, RegisteredPlugin]) -> List[Dict[str, Any]]:
+def _registry_listing(
+    registry: Dict[str, RegisteredPlugin],
+    *,
+    validation: Optional[plugin_loader.PluginLoadResult],
+    item_type: str,
+) -> List[Dict[str, Any]]:
     listing: List[Dict[str, Any]] = []
+    validation_map: Dict[str, List[Dict[str, Any]]] = {}
+
+    if validation:
+        for entry in validation.get("validation", []):
+            if entry["item_type"] != item_type:
+                continue
+            validation_map.setdefault(entry["name"], []).append(
+                {"source": entry["source"], "warnings": entry["warnings"]}
+            )
+
     for name in sorted(registry):
         registered = registry[name]
         listing.append(
@@ -288,6 +303,7 @@ def _registry_listing(registry: Dict[str, RegisteredPlugin]) -> List[Dict[str, A
                 "name": registered.info.name,
                 "version": registered.info.version,
                 "capabilities": registered.info.capabilities,
+                "validation": validation_map.get(name, []),
             }
         )
     return listing
@@ -309,6 +325,15 @@ def _format_plugin_warnings(
             warnings.append(
                 f"{skipped['source']} skipped: {skipped['reason']}"
             )
+    for validation in load_result.get("validation", []):
+        warnings.append(
+            "{} '{}' from {} validation: {}".format(
+                validation["item_type"].title(),
+                validation["name"],
+                validation["source"],
+                "; ".join(validation["warnings"]),
+            )
+        )
     return warnings
 
 
@@ -317,10 +342,17 @@ def _list_plugins(
 ) -> Dict[str, Any]:
     return {
         "action": "list_plugins",
-        "detectors": _registry_listing(_DETECTOR_REGISTRY),
-        "preprocessors": _registry_listing(_PREPROCESSOR_REGISTRY),
-        "output_writers": _registry_listing(_OUTPUT_WRITER_REGISTRY),
+        "detectors": _registry_listing(
+            _DETECTOR_REGISTRY, validation=load_result, item_type="detector"
+        ),
+        "preprocessors": _registry_listing(
+            _PREPROCESSOR_REGISTRY, validation=load_result, item_type="preprocessor"
+        ),
+        "output_writers": _registry_listing(
+            _OUTPUT_WRITER_REGISTRY, validation=load_result, item_type="output writer"
+        ),
         "warnings": _format_plugin_warnings(load_result),
+        "validation": load_result.get("validation", []) if load_result else [],
     }
 
 
