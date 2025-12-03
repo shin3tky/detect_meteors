@@ -2,11 +2,205 @@
 
 import os
 import sys
-from typing import Any, Dict, List
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Protocol, runtime_checkable
 
 from detect_meteors import exif as exif_utils
 from detect_meteors import npf
 from detect_meteors import services
+
+
+@runtime_checkable
+class Preprocessor(Protocol):
+    """Prepare input data for meteor detection."""
+
+    def preprocess(self, target_folder: str) -> str:
+        """Return the folder that should be passed to the detector."""
+
+
+class Detector(ABC):
+    """Perform meteor detection against a prepared target folder."""
+
+    @abstractmethod
+    def detect(
+        self,
+        *,
+        target_folder: str,
+        output_folder: str,
+        debug_folder: str,
+        diff_threshold: float,
+        min_area: int,
+        min_aspect_ratio: float,
+        hough_threshold: int,
+        hough_min_line_length: int,
+        hough_max_line_gap: int,
+        min_line_score: float,
+        enable_roi_selection: bool,
+        roi_polygon_cli: Any,
+        num_workers: int,
+        batch_size: int,
+        auto_batch_size: bool,
+        enable_parallel: bool,
+        profile: bool,
+        validate_raw: bool,
+        progress_file: str,
+        resume: bool,
+        auto_params: bool,
+        user_specified_diff_threshold: bool,
+        user_specified_min_area: bool,
+        user_specified_min_line_score: bool,
+        focal_length_mm: Any,
+        focal_factor: Any,
+        sensor_width_mm: Any,
+        pixel_pitch_um: Any,
+        output_overwrite: bool,
+        fisheye: bool,
+    ) -> int:
+        """Run detection and return the count of detected meteors."""
+
+
+@runtime_checkable
+class OutputWriter(Protocol):
+    """Persist or format the detection results."""
+
+    def write(self, detected_count: int, warnings: List[str]) -> Dict[str, Any]:
+        """Return a serialized representation of the run result."""
+
+
+class DefaultPreprocessor:
+    """Pass-through preprocessor used by default."""
+
+    def preprocess(self, target_folder: str) -> str:
+        return target_folder
+
+
+class AdvancedDetector(Detector):
+    """Wrap the existing advanced detector implementation."""
+
+    def detect(
+        self,
+        *,
+        target_folder: str,
+        output_folder: str,
+        debug_folder: str,
+        diff_threshold: float,
+        min_area: int,
+        min_aspect_ratio: float,
+        hough_threshold: int,
+        hough_min_line_length: int,
+        hough_max_line_gap: int,
+        min_line_score: float,
+        enable_roi_selection: bool,
+        roi_polygon_cli: Any,
+        num_workers: int,
+        batch_size: int,
+        auto_batch_size: bool,
+        enable_parallel: bool,
+        profile: bool,
+        validate_raw: bool,
+        progress_file: str,
+        resume: bool,
+        auto_params: bool,
+        user_specified_diff_threshold: bool,
+        user_specified_min_area: bool,
+        user_specified_min_line_score: bool,
+        focal_length_mm: Any,
+        focal_factor: Any,
+        sensor_width_mm: Any,
+        pixel_pitch_um: Any,
+        output_overwrite: bool,
+        fisheye: bool,
+    ) -> int:
+        return services.detect_meteors_advanced(
+            target_folder=target_folder,
+            output_folder=output_folder,
+            debug_folder=debug_folder,
+            diff_threshold=diff_threshold,
+            min_area=min_area,
+            min_aspect_ratio=min_aspect_ratio,
+            hough_threshold=hough_threshold,
+            hough_min_line_length=hough_min_line_length,
+            hough_max_line_gap=hough_max_line_gap,
+            min_line_score=min_line_score,
+            enable_roi_selection=enable_roi_selection,
+            roi_polygon_cli=roi_polygon_cli,
+            num_workers=num_workers,
+            batch_size=batch_size,
+            auto_batch_size=auto_batch_size,
+            enable_parallel=enable_parallel,
+            profile=profile,
+            validate_raw=validate_raw,
+            progress_file=progress_file,
+            resume=resume,
+            auto_params=auto_params,
+            user_specified_diff_threshold=user_specified_diff_threshold,
+            user_specified_min_area=user_specified_min_area,
+            user_specified_min_line_score=user_specified_min_line_score,
+            focal_length_mm=focal_length_mm,
+            focal_factor=focal_factor,
+            sensor_width_mm=sensor_width_mm,
+            pixel_pitch_um=pixel_pitch_um,
+            output_overwrite=output_overwrite,
+            fisheye=fisheye,
+        )
+
+
+class DefaultOutputWriter:
+    """Return results in the format expected by the CLI runner."""
+
+    def write(self, detected_count: int, warnings: List[str]) -> Dict[str, Any]:
+        return {"action": "detect", "detected_count": detected_count, "warnings": warnings}
+
+
+_DEFAULT_IMPLEMENTATION = "default"
+_DETECTOR_REGISTRY: Dict[str, Detector] = {}
+_PREPROCESSOR_REGISTRY: Dict[str, Preprocessor] = {}
+_OUTPUT_WRITER_REGISTRY: Dict[str, OutputWriter] = {}
+
+
+def register_detector(name: str, detector: Detector, *, override: bool = False) -> None:
+    if name in _DETECTOR_REGISTRY and not override:
+        raise ValueError(f"Detector '{name}' already registered")
+    _DETECTOR_REGISTRY[name] = detector
+
+
+def register_preprocessor(name: str, preprocessor: Preprocessor, *, override: bool = False) -> None:
+    if name in _PREPROCESSOR_REGISTRY and not override:
+        raise ValueError(f"Preprocessor '{name}' already registered")
+    _PREPROCESSOR_REGISTRY[name] = preprocessor
+
+
+def register_output_writer(name: str, output_writer: OutputWriter, *, override: bool = False) -> None:
+    if name in _OUTPUT_WRITER_REGISTRY and not override:
+        raise ValueError(f"Output writer '{name}' already registered")
+    _OUTPUT_WRITER_REGISTRY[name] = output_writer
+
+
+def get_detector(name: str = _DEFAULT_IMPLEMENTATION) -> Detector:
+    try:
+        return _DETECTOR_REGISTRY[name]
+    except KeyError as exc:
+        raise KeyError(f"Detector '{name}' not registered") from exc
+
+
+def get_preprocessor(name: str = _DEFAULT_IMPLEMENTATION) -> Preprocessor:
+    try:
+        return _PREPROCESSOR_REGISTRY[name]
+    except KeyError as exc:
+        raise KeyError(f"Preprocessor '{name}' not registered") from exc
+
+
+def get_output_writer(name: str = _DEFAULT_IMPLEMENTATION) -> OutputWriter:
+    try:
+        return _OUTPUT_WRITER_REGISTRY[name]
+    except KeyError as exc:
+        raise KeyError(f"Output writer '{name}' not registered") from exc
+
+
+# Register built-in implementations for immediate use.
+register_detector(_DEFAULT_IMPLEMENTATION, AdvancedDetector())
+register_preprocessor(_DEFAULT_IMPLEMENTATION, DefaultPreprocessor())
+register_output_writer(_DEFAULT_IMPLEMENTATION, DefaultOutputWriter())
 
 
 def _sensor_type_listing() -> Dict[str, Any]:
@@ -192,8 +386,12 @@ def run(args):
             "show_usage_examples": args.show_npf,
         }
 
-    detected_count = services.detect_meteors_advanced(
-        target_folder=args.target,
+    preprocessor = get_preprocessor()
+    processed_target = preprocessor.preprocess(args.target)
+
+    detector = get_detector()
+    detected_count = detector.detect(
+        target_folder=processed_target,
         output_folder=args.output,
         debug_folder=args.debug_dir,
         diff_threshold=args.diff_threshold,
@@ -225,4 +423,5 @@ def run(args):
         fisheye=args.fisheye,
     )
 
-    return {"action": "detect", "detected_count": detected_count, "warnings": warnings}
+    output_writer = get_output_writer()
+    return output_writer.write(detected_count, warnings)
