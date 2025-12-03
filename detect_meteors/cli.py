@@ -2,22 +2,7 @@
 
 import argparse
 
-from detect_meteors_cli import (
-    DEFAULT_BATCH_SIZE,
-    DEFAULT_DEBUG_FOLDER,
-    DEFAULT_DIFF_THRESHOLD,
-    DEFAULT_HOUGH_MAX_LINE_GAP,
-    DEFAULT_HOUGH_MIN_LINE_LENGTH,
-    DEFAULT_HOUGH_THRESHOLD,
-    DEFAULT_MIN_AREA,
-    DEFAULT_MIN_ASPECT_RATIO,
-    DEFAULT_MIN_LINE_SCORE,
-    DEFAULT_NUM_WORKERS,
-    DEFAULT_OUTPUT_FOLDER,
-    DEFAULT_PROGRESS_FILE,
-    DEFAULT_TARGET_FOLDER,
-    VERSION,
-)
+from detect_meteors import services
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -30,64 +15,64 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"Detect Meteors CLI (https://github.com/shin3tky/detect_meteors) {VERSION}",
+        version=f"Detect Meteors CLI (https://github.com/shin3tky/detect_meteors) {services.VERSION}",
     )
 
-    parser.add_argument("-t", "--target", default=DEFAULT_TARGET_FOLDER, help="Input RAW image folder")
+    parser.add_argument("-t", "--target", default=services.DEFAULT_TARGET_FOLDER, help="Input RAW image folder")
     parser.add_argument(
         "-o",
         "--output",
-        default=DEFAULT_OUTPUT_FOLDER,
+        default=services.DEFAULT_OUTPUT_FOLDER,
         help="Folder to copy detected candidate RAW files",
     )
     parser.add_argument(
         "--debug-dir",
-        default=DEFAULT_DEBUG_FOLDER,
+        default=services.DEFAULT_DEBUG_FOLDER,
         help="Folder to save mask/debug images",
     )
 
     parser.add_argument(
         "--diff-threshold",
         type=int,
-        default=DEFAULT_DIFF_THRESHOLD,
-        help=f"Threshold for difference binarization (default: {DEFAULT_DIFF_THRESHOLD})",
+        default=services.DEFAULT_DIFF_THRESHOLD,
+        help=f"Threshold for difference binarization (default: {services.DEFAULT_DIFF_THRESHOLD})",
     )
     parser.add_argument(
         "--min-area",
         type=int,
-        default=DEFAULT_MIN_AREA,
-        help=f"Minimum contour area (default: {DEFAULT_MIN_AREA})",
+        default=services.DEFAULT_MIN_AREA,
+        help=f"Minimum contour area (default: {services.DEFAULT_MIN_AREA})",
     )
     parser.add_argument(
         "--min-aspect-ratio",
         type=float,
-        default=DEFAULT_MIN_ASPECT_RATIO,
-        help=f"Minimum aspect ratio (default: {DEFAULT_MIN_ASPECT_RATIO})",
+        default=services.DEFAULT_MIN_ASPECT_RATIO,
+        help=f"Minimum aspect ratio (default: {services.DEFAULT_MIN_ASPECT_RATIO})",
     )
 
     parser.add_argument(
         "--hough-threshold",
         type=int,
-        default=DEFAULT_HOUGH_THRESHOLD,
-        help=f"Hough line detection threshold (default: {DEFAULT_HOUGH_THRESHOLD})",
+        default=services.DEFAULT_HOUGH_THRESHOLD,
+        help=f"Hough line detection threshold (default: {services.DEFAULT_HOUGH_THRESHOLD})",
     )
     parser.add_argument(
         "--hough-min-line-length",
         type=int,
-        default=DEFAULT_HOUGH_MIN_LINE_LENGTH,
-        help=f"Minimum line length (default: {DEFAULT_HOUGH_MIN_LINE_LENGTH})",
+        default=services.DEFAULT_HOUGH_MIN_LINE_LENGTH,
+        help=f"Minimum line length (default: {services.DEFAULT_HOUGH_MIN_LINE_LENGTH})",
     )
     parser.add_argument(
         "--hough-max-line-gap",
         type=int,
-        default=DEFAULT_HOUGH_MAX_LINE_GAP,
-        help=f"Maximum line gap (default: {DEFAULT_HOUGH_MAX_LINE_GAP})",
+        default=services.DEFAULT_HOUGH_MAX_LINE_GAP,
+        help=f"Maximum line gap (default: {services.DEFAULT_HOUGH_MAX_LINE_GAP})",
     )
     parser.add_argument(
         "--min-line-score",
         type=float,
-        default=DEFAULT_MIN_LINE_SCORE,
-        help=f"Minimum line score (default: {DEFAULT_MIN_LINE_SCORE})",
+        default=services.DEFAULT_MIN_LINE_SCORE,
+        help=f"Minimum line score (default: {services.DEFAULT_MIN_LINE_SCORE})",
     )
     parser.add_argument("--no-roi", action="store_true", help="Skip ROI selection")
     parser.add_argument("--roi", type=str, default=None, help='Specify ROI polygon as "x1,y1;x2,y2;..."')
@@ -95,20 +80,20 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--workers",
         type=int,
-        default=DEFAULT_NUM_WORKERS,
-        help=f"Number of workers (default: {DEFAULT_NUM_WORKERS})",
+        default=services.DEFAULT_NUM_WORKERS,
+        help=f"Number of workers (default: {services.DEFAULT_NUM_WORKERS})",
     )
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=DEFAULT_BATCH_SIZE,
-        help=f"Batch size (default: {DEFAULT_BATCH_SIZE})",
+        default=services.DEFAULT_BATCH_SIZE,
+        help=f"Batch size (default: {services.DEFAULT_BATCH_SIZE})",
     )
     parser.add_argument("--auto-batch-size", action="store_true", help="Auto-adjust batch size for memory")
     parser.add_argument("--no-parallel", action="store_true", help="Disable parallel processing")
     parser.add_argument("--profile", action="store_true", help="Display timing profile")
     parser.add_argument("--validate-raw", action="store_true", help="Validate RAW files first")
-    parser.add_argument("--progress-file", default=DEFAULT_PROGRESS_FILE, help="Progress JSON file path")
+    parser.add_argument("--progress-file", default=services.DEFAULT_PROGRESS_FILE, help="Progress JSON file path")
     parser.add_argument("--no-resume", action="store_true", help="Ignore existing progress")
     parser.add_argument("--remove-progress", action="store_true", help="Delete progress and exit")
 

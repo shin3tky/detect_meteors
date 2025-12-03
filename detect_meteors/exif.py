@@ -2,11 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from detect_meteors_cli import (
-    FISHEYE_PROJECTION_MODELS,
-    calculate_fisheye_edge_focal_length,
-    get_fisheye_max_trail_ratio,
-)
+from detect_meteors import services
 
 
 def format_fisheye_info(
@@ -14,14 +10,14 @@ def format_fisheye_info(
 ) -> str:
     """Return a formatted fisheye correction summary."""
 
-    edge_focal = calculate_fisheye_edge_focal_length(
+    edge_focal = services.calculate_fisheye_edge_focal_length(
         nominal_focal_length_mm, projection_model
     )
-    model_info = FISHEYE_PROJECTION_MODELS.get(
+    model_info = services.FISHEYE_PROJECTION_MODELS.get(
         projection_model.upper(), {"name": projection_model, "description": ""}
     )
 
-    trail_ratio = get_fisheye_max_trail_ratio(projection_model)
+    trail_ratio = services.get_fisheye_max_trail_ratio(projection_model)
 
     lines = [
         "=" * 60,
