@@ -3,16 +3,44 @@
 import os
 import sys
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Protocol, runtime_checkable
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 from detect_meteors import exif as exif_utils
 from detect_meteors import npf
 from detect_meteors import services
 
 
+@dataclass(frozen=True)
+class PluginInfo:
+    """Metadata describing a plugin implementation."""
+
+    name: str
+    version: str
+    capabilities: List[str]
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("Plugin name must be provided")
+        if not self.version:
+            raise ValueError("Plugin version must be provided")
+        if not self.capabilities:
+            raise ValueError("Plugin capabilities must be provided")
+        if any(not capability for capability in self.capabilities):
+            raise ValueError("Plugin capabilities must not contain empty values")
+
+
+@dataclass
+class RegisteredPlugin:
+    implementation: Any
+    info: PluginInfo
+
+
 @runtime_checkable
 class Preprocessor(Protocol):
     """Prepare input data for meteor detection."""
+
+    plugin_info: PluginInfo
 
     def preprocess(self, target_folder: str) -> str:
         """Return the folder that should be passed to the detector."""
@@ -20,6 +48,8 @@ class Preprocessor(Protocol):
 
 class Detector(ABC):
     """Perform meteor detection against a prepared target folder."""
+
+    plugin_info: PluginInfo
 
     @abstractmethod
     def detect(
@@ -58,10 +88,21 @@ class Detector(ABC):
     ) -> int:
         """Run detection and return the count of detected meteors."""
 
+    # Optional lifecycle hooks
+    def initialize(self) -> None:  # pragma: no cover - optional
+        """Prepare the detector before use."""
+        return None
+
+    def shutdown(self) -> None:  # pragma: no cover - optional
+        """Clean up any detector resources."""
+        return None
+
 
 @runtime_checkable
 class OutputWriter(Protocol):
     """Persist or format the detection results."""
+
+    plugin_info: PluginInfo
 
     def write(self, detected_count: int, warnings: List[str]) -> Dict[str, Any]:
         """Return a serialized representation of the run result."""
@@ -70,12 +111,30 @@ class OutputWriter(Protocol):
 class DefaultPreprocessor:
     """Pass-through preprocessor used by default."""
 
+    plugin_info = PluginInfo(
+        name="default",
+        version="1.0.0",
+        capabilities=["pass_through_preprocessor"],
+    )
+
+    def initialize(self) -> None:
+        return None
+
+    def shutdown(self) -> None:
+        return None
+
     def preprocess(self, target_folder: str) -> str:
         return target_folder
 
 
 class AdvancedDetector(Detector):
     """Wrap the existing advanced detector implementation."""
+
+    plugin_info = PluginInfo(
+        name="default",
+        version="1.0.0",
+        capabilities=["advanced_detection"],
+    )
 
     def detect(
         self,
@@ -148,51 +207,132 @@ class AdvancedDetector(Detector):
 class DefaultOutputWriter:
     """Return results in the format expected by the CLI runner."""
 
+    plugin_info = PluginInfo(
+        name="default",
+        version="1.0.0",
+        capabilities=["cli_output_writer"],
+    )
+
+    def initialize(self) -> None:
+        return None
+
+    def shutdown(self) -> None:
+        return None
+
     def write(self, detected_count: int, warnings: List[str]) -> Dict[str, Any]:
         return {"action": "detect", "detected_count": detected_count, "warnings": warnings}
 
 
 _DEFAULT_IMPLEMENTATION = "default"
-_DETECTOR_REGISTRY: Dict[str, Detector] = {}
-_PREPROCESSOR_REGISTRY: Dict[str, Preprocessor] = {}
-_OUTPUT_WRITER_REGISTRY: Dict[str, OutputWriter] = {}
+_DETECTOR_REGISTRY: Dict[str, RegisteredPlugin] = {}
+_PREPROCESSOR_REGISTRY: Dict[str, RegisteredPlugin] = {}
+_OUTPUT_WRITER_REGISTRY: Dict[str, RegisteredPlugin] = {}
 
 
-def register_detector(name: str, detector: Detector, *, override: bool = False) -> None:
+def _call_lifecycle_hook(plugin: Any, hook_name: str) -> None:
+    hook = getattr(plugin, hook_name, None)
+    if callable(hook):
+        hook()
+
+
+def _resolve_plugin_info(
+    name: str, plugin: Any, plugin_info: Optional[PluginInfo]
+) -> PluginInfo:
+    info = plugin_info or getattr(plugin, "plugin_info", None)
+    if info is None:
+        raise ValueError(f"Plugin info must be provided for '{name}'")
+    if info.name != name:
+        raise ValueError(
+            f"Plugin info name '{info.name}' does not match registry key '{name}'"
+        )
+    return info
+
+
+def register_detector(
+    name: str, detector: Detector, *, override: bool = False, plugin_info: Optional[PluginInfo] = None
+) -> None:
     if name in _DETECTOR_REGISTRY and not override:
         raise ValueError(f"Detector '{name}' already registered")
-    _DETECTOR_REGISTRY[name] = detector
+    if name in _DETECTOR_REGISTRY:
+        _call_lifecycle_hook(_DETECTOR_REGISTRY[name].implementation, "shutdown")
+    info = _resolve_plugin_info(name, detector, plugin_info)
+    _call_lifecycle_hook(detector, "initialize")
+    _DETECTOR_REGISTRY[name] = RegisteredPlugin(detector, info)
 
 
-def register_preprocessor(name: str, preprocessor: Preprocessor, *, override: bool = False) -> None:
+def register_preprocessor(
+    name: str,
+    preprocessor: Preprocessor,
+    *,
+    override: bool = False,
+    plugin_info: Optional[PluginInfo] = None,
+) -> None:
     if name in _PREPROCESSOR_REGISTRY and not override:
         raise ValueError(f"Preprocessor '{name}' already registered")
-    _PREPROCESSOR_REGISTRY[name] = preprocessor
+    if name in _PREPROCESSOR_REGISTRY:
+        _call_lifecycle_hook(_PREPROCESSOR_REGISTRY[name].implementation, "shutdown")
+    info = _resolve_plugin_info(name, preprocessor, plugin_info)
+    _call_lifecycle_hook(preprocessor, "initialize")
+    _PREPROCESSOR_REGISTRY[name] = RegisteredPlugin(preprocessor, info)
 
 
-def register_output_writer(name: str, output_writer: OutputWriter, *, override: bool = False) -> None:
+def register_output_writer(
+    name: str,
+    output_writer: OutputWriter,
+    *,
+    override: bool = False,
+    plugin_info: Optional[PluginInfo] = None,
+) -> None:
     if name in _OUTPUT_WRITER_REGISTRY and not override:
         raise ValueError(f"Output writer '{name}' already registered")
-    _OUTPUT_WRITER_REGISTRY[name] = output_writer
+    if name in _OUTPUT_WRITER_REGISTRY:
+        _call_lifecycle_hook(_OUTPUT_WRITER_REGISTRY[name].implementation, "shutdown")
+    info = _resolve_plugin_info(name, output_writer, plugin_info)
+    _call_lifecycle_hook(output_writer, "initialize")
+    _OUTPUT_WRITER_REGISTRY[name] = RegisteredPlugin(output_writer, info)
+
+
+def unregister_detector(name: str) -> None:
+    try:
+        registered = _DETECTOR_REGISTRY.pop(name)
+    except KeyError as exc:
+        raise KeyError(f"Detector '{name}' not registered") from exc
+    _call_lifecycle_hook(registered.implementation, "shutdown")
+
+
+def unregister_preprocessor(name: str) -> None:
+    try:
+        registered = _PREPROCESSOR_REGISTRY.pop(name)
+    except KeyError as exc:
+        raise KeyError(f"Preprocessor '{name}' not registered") from exc
+    _call_lifecycle_hook(registered.implementation, "shutdown")
+
+
+def unregister_output_writer(name: str) -> None:
+    try:
+        registered = _OUTPUT_WRITER_REGISTRY.pop(name)
+    except KeyError as exc:
+        raise KeyError(f"Output writer '{name}' not registered") from exc
+    _call_lifecycle_hook(registered.implementation, "shutdown")
 
 
 def get_detector(name: str = _DEFAULT_IMPLEMENTATION) -> Detector:
     try:
-        return _DETECTOR_REGISTRY[name]
+        return _DETECTOR_REGISTRY[name].implementation
     except KeyError as exc:
         raise KeyError(f"Detector '{name}' not registered") from exc
 
 
 def get_preprocessor(name: str = _DEFAULT_IMPLEMENTATION) -> Preprocessor:
     try:
-        return _PREPROCESSOR_REGISTRY[name]
+        return _PREPROCESSOR_REGISTRY[name].implementation
     except KeyError as exc:
         raise KeyError(f"Preprocessor '{name}' not registered") from exc
 
 
 def get_output_writer(name: str = _DEFAULT_IMPLEMENTATION) -> OutputWriter:
     try:
-        return _OUTPUT_WRITER_REGISTRY[name]
+        return _OUTPUT_WRITER_REGISTRY[name].implementation
     except KeyError as exc:
         raise KeyError(f"Output writer '{name}' not registered") from exc
 
