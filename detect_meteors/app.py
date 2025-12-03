@@ -383,6 +383,37 @@ def _sensor_type_listing() -> Dict[str, Any]:
     return {"list": listing, "aliases": aliases}
 
 
+def _registry_listing(registry: Dict[str, RegisteredPlugin]) -> List[Dict[str, Any]]:
+    listing: List[Dict[str, Any]] = []
+    for name in sorted(registry):
+        registered = registry[name]
+        listing.append(
+            {
+                "name": registered.info.name,
+                "version": registered.info.version,
+                "capabilities": registered.info.capabilities,
+            }
+        )
+    return listing
+
+
+def _list_plugins() -> Dict[str, Any]:
+    return {
+        "action": "list_plugins",
+        "detectors": _registry_listing(_DETECTOR_REGISTRY),
+        "preprocessors": _registry_listing(_PREPROCESSOR_REGISTRY),
+        "output_writers": _registry_listing(_OUTPUT_WRITER_REGISTRY),
+    }
+
+
+def _resolve_plugin(name: Optional[str], getter, *, kind: str):
+    plugin_name = name or _DEFAULT_IMPLEMENTATION
+    try:
+        return plugin_name, getter(plugin_name)
+    except KeyError as exc:
+        raise ValueError(f"Requested {kind} plugin '{plugin_name}' is not registered") from exc
+
+
 def run(args):
     """Execute the application logic using parsed arguments."""
 
@@ -396,6 +427,11 @@ def run(args):
             "progress_file": args.progress_file,
             "removed": removed,
         }
+
+    plugin_loader.load_plugins()
+
+    if args.list_plugins:
+        return _list_plugins()
 
     if args.list_sensor_types:
         return {"action": "list_sensor_types", "data": _sensor_type_listing()}
@@ -527,12 +563,12 @@ def run(args):
             "show_usage_examples": args.show_npf,
         }
 
-    plugin_loader.load_plugins()
-
-    preprocessor = get_preprocessor()
+    _, preprocessor = _resolve_plugin(
+        args.preprocessor_plugin, get_preprocessor, kind="preprocessor"
+    )
     processed_target = preprocessor.preprocess(args.target)
 
-    detector = get_detector()
+    _, detector = _resolve_plugin(args.detector_plugin, get_detector, kind="detector")
     detected_count = detector.detect(
         target_folder=processed_target,
         output_folder=args.output,
@@ -566,5 +602,7 @@ def run(args):
         fisheye=args.fisheye,
     )
 
-    output_writer = get_output_writer()
+    _, output_writer = _resolve_plugin(
+        args.output_writer_plugin, get_output_writer, kind="output writer"
+    )
     return output_writer.write(detected_count, warnings)

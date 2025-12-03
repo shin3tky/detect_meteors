@@ -24,6 +24,10 @@ class TestCliLayer(unittest.TestCase):
         self.assertEqual(args.workers, 2)
         self.assertEqual(args.batch_size, 8)
         self.assertEqual(args.output, services.DEFAULT_OUTPUT_FOLDER)
+        self.assertIsNone(args.detector_plugin)
+        self.assertIsNone(args.preprocessor_plugin)
+        self.assertIsNone(args.output_writer_plugin)
+        self.assertFalse(args.list_plugins)
 
     def test_help_output_available(self):
         parser = cli.build_arg_parser()
