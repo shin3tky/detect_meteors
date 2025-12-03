@@ -21,7 +21,10 @@ def load_plugins(plugin_folder: Optional[Path | str] = None) -> None:
     seen_preprocessors = set(app._PREPROCESSOR_REGISTRY)  # type: ignore[attr-defined]
     seen_output_writers = set(app._OUTPUT_WRITER_REGISTRY)  # type: ignore[attr-defined]
 
-    for module in _iter_entry_point_modules():
+    modules = list(_iter_entry_point_modules())
+    modules.extend(_iter_folder_modules(plugin_folder))
+
+    for module in modules:
         _register_plugin_module(
             module,
             seen_detectors=seen_detectors,
@@ -29,9 +32,8 @@ def load_plugins(plugin_folder: Optional[Path | str] = None) -> None:
             seen_output_writers=seen_output_writers,
         )
 
-    for module in _iter_folder_modules(plugin_folder):
-        _register_plugin_module(
-            module,
+    if not app._DETECTOR_REGISTRY and not app._PREPROCESSOR_REGISTRY and not app._OUTPUT_WRITER_REGISTRY:  # type: ignore[attr-defined]
+        _load_builtin_plugins(
             seen_detectors=seen_detectors,
             seen_preprocessors=seen_preprocessors,
             seen_output_writers=seen_output_writers,
@@ -81,6 +83,27 @@ def _iter_folder_modules(plugin_folder: Optional[Path | str]) -> Iterable[Module
             continue
 
     return modules
+
+
+def _load_builtin_plugins(
+    *,
+    seen_detectors: set[str],
+    seen_preprocessors: set[str],
+    seen_output_writers: set[str],
+) -> None:
+    try:
+        from detect_meteors import builtin_plugins
+    except Exception:
+        LOGGER.exception("Failed to import built-in plugins module")
+        return
+
+    LOGGER.info("Falling back to built-in detect_meteors plugins")
+    _register_plugin_module(
+        builtin_plugins,
+        seen_detectors=seen_detectors,
+        seen_preprocessors=seen_preprocessors,
+        seen_output_writers=seen_output_writers,
+    )
 
 
 def _register_plugin_module(

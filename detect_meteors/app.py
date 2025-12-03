@@ -109,121 +109,6 @@ class OutputWriter(Protocol):
         """Return a serialized representation of the run result."""
 
 
-class DefaultPreprocessor:
-    """Pass-through preprocessor used by default."""
-
-    plugin_info = PluginInfo(
-        name="default",
-        version="1.0.0",
-        capabilities=["pass_through_preprocessor"],
-    )
-
-    def initialize(self) -> None:
-        return None
-
-    def shutdown(self) -> None:
-        return None
-
-    def preprocess(self, target_folder: str) -> str:
-        return target_folder
-
-
-class AdvancedDetector(Detector):
-    """Wrap the existing advanced detector implementation."""
-
-    plugin_info = PluginInfo(
-        name="default",
-        version="1.0.0",
-        capabilities=["advanced_detection"],
-    )
-
-    def detect(
-        self,
-        *,
-        target_folder: str,
-        output_folder: str,
-        debug_folder: str,
-        diff_threshold: float,
-        min_area: int,
-        min_aspect_ratio: float,
-        hough_threshold: int,
-        hough_min_line_length: int,
-        hough_max_line_gap: int,
-        min_line_score: float,
-        enable_roi_selection: bool,
-        roi_polygon_cli: Any,
-        num_workers: int,
-        batch_size: int,
-        auto_batch_size: bool,
-        enable_parallel: bool,
-        profile: bool,
-        validate_raw: bool,
-        progress_file: str,
-        resume: bool,
-        auto_params: bool,
-        user_specified_diff_threshold: bool,
-        user_specified_min_area: bool,
-        user_specified_min_line_score: bool,
-        focal_length_mm: Any,
-        focal_factor: Any,
-        sensor_width_mm: Any,
-        pixel_pitch_um: Any,
-        output_overwrite: bool,
-        fisheye: bool,
-    ) -> int:
-        return services.detect_meteors_advanced(
-            target_folder=target_folder,
-            output_folder=output_folder,
-            debug_folder=debug_folder,
-            diff_threshold=diff_threshold,
-            min_area=min_area,
-            min_aspect_ratio=min_aspect_ratio,
-            hough_threshold=hough_threshold,
-            hough_min_line_length=hough_min_line_length,
-            hough_max_line_gap=hough_max_line_gap,
-            min_line_score=min_line_score,
-            enable_roi_selection=enable_roi_selection,
-            roi_polygon_cli=roi_polygon_cli,
-            num_workers=num_workers,
-            batch_size=batch_size,
-            auto_batch_size=auto_batch_size,
-            enable_parallel=enable_parallel,
-            profile=profile,
-            validate_raw=validate_raw,
-            progress_file=progress_file,
-            resume=resume,
-            auto_params=auto_params,
-            user_specified_diff_threshold=user_specified_diff_threshold,
-            user_specified_min_area=user_specified_min_area,
-            user_specified_min_line_score=user_specified_min_line_score,
-            focal_length_mm=focal_length_mm,
-            focal_factor=focal_factor,
-            sensor_width_mm=sensor_width_mm,
-            pixel_pitch_um=pixel_pitch_um,
-            output_overwrite=output_overwrite,
-            fisheye=fisheye,
-        )
-
-
-class DefaultOutputWriter:
-    """Return results in the format expected by the CLI runner."""
-
-    plugin_info = PluginInfo(
-        name="default",
-        version="1.0.0",
-        capabilities=["cli_output_writer"],
-    )
-
-    def initialize(self) -> None:
-        return None
-
-    def shutdown(self) -> None:
-        return None
-
-    def write(self, detected_count: int, warnings: List[str]) -> Dict[str, Any]:
-        return {"action": "detect", "detected_count": detected_count, "warnings": warnings}
-
-
 _DEFAULT_IMPLEMENTATION = "default"
 _DETECTOR_REGISTRY: Dict[str, RegisteredPlugin] = {}
 _PREPROCESSOR_REGISTRY: Dict[str, RegisteredPlugin] = {}
@@ -338,10 +223,21 @@ def get_output_writer(name: str = _DEFAULT_IMPLEMENTATION) -> OutputWriter:
         raise KeyError(f"Output writer '{name}' not registered") from exc
 
 
-# Register built-in implementations for immediate use.
-register_detector(_DEFAULT_IMPLEMENTATION, AdvancedDetector())
-register_preprocessor(_DEFAULT_IMPLEMENTATION, DefaultPreprocessor())
-register_output_writer(_DEFAULT_IMPLEMENTATION, DefaultOutputWriter())
+def _format_missing_plugin_error(
+    kind: str, plugin_name: str, registry: Dict[str, RegisteredPlugin]
+) -> str:
+    if not registry:
+        return (
+            f"No {kind} plugins are registered. "
+            "Ensure plugins are installed and discoverable via the 'detect_meteors.plugins' entry point "
+            "or available in the plugins folder."
+        )
+
+    available = ", ".join(sorted(registry))
+    return (
+        f"Requested {kind} plugin '{plugin_name}' is not registered. "
+        f"Available {kind} plugins: {available}"
+    )
 
 
 def _sensor_type_listing() -> Dict[str, Any]:
@@ -406,12 +302,20 @@ def _list_plugins() -> Dict[str, Any]:
     }
 
 
-def _resolve_plugin(name: Optional[str], getter, *, kind: str):
+def _resolve_plugin(
+    name: Optional[str],
+    getter,
+    registry: Dict[str, RegisteredPlugin],
+    *,
+    kind: str,
+):
     plugin_name = name or _DEFAULT_IMPLEMENTATION
     try:
         return plugin_name, getter(plugin_name)
     except KeyError as exc:
-        raise ValueError(f"Requested {kind} plugin '{plugin_name}' is not registered") from exc
+        raise ValueError(
+            _format_missing_plugin_error(kind, plugin_name, registry)
+        ) from exc
 
 
 def run(args):
@@ -564,11 +468,16 @@ def run(args):
         }
 
     _, preprocessor = _resolve_plugin(
-        args.preprocessor_plugin, get_preprocessor, kind="preprocessor"
+        args.preprocessor_plugin,
+        get_preprocessor,
+        _PREPROCESSOR_REGISTRY,
+        kind="preprocessor",
     )
     processed_target = preprocessor.preprocess(args.target)
 
-    _, detector = _resolve_plugin(args.detector_plugin, get_detector, kind="detector")
+    _, detector = _resolve_plugin(
+        args.detector_plugin, get_detector, _DETECTOR_REGISTRY, kind="detector"
+    )
     detected_count = detector.detect(
         target_folder=processed_target,
         output_folder=args.output,
@@ -603,6 +512,9 @@ def run(args):
     )
 
     _, output_writer = _resolve_plugin(
-        args.output_writer_plugin, get_output_writer, kind="output writer"
+        args.output_writer_plugin,
+        get_output_writer,
+        _OUTPUT_WRITER_REGISTRY,
+        kind="output writer",
     )
     return output_writer.write(detected_count, warnings)
