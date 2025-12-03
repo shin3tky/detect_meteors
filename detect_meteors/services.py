@@ -1,6 +1,6 @@
 """Shared interfaces bridging CLI and application layers."""
 
-from detect_meteors_cli import (
+from detect_meteors.default_plugin import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_DEBUG_FOLDER,
     DEFAULT_DIFF_THRESHOLD,
