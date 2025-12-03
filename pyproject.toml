@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "detect-meteors"
+version = "0.0.0"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+
+[project.entry-points."detect_meteors.plugins"]
+builtin = "detect_meteors.builtin_plugins"
