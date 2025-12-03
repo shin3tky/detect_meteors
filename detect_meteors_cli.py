@@ -2827,7 +2827,7 @@ def detect_meteors_advanced(
 
 
 def main():
-    from detect_meteors import app, cli
+    from detect_meteors import app, cli, npf
 
     args = cli.parse_args()
     try:
@@ -2877,6 +2877,7 @@ def main():
             print(f"  {alias_str:<18} → {primary}")
         return
 
+
     if action == "show_exif":
         print(f"\n{'='*60}")
         if args.show_npf:
@@ -2888,47 +2889,19 @@ def main():
         print(f"Found {result['files_found']} RAW files")
         print(f"Reading EXIF from first file: {result['first_file']}\n")
 
-        exif_data = result["exif_data"]
-        npf_metrics = result.get("npf_metrics")
+        if result.get("fisheye_text"):
+            print(result["fisheye_text"])
 
-        if args.fisheye and exif_data.get("focal_length_35mm"):
-            display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
+        print(result.get("exif_text", ""))
 
-        display_exif_info(
-            exif_data,
-            result.get("focal_length_source", "EXIF"),
-            result.get("focal_factor"),
-            npf_metrics,
-        )
-
-        warnings = result.get("warnings", [])
-        if warnings:
-            print(f"{'='*60}")
-            print("⚠ Warnings:")
-            for warning in warnings:
-                print(f"  • {warning}")
-            print(f"{'='*60}\n")
+        warnings_block = npf.format_warnings_block(result.get("warnings", []))
+        if warnings_block:
+            print(warnings_block + "\n")
 
         if result.get("show_usage_examples"):
-            print(f"{'='*60}")
-            print("Usage Examples:")
-            print(f"{'='*60}")
-            print("\nUse --sensor-type for easy setup (recommended):")
-            print(f"  --sensor-type MFT           # Micro Four Thirds")
-            print(f"  --sensor-type APS-C         # APS-C (Sony/Nikon/Fuji)")
-            print(f"  --sensor-type APS-C_CANON   # APS-C (Canon)")
-            print(f"  --sensor-type FF            # Full Frame")
-            print("\nOr specify individual parameters (overrides --sensor-type):")
-            print(f"  --sensor-width 17.3   # Sensor width in mm")
-            print(f"  --pixel-pitch 3.7     # Pixel pitch in micrometers")
-            print(f"  --focal-factor 2.0    # Crop factor")
-            print(f"\n{'='*60}\n")
-            if warnings:
-                print("⚠ Warnings:")
-                for warning in warnings:
-                    print(f"  • {warning}")
-                print(f"{'='*60}\n")
+            print(npf.format_usage_examples())
         return
+
 
     if action == "detect":
         warnings = result.get("warnings", [])
