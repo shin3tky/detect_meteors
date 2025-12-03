@@ -4,22 +4,9 @@ import os
 import sys
 from typing import Any, Dict, List
 
-from detect_meteors_cli import (
-    DEFAULT_ENABLE_ROI_SELECTION,
-    DEFAULT_FISHEYE_MODEL,
-    SENSOR_PRESETS,
-    apply_sensor_preset,
-    calculate_npf_metrics,
-    collect_files,
-    detect_meteors_advanced,
-    extract_exif_metadata,
-    get_sensor_preset,
-    parse_roi_polygon_string,
-    validate_sensor_overrides,
-)
-
 from detect_meteors import exif as exif_utils
 from detect_meteors import npf
+from detect_meteors import services
 
 
 def _sensor_type_listing() -> Dict[str, Any]:
@@ -36,7 +23,7 @@ def _sensor_type_listing() -> Dict[str, Any]:
 
     listing: List[Dict[str, Any]] = []
     for sensor_type in primary_types:
-        preset = SENSOR_PRESETS.get(sensor_type)
+        preset = services.SENSOR_PRESETS.get(sensor_type)
         if preset:
             listing.append(
                 {
@@ -79,10 +66,10 @@ def run(args):
         return {"action": "list_sensor_types", "data": _sensor_type_listing()}
 
     roi_polygon_cli = None
-    enable_roi_selection = DEFAULT_ENABLE_ROI_SELECTION
+    enable_roi_selection = services.DEFAULT_ENABLE_ROI_SELECTION
 
     if args.roi is not None:
-        roi_polygon_cli = parse_roi_polygon_string(args.roi)
+        roi_polygon_cli = services.parse_roi_polygon_string(args.roi)
         enable_roi_selection = False
     elif args.no_roi:
         enable_roi_selection = False
@@ -91,7 +78,7 @@ def run(args):
     user_specified_min_area = "--min-area" in sys.argv
     user_specified_min_line_score = "--min-line-score" in sys.argv
 
-    if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
+    if args.sensor_type and services.get_sensor_preset(args.sensor_type) is None:
         raise ValueError(
             f"Invalid --sensor-type value: '{args.sensor_type}'. "
             "Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
@@ -103,9 +90,9 @@ def run(args):
         focal_length_value,
         pixel_pitch_value,
         preset,
-    ) = apply_sensor_preset(args, verbose=False)
+    ) = services.apply_sensor_preset(args, verbose=False)
 
-    warnings = validate_sensor_overrides(
+    warnings = services.validate_sensor_overrides(
         args, preset, sensor_width_value, pixel_pitch_value, collect_only=True
     )
 
@@ -116,11 +103,11 @@ def run(args):
         )
 
     if args.show_exif or args.show_npf:
-        files = collect_files(args.target)
+        files = services.collect_files(args.target)
         if not files:
             raise FileNotFoundError("No RAW files found in target folder.")
 
-        exif_data = extract_exif_metadata(files[0])
+        exif_data = services.extract_exif_metadata(files[0])
 
         focal_length_source = "Unknown"
         if focal_length_value:
@@ -141,12 +128,12 @@ def run(args):
         if args.show_npf or (
             exif_data.get("focal_length_35mm") and exif_data.get("f_number")
         ):
-            npf_metrics = calculate_npf_metrics(
+            npf_metrics = services.calculate_npf_metrics(
                 exif_data,
                 sensor_width_mm=sensor_width_value,
                 pixel_pitch_um=pixel_pitch_value,
                 fisheye=args.fisheye,
-                fisheye_model=DEFAULT_FISHEYE_MODEL,
+                fisheye_model=services.DEFAULT_FISHEYE_MODEL,
             )
 
         if args.auto_params and (
@@ -186,7 +173,7 @@ def run(args):
         fisheye_text = None
         if args.fisheye and exif_data.get("focal_length_35mm"):
             fisheye_text = exif_utils.format_fisheye_info(
-                exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL
+                exif_data["focal_length_35mm"], services.DEFAULT_FISHEYE_MODEL
             )
 
         return {
@@ -205,7 +192,7 @@ def run(args):
             "show_usage_examples": args.show_npf,
         }
 
-    detected_count = detect_meteors_advanced(
+    detected_count = services.detect_meteors_advanced(
         target_folder=args.target,
         output_folder=args.output,
         debug_folder=args.debug_dir,
