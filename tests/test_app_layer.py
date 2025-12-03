@@ -15,8 +15,12 @@ class TestAppLayer(unittest.TestCase):
             remove_progress=False,
             progress_file=services.DEFAULT_PROGRESS_FILE,
             list_sensor_types=False,
+            list_plugins=False,
             roi=None,
             no_roi=False,
+            detector_plugin=None,
+            preprocessor_plugin=None,
+            output_writer_plugin=None,
             sensor_type=None,
             focal_length=None,
             focal_factor=None,
@@ -123,6 +127,80 @@ class TestAppLayer(unittest.TestCase):
         self.assertEqual(result["files_found"], 1)
         self.assertEqual(result["warnings"], ["warn"])
         self.assertEqual(result["exif_text"], "EXIF")
+
+    def test_list_plugins_returns_registered_metadata(self):
+        args = self.make_args(list_plugins=True)
+
+        with patch("detect_meteors.plugin_loader.load_plugins") as load_plugins:
+            result = app.run(args)
+
+        load_plugins.assert_called_once_with()
+        self.assertEqual(result["action"], "list_plugins")
+        self.assertTrue(any(entry["name"] == "default" for entry in result["detectors"]))
+        self.assertTrue(
+            any(entry["name"] == "default" for entry in result["preprocessors"])
+        )
+        self.assertTrue(
+            any(entry["name"] == "default" for entry in result["output_writers"])
+        )
+
+    def test_specified_plugins_are_used_for_detection_pipeline(self):
+        class CustomPreprocessor:
+            plugin_info = app.PluginInfo(
+                name="custom_pre", version="0.1.0", capabilities=["preprocessor"]
+            )
+
+            def __init__(self):
+                self.seen_targets = []
+
+            def preprocess(self, target_folder: str) -> str:
+                self.seen_targets.append(target_folder)
+                return f"custom:{target_folder}"
+
+        class CustomDetector(app.Detector):
+            plugin_info = app.PluginInfo(
+                name="custom_detector", version="0.1.0", capabilities=["detector"]
+            )
+
+            def detect(self, **kwargs):  # type: ignore[override]
+                self.kwargs = kwargs
+                return 99
+
+        class CustomWriter:
+            plugin_info = app.PluginInfo(
+                name="custom_writer", version="0.1.0", capabilities=["writer"]
+            )
+
+            def write(self, detected_count: int, warnings):
+                return {"count": detected_count, "warnings": warnings, "writer": "custom"}
+
+        preprocessor = CustomPreprocessor()
+        detector = CustomDetector()
+        writer = CustomWriter()
+
+        app.register_preprocessor("custom_pre", preprocessor)
+        app.register_detector("custom_detector", detector)
+        app.register_output_writer("custom_writer", writer)
+
+        args = self.make_args(
+            preprocessor_plugin="custom_pre",
+            detector_plugin="custom_detector",
+            output_writer_plugin="custom_writer",
+        )
+
+        try:
+            with patch("detect_meteors.services.apply_sensor_preset", return_value=(None, None, None, None, {})), patch(
+                "detect_meteors.services.validate_sensor_overrides", return_value=[]
+            ):
+                result = app.run(args)
+        finally:
+            app.unregister_preprocessor("custom_pre")
+            app.unregister_detector("custom_detector")
+            app.unregister_output_writer("custom_writer")
+
+        self.assertEqual(result["count"], 99)
+        self.assertEqual(preprocessor.seen_targets, [services.DEFAULT_TARGET_FOLDER])
+        self.assertEqual(detector.kwargs["target_folder"], "custom:rawfiles")
 
 
 if __name__ == "__main__":

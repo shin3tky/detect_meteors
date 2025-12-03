@@ -98,6 +98,26 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--remove-progress", action="store_true", help="Delete progress and exit")
 
     parser.add_argument(
+        "--detector-plugin",
+        type=str,
+        default=None,
+        help="Name of detector plugin to use (default: built-in)",
+    )
+    parser.add_argument(
+        "--preprocessor-plugin",
+        type=str,
+        default=None,
+        help="Name of preprocessor plugin to use (default: built-in)",
+    )
+    parser.add_argument(
+        "--output-writer-plugin",
+        type=str,
+        default=None,
+        help="Name of output writer plugin to use (default: built-in)",
+    )
+    parser.add_argument("--list-plugins", action="store_true", help="List available plugins and exit")
+
+    parser.add_argument(
         "--auto-params",
         action="store_true",
         help="Auto-estimate diff_threshold, min_area, and min_line_score based on EXIF (v1.4.0 with NPF Rule)",
