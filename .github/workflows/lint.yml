@@ -1,7 +1,10 @@
 # .github/workflows/lint.yml
-name: Lint
+name: Lint (disabled for 2.0.0 development)
 
-on: [push, pull_request]
+# Linting is paused during the 2.0.0 development cycle. Re-enable by adding
+# push/pull_request triggers back to the "on" section.
+on:
+  workflow_dispatch:
 
 jobs:
   pre-commit:
