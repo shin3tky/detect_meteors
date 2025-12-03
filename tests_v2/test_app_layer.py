@@ -48,6 +48,8 @@ class TestAppLayer(unittest.TestCase):
             auto_params=False,
             output_overwrite=False,
             fisheye=False,
+            plugin_dir=None,
+            plugin_entrypoint_group=None,
         )
         defaults.update(overrides)
         return SimpleNamespace(**defaults)
@@ -134,7 +136,7 @@ class TestAppLayer(unittest.TestCase):
         with patch("detect_meteors.plugin_loader.load_plugins") as load_plugins:
             result = app.run(args)
 
-        load_plugins.assert_called_once_with()
+        load_plugins.assert_called_once_with(plugin_folder=None, entrypoint_group=None)
         self.assertEqual(result["action"], "list_plugins")
         self.assertTrue(any(entry["name"] == "default" for entry in result["detectors"]))
         self.assertTrue(
@@ -143,6 +145,7 @@ class TestAppLayer(unittest.TestCase):
         self.assertTrue(
             any(entry["name"] == "default" for entry in result["output_writers"])
         )
+        self.assertIn("warnings", result)
 
     def test_specified_plugins_are_used_for_detection_pipeline(self):
         class CustomPreprocessor:
