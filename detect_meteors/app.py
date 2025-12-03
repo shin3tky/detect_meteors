@@ -18,6 +18,9 @@ from detect_meteors_cli import (
     validate_sensor_overrides,
 )
 
+from detect_meteors import exif as exif_utils
+from detect_meteors import npf
+
 
 def _sensor_type_listing() -> Dict[str, Any]:
     primary_types = [
@@ -168,23 +171,36 @@ def run(args):
         if not exif_data.get("exposure_time"):
             warnings.append("Exposure time not available")
 
-        if args.show_npf or npf_metrics:
-            if not sensor_width_value and not exif_data.get("image_width"):
-                warnings.append(
-                    "Sensor width not specified. Use --sensor-type or --sensor-width for accurate NPF calculation"
-                )
-            if npf_metrics and not npf_metrics.get("has_complete_data"):
-                warnings.append("NPF calculation using default/estimated values")
+        warnings.extend(
+            npf.build_warnings(
+                exif_data=exif_data,
+                npf_metrics=npf_metrics,
+                auto_params=args.auto_params,
+                sensor_type=args.sensor_type,
+                focal_factor_arg=args.focal_factor,
+                sensor_width_value=sensor_width_value,
+                show_npf=args.show_npf,
+            )
+        )
+
+        fisheye_text = None
+        if args.fisheye and exif_data.get("focal_length_35mm"):
+            fisheye_text = exif_utils.format_fisheye_info(
+                exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL
+            )
 
         return {
             "action": "show_exif",
             "target": args.target,
             "files_found": len(files),
             "first_file": os.path.basename(files[0]),
-            "exif_data": exif_data,
-            "focal_length_source": focal_length_source,
-            "focal_factor": focal_factor_value,
-            "npf_metrics": npf_metrics,
+            "exif_text": exif_utils.format_exif_info(
+                exif_data,
+                focal_length_source,
+                focal_factor_value,
+                npf_metrics,
+            ),
+            "fisheye_text": fisheye_text,
             "warnings": warnings,
             "show_usage_examples": args.show_npf,
         }
