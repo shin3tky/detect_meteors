@@ -293,12 +293,34 @@ def _registry_listing(registry: Dict[str, RegisteredPlugin]) -> List[Dict[str, A
     return listing
 
 
-def _list_plugins() -> Dict[str, Any]:
+def _format_plugin_warnings(
+    load_result: Optional[plugin_loader.PluginLoadResult],
+) -> List[str]:
+    if not load_result:
+        return []
+
+    warnings: List[str] = []
+    for skipped in load_result["skipped"]:
+        if skipped["name"] and skipped["item_type"]:
+            warnings.append(
+                f"{skipped['item_type'].title()} '{skipped['name']}' from {skipped['source']} skipped: {skipped['reason']}"
+            )
+        else:
+            warnings.append(
+                f"{skipped['source']} skipped: {skipped['reason']}"
+            )
+    return warnings
+
+
+def _list_plugins(
+    load_result: Optional[plugin_loader.PluginLoadResult] = None,
+) -> Dict[str, Any]:
     return {
         "action": "list_plugins",
         "detectors": _registry_listing(_DETECTOR_REGISTRY),
         "preprocessors": _registry_listing(_PREPROCESSOR_REGISTRY),
         "output_writers": _registry_listing(_OUTPUT_WRITER_REGISTRY),
+        "warnings": _format_plugin_warnings(load_result),
     }
 
 
@@ -332,10 +354,12 @@ def run(args):
             "removed": removed,
         }
 
-    plugin_loader.load_plugins()
+    plugin_load_result = plugin_loader.load_plugins(
+        plugin_folder=args.plugin_dir, entrypoint_group=args.plugin_entrypoint_group
+    )
 
     if args.list_plugins:
-        return _list_plugins()
+        return _list_plugins(plugin_load_result)
 
     if args.list_sensor_types:
         return {"action": "list_sensor_types", "data": _sensor_type_listing()}

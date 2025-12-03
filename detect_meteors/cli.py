@@ -116,6 +116,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Name of output writer plugin to use (default: built-in)",
     )
     parser.add_argument("--list-plugins", action="store_true", help="List available plugins and exit")
+    parser.add_argument(
+        "--plugin-dir",
+        type=str,
+        default=None,
+        help="Additional directory to search for plugin modules (default: ./plugins)",
+    )
+    parser.add_argument(
+        "--plugin-entrypoint-group",
+        type=str,
+        default=None,
+        help="Override the Python entry point group name for plugin discovery",
+    )
 
     parser.add_argument(
         "--auto-params",

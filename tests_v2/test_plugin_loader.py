@@ -149,7 +149,7 @@ class TestPluginLoader(TestCase):
             with prepended_sys_path(tmp_path), mock.patch.object(
                 plugin_loader, "entry_points", return_value=fake_eps
             ):
-                plugin_loader.load_plugins(plugin_folder=plugin_folder)
+                load_result = plugin_loader.load_plugins(plugin_folder=plugin_folder)
 
             preprocessor = app.get_preprocessor("entry_preprocessor")
             self.assertEqual(preprocessor.preprocess("target"), "processed:target")
@@ -162,6 +162,17 @@ class TestPluginLoader(TestCase):
 
             self.assertEqual(app._DETECTOR_REGISTRY["entry_detector"].info.capabilities, ["detector"])
             self.assertEqual(app._OUTPUT_WRITER_REGISTRY["folder_writer"].info.capabilities, ["writer"])
+            self.assertCountEqual(
+                load_result["loaded"]["detectors"], ["entry_detector", "folder_detector"]
+            )
+            self.assertCountEqual(
+                load_result["loaded"]["preprocessors"],
+                ["entry_preprocessor", "folder_preprocessor"],
+            )
+            self.assertCountEqual(
+                load_result["loaded"]["output_writers"], ["entry_writer", "folder_writer"]
+            )
+            self.assertEqual(load_result["skipped"], [])
 
     def test_duplicates_and_import_errors_are_logged(self):
         with tempfile.TemporaryDirectory() as tmpdir, self.assertLogs(
@@ -225,7 +236,7 @@ class TestPluginLoader(TestCase):
             with prepended_sys_path(tmp_path), mock.patch.object(
                 plugin_loader, "entry_points", return_value=entry_points_list
             ):
-                plugin_loader.load_plugins(plugin_folder=plugin_folder)
+                load_result = plugin_loader.load_plugins(plugin_folder=plugin_folder)
 
             detector = app.get_detector("shared_detector")
             self.assertEqual(detector.detect(), 10)
@@ -235,6 +246,16 @@ class TestPluginLoader(TestCase):
             )
             self.assertTrue(
                 any("Skipping duplicate detector 'shared_detector'" in message for message in captured.output)
+            )
+            self.assertTrue(
+                any(skip["reason"] == "duplicate name already registered" for skip in load_result["skipped"])
+            )
+            self.assertTrue(
+                any(
+                    skip["name"] == "missing-module"
+                    and "failed to load entry point" in skip["reason"]
+                    for skip in load_result["skipped"]
+                )
             )
 
     def test_folder_import_failures_do_not_block_other_plugins(self):
@@ -285,7 +306,7 @@ class TestPluginLoader(TestCase):
             with prepended_sys_path(tmp_path), mock.patch.object(
                 plugin_loader, "entry_points", return_value=FakeEntryPoints()
             ):
-                plugin_loader.load_plugins(plugin_folder=plugin_folder)
+                load_result = plugin_loader.load_plugins(plugin_folder=plugin_folder)
 
             detector = app.get_detector("good_detector")
             self.assertEqual(detector.detect(), 42)
@@ -297,4 +318,10 @@ class TestPluginLoader(TestCase):
 
             self.assertTrue(
                 any("Failed to import plugin module from" in message for message in captured.output)
+            )
+            self.assertTrue(
+                any(
+                    skip["source"].endswith("bad_plugin.py") and "import error" in skip["reason"]
+                    for skip in load_result["skipped"]
+                )
             )
