@@ -53,10 +53,13 @@ def run_tests_for_version(major_version):
 
     elif major_version == 2:
         print(f"Running tests for version 2.x")
-        # For version 2.x, use different test directory or patterns
-        # This is a placeholder - adjust based on actual 2.x structure
+        test_dir = "tests_v2"
+        if not os.path.isdir(test_dir):
+            print(f"Error: Expected test directory '{test_dir}' for version 2.x")
+            return 1
+
         loader = unittest.TestLoader()
-        suite = loader.discover("tests_v2", pattern="test_*.py")
+        suite = loader.discover(test_dir, pattern="test_*.py")
 
         runner = unittest.TextTestRunner(verbosity=2)
         result = runner.run(suite)
