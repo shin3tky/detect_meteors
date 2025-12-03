@@ -33,6 +33,8 @@ def cleanup_registry():
         "good_detector",
         "good_preprocessor",
         "good_writer",
+        "bad_pre",
+        "warn_writer",
     ]:
         for unregister in (
             app.unregister_detector,
@@ -173,6 +175,7 @@ class TestPluginLoader(TestCase):
                 load_result["loaded"]["output_writers"], ["entry_writer", "folder_writer"]
             )
             self.assertEqual(load_result["skipped"], [])
+            self.assertEqual(load_result["validation"], [])
 
     def test_duplicates_and_import_errors_are_logged(self):
         with tempfile.TemporaryDirectory() as tmpdir, self.assertLogs(
@@ -325,3 +328,66 @@ class TestPluginLoader(TestCase):
                     for skip in load_result["skipped"]
                 )
             )
+
+    def test_validation_reports_plugin_info_and_protocol_problems(self):
+        with tempfile.TemporaryDirectory() as tmpdir, self.assertLogs(
+            plugin_loader.LOGGER, level=logging.WARNING
+        ) as captured:
+            tmp_path = Path(tmpdir)
+            plugin_folder = tmp_path / "plugins"
+            plugin_folder.mkdir()
+
+            validation_plugin = plugin_folder / "validation_plugin.py"
+            self._write_plugin(
+                validation_plugin,
+                """
+                from detect_meteors import app
+
+                class BadPreprocessor:
+                    plugin_info = {"name": "bad_pre", "version": "0.0.1", "capabilities": ["preprocessor"]}
+
+                    def preprocess(self, target_folder: str) -> str:
+                        return target_folder
+
+                class WarnWriter:
+                    plugin_info = app.PluginInfo(
+                        name="warn_writer", version="0.0.2", capabilities=["writer"]
+                    )
+
+                    def write(self, detected_count: int):
+                        return {"count": detected_count}
+
+                PREPROCESSORS = {"bad_pre": BadPreprocessor()}
+                OUTPUT_WRITERS = {"warn_writer": WarnWriter()}
+                DETECTORS = {}
+                """,
+            )
+
+            with prepended_sys_path(tmp_path), mock.patch.object(
+                plugin_loader, "entry_points", return_value=FakeEntryPoints()
+            ):
+                load_result = plugin_loader.load_plugins(plugin_folder=plugin_folder)
+
+            self.assertTrue(
+                any("plugin_info must be detect_meteors.app.PluginInfo" in message for message in captured.output)
+            )
+            self.assertTrue(
+                any("write() must accept 'warnings' parameter" in message for message in captured.output)
+            )
+
+            self.assertTrue(
+                any(skip["name"] == "bad_pre" and skip["reason"] == "plugin_info validation failed" for skip in load_result["skipped"])
+            )
+
+            validation_entries = load_result["validation"]
+            self.assertTrue(
+                any(entry["name"] == "bad_pre" and entry["item_type"] == "preprocessor" for entry in validation_entries)
+            )
+            warn_writer_validation = [
+                entry for entry in validation_entries if entry["name"] == "warn_writer"
+            ]
+            self.assertEqual(len(warn_writer_validation), 1)
+            self.assertTrue(
+                any("write() must accept 'warnings' parameter" in warning for warning in warn_writer_validation[0]["warnings"])
+            )
+            self.assertEqual(app.get_output_writer("warn_writer").write(1), {"count": 1})

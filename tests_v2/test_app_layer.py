@@ -146,6 +146,7 @@ class TestAppLayer(unittest.TestCase):
             any(entry["name"] == "default" for entry in result["output_writers"])
         )
         self.assertIn("warnings", result)
+        self.assertIn("validation", result)
 
     def test_specified_plugins_are_used_for_detection_pipeline(self):
         class CustomPreprocessor:
