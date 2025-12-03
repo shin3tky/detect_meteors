@@ -2,186 +2,78 @@
 
 import os
 import sys
+from typing import Any, Dict, List
 
 from detect_meteors_cli import (
     DEFAULT_ENABLE_ROI_SELECTION,
     DEFAULT_FISHEYE_MODEL,
+    SENSOR_PRESETS,
     apply_sensor_preset,
     calculate_npf_metrics,
     collect_files,
     detect_meteors_advanced,
-    display_exif_info,
-    display_fisheye_info,
     extract_exif_metadata,
     get_sensor_preset,
-    list_sensor_types,
     parse_roi_polygon_string,
     validate_sensor_overrides,
 )
+
+
+def _sensor_type_listing() -> Dict[str, Any]:
+    primary_types = [
+        "1INCH",
+        "MFT",
+        "APSC",
+        "APSC_CANON",
+        "APSH",
+        "FF",
+        "MF44X33",
+        "MF54X40",
+    ]
+
+    listing: List[Dict[str, Any]] = []
+    for sensor_type in primary_types:
+        preset = SENSOR_PRESETS.get(sensor_type)
+        if preset:
+            listing.append(
+                {
+                    "type": sensor_type,
+                    "description": preset["description"],
+                    "focal_factor": preset["focal_factor"],
+                    "sensor_width": preset["sensor_width"],
+                    "pixel_pitch": preset["pixel_pitch"],
+                }
+            )
+
+    aliases = {
+        "1INCH": ["1-INCH", "1_INCH"],
+        "APSC": ["APS-C", "APS_C"],
+        "APSC_CANON": ["APS-C_CANON"],
+        "APSH": ["APS-H", "APS_H"],
+        "FF": ["FULLFRAME"],
+        "MF44X33": ["MF44-33", "MF44_33"],
+        "MF54X40": ["MF54-40", "MF54_40"],
+    }
+
+    return {"list": listing, "aliases": aliases}
 
 
 def run(args):
     """Execute the application logic using parsed arguments."""
 
     if args.remove_progress:
+        removed = False
         if os.path.exists(args.progress_file):
             os.remove(args.progress_file)
-            print(f"Removed progress file: {args.progress_file}")
-        else:
-            print(f"Progress file not found: {args.progress_file}")
-        return
+            removed = True
+        return {
+            "action": "remove_progress",
+            "progress_file": args.progress_file,
+            "removed": removed,
+        }
 
-    # --list-sensor-types: Display available sensor types and exit
     if args.list_sensor_types:
-        list_sensor_types()
-        return
-
-    # --show-exif or --show-npf: Display EXIF info and NPF analysis then exit
-    if args.show_exif or args.show_npf:
-        print(f"\n{'='*60}")
-        if args.show_npf:
-            print("EXIF Metadata & NPF Rule Analysis")
-        else:
-            print("EXIF Metadata Viewer")
-        print(f"{'='*60}\n")
-        print(f"Target folder: {args.target}")
-
-        # Validate --sensor-type if specified
-        if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
-            print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
-            print(
-                f"  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
-            )
-            return
-
-        # Apply sensor preset (with individual args taking priority)
-        (
-            focal_factor_value,
-            sensor_width_value,
-            focal_length_value,
-            pixel_pitch_value,
-            preset,
-        ) = apply_sensor_preset(args, verbose=True)
-
-        # Validate sensor overrides
-        validate_sensor_overrides(args, preset, sensor_width_value, pixel_pitch_value)
-
-        # Validate focal_factor if specified directly
-        if args.focal_factor and focal_factor_value is None:
-            print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
-            print(f"  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
-            return
-
-        try:
-            files = collect_files(args.target)
-            if not files:
-                print("⚠ No RAW files found in target folder.")
-                return
-
-            print(f"Found {len(files)} RAW files")
-            print(f"Reading EXIF from first file: {os.path.basename(files[0])}\n")
-
-            exif_data = extract_exif_metadata(files[0])
-
-            # Focal length priority processing
-            focal_length_source = "Unknown"
-            if focal_length_value:
-                focal_length_source = "CLI (--focal-length)"
-                exif_data["focal_length_35mm"] = focal_length_value
-            elif exif_data.get("focal_length_35mm"):
-                focal_length_source = "EXIF"
-            elif exif_data.get("focal_length") and focal_factor_value:
-                if args.focal_factor:
-                    focal_length_source = f"Calculated (--focal-factor {args.focal_factor})"
-                else:
-                    focal_length_source = f"Calculated (--sensor-type {args.sensor_type})"
-                exif_data["focal_length_35mm"] = exif_data["focal_length"] * focal_factor_value
-            elif exif_data.get("focal_length"):
-                focal_length_source = "EXIF (actual, no 35mm equiv.)"
-
-            # NPF Rule Analysis (when --show-npf or sufficient information exists)
-            npf_metrics = None
-            if args.show_npf or (
-                exif_data.get("focal_length_35mm") and exif_data.get("f_number")
-            ):
-                npf_metrics = calculate_npf_metrics(
-                    exif_data,
-                    sensor_width_mm=sensor_width_value,
-                    pixel_pitch_um=pixel_pitch_value,
-                    fisheye=args.fisheye,
-                    fisheye_model=DEFAULT_FISHEYE_MODEL,
-                )
-
-            # Display fisheye info if enabled
-            if args.fisheye and exif_data.get("focal_length_35mm"):
-                display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
-
-            display_exif_info(exif_data, focal_length_source, focal_factor_value, npf_metrics)
-
-            # Display warnings
-            warnings = []
-            if (
-                not exif_data.get("focal_length")
-                and not exif_data.get("focal_length_35mm")
-                and not focal_length_value
-            ):
-                warnings.append("Focal length not available")
-            elif (
-                not exif_data.get("focal_length_35mm")
-                and not focal_factor_value
-                and not focal_length_value
-            ):
-                warnings.append(
-                    f"35mm equivalent not found. Consider using --sensor-type or --focal-factor"
-                )
-            if not exif_data.get("iso"):
-                warnings.append("ISO value not available")
-            if not exif_data.get("exposure_time"):
-                warnings.append("Exposure time not available")
-
-            # NPF-related warnings
-            if args.show_npf or npf_metrics:
-                if not sensor_width_value and not exif_data.get("image_width"):
-                    warnings.append(
-                        "Sensor width not specified. Use --sensor-type or --sensor-width for accurate NPF calculation"
-                    )
-                if npf_metrics and not npf_metrics.get("has_complete_data"):
-                    warnings.append("NPF calculation using default/estimated values")
-
-            if warnings:
-                print(f"{'='*60}")
-                print("⚠ Warnings:")
-                for warning in warnings:
-                    print(f"  • {warning}")
-                print(f"{'='*60}\n")
-
-            # Display Usage Examples
-            if args.show_npf:
-                print(f"{'='*60}")
-                print("Usage Examples:")
-                print(f"{'='*60}")
-                print("\nUse --sensor-type for easy setup (recommended):")
-                print(f"  --sensor-type MFT           # Micro Four Thirds")
-                print(f"  --sensor-type APS-C         # APS-C (Sony/Nikon/Fuji)")
-                print(f"  --sensor-type APS-C_CANON   # APS-C (Canon)")
-                print(f"  --sensor-type FF            # Full Frame")
-                print("\nOr specify individual parameters (overrides --sensor-type):")
-                print(f"  --sensor-width 17.3   # Sensor width in mm")
-                print(f"  --pixel-pitch 3.7     # Pixel pitch in micrometers")
-                print(f"  --focal-factor 2.0    # Crop factor")
-                print(f"\n{'='*60}\n")
-                if warnings:
-                    print("⚠ Warnings:")
-                    for warning in warnings:
-                        print(f"  • {warning}")
-                    print(f"{'='*60}\n")
-
-        except FileNotFoundError as e:
-            print(f"⚠ Error: {e}")
-        except Exception as e:
-            print(f"⚠ Error reading EXIF: {e}")
-
-        return
+        return {"action": "list_sensor_types", "data": _sensor_type_listing()}
 
     roi_polygon_cli = None
     enable_roi_selection = DEFAULT_ENABLE_ROI_SELECTION
@@ -192,20 +84,16 @@ def run(args):
     elif args.no_roi:
         enable_roi_selection = False
 
-    # Determine user specifications
     user_specified_diff_threshold = "--diff-threshold" in sys.argv
     user_specified_min_area = "--min-area" in sys.argv
     user_specified_min_line_score = "--min-line-score" in sys.argv
 
-    # Validate --sensor-type if specified
     if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
-        print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
-        print(
-            f"  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
+        raise ValueError(
+            f"Invalid --sensor-type value: '{args.sensor_type}'. "
+            "Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
         )
-        return
 
-    # Apply sensor preset (with individual args taking priority)
     (
         focal_factor_value,
         sensor_width_value,
@@ -214,16 +102,94 @@ def run(args):
         preset,
     ) = apply_sensor_preset(args, verbose=False)
 
-    # Validate sensor overrides
-    validate_sensor_overrides(args, preset, sensor_width_value, pixel_pitch_value)
+    warnings = validate_sensor_overrides(
+        args, preset, sensor_width_value, pixel_pitch_value, collect_only=True
+    )
 
-    # Validate focal_factor if specified directly
     if args.focal_factor and focal_factor_value is None:
-        print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
-        print(f"  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
-        return
+        raise ValueError(
+            f"Invalid --focal-factor value: '{args.focal_factor}'. "
+            "Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)"
+        )
 
-    detect_meteors_advanced(
+    if args.show_exif or args.show_npf:
+        files = collect_files(args.target)
+        if not files:
+            raise FileNotFoundError("No RAW files found in target folder.")
+
+        exif_data = extract_exif_metadata(files[0])
+
+        focal_length_source = "Unknown"
+        if focal_length_value:
+            focal_length_source = "CLI (--focal-length)"
+            exif_data["focal_length_35mm"] = focal_length_value
+        elif exif_data.get("focal_length_35mm"):
+            focal_length_source = "EXIF"
+        elif exif_data.get("focal_length") and focal_factor_value:
+            if args.focal_factor:
+                focal_length_source = f"Calculated (--focal-factor {args.focal_factor})"
+            else:
+                focal_length_source = f"Calculated (--sensor-type {args.sensor_type})"
+            exif_data["focal_length_35mm"] = exif_data["focal_length"] * focal_factor_value
+        elif exif_data.get("focal_length"):
+            focal_length_source = "EXIF (actual, no 35mm equiv.)"
+
+        npf_metrics = None
+        if args.show_npf or (
+            exif_data.get("focal_length_35mm") and exif_data.get("f_number")
+        ):
+            npf_metrics = calculate_npf_metrics(
+                exif_data,
+                sensor_width_mm=sensor_width_value,
+                pixel_pitch_um=pixel_pitch_value,
+                fisheye=args.fisheye,
+                fisheye_model=DEFAULT_FISHEYE_MODEL,
+            )
+
+        if args.auto_params and (
+            exif_data.get("focal_length_35mm") is None
+            or exif_data.get("exposure_time") is None
+            or exif_data.get("f_number") is None
+        ):
+            warnings.append(
+                "Auto-parameter estimation requires focal_length_35mm, exposure_time, and f_number"
+            )
+        if (
+            exif_data.get("focal_length_35mm") is None
+            and exif_data.get("focal_length") is None
+            and args.focal_factor is None
+            and args.sensor_type is None
+        ):
+            warnings.append(
+                "35mm equivalent not found. Consider using --sensor-type or --focal-factor"
+            )
+        if not exif_data.get("iso"):
+            warnings.append("ISO value not available")
+        if not exif_data.get("exposure_time"):
+            warnings.append("Exposure time not available")
+
+        if args.show_npf or npf_metrics:
+            if not sensor_width_value and not exif_data.get("image_width"):
+                warnings.append(
+                    "Sensor width not specified. Use --sensor-type or --sensor-width for accurate NPF calculation"
+                )
+            if npf_metrics and not npf_metrics.get("has_complete_data"):
+                warnings.append("NPF calculation using default/estimated values")
+
+        return {
+            "action": "show_exif",
+            "target": args.target,
+            "files_found": len(files),
+            "first_file": os.path.basename(files[0]),
+            "exif_data": exif_data,
+            "focal_length_source": focal_length_source,
+            "focal_factor": focal_factor_value,
+            "npf_metrics": npf_metrics,
+            "warnings": warnings,
+            "show_usage_examples": args.show_npf,
+        }
+
+    detected_count = detect_meteors_advanced(
         target_folder=args.target,
         output_folder=args.output,
         debug_folder=args.debug_dir,
@@ -256,3 +222,4 @@ def run(args):
         fisheye=args.fisheye,
     )
 
+    return {"action": "detect", "detected_count": detected_count, "warnings": warnings}

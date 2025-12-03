@@ -361,7 +361,8 @@ def validate_sensor_overrides(
     preset: Optional[Dict[str, any]],
     sensor_width_value: Optional[float],
     pixel_pitch_value: Optional[float],
-) -> None:
+    collect_only: bool = False,
+) -> List[str]:
     """
     Validate that overridden --sensor-width and --pixel-pitch values
     are not significantly different from --sensor-type preset values.
@@ -379,7 +380,7 @@ def validate_sensor_overrides(
         pixel_pitch_value: Final pixel pitch value (μm)
     """
     if not preset or not args.sensor_type:
-        return
+        return warnings
 
     warnings = []
 
@@ -408,11 +409,13 @@ def validate_sensor_overrides(
                 )
 
     # Print warnings if any
-    if warnings:
+    if warnings and not collect_only:
         print(f"\n{'='*70}")
         for warning in warnings:
             print(warning)
         print(f"{'='*70}\n")
+
+    return warnings
 
 
 def list_sensor_types() -> None:
@@ -2827,7 +2830,114 @@ def main():
     from detect_meteors import app, cli
 
     args = cli.parse_args()
-    app.run(args)
+    try:
+        result = app.run(args)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(2)
+    except FileNotFoundError as exc:
+        print(f"File not found: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as exc:
+        print(f"Unexpected error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if result is None:
+        return
+
+    action = result.get("action")
+
+    if action == "remove_progress":
+        if result.get("removed"):
+            print(f"Removed progress file: {result.get('progress_file')}")
+        else:
+            print(f"Progress file not found: {result.get('progress_file')}")
+        return
+
+    if action == "list_sensor_types":
+        data = result.get("data", {})
+        print(f"\n{'='*70}")
+        print("Available Sensor Types (--sensor-type)")
+        print(f"{'='*70}\n")
+
+        for preset in data.get("list", []):
+            print(f"  {preset['type']:12}  {preset['description']}")
+            print(
+                f"                  focal_factor={preset['focal_factor']}, "
+                f"sensor_width={preset['sensor_width']}mm, "
+                f"pixel_pitch={preset['pixel_pitch']}μm"
+            )
+            print()
+
+        print(f"{'='*70}")
+        print("Aliases:")
+        aliases = data.get("aliases", {})
+        for primary, alias_list in aliases.items():
+            alias_str = ", ".join(alias_list)
+            print(f"  {alias_str:<18} → {primary}")
+        return
+
+    if action == "show_exif":
+        print(f"\n{'='*60}")
+        if args.show_npf:
+            print("EXIF Metadata & NPF Rule Analysis")
+        else:
+            print("EXIF Metadata Viewer")
+        print(f"{'='*60}\n")
+        print(f"Target folder: {result['target']}")
+        print(f"Found {result['files_found']} RAW files")
+        print(f"Reading EXIF from first file: {result['first_file']}\n")
+
+        exif_data = result["exif_data"]
+        npf_metrics = result.get("npf_metrics")
+
+        if args.fisheye and exif_data.get("focal_length_35mm"):
+            display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
+
+        display_exif_info(
+            exif_data,
+            result.get("focal_length_source", "EXIF"),
+            result.get("focal_factor"),
+            npf_metrics,
+        )
+
+        warnings = result.get("warnings", [])
+        if warnings:
+            print(f"{'='*60}")
+            print("⚠ Warnings:")
+            for warning in warnings:
+                print(f"  • {warning}")
+            print(f"{'='*60}\n")
+
+        if result.get("show_usage_examples"):
+            print(f"{'='*60}")
+            print("Usage Examples:")
+            print(f"{'='*60}")
+            print("\nUse --sensor-type for easy setup (recommended):")
+            print(f"  --sensor-type MFT           # Micro Four Thirds")
+            print(f"  --sensor-type APS-C         # APS-C (Sony/Nikon/Fuji)")
+            print(f"  --sensor-type APS-C_CANON   # APS-C (Canon)")
+            print(f"  --sensor-type FF            # Full Frame")
+            print("\nOr specify individual parameters (overrides --sensor-type):")
+            print(f"  --sensor-width 17.3   # Sensor width in mm")
+            print(f"  --pixel-pitch 3.7     # Pixel pitch in micrometers")
+            print(f"  --focal-factor 2.0    # Crop factor")
+            print(f"\n{'='*60}\n")
+            if warnings:
+                print("⚠ Warnings:")
+                for warning in warnings:
+                    print(f"  • {warning}")
+                print(f"{'='*60}\n")
+        return
+
+    if action == "detect":
+        warnings = result.get("warnings", [])
+        if warnings:
+            print(f"\n{'='*70}")
+            for warning in warnings:
+                print(warning)
+            print(f"{'='*70}\n")
+        return
 
 if __name__ == "__main__":
     main()
