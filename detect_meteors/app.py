@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 from detect_meteors import exif as exif_utils
 from detect_meteors import npf
+from detect_meteors import plugin_loader
 from detect_meteors import services
 
 
@@ -525,6 +526,8 @@ def run(args):
             "warnings": warnings,
             "show_usage_examples": args.show_npf,
         }
+
+    plugin_loader.load_plugins()
 
     preprocessor = get_preprocessor()
     processed_target = preprocessor.preprocess(args.target)
