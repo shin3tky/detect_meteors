@@ -32,7 +32,7 @@ except ImportError:
 # ==========================================
 # Default Settings
 # ==========================================
-VERSION = "1.5.4"
+VERSION = "1.5.5"
 
 DEFAULT_PROGRESS_FILE = "progress.json"
 
