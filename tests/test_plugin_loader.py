@@ -31,6 +31,9 @@ def cleanup_registry():
         "folder_preprocessor",
         "folder_writer",
         "shared_detector",
+        "good_detector",
+        "good_preprocessor",
+        "good_writer",
     ]:
         try:
             app.unregister_detector(name)
@@ -149,6 +152,9 @@ def test_loads_plugins_from_entry_points_and_folder(plugin_source):
     writer = app.get_output_writer("entry_writer")
     assert writer.write(2, ["warn"]) == {"count": 2, "warnings": ["warn"]}
 
+    assert app._DETECTOR_REGISTRY["entry_detector"].info.capabilities == ["detector"]
+    assert app._OUTPUT_WRITER_REGISTRY["folder_writer"].info.capabilities == ["writer"]
+
 
 def test_duplicates_and_import_errors_are_logged(tmp_path, monkeypatch, caplog):
     caplog.set_level(logging.WARNING)
@@ -216,4 +222,62 @@ def test_duplicates_and_import_errors_are_logged(tmp_path, monkeypatch, caplog):
 
     assert any("Failed to load plugin entry point 'missing-module'" in message for message in caplog.messages)
     assert any("Skipping duplicate detector 'shared_detector'" in message for message in caplog.messages)
+
+
+def test_folder_import_failures_do_not_block_other_plugins(tmp_path, monkeypatch, caplog):
+    caplog.set_level(logging.ERROR)
+    plugin_folder = tmp_path / "plugins"
+    plugin_folder.mkdir()
+
+    (plugin_folder / "bad_plugin.py").write_text("raise ImportError('boom')\n")
+    (plugin_folder / "good_plugin.py").write_text(
+        textwrap.dedent(
+            """
+            from detect_meteors import app
+
+            class GoodDetector(app.Detector):
+                plugin_info = app.PluginInfo(
+                    name="good_detector", version="1.2.3", capabilities=["detector", "tests"]
+                )
+
+                def detect(self, **kwargs):  # type: ignore[override]
+                    return 42
+
+            class GoodPreprocessor:
+                plugin_info = app.PluginInfo(
+                    name="good_preprocessor", version="1.2.3", capabilities=["preprocessor"]
+                )
+
+                def preprocess(self, target_folder: str) -> str:
+                    return f"good:{target_folder}"
+
+            class GoodWriter:
+                plugin_info = app.PluginInfo(
+                    name="good_writer", version="1.2.3", capabilities=["writer"]
+                )
+
+                def write(self, detected_count: int, warnings):
+                    return {"detected": detected_count, "warnings": warnings}
+
+            DETECTORS = {"good_detector": GoodDetector()}
+            PREPROCESSORS = {"good_preprocessor": GoodPreprocessor()}
+            OUTPUT_WRITERS = {"good_writer": GoodWriter()}
+            """
+        )
+    )
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setattr(plugin_loader, "entry_points", lambda: FakeEntryPoints())
+
+    plugin_loader.load_plugins(plugin_folder=plugin_folder)
+
+    detector = app.get_detector("good_detector")
+    assert detector.detect() == 42
+    assert app.get_preprocessor("good_preprocessor").preprocess("target") == "good:target"
+    assert app.get_output_writer("good_writer").write(1, []) == {"detected": 1, "warnings": []}
+
+    with pytest.raises(KeyError):
+        app.get_detector("bad_plugin")
+
+    assert any("Failed to import plugin module from" in message for message in caplog.messages)
 
