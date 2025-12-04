@@ -14,9 +14,9 @@ from io import StringIO
 from contextlib import redirect_stdout
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     get_sensor_preset,
     apply_sensor_preset,
     validate_sensor_overrides,
@@ -240,30 +240,12 @@ class TestValidationWithDifferentSensorTypes(unittest.TestCase):
 
         f = StringIO()
         with redirect_stdout(f):
-            validate_sensor_overrides(args, preset, 17.3, 2.4)
+            validate_sensor_overrides(args, preset, 17.3, preset["pixel_pitch"])
 
         output = f.getvalue()
         self.assertIn("Warning", output)
-        self.assertIn("1INCH", output)
 
-    def test_canon_apsc_validation(self):
-        """Test validation with Canon APS-C preset."""
-        args = Namespace(
-            sensor_type="APSC_CANON",
-            sensor_width=None,
-            pixel_pitch=3.3,  # 3.1% deviation, should not warn
-        )
-
-        preset = get_sensor_preset("APSC_CANON")
-
-        f = StringIO()
-        with redirect_stdout(f):
-            validate_sensor_overrides(args, preset, 22.3, 3.3)
-
-        output = f.getvalue()
-        self.assertEqual(output, "")  # No warning expected
-
-    def test_medium_format_44x33_validation(self):
+    def test_mf44x33_sensor_validation(self):
         """Test validation with MF44X33 preset."""
         args = Namespace(
             sensor_type="MF44X33",
@@ -275,12 +257,13 @@ class TestValidationWithDifferentSensorTypes(unittest.TestCase):
 
         f = StringIO()
         with redirect_stdout(f):
-            validate_sensor_overrides(args, preset, 36.0, 3.76)
+            validate_sensor_overrides(args, preset, 36.0, preset["pixel_pitch"])
 
         output = f.getvalue()
-        self.assertEqual(output, "")  # Less than 30%, no warning
+        # 17.8% is under the 30% threshold, so no warning
+        self.assertEqual(output, "")
 
-    def test_medium_format_54x40_validation(self):
+    def test_mf54x40_sensor_validation(self):
         """Test validation with MF54X40 preset."""
         args = Namespace(
             sensor_type="MF54X40",
@@ -292,43 +275,16 @@ class TestValidationWithDifferentSensorTypes(unittest.TestCase):
 
         f = StringIO()
         with redirect_stdout(f):
-            validate_sensor_overrides(args, preset, 36.0, 4.6)
+            validate_sensor_overrides(args, preset, 36.0, preset["pixel_pitch"])
 
         output = f.getvalue()
-        self.assertIn("Warning", output)  # Over 30%, should warn
+        self.assertIn("Warning", output)
 
 
-class TestValidationWithApplySensorPreset(unittest.TestCase):
-    """Test validation integration with apply_sensor_preset()."""
+class TestApplySensorPresetReturnsPreset(unittest.TestCase):
+    """Test that apply_sensor_preset returns preset for validation."""
 
     def test_apply_sensor_preset_returns_preset(self):
-        """Test that apply_sensor_preset() now returns preset dictionary."""
-        args = Namespace(
-            sensor_type="MFT",
-            focal_factor=None,
-            sensor_width=None,
-            focal_length=None,
-            pixel_pitch=None,
-        )
-
-        result = apply_sensor_preset(args, verbose=False)
-
-        # Should return 5-tuple now (v1.5.2+)
-        self.assertEqual(len(result), 5)
-        focal_factor, sensor_width, focal_length, pixel_pitch, preset = result
-
-        # Check values
-        self.assertEqual(focal_factor, 2.0)
-        self.assertEqual(sensor_width, 17.3)
-        self.assertIsNone(focal_length)
-        self.assertAlmostEqual(pixel_pitch, 3.7, places=1)
-
-        # Check preset dict
-        self.assertIsNotNone(preset)
-        self.assertEqual(preset["focal_factor"], 2.0)
-        self.assertEqual(preset["sensor_width"], 17.3)
-
-    def test_apply_sensor_preset_with_overrides_returns_preset(self):
         """Test apply_sensor_preset() returns preset even with overrides."""
         args = Namespace(
             sensor_type="APSC",

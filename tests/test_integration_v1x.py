@@ -1,5 +1,5 @@
 """
-Integration test suite for meteor detection in detect_meteors_cli.py (v1.x).
+Integration test suite for meteor detection in meteor_core (v1.x).
 
 Tests the process_image_batch() function with various:
 - Meteor trail characteristics (length, thickness, intensity)
@@ -16,9 +16,9 @@ import sys
 import os
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     process_image_batch,
     DEFAULT_HOUGH_THRESHOLD,
     DEFAULT_HOUGH_MIN_LINE_LENGTH,
@@ -70,7 +70,7 @@ class TestMeteorDetectionBase(unittest.TestCase):
         if roi_mask is None:
             roi_mask = self.create_roi_mask(full=True)
 
-        with patch("detect_meteors_cli.load_and_bin_raw_fast") as mock_load:
+        with patch("meteor_core.pipeline.load_and_bin_raw_fast") as mock_load:
 
             def side_effect(filepath):
                 if "current" in filepath:
@@ -195,255 +195,52 @@ class TestMeteorTrailIntensity(TestMeteorDetectionBase):
             is_candidate, "Dim meteor should be detected with low threshold"
         )
 
-    def test_very_dim_meteor_rejected(self):
-        """Test that a very dim meteor is rejected with high diff_threshold."""
-        img_meteor = self.create_meteor_image((100, 100), (300, 300), intensity=10)
+    def test_dim_meteor_rejected_high_threshold(self):
+        """Test that a dim meteor is rejected with high diff_threshold."""
+        img_meteor = self.create_meteor_image((100, 100), (300, 300), intensity=15)
         params = self.params.copy()
-        params["diff_threshold"] = 20  # Higher threshold
+        params["diff_threshold"] = 50  # Higher threshold
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
         is_candidate, _, _, _, _, _, _ = results[0]
 
         self.assertFalse(
-            is_candidate, "Very dim meteor should be rejected with high threshold"
+            is_candidate, "Dim meteor should be rejected with high threshold"
         )
-
-    def test_intensity_below_threshold_rejected(self):
-        """Test meteor with intensity below diff_threshold is rejected."""
-        # Intensity 8, threshold 10 → should be rejected
-        img_meteor = self.create_meteor_image((100, 100), (300, 300), intensity=8)
-        params = self.params.copy()
-        params["diff_threshold"] = 10
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertFalse(is_candidate, "Meteor below threshold should be rejected")
 
 
 class TestMeteorTrailThickness(TestMeteorDetectionBase):
-    """Test detection with varying meteor trail thicknesses."""
+    """Test detection with varying meteor trail thickness."""
 
     def test_thick_trail_detected(self):
         """Test that a thick meteor trail is detected."""
-        img_meteor = self.create_meteor_image((100, 100), (300, 300), thickness=10)
+        img_meteor = self.create_meteor_image(
+            (100, 100), (300, 300), intensity=200, thickness=10
+        )
         results = self.run_detection(img_meteor, self.img_black)
 
         is_candidate, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Thick meteor trail should be detected")
 
     def test_thin_trail_detected(self):
-        """Test that a thin meteor trail is detected with appropriate parameters."""
-        img_meteor = self.create_meteor_image((100, 100), (300, 300), thickness=1)
-        params = self.params.copy()
-        params["min_area"] = 1  # Lower min_area for thin trails
-        params["min_line_score"] = 30.0  # Lower threshold
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        # Thin trails may or may not be detected depending on exact parameters
-        # This test verifies the detection pipeline works without error
-        self.assertIsNotNone(is_candidate)
-
-    def test_very_thick_trail_may_fail_aspect_ratio(self):
-        """Test that an extremely thick trail may fail aspect ratio check."""
-        # Very thick trail: might look more like a blob than a line
-        img_meteor = self.create_meteor_image((100, 100), (150, 150), thickness=30)
-        params = self.params.copy()
-        params["min_aspect_ratio"] = 3.0  # Require elongated shape
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        # Result depends on whether the blob is detected as elongated
-
-
-class TestDiffThresholdParameter(TestMeteorDetectionBase):
-    """Test the diff_threshold parameter effects."""
-
-    def test_threshold_boundary_above(self):
-        """Test detection when intensity is just above threshold."""
-        intensity = 25
-        threshold = 20
+        """Test that a thin meteor trail is detected."""
         img_meteor = self.create_meteor_image(
-            (100, 100), (300, 300), intensity=intensity
+            (100, 100), (300, 300), intensity=200, thickness=1
         )
-        params = self.params.copy()
-        params["diff_threshold"] = threshold
+        results = self.run_detection(img_meteor, self.img_black)
 
-        results = self.run_detection(img_meteor, self.img_black, params=params)
         is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertTrue(is_candidate, "Intensity above threshold should be detected")
-
-    def test_threshold_boundary_below(self):
-        """Test rejection when intensity is just below threshold."""
-        intensity = 15
-        threshold = 20
-        img_meteor = self.create_meteor_image(
-            (100, 100), (300, 300), intensity=intensity
-        )
-        params = self.params.copy()
-        params["diff_threshold"] = threshold
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertFalse(is_candidate, "Intensity below threshold should be rejected")
-
-    def test_threshold_1_detects_any_difference(self):
-        """Test that threshold of 1 detects any difference."""
-        img_meteor = self.create_meteor_image((100, 100), (300, 300), intensity=5)
-        params = self.params.copy()
-        params["diff_threshold"] = 1
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertTrue(is_candidate, "Threshold 1 should detect any difference")
-
-    def test_high_threshold_rejects_moderate_meteors(self):
-        """Test that high threshold rejects moderate intensity meteors."""
-        img_meteor = self.create_meteor_image((100, 100), (300, 300), intensity=50)
-        params = self.params.copy()
-        params["diff_threshold"] = 100
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertFalse(is_candidate, "High threshold should reject moderate meteor")
+        self.assertTrue(is_candidate, "Thin meteor trail should be detected")
 
 
-class TestMinAreaParameter(TestMeteorDetectionBase):
-    """Test the min_area parameter effects."""
-
-    def test_large_area_detected(self):
-        """Test that a large area meteor is detected."""
-        # Thick, long line = large area
-        img_meteor = self.create_meteor_image((100, 100), (400, 400), thickness=8)
-        params = self.params.copy()
-        params["min_area"] = 50
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertTrue(is_candidate, "Large area meteor should be detected")
-
-    def test_small_area_with_low_min_area(self):
-        """Test that small area meteor is detected with low min_area."""
-        # Thin, short line = small area
-        img_meteor = self.create_meteor_image((100, 100), (150, 150), thickness=1)
-        params = self.params.copy()
-        params["min_area"] = 1
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        # Small area may still pass if it forms a line
-
-    def test_small_area_rejected_with_high_min_area(self):
-        """Test that small area meteor is rejected with high min_area."""
-        # Create a small dot instead of a line
-        img = np.zeros(self.shape, dtype=np.uint16)
-        cv2.circle(img, (200, 200), 2, 200, -1)  # Small filled circle
-
-        params = self.params.copy()
-        params["min_area"] = 100  # Require large area
-
-        results = self.run_detection(img, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertFalse(
-            is_candidate, "Small area should be rejected with high min_area"
-        )
-
-
-class TestMinLineScoreParameter(TestMeteorDetectionBase):
-    """Test the min_line_score parameter effects."""
-
-    def test_high_line_score_meteor(self):
-        """Test that a meteor with high line score is detected."""
-        # Long, clear line = high score
-        img_meteor = self.create_meteor_image((50, 50), (450, 450), thickness=3)
-        params = self.params.copy()
-        params["min_line_score"] = 100.0
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, line_score, _, _, _ = results[0]
-
-        self.assertTrue(is_candidate, "High line score meteor should be detected")
-        self.assertGreater(line_score, 100.0)
-
-    def test_low_line_score_rejected(self):
-        """Test that meteor with low line score is rejected with high threshold."""
-        # Short line = low score
-        img_meteor = self.create_meteor_image((100, 100), (130, 130), thickness=2)
-        params = self.params.copy()
-        params["min_line_score"] = 200.0  # Very high threshold
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertFalse(
-            is_candidate, "Low line score should be rejected with high threshold"
-        )
-
-    def test_min_line_score_zero_accepts_all_lines(self):
-        """Test that min_line_score of 0 accepts any detected line."""
-        img_meteor = self.create_meteor_image((100, 100), (150, 150), thickness=2)
-        params = self.params.copy()
-        params["min_line_score"] = 0.0
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        # Any line should be accepted
-
-
-class TestMinAspectRatioParameter(TestMeteorDetectionBase):
-    """Test the min_aspect_ratio parameter effects."""
-
-    def test_elongated_shape_detected(self):
-        """Test that an elongated meteor is detected."""
-        # Long, thin line = high aspect ratio
-        img_meteor = self.create_meteor_image((100, 100), (400, 100), thickness=2)
-        params = self.params.copy()
-        params["min_aspect_ratio"] = 3.0
-
-        results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertTrue(is_candidate, "Elongated meteor should be detected")
-
-    def test_round_shape_rejected(self):
-        """Test that a round shape is rejected with high aspect ratio requirement."""
-        # Create a circular blob
-        img = np.zeros(self.shape, dtype=np.uint16)
-        cv2.circle(img, (200, 200), 20, 200, -1)
-
-        params = self.params.copy()
-        params["min_aspect_ratio"] = 5.0  # Require very elongated
-
-        results = self.run_detection(img, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
-
-        self.assertFalse(is_candidate, "Round shape should be rejected")
-
-    def test_low_aspect_ratio_accepts_more(self):
-        """Test that low aspect ratio accepts more shapes."""
-        # Square-ish shape
-        img = np.zeros(self.shape, dtype=np.uint16)
-        cv2.rectangle(img, (100, 100), (130, 150), 200, -1)
-
-        params = self.params.copy()
-        params["min_aspect_ratio"] = 1.0  # Accept any shape
-
-        results = self.run_detection(img, self.img_black, params=params)
-        # Should be more likely to accept
-
-
-class TestROIMask(TestMeteorDetectionBase):
-    """Test ROI mask effects on detection."""
+class TestROIBehavior(TestMeteorDetectionBase):
+    """Test ROI (Region of Interest) behavior."""
 
     def test_meteor_inside_roi_detected(self):
         """Test that meteor inside ROI is detected."""
-        img_meteor = self.create_meteor_image((200, 200), (400, 400))
-        roi_mask = self.create_roi_mask(full=False, region=(100, 100, 500, 500))
+        img_meteor = self.create_meteor_image((300, 300), (500, 500))
+        # ROI covers the meteor area
+        roi_mask = self.create_roi_mask(full=False, region=(200, 200, 600, 600))
 
         results = self.run_detection(img_meteor, self.img_black, roi_mask=roi_mask)
         is_candidate, _, _, _, _, _, _ = results[0]

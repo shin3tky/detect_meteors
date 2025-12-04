@@ -11,9 +11,9 @@ import os
 from unittest.mock import patch
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     estimate_batch_size,
     AUTO_BATCH_MEMORY_FRACTION,
 )
@@ -84,7 +84,7 @@ class TestMemoryBasedBatchSizeAdjustment(unittest.TestCase):
         num_workers = 4
 
         # Mock get_available_memory_bytes to return None
-        with patch("detect_meteors_cli.get_available_memory_bytes", return_value=None):
+        with patch("meteor_core.utils.get_available_memory_bytes", return_value=None):
             result = estimate_batch_size(
                 requested_batch_size=requested_batch_size,
                 image_shape=image_shape,

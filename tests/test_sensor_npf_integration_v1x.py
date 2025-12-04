@@ -10,9 +10,9 @@ import sys
 import os
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     get_sensor_preset,
     calculate_pixel_pitch,
     calculate_npf_rule,

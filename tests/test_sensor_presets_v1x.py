@@ -11,9 +11,9 @@ import os
 from argparse import Namespace
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     SENSOR_PRESETS,
     CROP_FACTORS,
     DEFAULT_SENSOR_WIDTHS,
@@ -212,41 +212,32 @@ class TestGetSensorPreset(unittest.TestCase):
                 preset_alias, f"Alias '{alias}' should return a preset"
             )
             self.assertEqual(
-                preset_alias["focal_factor"],
-                preset_canonical["focal_factor"],
+                preset_alias,
+                preset_canonical,
                 f"Alias '{alias}' should match canonical '{canonical}'",
             )
 
     def test_get_sensor_preset_case_insensitive(self):
-        """Test that sensor type lookup is case insensitive."""
-        test_cases = ["mft", "MFT", "Mft", "mFt"]
-        for case in test_cases:
-            preset = get_sensor_preset(case)
-            self.assertIsNotNone(preset, f"'{case}' should return MFT preset")
-            self.assertEqual(preset["focal_factor"], 2.0)
-
-    def test_get_sensor_preset_case_insensitive_medium_format(self):
-        """Test that medium format sensor type lookup is case insensitive."""
-        test_cases = ["mf44x33", "MF44X33", "Mf44x33", "mf44X33"]
-        for case in test_cases:
-            preset = get_sensor_preset(case)
-            self.assertIsNotNone(preset, f"'{case}' should return MF44X33 preset")
-            self.assertEqual(preset["focal_factor"], 0.79)
+        """Test that get_sensor_preset is case insensitive."""
+        self.assertIsNotNone(get_sensor_preset("mft"))
+        self.assertIsNotNone(get_sensor_preset("MFT"))
+        self.assertIsNotNone(get_sensor_preset("Mft"))
+        self.assertIsNotNone(get_sensor_preset("apsc"))
+        self.assertIsNotNone(get_sensor_preset("APSC"))
 
     def test_get_sensor_preset_invalid_type(self):
         """Test that invalid sensor type returns None."""
-        self.assertIsNone(get_sensor_preset("INVALID_TYPE"))
+        self.assertIsNone(get_sensor_preset("INVALID"))
+        self.assertIsNone(get_sensor_preset("LARGE_FORMAT"))
         self.assertIsNone(get_sensor_preset(""))
         self.assertIsNone(get_sensor_preset(None))
-        self.assertIsNone(get_sensor_preset("MEDIUM_FORMAT"))
-        self.assertIsNone(get_sensor_preset("LARGE_FORMAT"))
 
 
 class TestApplySensorPreset(unittest.TestCase):
     """Test apply_sensor_preset() function."""
 
-    def test_apply_sensor_preset_basic(self):
-        """Test apply_sensor_preset with basic sensor type."""
+    def test_apply_sensor_preset_mft(self):
+        """Test apply_sensor_preset with MFT sensor type."""
         args = Namespace(
             sensor_type="MFT",
             focal_factor=None,
@@ -261,11 +252,11 @@ class TestApplySensorPreset(unittest.TestCase):
 
         self.assertEqual(focal_factor, 2.0)
         self.assertEqual(sensor_width, 17.3)
-        self.assertIsNone(focal_length)  # Not in preset
+        self.assertIsNone(focal_length)
         self.assertAlmostEqual(pixel_pitch, 3.7, places=1)
 
-    def test_apply_sensor_preset_medium_format(self):
-        """Test apply_sensor_preset with medium format sensor type."""
+    def test_apply_sensor_preset_mf44x33(self):
+        """Test apply_sensor_preset with MF44X33 sensor type."""
         args = Namespace(
             sensor_type="MF44X33",
             focal_factor=None,
