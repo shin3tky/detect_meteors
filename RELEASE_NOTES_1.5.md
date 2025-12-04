@@ -1,5 +1,147 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.5 (2025-12-05)
+
+### 🏗️ Code Architecture Refactoring
+
+Version 1.5.5 introduces a major internal restructuring of the codebase, separating the CLI interface from core logic modules. This refactoring prepares the foundation for the v2.x plugin architecture while maintaining full backward compatibility.
+
+### Motivation
+
+- **Plugin Architecture Preparation**: The monolithic `detect_meteors_cli.py` needed to be split to enable future plugin support (v2.x roadmap)
+- **Separation of Concerns**: CLI parsing and user interaction are now cleanly separated from detection logic
+- **Type Safety**: Enhanced type definitions improve code reliability and IDE support
+- **Maintainability**: Smaller, focused modules are easier to test, understand, and modify
+
+### New Project Structure
+
+```
+detect_meteors/
+├── detect_meteors_cli.py          # CLI interface only
+└── meteor_core/                   # Core logic modules
+    ├── __init__.py
+    ├── schema.py                  # Type definitions (TypedDict, constants)
+    ├── pipeline.py                # Processing pipeline orchestration
+    ├── image_io.py                # RAW image loading, EXIF extraction
+    ├── roi_selector.py            # ROI selection interface
+    ├── utils.py                   # Utility functions
+    ├── detectors/                 # Detection algorithms
+    │   ├── __init__.py
+    │   ├── base.py                # Abstract base detector class
+    │   └── hough_default.py       # Default Hough transform detector
+    └── outputs/                   # Output handling
+        ├── __init__.py
+        └── writer.py              # Result file writer
+```
+
+### Module Responsibilities
+
+| Module | Responsibility |
+|--------|----------------|
+| `detect_meteors_cli.py` | CLI argument parsing, user interaction, main entry point |
+| `meteor_core/schema.py` | Type definitions using TypedDict, constants, data structures |
+| `meteor_core/pipeline.py` | Processing pipeline orchestration, batch processing |
+| `meteor_core/image_io.py` | RAW image loading, EXIF metadata extraction |
+| `meteor_core/roi_selector.py` | Interactive ROI selection interface |
+| `meteor_core/utils.py` | Utility functions (NPF calculations, parameter estimation) |
+| `meteor_core/detectors/base.py` | Abstract base class for detection algorithms |
+| `meteor_core/detectors/hough_default.py` | Default Hough transform-based meteor detector |
+| `meteor_core/outputs/writer.py` | Result file writing, output management |
+
+### Type Safety Improvements
+
+Enhanced type hints throughout the codebase using `TypedDict` for structured data:
+
+```python
+from typing import TypedDict, Optional
+
+class NPFMetrics(TypedDict):
+    pixel_pitch: float
+    npf_recommended: float
+    actual_exposure: float
+    npf_ratio: float
+    compliance: str
+    impact: str
+
+class EXIFData(TypedDict, total=False):
+    camera: Optional[str]
+    focal_length: Optional[float]
+    iso: Optional[int]
+    exposure_time: Optional[float]
+    aperture: Optional[float]
+    width: int
+    height: int
+```
+
+### Detector Plugin Infrastructure
+
+The `detectors/` subpackage introduces an abstract base class pattern for future extensibility:
+
+```python
+# meteor_core/detectors/base.py
+from abc import ABC, abstractmethod
+
+class BaseDetector(ABC):
+    @abstractmethod
+    def detect(self, diff_image, params):
+        """Detect meteors in difference image."""
+        pass
+    
+    @abstractmethod
+    def get_name(self) -> str:
+        """Return detector name."""
+        pass
+```
+
+This enables v2.x plugin architecture where users can implement custom detection algorithms.
+
+### Files Changed
+
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `detect_meteors_cli.py` | Modified | Reduced to CLI interface only |
+| `meteor_core/__init__.py` | New | Package initialization |
+| `meteor_core/schema.py` | New | Type definitions |
+| `meteor_core/pipeline.py` | New | Pipeline orchestration |
+| `meteor_core/image_io.py` | New | Image I/O operations |
+| `meteor_core/roi_selector.py` | New | ROI selection |
+| `meteor_core/utils.py` | New | Utility functions |
+| `meteor_core/detectors/__init__.py` | New | Detectors subpackage |
+| `meteor_core/detectors/base.py` | New | Abstract base detector |
+| `meteor_core/detectors/hough_default.py` | New | Default Hough detector |
+| `meteor_core/outputs/__init__.py` | New | Outputs subpackage |
+| `meteor_core/outputs/writer.py` | New | Output writer |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.5.4 and all earlier versions:
+- CLI interface unchanged - all existing commands work without modification
+- No breaking changes to command-line options
+- No changes to input/output formats
+- Shell completion scripts unchanged
+
+### For Developers
+
+If you have custom scripts that import from `detect_meteors_cli.py`:
+
+```python
+# Old import (still works via re-exports)
+from detect_meteors_cli import calculate_npf_metrics
+
+# New recommended import
+from meteor_core.utils import calculate_npf_metrics
+```
+
+### Future Plans (v2.x)
+
+This restructuring enables:
+- Custom detector plugins via `detectors/` subpackage
+- Custom output writers via `outputs/` subpackage
+- Configuration file support for detector selection
+- Third-party integration capabilities
+
+---
+
 ## Version 1.5.4 (2025-12-03)
 
 ### 🔆 ROI Display Improvement
@@ -479,37 +621,6 @@ Version 1.5.0 introduces **sensor type presets** that dramatically simplify NPF 
 
 **Aliases**: `FULLFRAME` → `FF`, `APS_C` → `APS-C`, `MF44-33` → `MF44X33`, etc.
 
-**Implementation**:
-```python
-SENSOR_PRESETS = {
-    "1INCH": {
-        "focal_factor": 2.7,
-        "sensor_width": 13.2,
-        "pixel_pitch": 2.4,
-        "description": "1-inch sensor (13.2×8.8mm)",
-    },
-    "MFT": {
-        "focal_factor": 2.0,
-        "sensor_width": 17.3,
-        "pixel_pitch": 3.7,
-        "description": "Micro Four Thirds (17.3×13mm)",
-    },
-    # ... additional presets ordered by sensor size
-    "MF44X33": {
-        "focal_factor": 0.79,
-        "sensor_width": 43.8,
-        "pixel_pitch": 3.76,
-        "description": "Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D",
-    },
-    "MF54X40": {
-        "focal_factor": 0.64,
-        "sensor_width": 53.4,
-        "pixel_pitch": 4.6,
-        "description": "Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c",
-    },
-}
-```
-
 ### 2. New `--sensor-type` Option (NEW)
 
 **Purpose**: One-stop configuration for sensor parameters
@@ -526,166 +637,13 @@ python detect_meteors_cli.py --auto-params \
 python detect_meteors_cli.py --auto-params --sensor-type MFT
 ```
 
-**What it sets automatically**:
-- `--focal-factor` (crop factor for 35mm equivalent)
-- `--sensor-width` (physical sensor width in mm)
-- `--pixel-pitch` (typical pixel pitch in μm)
-
-### 3. Parameter Override Priority (NEW)
-
-Individual parameters always take priority over `--sensor-type` presets:
-
-```bash
-# Use MFT preset but override pixel pitch
-python detect_meteors_cli.py --auto-params \
-  --sensor-type MFT \
-  --pixel-pitch 3.3  # Override for specific camera
-```
-
-**Priority Order** (highest to lowest):
-1. Individual CLI arguments (`--focal-factor`, `--sensor-width`, `--pixel-pitch`, `--focal-length`)
-2. `--sensor-type` preset values
-3. Default/calculated values
-
-### 4. New `--list-sensor-types` Option (NEW)
+### 3. New `--list-sensor-types` Option (NEW)
 
 **Purpose**: Display available sensor presets and their configurations
 
 **Usage**:
 ```bash
 python detect_meteors_cli.py --list-sensor-types
-```
-
-**Output**:
-```
-======================================================================
-Available Sensor Types (--sensor-type)
-======================================================================
-
-  1INCH         1-inch sensor (13.2×8.8mm)
-                  focal_factor=2.7, sensor_width=13.2mm, pixel_pitch=2.4μm
-
-  MFT           Micro Four Thirds (17.3×13mm)
-                  focal_factor=2.0, sensor_width=17.3mm, pixel_pitch=3.7μm
-
-  APSC          APS-C Sony/Nikon/Fuji (23.5×15.6mm)
-                  focal_factor=1.5, sensor_width=23.5mm, pixel_pitch=3.9μm
-
-  APSC_CANON    APS-C Canon (22.3×14.9mm)
-                  focal_factor=1.6, sensor_width=22.3mm, pixel_pitch=3.2μm
-
-  APSH          APS-H Canon (27.9×18.6mm)
-                  focal_factor=1.3, sensor_width=27.9mm, pixel_pitch=5.7μm
-
-  FF            Full Frame 35mm (36×24mm)
-                  focal_factor=1.0, sensor_width=36.0mm, pixel_pitch=4.3μm
-
-  MF44X33       Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D
-                  focal_factor=0.79, sensor_width=43.8mm, pixel_pitch=3.76μm
-
-  MF54X40       Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c
-                  focal_factor=0.64, sensor_width=53.4mm, pixel_pitch=4.6μm
-
-======================================================================
-Aliases:
-  1-INCH, 1_INCH      → 1INCH
-  APS-C, APS_C        → APSC
-  APS-C_CANON         → APSC_CANON
-  APS-H, APS_H        → APSH
-  FULLFRAME           → FF
-  MF44-33, MF44_33    → MF44X33
-  MF54-40, MF54_40    → MF54X40
-======================================================================
-
-Usage Examples:
-  --sensor-type MFT
-  --sensor-type APS-C
-  --sensor-type FF --pixel-pitch 5.9   # Override pixel pitch
-  --sensor-type MF44X33                # Fujifilm GFX / Pentax 645Z
-======================================================================
-```
-
-## Usage Examples
-
-### Basic Usage (Recommended)
-
-```bash
-# 1-inch sensor camera
-python detect_meteors_cli.py --auto-params --sensor-type 1INCH
-
-# Micro Four Thirds camera
-python detect_meteors_cli.py --auto-params --sensor-type MFT
-
-# Sony/Nikon/Fuji APS-C camera
-python detect_meteors_cli.py --auto-params --sensor-type APS-C
-
-# Canon APS-C camera
-python detect_meteors_cli.py --auto-params --sensor-type APS-C_CANON
-
-# Full Frame camera
-python detect_meteors_cli.py --auto-params --sensor-type FF
-
-# Medium Format (Fujifilm GFX, Pentax 645Z, Hasselblad X2D)
-python detect_meteors_cli.py --auto-params --sensor-type MF44X33
-
-# Medium Format (Hasselblad H6D-100c)
-python detect_meteors_cli.py --auto-params --sensor-type MF54X40
-```
-
-### With Override
-
-```bash
-# MFT with custom pixel pitch for high-resolution sensor
-python detect_meteors_cli.py --auto-params \
-  --sensor-type MFT \
-  --pixel-pitch 3.3
-
-# Full Frame with specific sensor width
-python detect_meteors_cli.py --auto-params \
-  --sensor-type FF \
-  --sensor-width 35.9
-```
-
-### NPF Analysis Only
-
-```bash
-# Quick NPF analysis with sensor preset
-python detect_meteors_cli.py --show-npf --sensor-type MFT
-
-# Medium format NPF analysis
-python detect_meteors_cli.py --show-npf --sensor-type MF44X33
-```
-
-### Legacy Usage (Still Supported)
-
-```bash
-# v1.4.x style - still works
-python detect_meteors_cli.py --auto-params \
-  --sensor-width 17.3 \
-  --focal-factor MFT
-```
-
-## Comparison: Before and After
-
-### Configuration Effort
-
-| Task | v1.4.x | v1.5.x |
-|------|--------|--------|
-| Basic MFT setup | 3 parameters | 1 parameter |
-| Full Frame setup | 3 parameters | 1 parameter |
-| Medium Format setup | Not supported | 1 parameter |
-| NPF analysis | Manual lookup | Preset available |
-| Custom override | Same | Same (+ preset base) |
-
-### Command Length
-
-```bash
-# v1.4.x (verbose)
-python detect_meteors_cli.py --auto-params \
-  --sensor-width 17.3 --focal-factor 2.0 --pixel-pitch 3.7
-
-# v1.5.x (concise)
-python detect_meteors_cli.py --auto-params --sensor-type MFT
 ```
 
 ## Technical Details
@@ -695,36 +653,8 @@ python detect_meteors_cli.py --auto-params --sensor-type MFT
 #### `get_sensor_preset(sensor_type: str) -> Optional[Dict]`
 Retrieves sensor preset configuration by type name.
 
-```python
->>> get_sensor_preset("MFT")
-{
-    'focal_factor': 2.0,
-    'sensor_width': 17.3,
-    'pixel_pitch': 3.7,
-    'description': 'Micro Four Thirds (17.3×13mm)'
-}
-
->>> get_sensor_preset("MF44X33")
-{
-    'focal_factor': 0.79,
-    'sensor_width': 43.8,
-    'pixel_pitch': 3.76,
-    'description': 'Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D'
-}
-```
-
 #### `apply_sensor_preset(args, verbose=False) -> Tuple`
 Applies sensor preset with CLI argument priority.
-
-```python
-# v1.5.2+: Returns (focal_factor, sensor_width, focal_length, pixel_pitch, preset)
->>> apply_sensor_preset(args)
-(2.0, 17.3, None, 3.7, {...})
-
-# v1.5.1 and earlier: Returns (focal_factor, sensor_width, focal_length, pixel_pitch)
->>> apply_sensor_preset(args)
-(2.0, 17.3, None, 3.7)
-```
 
 #### `list_sensor_types() -> None`
 Displays available sensor presets in formatted output, ordered by sensor size.
@@ -740,56 +670,19 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 
 **None** - v1.5.x is fully backward compatible with v1.4.x.
 
-All existing command-line options and behaviors are preserved. The new `--sensor-type` option is purely additive.
-
-## Migration Guide
-
-### From v1.4.x to v1.5.x
-
-No changes required. Existing commands continue to work.
-
-**Optional improvement**:
-```bash
-# Replace this (v1.4.x)
-python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-factor MFT
-
-# With this (v1.5.x)
-python detect_meteors_cli.py --auto-params --sensor-type MFT
-```
-
-## Shell Completion Updates
-
-Both bash and zsh completion scripts have been updated:
-
-### New Completions
-- `--sensor-type` with preset suggestions (ordered by sensor size)
-- `--list-sensor-types` flag
-- Medium format sensor types (`MF44X33`, `MF54X40`)
-
-### Updated Completions
-- `--sensor-width` values updated to include medium format (43.8, 53.4)
-- `--pixel-pitch` values updated to include medium format (3.76, 4.6)
-- `--focal-factor` values updated to include medium format crop factors (0.64, 0.79)
-
-## Future Enhancements
-
-### Planned for v1.6
-
-1. **Camera Model Auto-Detection**
-   - Automatic sensor type detection from EXIF camera model
-   - No manual `--sensor-type` needed for known cameras
-
-2. **Custom Preset Definition**
-   - User-defined sensor presets via configuration file
-   - Support for less common sensor sizes
-
-3. **Preset Validation**
-   - Cross-check preset values against EXIF data
-   - Warn if detected parameters differ significantly
+---
 
 ## Version Information
 
-- **Latest Version**: 1.5.4
+- **Latest Version**: 1.5.5
+- **Release Date**: 2025-12-05
+- **Major Changes**:
+  - Code architecture refactoring (CLI/core separation)
+  - New `meteor_core/` package with modular components
+  - Enhanced type safety with TypedDict
+  - Detector plugin infrastructure preparation
+
+- **Version**: 1.5.4
 - **Release Date**: 2025-12-03
 - **Major Changes**:
   - Brightened ROI selection image for better visibility
@@ -831,16 +724,18 @@ Both bash and zsh completion scripts have been updated:
 | NPF check | `--show-npf --sensor-type TYPE` | `python detect_meteors_cli.py --show-npf --sensor-type APS-C` |
 | NPF + Fisheye | `--show-npf --fisheye` | `python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye` |
 
-## Files Updated
+## Files Updated (v1.5.x Summary)
 
 | File | Changes |
 |------|---------|
-| `detect_meteors_cli.py` | Added `SENSOR_PRESETS`, new functions, `--sensor-type`, `--list-sensor-types`, medium format support, `--fisheye` flag |
-| `detect_meteors_cli_completion.bash` | Added `--sensor-type`, `--list-sensor-types`, medium format completions, `--fisheye` |
-| `_detect_meteors_cli` (zsh) | Added `--sensor-type`, `--list-sensor-types`, medium format completions, `--fisheye` |
-| `COMMAND_OPTIONS.md` | Updated NPF Rule Options section with medium format and fisheye |
-| `NPF_RULE.md` | Added Fisheye Lens Correction section |
-| `test_fisheye_v1x.py` | New test file (27 tests) |
+| `detect_meteors_cli.py` | CLI interface (v1.5.5: reduced to CLI only) |
+| `meteor_core/` | New package with modular components (v1.5.5) |
+| `detect_meteors_cli_completion.bash` | Shell completions |
+| `_detect_meteors_cli` (zsh) | Shell completions |
+| `COMMAND_OPTIONS.md` | CLI options reference |
+| `NPF_RULE.md` | NPF Rule documentation |
+| `test_fisheye_v1x.py` | Fisheye tests (27 tests) |
+| `test_sensor_validation_v1x.py` | Validation tests (23 tests) |
 
 ---
 

@@ -67,6 +67,20 @@
   - [x] Extensible projection model infrastructure
   - [x] Comprehensive test coverage (27 test cases)
 
+### ROI Display and Documentation
+- [x] **v1.5.4** - ROI display improvement and documentation
+  - [x] Brightened ROI selection image for dark conditions
+  - [x] NOTICE document for third-party attributions
+
+### Code Architecture Refactoring
+- [x] **v1.5.5** - Modular code structure for v2.x preparation
+  - [x] Separated CLI interface from core logic
+  - [x] Created `meteor_core/` package with modular components
+  - [x] Introduced `detectors/` subpackage with base class
+  - [x] Introduced `outputs/` subpackage for result handling
+  - [x] Enhanced type safety with TypedDict
+  - [x] Maintained full backward compatibility
+
 ### Remaining Goals for v1.x (-2025 4Q)
 - [ ] Camera model database for automatic sensor detection from EXIF
 - [ ] Per-image adaptive parameter adjustment
@@ -77,10 +91,11 @@
 ## Version 2.x - Architecture and Extensibility
 
 - 2026 1Q-
-- Implementation of plugin architecture
-- Modular detection pipeline
+- Implementation of plugin architecture (building on v1.5.5 modular structure)
+- Modular detection pipeline with swappable detectors
 - Custom filter and processor support
 - Third-party integration capabilities
+- Configuration file support for detector plugins
 
 ## Version 3.x - Intelligence and Learning
 
@@ -92,5 +107,5 @@
 
 ---
 
-**Current Status**: v1.5.3 (Fisheye Lens Correction)  
-**Next Focus**: Camera model database for automatic sensor detection from EXIF
+**Current Status**: v1.5.5 (Code Architecture Refactoring)  
+**Next Focus**: Enhanced stability and error handling

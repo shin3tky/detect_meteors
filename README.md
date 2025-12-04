@@ -46,34 +46,18 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ## What's New in v1.5
 
-### v1.5.4 - ROI Display Improvement & NOTICE Document
-- **Improved ROI selection**: Brightened the ROI selection image for better visibility in dark conditions
-- **NOTICE document**: Added NOTICE file for third-party license attributions
+### v1.5.5 - Internal Structure Improvement
+- **Code architecture refactoring**: Separated CLI interface from core logic modules
+- **New `meteor_core/` package**: Modular components for better maintainability
+- **Type safety improvements**: Enhanced type hints with TypedDict
+- **v2.x preparation**: Foundation for plugin architecture
 
-### v1.5.3 - Fisheye Lens Correction
-- **New `--fisheye` flag**: Equisolid angle projection compensation for fisheye lenses
-- **Position-dependent correction**: Effective focal length varies from center (~nominal) to edge (~0.707×)
-- **NPF calculation**: Uses edge focal length (worst case) for conservative recommendations
-- **Star trail estimation**: Accounts for longer trails at image edges (~1.414× at corners)
-- **Tested**: OM-D E-M1 Mark II + M.ZUIKO 8mm F1.8 Fisheye PRO (308 images → 2 candidates)
-
-### v1.5.2 - Sensor Override Validation
-- **New validation feature**: Automatic checking when overriding `--sensor-type` preset values
-- **Warning thresholds**: 
-  - `--sensor-width`: ±30% deviation from preset
-  - `--pixel-pitch`: ±50% deviation from preset
-- **Safe design**: Warnings are informational only - processing continues normally
-- **Helpful feedback**: Alerts users to potential misconfiguration while preserving flexibility
-
-### v1.5.1 - Medium Format Sensor Support
-- **New sensor types**: Added `MF44X33` (Fujifilm GFX, Pentax 645Z, Hasselblad X2D) and `MF54X40` (Hasselblad H6D-100c)
-- **Sensor size ordering**: All sensor types now ordered by size (1INCH → MFT → APS-C → FF → MF44X33 → MF54X40)
-
-### v1.5.0 - Sensor Type Presets
-- **New `--sensor-type` option**: Simplified NPF configuration with a single parameter instead of multiple sensor specifications
-- **Unified sensor presets**: `1INCH`, `MFT`, `APS-C`, `APS-C_CANON`, `APS-H`, `FF`, `MF44X33`, `MF54X40` automatically set focal factor, sensor width, and pixel pitch
-- **New `--list-sensor-types` option**: Display available sensor presets and their configurations
-- **Override support**: Individual parameters (`--sensor-width`, `--pixel-pitch`, `--focal-factor`) override preset values when needed
+### v1.5.0–1.5.4 Summary
+- **v1.5.4**: Improved ROI selection display, added NOTICE document
+- **v1.5.3**: Fisheye lens correction (`--fisheye` flag)
+- **v1.5.2**: Sensor override validation with automatic warnings
+- **v1.5.1**: Medium format sensor support (MF44X33, MF54X40)
+- **v1.5.0**: Sensor type presets (`--sensor-type` option)
 
 👉 See [RELEASE_NOTES_1.5.md](RELEASE_NOTES_1.5.md) for complete details and usage examples.
 
@@ -182,9 +166,8 @@ Camera Settings (EXIF Metadata)
 NPF Rule Analysis
 ============================================================
   Pixel pitch:      3.30μm (sensor: 17.3mm)
-  NPF recommended:  8.2s
-  Actual exposure:  5.0s ✓ OK
-  Star trail est.:  ~1.5 pixels
+  NPF recommended:  8.3s
+  Actual exposure:  5.0s ✓ OK (0.60× NPF)
   Impact:           LOW
 ============================================================
 

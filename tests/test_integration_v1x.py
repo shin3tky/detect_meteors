@@ -1,5 +1,5 @@
 """
-Integration test suite for meteor detection in detect_meteors_cli.py (v1.x).
+Integration test suite for meteor detection in meteor_core (v1.x).
 
 Tests the process_image_batch() function with various:
 - Meteor trail characteristics (length, thickness, intensity)
@@ -16,9 +16,9 @@ import sys
 import os
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     process_image_batch,
     DEFAULT_HOUGH_THRESHOLD,
     DEFAULT_HOUGH_MIN_LINE_LENGTH,
@@ -70,7 +70,7 @@ class TestMeteorDetectionBase(unittest.TestCase):
         if roi_mask is None:
             roi_mask = self.create_roi_mask(full=True)
 
-        with patch("detect_meteors_cli.load_and_bin_raw_fast") as mock_load:
+        with patch("meteor_core.pipeline.load_and_bin_raw_fast") as mock_load:
 
             def side_effect(filepath):
                 if "current" in filepath:

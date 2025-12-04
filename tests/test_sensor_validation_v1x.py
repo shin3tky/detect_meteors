@@ -14,9 +14,9 @@ from io import StringIO
 from contextlib import redirect_stdout
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     get_sensor_preset,
     apply_sensor_preset,
     validate_sensor_overrides,
@@ -240,7 +240,7 @@ class TestValidationWithDifferentSensorTypes(unittest.TestCase):
 
         f = StringIO()
         with redirect_stdout(f):
-            validate_sensor_overrides(args, preset, 17.3, 2.4)
+            validate_sensor_overrides(args, preset, 17.3, preset["pixel_pitch"])
 
         output = f.getvalue()
         self.assertIn("Warning", output)

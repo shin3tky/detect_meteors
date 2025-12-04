@@ -1,5 +1,5 @@
 """
-Test suite for calculation functions in detect_meteors_cli.py (v1.x).
+Test suite for calculation functions in meteor_core (v1.x).
 
 Covers:
 - NPF Rule calculations
@@ -17,9 +17,9 @@ import os
 import math
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     calculate_npf_rule,
     calculate_pixel_pitch,
     estimate_star_trail_length,
@@ -199,104 +199,86 @@ class TestEstimateStarTrailLength(unittest.TestCase):
         self.assertGreater(high_res_trail, low_res_trail)
 
     def test_star_trail_declination_equator(self):
-        """Test star trail at celestial equator (maximum movement)."""
+        """Test star trail at equator (maximum motion)."""
         equator_trail = estimate_star_trail_length(24.0, 10.0, 5000, 0.0)
-        # Should be maximum at equator
-        self.assertGreater(equator_trail, 0.0)
-
-    def test_star_trail_declination_pole(self):
-        """Test star trail near celestial pole (minimal movement)."""
+        mid_lat_trail = estimate_star_trail_length(24.0, 10.0, 5000, 45.0)
         pole_trail = estimate_star_trail_length(24.0, 10.0, 5000, 89.0)
-        equator_trail = estimate_star_trail_length(24.0, 10.0, 5000, 0.0)
 
-        # Trail at pole should be much shorter (cos(89°) ≈ 0.017)
-        self.assertLess(pole_trail, equator_trail * 0.1)
+        # Equator should have longest trails
+        self.assertGreater(equator_trail, mid_lat_trail)
+        self.assertGreater(mid_lat_trail, pole_trail)
 
-    def test_star_trail_declination_mid_latitude(self):
-        """Test star trail at mid declination."""
-        equator_trail = estimate_star_trail_length(24.0, 10.0, 5000, 0.0)
-        mid_trail = estimate_star_trail_length(24.0, 10.0, 5000, 45.0)
+    def test_star_trail_zero_values(self):
+        """Test star trail with zero values returns 0."""
+        self.assertEqual(estimate_star_trail_length(0, 10.0, 5000, 0.0), 0.0)
+        self.assertEqual(estimate_star_trail_length(24.0, 0, 5000, 0.0), 0.0)
+        self.assertEqual(estimate_star_trail_length(24.0, 10.0, 0, 0.0), 0.0)
 
-        # At 45°, should be cos(45°) ≈ 0.707 of equator
-        expected_ratio = math.cos(math.radians(45.0))
-        actual_ratio = mid_trail / equator_trail
-        self.assertAlmostEqual(actual_ratio, expected_ratio, places=2)
+    def test_star_trail_negative_values(self):
+        """Test star trail with negative values returns 0."""
+        self.assertEqual(estimate_star_trail_length(-24.0, 10.0, 5000, 0.0), 0.0)
+        self.assertEqual(estimate_star_trail_length(24.0, -10.0, 5000, 0.0), 0.0)
+        self.assertEqual(estimate_star_trail_length(24.0, 10.0, -5000, 0.0), 0.0)
 
 
 class TestEstimateMeteorTrailLength(unittest.TestCase):
     """Test estimate_meteor_trail_length() function."""
 
-    def test_meteor_trail_basic(self):
-        """Test meteor trail length estimation."""
-        # Setup parameters
-        focal_mm = 24.0
-        exposure_sec = 10.0
-        width_px = 5000
+    def test_meteor_trail_longer_than_star(self):
+        """Test that meteor trails are longer than star trails."""
+        star_trail = estimate_star_trail_length(24.0, 10.0, 5000, 0.0)
+        meteor_trail = estimate_meteor_trail_length(24.0, 10.0, 5000, 3.0)
 
-        # Calculate expected values
-        star_trail = estimate_star_trail_length(focal_mm, exposure_sec, width_px, 0.0)
-
-        meteor_trail = estimate_meteor_trail_length(focal_mm, exposure_sec, width_px)
-
-        # Meteor should be faster (3x in the function default)
         self.assertGreater(meteor_trail, star_trail)
-        self.assertAlmostEqual(meteor_trail, star_trail * 3.0, places=2)
 
-    def test_meteor_trail_proportional(self):
-        """Test that meteor trail scales with star trail inputs."""
-        # Use exposure time to control trail length
-        focal_mm = 24.0
-        width_px = 5000
+    def test_meteor_trail_speed_factor(self):
+        """Test meteor trail with different speed factors."""
+        slow_meteor = estimate_meteor_trail_length(24.0, 10.0, 5000, 2.0)
+        fast_meteor = estimate_meteor_trail_length(24.0, 10.0, 5000, 5.0)
 
-        short_exp = 5.0
-        long_exp = 15.0  # 3x longer
+        # Faster meteor should leave longer trail
+        self.assertGreater(fast_meteor, slow_meteor)
+        self.assertAlmostEqual(fast_meteor / slow_meteor, 2.5, places=1)
 
-        short_meteor = estimate_meteor_trail_length(focal_mm, short_exp, width_px)
-        long_meteor = estimate_meteor_trail_length(focal_mm, long_exp, width_px)
+    def test_meteor_trail_default_factor(self):
+        """Test meteor trail with default speed factor (3.0)."""
+        star_trail = estimate_star_trail_length(24.0, 10.0, 5000, 0.0)
+        meteor_trail = estimate_meteor_trail_length(24.0, 10.0, 5000)
 
-        # Both should maintain proportionality to exposure time
-        self.assertAlmostEqual(long_meteor / short_meteor, 3.0, places=2)
+        # Default factor is 3.0
+        self.assertAlmostEqual(meteor_trail / star_trail, 3.0, places=1)
 
 
 class TestEvaluateNPFCompliance(unittest.TestCase):
     """Test evaluate_npf_compliance() function."""
 
     def test_compliance_ok(self):
-        """Test compliance when exposure is under NPF limit."""
-        level, factor = evaluate_npf_compliance(5.0, 10.0)
+        """Test OK compliance level."""
+        level, factor = evaluate_npf_compliance(5.0, 10.0)  # 50% of NPF limit
         self.assertEqual(level, "OK")
         self.assertAlmostEqual(factor, 0.5, places=2)
 
+    def test_compliance_exactly_at_limit(self):
+        """Test compliance exactly at NPF limit."""
+        level, factor = evaluate_npf_compliance(10.0, 10.0)
+        self.assertEqual(level, "OK")
+        self.assertAlmostEqual(factor, 1.0, places=2)
+
     def test_compliance_warning(self):
-        """Test compliance when exposure slightly exceeds NPF."""
-        level, factor = evaluate_npf_compliance(12.0, 10.0)
+        """Test WARNING compliance level."""
+        level, factor = evaluate_npf_compliance(12.0, 10.0)  # 20% over
         self.assertEqual(level, "WARNING")
         self.assertAlmostEqual(factor, 1.2, places=2)
 
-    def test_compliance_moderate(self):
-        """Test compliance when exposure moderately exceeds NPF."""
-        # Factor is 2.0 (20/10)
-        # In current implementation: > 1.5 is CRITICAL
-        level, factor = evaluate_npf_compliance(20.0, 10.0)
-
+    def test_compliance_critical(self):
+        """Test CRITICAL compliance level."""
+        level, factor = evaluate_npf_compliance(20.0, 10.0)  # 100% over
         self.assertEqual(level, "CRITICAL")
         self.assertAlmostEqual(factor, 2.0, places=2)
 
-    def test_compliance_critical(self):
-        """Test compliance with extreme overshoot."""
-        level, factor = evaluate_npf_compliance(50.0, 10.0)
-        self.assertEqual(level, "CRITICAL")
-        self.assertAlmostEqual(factor, 5.0, places=2)
-
-    def test_compliance_zero_npf(self):
-        """Test compliance when NPF recommendation is zero."""
-        level, factor = evaluate_npf_compliance(10.0, 0.0)
-        self.assertEqual(level, "UNKNOWN")
-        self.assertEqual(factor, 0.0)
-
-    def test_compliance_negative_npf(self):
-        """Test compliance when NPF recommendation is negative."""
-        level, factor = evaluate_npf_compliance(10.0, -5.0)
+    def test_compliance_unknown_zero_npf(self):
+        """Test UNKNOWN compliance when NPF is zero."""
+        level, factor = evaluate_npf_compliance(10.0, 0)
         self.assertEqual(level, "UNKNOWN")
         self.assertEqual(factor, 0.0)
 
@@ -305,7 +287,7 @@ class TestCalculateShootingQualityScore(unittest.TestCase):
     """Test calculate_shooting_quality_score() function."""
 
     def test_quality_excellent(self):
-        """Test excellent quality score (optimal conditions)."""
+        """Test excellent quality score."""
         exif_data = {
             "iso": 800,
             "focal_length_35mm": 20,

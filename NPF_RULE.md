@@ -74,14 +74,16 @@ This helps you understand:
 
 | Camera System | Sensor Width (mm) | Crop Factor | Typical Pixel Pitch (μm) |
 |--------------|-------------------|-------------|-------------------------|
+| 1-inch | 13.2 | 2.7 | 2.4-2.9 |
 | Micro Four Thirds | 17.3 | 2.0 | 3.3-3.7 |
-| APS-C (Sony, Nikon, Fuji) | 23.5 | 1.5 | 3.9-4.3 |
 | APS-C (Canon) | 22.3 | 1.6 | 4.1-4.5 |
+| APS-C (Sony, Nikon, Fuji) | 23.5 | 1.5 | 3.9-4.3 |
 | APS-H (Canon) | 27.9 | 1.3 | 5.0-6.4 |
 | Full Frame | 36.0 | 1.0 | 4.3-8.4 |
-| 1-inch | 13.2 | 2.7 | 2.4-2.9 |
+| Medium Format 44×33 | 43.8 | 0.79 | 3.3-5.3 |
+| Medium Format 54×40 | 53.4 | 0.64 | 4.0-4.6 |
 
-## Fisheye Lens Correction (v1.5.3+)
+## Fisheye Lens Correction
 
 Fisheye lenses have a unique characteristic: the effective focal length varies across the image due to the projection geometry. The center of the image has the nominal focal length, while the edges have a shorter effective focal length.
 

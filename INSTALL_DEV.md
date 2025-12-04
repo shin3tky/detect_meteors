@@ -78,6 +78,7 @@ pre-commit run --all-files
 
 # Or run Black directly on specific files
 black detect_meteors_cli.py
+black meteor_core/
 black tests/
 ```
 
@@ -152,7 +153,7 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from detect_meteors_cli import your_function
+from meteor_core.utils import your_function
 
 class TestYourFunction(unittest.TestCase):
     def test_basic_case(self):
@@ -183,12 +184,21 @@ if __name__ == "__main__":
 
 ### Type Hints
 
-Type hints are used throughout the codebase:
+Type hints are used throughout the codebase. As of v1.5.5, structured data uses TypedDict for improved type safety:
 
 ```python
-def calculate_pixel_pitch(sensor_width_mm: float, image_width_px: int) -> float:
-    """Calculate pixel pitch in micrometers."""
-    return (sensor_width_mm * 1000.0) / image_width_px
+from typing import TypedDict
+
+class NPFMetrics(TypedDict):
+    pixel_pitch: float
+    npf_recommended: float
+    actual_exposure: float
+    npf_ratio: float
+    compliance: str
+
+def calculate_npf_metrics(...) -> NPFMetrics:
+    """Calculate NPF Rule metrics."""
+    ...
 ```
 
 ### Docstrings
@@ -220,7 +230,21 @@ def estimate_star_trail_length(
 
 ```
 detect_meteors/
-├── detect_meteors_cli.py          # Main CLI application
+├── detect_meteors_cli.py          # CLI interface (argument parsing, user interaction)
+├── meteor_core/                   # Core logic modules (v1.5.5+)
+│   ├── __init__.py
+│   ├── schema.py                  # Type definitions (TypedDict, constants)
+│   ├── pipeline.py                # Processing pipeline orchestration
+│   ├── image_io.py                # RAW image loading, EXIF extraction
+│   ├── roi_selector.py            # ROI selection interface
+│   ├── utils.py                   # Utility functions
+│   ├── detectors/                 # Detection algorithm implementations
+│   │   ├── __init__.py
+│   │   ├── base.py                # Abstract base detector class
+│   │   └── hough_default.py       # Default Hough transform detector
+│   └── outputs/                   # Output handling
+│       ├── __init__.py
+│       └── writer.py              # Result file writer
 ├── tests/                         # Test suite
 │   ├── test_calculations_v1x.py
 │   ├── test_integration_v1x.py
@@ -246,6 +270,22 @@ detect_meteors/
 ├── LICENSE                        # Apache License 2.0
 └── NOTICE                         # Attribution notices
 ```
+
+### Module Responsibilities (v1.5.5+)
+
+| Module | Responsibility |
+|--------|----------------|
+| `detect_meteors_cli.py` | CLI argument parsing, user interaction, main entry point |
+| `meteor_core/schema.py` | Type definitions (TypedDict), constants, data structures |
+| `meteor_core/pipeline.py` | Processing pipeline orchestration, batch processing |
+| `meteor_core/image_io.py` | RAW image loading, EXIF metadata extraction |
+| `meteor_core/roi_selector.py` | Interactive ROI selection interface |
+| `meteor_core/utils.py` | Utility functions (NPF calculations, parameter estimation) |
+| `meteor_core/detectors/base.py` | Abstract base class for detection algorithms |
+| `meteor_core/detectors/hough_default.py` | Default Hough transform-based meteor detector |
+| `meteor_core/outputs/writer.py` | Result file writing, output management |
+
+This modular structure prepares for the v2.x plugin architecture by separating concerns and enabling future extensibility.
 
 ## Contribution Workflow
 
@@ -292,6 +332,18 @@ source ./venv/bin/activate  # macOS/Linux
 ```bash
 pip install -r requirements.txt
 pip install pre-commit black
+```
+
+### Module Import Issues (v1.5.5+)
+
+If you encounter import errors after the v1.5.5 restructuring:
+
+```bash
+# Ensure meteor_core is recognized as a package
+ls meteor_core/__init__.py
+
+# Test imports
+python -c "from meteor_core import pipeline, utils"
 ```
 
 ## License

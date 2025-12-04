@@ -7,9 +7,9 @@ import math
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     calculate_fisheye_effective_focal_length,
     calculate_fisheye_edge_focal_length,
     calculate_fisheye_trail_length_ratio,

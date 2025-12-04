@@ -1,5 +1,5 @@
 """
-Infrastructure and Utility test suite for detect_meteors_cli.py (v1.x).
+Infrastructure and Utility test suite for meteor_core (v1.x).
 
 Covers:
 - ROI polygon string parsing/formatting
@@ -20,19 +20,22 @@ import cv2
 from unittest.mock import patch, MagicMock
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     parse_roi_polygon_string,
     format_polygon_string,
     compute_params_hash,
     save_progress,
     load_progress,
     collect_files,
-    estimate_diff_threshold_from_samples,
-    estimate_min_area_from_samples,
     DEFAULT_DIFF_THRESHOLD,
     DEFAULT_MIN_AREA,
+)
+
+from meteor_core.pipeline import (
+    estimate_diff_threshold_from_samples,
+    estimate_min_area_from_samples,
 )
 
 
@@ -186,7 +189,7 @@ class TestAutoEstimationLogic(unittest.TestCase):
         self.shape = (100, 100)
         self.roi_mask = np.full(self.shape, 255, dtype=np.uint8)
 
-    @patch("detect_meteors_cli.load_and_bin_raw_fast")
+    @patch("meteor_core.pipeline.load_and_bin_raw_fast")
     def test_estimate_diff_threshold(self, mock_load):
         """Test diff_threshold estimation based on noise levels."""
         # Scenario: create 5 images with random noise
@@ -215,7 +218,7 @@ class TestAutoEstimationLogic(unittest.TestCase):
         self.assertGreaterEqual(threshold, 3)
         self.assertLessEqual(threshold, 25)
 
-    @patch("detect_meteors_cli.load_and_bin_raw_fast")
+    @patch("meteor_core.pipeline.load_and_bin_raw_fast")
     def test_estimate_min_area(self, mock_load):
         """Test min_area estimation based on star sizes."""
         # Scenario: Create images with "stars" of specific sizes
@@ -241,7 +244,7 @@ class TestAutoEstimationLogic(unittest.TestCase):
         # Should detect meaningful area size, not default
         self.assertGreater(min_area, 5)
 
-    @patch("detect_meteors_cli.load_and_bin_raw_fast")
+    @patch("meteor_core.pipeline.load_and_bin_raw_fast")
     def test_estimate_defaults_on_error(self, mock_load):
         """Test that estimation falls back to defaults on loading error."""
         mock_load.side_effect = Exception("Load error")

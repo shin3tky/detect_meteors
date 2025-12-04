@@ -16,7 +16,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 def get_version():
     """Extract version from detect_meteors_cli.py"""
     try:
-        with open("detect_meteors_cli.py", "r") as f:
+        with open("meteor_core/schema.py", "r") as f:
             content = f.read()
             match = re.search(r'VERSION\s*=\s*["\']([^"\']+)["\']', content)
             if match:

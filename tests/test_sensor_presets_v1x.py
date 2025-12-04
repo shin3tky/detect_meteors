@@ -11,9 +11,9 @@ import os
 from argparse import Namespace
 
 # Add project root directory to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from detect_meteors_cli import (
+from meteor_core import (
     SENSOR_PRESETS,
     CROP_FACTORS,
     DEFAULT_SENSOR_WIDTHS,
