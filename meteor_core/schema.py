@@ -1,0 +1,375 @@
+#!/usr/bin/env python
+#
+# Detect Meteors CLI - Schema definitions
+# © 2025 Shinichi Morita (shin3tky)
+#
+
+"""
+Data structures, constants, and type definitions for meteor detection.
+"""
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple, Any
+import multiprocessing as mp
+
+# ==========================================
+# Version
+# ==========================================
+VERSION = "1.5.5"
+
+# ==========================================
+# Default Settings
+# ==========================================
+DEFAULT_PROGRESS_FILE = "progress.json"
+
+DEFAULT_TARGET_FOLDER = "rawfiles"
+DEFAULT_OUTPUT_FOLDER = "candidates"
+DEFAULT_DEBUG_FOLDER = "debug_masks"
+
+EXTENSIONS = ["*.ORF", "*.ARW", "*.CR2", "*.NEF", "*.DNG"]
+
+DEFAULT_DIFF_THRESHOLD = 8
+DEFAULT_MIN_AREA = 10
+DEFAULT_MIN_ASPECT_RATIO = 3.0
+
+DEFAULT_HOUGH_THRESHOLD = 10
+DEFAULT_HOUGH_MIN_LINE_LENGTH = 15
+DEFAULT_HOUGH_MAX_LINE_GAP = 5
+DEFAULT_MIN_LINE_SCORE = 80.0
+
+DEFAULT_ENABLE_ROI_SELECTION = True
+DEFAULT_NUM_WORKERS = max(1, mp.cpu_count() - 1)
+DEFAULT_BATCH_SIZE = 10
+AUTO_BATCH_MEMORY_FRACTION = 0.6
+
+# NPF Rule related default values
+DEFAULT_PIXEL_PITCH_UM = 4.0
+
+# ==========================================
+# Fisheye Projection Models
+# ==========================================
+FISHEYE_PROJECTION_MODELS = {
+    "EQUISOLID": {
+        "name": "Equisolid Angle Projection",
+        "description": "Equal-area projection (r = 2f × sin(θ/2))",
+    },
+}
+
+DEFAULT_FISHEYE_MODEL = "EQUISOLID"
+
+# ==========================================
+# Sensor Presets
+# ==========================================
+SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
+    # 1-inch sensor (smallest)
+    "1INCH": {
+        "focal_factor": 2.7,
+        "sensor_width": 13.2,
+        "pixel_pitch": 2.4,
+        "description": "1-inch sensor (13.2×8.8mm)",
+    },
+    "1_INCH": {
+        "focal_factor": 2.7,
+        "sensor_width": 13.2,
+        "pixel_pitch": 2.4,
+        "description": "1-inch sensor (13.2×8.8mm)",
+    },
+    # Micro Four Thirds
+    "MFT": {
+        "focal_factor": 2.0,
+        "sensor_width": 17.3,
+        "pixel_pitch": 3.7,
+        "description": "Micro Four Thirds (17.3×13mm)",
+    },
+    # APS-C (Sony/Nikon/Fuji)
+    "APSC": {
+        "focal_factor": 1.5,
+        "sensor_width": 23.5,
+        "pixel_pitch": 3.9,
+        "description": "APS-C Sony/Nikon/Fuji (23.5×15.6mm)",
+    },
+    "APS_C": {
+        "focal_factor": 1.5,
+        "sensor_width": 23.5,
+        "pixel_pitch": 3.9,
+        "description": "APS-C Sony/Nikon/Fuji (23.5×15.6mm)",
+    },
+    # APS-C (Canon)
+    "APSC_CANON": {
+        "focal_factor": 1.6,
+        "sensor_width": 22.3,
+        "pixel_pitch": 3.2,
+        "description": "APS-C Canon (22.3×14.9mm)",
+    },
+    "APS_C_CANON": {
+        "focal_factor": 1.6,
+        "sensor_width": 22.3,
+        "pixel_pitch": 3.2,
+        "description": "APS-C Canon (22.3×14.9mm)",
+    },
+    # APS-H
+    "APSH": {
+        "focal_factor": 1.3,
+        "sensor_width": 27.9,
+        "pixel_pitch": 5.7,
+        "description": "APS-H Canon (27.9×18.6mm)",
+    },
+    "APS_H": {
+        "focal_factor": 1.3,
+        "sensor_width": 27.9,
+        "pixel_pitch": 5.7,
+        "description": "APS-H Canon (27.9×18.6mm)",
+    },
+    # Full Frame 35mm
+    "FF": {
+        "focal_factor": 1.0,
+        "sensor_width": 36.0,
+        "pixel_pitch": 4.3,
+        "description": "Full Frame 35mm (36×24mm)",
+    },
+    "FULLFRAME": {
+        "focal_factor": 1.0,
+        "sensor_width": 36.0,
+        "pixel_pitch": 4.3,
+        "description": "Full Frame 35mm (36×24mm)",
+    },
+    # Medium Format 44x33
+    "MF44X33": {
+        "focal_factor": 0.79,
+        "sensor_width": 43.8,
+        "pixel_pitch": 3.76,
+        "description": "Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D",
+    },
+    "MF44_33": {
+        "focal_factor": 0.79,
+        "sensor_width": 43.8,
+        "pixel_pitch": 3.76,
+        "description": "Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D",
+    },
+    # Medium Format 54x40
+    "MF54X40": {
+        "focal_factor": 0.64,
+        "sensor_width": 53.4,
+        "pixel_pitch": 4.6,
+        "description": "Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c",
+    },
+    "MF54_40": {
+        "focal_factor": 0.64,
+        "sensor_width": 53.4,
+        "pixel_pitch": 4.6,
+        "description": "Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c",
+    },
+}
+
+# Legacy compatibility dictionaries
+CROP_FACTORS = {key: preset["focal_factor"] for key, preset in SENSOR_PRESETS.items()}
+DEFAULT_SENSOR_WIDTHS = {
+    key: preset["sensor_width"] for key, preset in SENSOR_PRESETS.items()
+}
+
+
+# ==========================================
+# Data Classes
+# ==========================================
+@dataclass
+class HoughParams:
+    """Hough transform parameters."""
+
+    threshold: int = DEFAULT_HOUGH_THRESHOLD
+    min_line_length: int = DEFAULT_HOUGH_MIN_LINE_LENGTH
+    max_line_gap: int = DEFAULT_HOUGH_MAX_LINE_GAP
+
+    def to_dict(self) -> Dict[str, int]:
+        return {
+            "threshold": self.threshold,
+            "min_line_length": self.min_line_length,
+            "max_line_gap": self.max_line_gap,
+        }
+
+
+@dataclass
+class DetectionParams:
+    """Detection parameters for meteor detection."""
+
+    diff_threshold: int = DEFAULT_DIFF_THRESHOLD
+    min_area: int = DEFAULT_MIN_AREA
+    min_aspect_ratio: float = DEFAULT_MIN_ASPECT_RATIO
+    hough_threshold: int = DEFAULT_HOUGH_THRESHOLD
+    hough_min_line_length: int = DEFAULT_HOUGH_MIN_LINE_LENGTH
+    hough_max_line_gap: int = DEFAULT_HOUGH_MAX_LINE_GAP
+    min_line_score: float = DEFAULT_MIN_LINE_SCORE
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "diff_threshold": self.diff_threshold,
+            "min_area": self.min_area,
+            "min_aspect_ratio": self.min_aspect_ratio,
+            "hough_threshold": self.hough_threshold,
+            "hough_min_line_length": self.hough_min_line_length,
+            "hough_max_line_gap": self.hough_max_line_gap,
+            "min_line_score": self.min_line_score,
+        }
+
+    def get_hough_params(self) -> HoughParams:
+        return HoughParams(
+            threshold=self.hough_threshold,
+            min_line_length=self.hough_min_line_length,
+            max_line_gap=self.hough_max_line_gap,
+        )
+
+
+@dataclass
+class ExifData:
+    """EXIF metadata extracted from RAW file."""
+
+    focal_length: Optional[float] = None
+    focal_length_35mm: Optional[float] = None
+    iso: Optional[int] = None
+    exposure_time: Optional[float] = None
+    f_number: Optional[float] = None
+    camera_make: Optional[str] = None
+    camera_model: Optional[str] = None
+    lens_model: Optional[str] = None
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "focal_length": self.focal_length,
+            "focal_length_35mm": self.focal_length_35mm,
+            "iso": self.iso,
+            "exposure_time": self.exposure_time,
+            "f_number": self.f_number,
+            "camera_make": self.camera_make,
+            "camera_model": self.camera_model,
+            "lens_model": self.lens_model,
+            "image_width": self.image_width,
+            "image_height": self.image_height,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ExifData":
+        return cls(
+            focal_length=data.get("focal_length"),
+            focal_length_35mm=data.get("focal_length_35mm"),
+            iso=data.get("iso"),
+            exposure_time=data.get("exposure_time"),
+            f_number=data.get("f_number"),
+            camera_make=data.get("camera_make"),
+            camera_model=data.get("camera_model"),
+            lens_model=data.get("lens_model"),
+            image_width=data.get("image_width"),
+            image_height=data.get("image_height"),
+        )
+
+
+@dataclass
+class NPFMetrics:
+    """NPF Rule calculation metrics."""
+
+    pixel_pitch_um: Optional[float] = None
+    npf_recommended_sec: Optional[float] = None
+    star_trail_px: Optional[float] = None
+    compliance_level: str = "UNKNOWN"
+    overshoot_factor: float = 0.0
+    sensor_width_mm: Optional[float] = None
+    has_complete_data: bool = False
+    fisheye: bool = False
+    fisheye_model: Optional[str] = None
+    effective_focal_length: Optional[float] = None
+    trail_length_ratio: float = 1.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "pixel_pitch_um": self.pixel_pitch_um,
+            "npf_recommended_sec": self.npf_recommended_sec,
+            "star_trail_px": self.star_trail_px,
+            "compliance_level": self.compliance_level,
+            "overshoot_factor": self.overshoot_factor,
+            "sensor_width_mm": self.sensor_width_mm,
+            "has_complete_data": self.has_complete_data,
+            "fisheye": self.fisheye,
+            "fisheye_model": self.fisheye_model,
+            "effective_focal_length": self.effective_focal_length,
+            "trail_length_ratio": self.trail_length_ratio,
+        }
+
+
+@dataclass
+class DetectionResult:
+    """Result of processing a single image."""
+
+    is_candidate: bool
+    filename: str
+    filepath: str
+    line_score: float
+    max_aspect_ratio: float
+    num_lines: int
+    debug_image: Optional[Any] = None  # numpy array, but avoid importing numpy here
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "is_candidate": self.is_candidate,
+            "filename": self.filename,
+            "filepath": self.filepath,
+            "line_score": self.line_score,
+            "max_aspect_ratio": self.max_aspect_ratio,
+            "num_lines": self.num_lines,
+        }
+
+
+@dataclass
+class ROIData:
+    """ROI (Region of Interest) selection data."""
+
+    mask: Any  # numpy array
+    polygon: List[List[int]]
+    bounding_rect: Tuple[int, int, int, int]
+
+
+@dataclass
+class ProgressData:
+    """Progress tracking data for resumable processing."""
+
+    version: str = VERSION
+    params_hash: str = ""
+    processed_files: List[str] = field(default_factory=list)
+    detected_files: List[str] = field(default_factory=list)
+    total_processed: int = 0
+    total_detected: int = 0
+    created_at: Optional[str] = None
+    last_updated: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "version": self.version,
+            "params_hash": self.params_hash,
+            "processed_files": self.processed_files,
+            "detected_files": self.detected_files,
+            "total_processed": self.total_processed,
+            "total_detected": self.total_detected,
+            "created_at": self.created_at,
+            "last_updated": self.last_updated,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ProgressData":
+        return cls(
+            version=data.get("version", VERSION),
+            params_hash=data.get("params_hash", ""),
+            processed_files=data.get("processed_files", []),
+            detected_files=data.get("detected_files", []),
+            total_processed=data.get("total_processed", 0),
+            total_detected=data.get("total_detected", 0),
+            created_at=data.get("created_at"),
+            last_updated=data.get("last_updated"),
+        )
+
+
+@dataclass
+class OptimizationInfo:
+    """Information about parameter optimization."""
+
+    quality_score: float = 0.0
+    quality_level: str = "UNKNOWN"
+    adjustments: List[str] = field(default_factory=list)
