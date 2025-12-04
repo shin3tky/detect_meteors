@@ -64,7 +64,7 @@ from meteor_core import (
 def build_arg_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the CLI."""
     parser = argparse.ArgumentParser(
-        description="Meteor detection tool with comprehensive auto-parameter estimation (v1.3.1)"
+        description="Meteor detection tool with comprehensive auto-parameter estimation"
     )
 
     parser.add_argument(
@@ -174,7 +174,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--auto-params",
         action="store_true",
-        help="Auto-estimate diff_threshold, min_area, and min_line_score based on EXIF (v1.4.0 with NPF Rule)",
+        help="Auto-estimate diff_threshold, min_area, and min_line_score based on EXIF",
     )
     parser.add_argument(
         "--sensor-type",
@@ -182,31 +182,41 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="TYPE",
         help="Sensor type preset for NPF Rule parameters. "
-        "Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40.",
+        "Sets focal_factor, sensor_width, and pixel_pitch automatically. "
+        "Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40. "
+        "Individual options (--focal-factor, --sensor-width, --pixel-pitch) override preset values.",
     )
     parser.add_argument(
         "--focal-length",
         type=float,
         default=None,
-        help="Focal length in mm (35mm equivalent).",
+        help="Focal length in mm (35mm equivalent; used for NPF Rule and parameter estimation). "
+        "Overrides --sensor-type preset if specified.",
     )
     parser.add_argument(
         "--focal-factor",
         type=str,
         default=None,
-        help="Crop factor for 35mm equivalent calculation.",
+        help="Crop factor for 35mm equivalent calculation. "
+        "Use sensor type (MFT, APS-C, APS-H, etc.) or numeric value (e.g., 2.0, 1.5). "
+        "Common values: MFT=2.0, APS-C=1.5, APS-C_CANON=1.6, APS-H=1.3, FF=1.0. "
+        "Overrides --sensor-type preset if specified.",
     )
     parser.add_argument(
         "--sensor-width",
         type=float,
         default=None,
-        help="Sensor width in mm (for NPF Rule calculation).",
+        help="Sensor width in mm (for NPF Rule calculation). "
+        "Common values: MFT=17.3, APS-C=23.5, APS-C(Canon)=22.3, FF=36.0. "
+        "Overrides --sensor-type preset if specified.",
     )
     parser.add_argument(
         "--pixel-pitch",
         type=float,
         default=None,
-        help="Pixel pitch in micrometers (μm) for NPF Rule.",
+        help="Pixel pitch in micrometers (μm) for NPF Rule. "
+        "If not specified, calculated from sensor width and image resolution, or uses default. "
+        "Overrides --sensor-type preset if specified.",
     )
     parser.add_argument(
         "--list-sensor-types",
@@ -226,12 +236,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-overwrite",
         action="store_true",
-        help="Force overwrite existing files in output folder",
+        help="Force overwrite existing files in output folder (default: skip existing files)",
     )
     parser.add_argument(
         "--fisheye",
         action="store_true",
-        help="Enable fisheye lens correction.",
+        help="Enable fisheye lens correction. Applies equisolid angle projection compensation "
+        "to account for varying effective focal length across the image. "
+        "NPF calculation uses edge (worst case) effective focal length. "
+        "Star trail estimation accounts for longer trails at image edges.",
     )
 
     return parser
@@ -250,6 +263,9 @@ def handle_show_exif(args) -> None:
     # Validate --sensor-type
     if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
         print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
+        print(
+            f"  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
+        )
         return
 
     # Apply sensor preset
@@ -267,6 +283,7 @@ def handle_show_exif(args) -> None:
     # Validate focal_factor
     if args.focal_factor and focal_factor_value is None:
         print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
+        print(f"  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
         return
 
     try:
@@ -298,7 +315,7 @@ def handle_show_exif(args) -> None:
         elif exif_data.get("focal_length"):
             focal_length_source = "EXIF (actual, no 35mm equiv.)"
 
-        # NPF metrics
+        # NPF metrics (when --show-npf or sufficient information exists)
         npf_metrics = None
         if args.show_npf or (
             exif_data.get("focal_length_35mm") and exif_data.get("f_number")
@@ -340,9 +357,12 @@ def handle_show_exif(args) -> None:
         if not exif_data.get("exposure_time"):
             warnings.append("Exposure time not available")
 
+        # NPF-related warnings
         if args.show_npf or npf_metrics:
             if not sensor_width_value and not exif_data.get("image_width"):
-                warnings.append("Sensor width not specified")
+                warnings.append(
+                    "Sensor width not specified. Use --sensor-type or --sensor-width for accurate NPF calculation"
+                )
             if npf_metrics and not npf_metrics.get("has_complete_data"):
                 warnings.append("NPF calculation using default/estimated values")
 
@@ -412,7 +432,7 @@ def detect_meteors_advanced(
     timing = {}
     t_total = time.time()
 
-    # Safety check
+    # Safety check: prevent overwriting source files
     target_fullpath = os.path.abspath(target_folder)
     output_fullpath = os.path.abspath(output_folder)
 
@@ -420,6 +440,12 @@ def detect_meteors_advanced(
         print(f"\n{'='*60}")
         print("⚠ ERROR: Target and output directories are the same!")
         print(f"{'='*60}")
+        print(f"  Target:  {target_folder}")
+        print(f"  Output:  {output_folder}")
+        print(f"  Resolved to: {target_fullpath}")
+        print(f"\nThis configuration would overwrite original RAW files.")
+        print(f"Please specify a different output directory.")
+        print(f"{'='*60}\n")
         return 0
 
     os.makedirs(output_folder, exist_ok=True)
@@ -474,23 +500,34 @@ def detect_meteors_advanced(
         print("Auto-params: NPF Rule-based Optimization")
         print(f"{'='*60}\n")
 
+        # ========================================
+        # Step 1: EXIF Information Extraction
+        # ========================================
         exif_data = extract_exif_metadata(files[0])
 
+        # Focal length acquisition (priority)
         focal_length_source = "Unknown"
         if focal_length_mm:
+            # CLIarguments (--focal-length)has highest priority
             focal_length_source = "CLI (--focal-length)"
             exif_data["focal_length_35mm"] = focal_length_mm
         elif exif_data.get("focal_length_35mm"):
+            # EXIF 35mmEquivalentFocal Length
             focal_length_mm = exif_data["focal_length_35mm"]
             focal_length_source = "EXIF"
         elif exif_data.get("focal_length") and focal_factor:
+            # EXIF actual focal length + focal_factor calculation
             focal_length_mm = exif_data["focal_length"] * focal_factor
             exif_data["focal_length_35mm"] = focal_length_mm
             focal_length_source = f"Calculated (EXIF {exif_data['focal_length']:.1f}mm × factor {focal_factor})"
         elif exif_data.get("focal_length"):
+            # EXIF Actual Focal Lengthonly (no 35mm equivalent)
             focal_length_mm = exif_data["focal_length"]
             focal_length_source = "EXIF (actual, no 35mm equiv.)"
 
+        # ========================================
+        # Step 2: NPF RuleAnalysis
+        # ========================================
         npf_metrics = calculate_npf_metrics(
             exif_data,
             sensor_width_mm=sensor_width_mm,
@@ -499,12 +536,16 @@ def detect_meteors_advanced(
             fisheye_model=DEFAULT_FISHEYE_MODEL,
         )
 
+        # Display fisheye info if enabled
         if fisheye and exif_data.get("focal_length_35mm"):
             display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
 
+        # Display EXIF Information and NPF Analysis
         display_exif_info(exif_data, focal_length_source, focal_factor, npf_metrics)
 
-        # Warnings
+        # ========================================
+        # Step 3: Display warnings
+        # ========================================
         warnings = []
         if not focal_length_mm:
             warnings.append("Focal length not available from EXIF")
@@ -517,8 +558,10 @@ def detect_meteors_advanced(
 
         if not exif_data.get("iso"):
             warnings.append("ISO value not available from EXIF")
+
         if not exif_data.get("exposure_time"):
             warnings.append("Exposure time not available from EXIF")
+
         if npf_metrics and not npf_metrics.get("has_complete_data"):
             if not sensor_width_mm and not pixel_pitch_um:
                 warnings.append("Using default pixel pitch for NPF calculation")
@@ -536,12 +579,15 @@ def detect_meteors_advanced(
                     print(f"  • {warning}")
             print(f"{'='*60}\n")
 
-        # NPF-based parameter optimization
+        # ========================================
+        # Step 4: NPF-based parameter optimization
+        # ========================================
         if npf_metrics and npf_metrics.get("npf_recommended_sec"):
             print(f"{'='*60}")
             print("Parameter Optimization (NPF Rule-based)")
             print(f"{'='*60}\n")
 
+            # Integrated optimization
             diff_threshold, min_area, min_line_score, opt_info = (
                 optimize_params_with_npf(
                     exif_data,
@@ -555,10 +601,12 @@ def detect_meteors_advanced(
                 )
             )
 
+            # Display Shooting Condition Quality Score
             print(
                 f"Shooting Quality Score: {opt_info['quality_score']:.2f} ({opt_info['quality_level']})"
             )
 
+            # Parameter adjustment details
             if opt_info["adjustments"]:
                 print(f"\nParameter Adjustments:")
                 for adjustment in opt_info["adjustments"]:
@@ -568,6 +616,7 @@ def detect_meteors_advanced(
 
             print(f"\n{'='*60}\n")
         else:
+            # Fallback: legacy method
             print("⚠ Insufficient data for NPF-based optimization")
             print("  Falling back to legacy auto-params method\n")
 
@@ -617,7 +666,7 @@ def detect_meteors_advanced(
     print(f"  min_line_score:        {min_line_score:.1f}")
     print(f"{'='*50}\n")
 
-    # Progress tracking
+    # Progress tracking setup
     params_for_hash = params.copy()
     if roi_polygon:
         params_for_hash["roi_polygon"] = roi_polygon
@@ -711,6 +760,7 @@ def detect_meteors_advanced(
 
     try:
         if enable_parallel and num_workers > 1:
+            # Split into batches
             batches = [
                 image_pairs[i : i + batch_size]
                 for i in range(0, len(image_pairs), batch_size)
@@ -730,6 +780,7 @@ def detect_meteors_advanced(
                     )
                     futures.append(future)
 
+                # Collect results
                 processed = 0
                 for future in as_completed(futures):
                     try:
@@ -753,6 +804,7 @@ def detect_meteors_advanced(
 
                             if is_candidate:
                                 output_path = os.path.join(output_folder, filename)
+                                # Check if file exists
                                 if os.path.exists(output_path) and not output_overwrite:
                                     print(
                                         f"  [SKIP] {filename}: Already exists in output folder"
@@ -800,7 +852,7 @@ def detect_meteors_advanced(
                     wait=wait_for_tasks, cancel_futures=not wait_for_tasks
                 )
         else:
-            # Sequential processing
+            # Sequential processing with progress display
             for idx, pair in enumerate(image_pairs):
                 current_index = resume_offset + idx + 1
                 current_file = os.path.basename(pair[0])
@@ -839,12 +891,14 @@ def detect_meteors_advanced(
                             progress_line_active = False
 
                         output_path = os.path.join(output_folder, filename)
+                        # Check if file exists
                         if os.path.exists(output_path) and not output_overwrite:
                             print(
-                                f"  [SKIP] {filename}: Already exists in output folder"
+                                f"  [SKIP] {filename}: Already exists in output folder (use --output-overwrite to overwrite)"
                             )
                         else:
                             shutil.copy(filepath, output_path)
+
                             if debug_img is not None:
                                 if roi_polygon:
                                     cv2.polylines(
@@ -858,6 +912,7 @@ def detect_meteors_advanced(
                                     os.path.join(debug_folder, f"mask_{filename}.png"),
                                     debug_img,
                                 )
+
                             print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
                     else:
                         print(
@@ -904,10 +959,12 @@ def main():
             print(f"Progress file not found: {args.progress_file}")
         return
 
+    # --list-sensor-types: Display available sensor types and exit
     if args.list_sensor_types:
         list_sensor_types()
         return
 
+    # --show-exif or --show-npf: Display EXIF info and NPF analysis then exit
     if args.show_exif or args.show_npf:
         handle_show_exif(args)
         return
