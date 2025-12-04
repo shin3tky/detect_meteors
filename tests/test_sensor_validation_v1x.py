@@ -244,8 +244,26 @@ class TestValidationWithDifferentSensorTypes(unittest.TestCase):
 
         output = f.getvalue()
         self.assertIn("Warning", output)
+        self.assertIn("1INCH", output)
 
-    def test_mf44x33_sensor_validation(self):
+    def test_canon_apsc_validation(self):
+        """Test validation with Canon APS-C preset."""
+        args = Namespace(
+            sensor_type="APSC_CANON",
+            sensor_width=None,
+            pixel_pitch=3.3,  # 3.1% deviation, should not warn
+        )
+
+        preset = get_sensor_preset("APSC_CANON")
+
+        f = StringIO()
+        with redirect_stdout(f):
+            validate_sensor_overrides(args, preset, 22.3, 3.3)
+
+        output = f.getvalue()
+        self.assertEqual(output, "")  # No warning expected
+
+    def test_medium_format_44x33_validation(self):
         """Test validation with MF44X33 preset."""
         args = Namespace(
             sensor_type="MF44X33",
@@ -257,13 +275,12 @@ class TestValidationWithDifferentSensorTypes(unittest.TestCase):
 
         f = StringIO()
         with redirect_stdout(f):
-            validate_sensor_overrides(args, preset, 36.0, preset["pixel_pitch"])
+            validate_sensor_overrides(args, preset, 36.0, 3.76)
 
         output = f.getvalue()
-        # 17.8% is under the 30% threshold, so no warning
-        self.assertEqual(output, "")
+        self.assertEqual(output, "")  # Less than 30%, no warning
 
-    def test_mf54x40_sensor_validation(self):
+    def test_medium_format_54x40_validation(self):
         """Test validation with MF54X40 preset."""
         args = Namespace(
             sensor_type="MF54X40",
@@ -275,16 +292,43 @@ class TestValidationWithDifferentSensorTypes(unittest.TestCase):
 
         f = StringIO()
         with redirect_stdout(f):
-            validate_sensor_overrides(args, preset, 36.0, preset["pixel_pitch"])
+            validate_sensor_overrides(args, preset, 36.0, 4.6)
 
         output = f.getvalue()
-        self.assertIn("Warning", output)
+        self.assertIn("Warning", output)  # Over 30%, should warn
 
 
-class TestApplySensorPresetReturnsPreset(unittest.TestCase):
-    """Test that apply_sensor_preset returns preset for validation."""
+class TestValidationWithApplySensorPreset(unittest.TestCase):
+    """Test validation integration with apply_sensor_preset()."""
 
     def test_apply_sensor_preset_returns_preset(self):
+        """Test that apply_sensor_preset() now returns preset dictionary."""
+        args = Namespace(
+            sensor_type="MFT",
+            focal_factor=None,
+            sensor_width=None,
+            focal_length=None,
+            pixel_pitch=None,
+        )
+
+        result = apply_sensor_preset(args, verbose=False)
+
+        # Should return 5-tuple now (v1.5.2+)
+        self.assertEqual(len(result), 5)
+        focal_factor, sensor_width, focal_length, pixel_pitch, preset = result
+
+        # Check values
+        self.assertEqual(focal_factor, 2.0)
+        self.assertEqual(sensor_width, 17.3)
+        self.assertIsNone(focal_length)
+        self.assertAlmostEqual(pixel_pitch, 3.7, places=1)
+
+        # Check preset dict
+        self.assertIsNotNone(preset)
+        self.assertEqual(preset["focal_factor"], 2.0)
+        self.assertEqual(preset["sensor_width"], 17.3)
+
+    def test_apply_sensor_preset_with_overrides_returns_preset(self):
         """Test apply_sensor_preset() returns preset even with overrides."""
         args = Namespace(
             sensor_type="APSC",
