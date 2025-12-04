@@ -60,16 +60,20 @@ def collect_files(target_folder: str) -> List[str]:
         FileNotFoundError: If the directory doesn't exist or no RAW files found
         NotADirectoryError: If the path is not a directory
     """
+    # Check if the directory exists
     if not os.path.exists(target_folder):
         raise FileNotFoundError(f"Directory does not exist: {target_folder}")
 
+    # Check if the path is a directory
     if not os.path.isdir(target_folder):
         raise NotADirectoryError(f"Path is not a directory: {target_folder}")
 
+    # Collect RAW files
     files = []
     for ext in EXTENSIONS:
         files.extend(glob.glob(os.path.join(target_folder, ext)))
 
+    # Check if any RAW files were found
     if not files:
         raise FileNotFoundError(
             f"No RAW image files found in directory: {target_folder}\n"
@@ -218,6 +222,9 @@ def estimate_diff_threshold_from_samples(
     """
     Estimation using percentile-based approach.
 
+    Real-world sky brightness distributions are highly peaked, so
+    percentile-based estimation is more appropriate than 3-sigma rule.
+
     Args:
         files: List of RAW file paths
         roi_mask: ROI mask to focus on sky area
@@ -274,12 +281,19 @@ def estimate_diff_threshold_from_samples(
     p99 = np.percentile(diff_array, 99)
 
     # Multiple estimation methods
+    # Method 1: 98th percentile (works well for peaked distributions)
     method_1 = int(p98)
+
+    # Method 2: Conservative sigma multiplier (3σ → 1.5σ for real sky data)
     method_2 = int(mean_diff + 1.5 * std_diff)
+
+    # Method 3: Median-based (robust to outliers)
     method_3 = int(median_diff * 3.0)
 
     # Select the most sensitive (lowest) threshold
     estimated_threshold = min(method_1, method_2, method_3)
+
+    # Clamp to reasonable range (adjusted based on real-world feedback)
     estimated_threshold = np.clip(estimated_threshold, 3, 18)
 
     print(f"\n{'─'*50}")
@@ -353,6 +367,7 @@ def estimate_min_area_from_samples(
         if len(roi_pixels) < 100:
             continue
 
+        # Use 98th percentile (brighter stars only, avoid noise)
         threshold = np.percentile(roi_pixels, 98)
 
         _, star_mask = cv2.threshold(img, int(threshold), 255, cv2.THRESH_BINARY)
@@ -362,9 +377,10 @@ def estimate_min_area_from_samples(
             star_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
 
+        # Filter by area range to exclude noise and large artifacts
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if 2.0 <= area <= 100.0:
+            if 2.0 <= area <= 100.0:  # Exclude tiny noise and large artifacts
                 all_star_areas.append(area)
 
     print(f"✓ Detected {len(all_star_areas)} stars")
@@ -379,8 +395,13 @@ def estimate_min_area_from_samples(
     p75_star = np.percentile(star_areas, 75)
     p90_star = np.percentile(star_areas, 90)
 
+    # Use 75th percentile × 2.0 for more robust estimation
     estimated_min_area = int(p75_star * 2.0)
+
+    # Ensure minimum is at least default value
     estimated_min_area = max(estimated_min_area, DEFAULT_MIN_AREA)
+
+    # Clamp to reasonable range
     estimated_min_area = np.clip(estimated_min_area, 8, 50)
 
     print(f"\n{'─'*50}")
@@ -418,6 +439,7 @@ def estimate_min_line_score_from_image(
     height, width = image_shape
     diagonal = np.sqrt(height**2 + width**2)
 
+    # Reduced base coefficient from 4% to 2.5% based on real data
     base_score = diagonal * 0.025
 
     if focal_length_mm:
@@ -443,6 +465,7 @@ def estimate_min_line_score_from_image(
         print(f"  Base score:   {base_score:.1f}")
         print(f"  (No focal length provided)")
 
+    # Adjusted clamp range based on real meteor data
     estimated_score = np.clip(adjusted_score, 40.0, 150.0)
 
     print(f"{'─'*50}")
@@ -706,6 +729,7 @@ class MeteorDetectionPipeline:
                 future = executor.submit(process_image_batch, batch, roi_mask, params)
                 futures.append(future)
 
+            # Collect results
             processed = 0
             for future in as_completed(futures):
                 try:

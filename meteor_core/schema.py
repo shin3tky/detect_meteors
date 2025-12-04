@@ -26,7 +26,29 @@ DEFAULT_TARGET_FOLDER = "rawfiles"
 DEFAULT_OUTPUT_FOLDER = "candidates"
 DEFAULT_DEBUG_FOLDER = "debug_masks"
 
-EXTENSIONS = ["*.ORF", "*.ARW", "*.CR2", "*.NEF", "*.DNG"]
+EXTENSIONS = [
+    "*.ORF",  # Olympus
+    "*.RW2",  # Panasonic
+    "*.X3F",  # Sigma
+    "*.RWL",  # Leica
+    "*.RAF",  # Fujifilm
+    "*.ARW",  # Sony
+    "*.SRF",  # Sony
+    "*.SR2",  # Sony
+    "*.CR2",  # Canon
+    "*.CR3",  # Canon
+    "*.CRW",  # Canon
+    "*.NEF",  # Nikon
+    "*.NRW",  # Nikon
+    "*.FFF",  # Hasselblad
+    "*.3FR",  # Hasselblad
+    "*.DCR",  # Kodak
+    "*.KDC",  # Kodak
+    "*.KC2",  # Kodak
+    "*.SRW",  # Samsung
+    "*.RAW",  # RAW
+    "*.DNG",  # Adobe
+]
 
 DEFAULT_DIFF_THRESHOLD = 8
 DEFAULT_MIN_AREA = 10
@@ -39,11 +61,12 @@ DEFAULT_MIN_LINE_SCORE = 80.0
 
 DEFAULT_ENABLE_ROI_SELECTION = True
 DEFAULT_NUM_WORKERS = max(1, mp.cpu_count() - 1)
-DEFAULT_BATCH_SIZE = 10
-AUTO_BATCH_MEMORY_FRACTION = 0.6
+DEFAULT_BATCH_SIZE = 10  # Batch processing size
+AUTO_BATCH_MEMORY_FRACTION = 0.6  # Portion of free RAM to use when auto-sizing batches
 
 # NPF Rule related default values
-DEFAULT_PIXEL_PITCH_UM = 4.0
+# Default pixel pitch for fallback (μm)
+DEFAULT_PIXEL_PITCH_UM = 4.0  # Typical value for APS-C/MFT cameras
 
 # ==========================================
 # Fisheye Projection Models
@@ -53,19 +76,35 @@ FISHEYE_PROJECTION_MODELS = {
         "name": "Equisolid Angle Projection",
         "description": "Equal-area projection (r = 2f × sin(θ/2))",
     },
+    # Future projection models can be added here:
+    # "EQUIDISTANT": {
+    #     "name": "Equidistant Projection",
+    #     "description": "Linear angle-to-distance mapping (r = f × θ)",
+    # },
+    # "STEREOGRAPHIC": {
+    #     "name": "Stereographic Projection",
+    #     "description": "Conformal projection (r = 2f × tan(θ/2))",
+    # },
 }
 
+# Default fisheye projection model
 DEFAULT_FISHEYE_MODEL = "EQUISOLID"
 
 # ==========================================
 # Sensor Presets
 # ==========================================
+# Each preset contains:
+#   - focal_factor: Crop factor for 35mm equivalent conversion
+#   - sensor_width: Sensor width in mm
+#   - pixel_pitch: Typical pixel pitch in μm (None = calculate from resolution)
+#   - description: Human-readable description
+# Ordered by sensor size (smallest to largest)
 SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
     # 1-inch sensor (smallest)
     "1INCH": {
         "focal_factor": 2.7,
         "sensor_width": 13.2,
-        "pixel_pitch": 2.4,
+        "pixel_pitch": 2.4,  # Typical for 20MP 1-inch (e.g., Sony RX100)
         "description": "1-inch sensor (13.2×8.8mm)",
     },
     "1_INCH": {
@@ -78,14 +117,14 @@ SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
     "MFT": {
         "focal_factor": 2.0,
         "sensor_width": 17.3,
-        "pixel_pitch": 3.7,
+        "pixel_pitch": 3.7,  # Typical for 20MP MFT (e.g., OM-1, GH6)
         "description": "Micro Four Thirds (17.3×13mm)",
     },
     # APS-C (Sony/Nikon/Fuji)
     "APSC": {
         "focal_factor": 1.5,
         "sensor_width": 23.5,
-        "pixel_pitch": 3.9,
+        "pixel_pitch": 3.9,  # Typical for 26MP APS-C (e.g., Sony a6700, Fuji X-T5)
         "description": "APS-C Sony/Nikon/Fuji (23.5×15.6mm)",
     },
     "APS_C": {
@@ -98,7 +137,7 @@ SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
     "APSC_CANON": {
         "focal_factor": 1.6,
         "sensor_width": 22.3,
-        "pixel_pitch": 3.2,
+        "pixel_pitch": 3.2,  # Typical for 32MP Canon APS-C (e.g., R7)
         "description": "APS-C Canon (22.3×14.9mm)",
     },
     "APS_C_CANON": {
@@ -111,7 +150,7 @@ SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
     "APSH": {
         "focal_factor": 1.3,
         "sensor_width": 27.9,
-        "pixel_pitch": 5.7,
+        "pixel_pitch": 5.7,  # Typical for 16MP APS-H (e.g., Canon 1D Mark IV)
         "description": "APS-H Canon (27.9×18.6mm)",
     },
     "APS_H": {
@@ -124,7 +163,7 @@ SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
     "FF": {
         "focal_factor": 1.0,
         "sensor_width": 36.0,
-        "pixel_pitch": 4.3,
+        "pixel_pitch": 4.3,  # Typical for 45-50MP FF (e.g., Sony a7RV, Canon R5)
         "description": "Full Frame 35mm (36×24mm)",
     },
     "FULLFRAME": {
@@ -133,11 +172,11 @@ SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
         "pixel_pitch": 4.3,
         "description": "Full Frame 35mm (36×24mm)",
     },
-    # Medium Format 44x33
+    # Medium Format 44x33 (Fujifilm GFX, Pentax 645Z, Hasselblad X)
     "MF44X33": {
         "focal_factor": 0.79,
         "sensor_width": 43.8,
-        "pixel_pitch": 3.76,
+        "pixel_pitch": 3.76,  # Typical for 100MP (e.g., GFX100, X2D 100C)
         "description": "Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D",
     },
     "MF44_33": {
@@ -146,11 +185,11 @@ SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
         "pixel_pitch": 3.76,
         "description": "Medium Format 44×33 (43.8×32.9mm) - GFX/645Z/X2D",
     },
-    # Medium Format 54x40
+    # Medium Format 54x40 (Hasselblad H6D-100c)
     "MF54X40": {
         "focal_factor": 0.64,
         "sensor_width": 53.4,
-        "pixel_pitch": 4.6,
+        "pixel_pitch": 4.6,  # 100MP H6D-100c (11600×8700, 4.6μm)
         "description": "Medium Format 54×40 (53.4×40mm) - Hasselblad H6D-100c",
     },
     "MF54_40": {
@@ -161,8 +200,10 @@ SENSOR_PRESETS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# Legacy compatibility dictionaries
+# Legacy compatibility: CROP_FACTORS dictionary for parse_focal_factor()
 CROP_FACTORS = {key: preset["focal_factor"] for key, preset in SENSOR_PRESETS.items()}
+
+# Legacy compatibility: DEFAULT_SENSOR_WIDTHS dictionary
 DEFAULT_SENSOR_WIDTHS = {
     key: preset["sensor_width"] for key, preset in SENSOR_PRESETS.items()
 }
