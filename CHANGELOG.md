@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.5.5 - 2025-12-05
+- **Code Architecture Refactoring**: Reorganized codebase into modular structure for v2.x plugin architecture preparation
+  - `detect_meteors_cli.py`: CLI interface only (argument parsing, user interaction)
+  - `meteor_core/`: Core logic modules
+    - `schema.py`: Type definitions and data structures
+    - `pipeline.py`: Processing pipeline orchestration
+    - `image_io.py`: RAW image loading and EXIF extraction
+    - `roi_selector.py`: ROI selection interface
+    - `utils.py`: Utility functions
+    - `detectors/`: Detection algorithm implementations
+      - `base.py`: Abstract base detector class
+      - `hough_default.py`: Default Hough transform detector
+    - `outputs/`: Output handling
+      - `writer.py`: Result file writer
+- **Type Safety Improvements**: Enhanced type hints throughout codebase using TypedDict for structured data
+- **Backward Compatibility**: CLI interface unchanged; all existing commands work without modification
+
 ## v1.5.4 - 2025-12-03
 - **Improved ROI Selection Display**: Brightened the ROI selection image for better visibility in dark conditions
 - **NOTICE Document**: Added NOTICE file for third-party license attributions and acknowledgments
