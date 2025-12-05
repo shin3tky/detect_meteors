@@ -2,7 +2,7 @@
 
 ![social_preview](social_preview.jpg)
 
-[![Python application test](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml/badge.svg)](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml)
+[![tests](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml/badge.svg)](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml)
 
 Automatically detect meteors in RAW astrophotography images using frame-to-frame difference analysis.
 
