@@ -16,7 +16,7 @@ import signal
 import cv2
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import List, Tuple, Dict, Optional, Any, Protocol
+from typing import List, Tuple, Dict, Optional, Any, Protocol, Type
 
 from dataclasses import is_dataclass
 
@@ -30,6 +30,7 @@ from .schema import (
 )
 from .image_io import extract_exif_metadata
 from .inputs import InputLoader, create_raw_loader, discover_input_loaders
+from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import HoughDetector, compute_line_score_fast
 from .outputs import (
@@ -106,22 +107,58 @@ def _resolve_input_loader(
 
 
 def _extract_metadata_from_loader(loader: InputLoader, filepath: str) -> Dict[str, Any]:
-    extractor = getattr(loader, "extract_metadata", None)
-    if callable(extractor):
-        return extractor(filepath)
+    """Extract metadata using the loader if it supports it, otherwise use default."""
+    if supports_metadata_extraction(loader):
+        return loader.extract_metadata(filepath)  # type: ignore[union-attr]
     return extract_exif_metadata(filepath)
 
 
 class DetectionPipeline(Protocol):
-    """Protocol describing the interface for meteor detection pipelines."""
+    """Protocol describing the interface for meteor detection pipelines.
 
-    target_folder: str
-    output_folder: str
-    debug_folder: str
-    params: DetectionParams
+    This protocol defines the contract that all detection pipeline implementations
+    must follow. It uses properties to allow both attribute access and method
+    calls to work correctly with isinstance checks.
+
+    Implementers should provide:
+        - target_folder property: Input folder path
+        - output_folder property: Output folder path
+        - debug_folder property: Debug output folder path
+        - params property: Detection parameters
+        - extract_metadata method: Metadata extraction
+        - run method: Main execution
+    """
+
+    @property
+    def target_folder(self) -> str:
+        """Input folder containing RAW files."""
+        ...
+
+    @property
+    def output_folder(self) -> str:
+        """Output folder for detected candidates."""
+        ...
+
+    @property
+    def debug_folder(self) -> str:
+        """Folder for debug images."""
+        ...
+
+    @property
+    def params(self) -> DetectionParams:
+        """Detection parameters."""
+        ...
 
     def extract_metadata(self, filepath: str) -> Dict[str, Any]:
-        """Extract metadata for the provided file using the configured loader."""
+        """Extract metadata for the provided file using the configured loader.
+
+        Args:
+            filepath: Path to the file to extract metadata from.
+
+        Returns:
+            Dictionary containing file metadata.
+        """
+        ...
 
     def run(
         self,
@@ -130,7 +167,18 @@ class DetectionPipeline(Protocol):
         resume: bool = True,
         profile: bool = False,
     ) -> int:
-        """Run the detection pipeline and return number of detected candidates."""
+        """Run the detection pipeline and return number of detected candidates.
+
+        Args:
+            enable_roi_selection: Whether to enable interactive ROI selection.
+            roi_polygon_cli: Pre-defined ROI polygon from command line.
+            resume: Whether to resume from previous progress.
+            profile: Whether to collect performance metrics.
+
+        Returns:
+            Number of detected meteor candidates.
+        """
+        ...
 
 
 def _init_worker_ignore_interrupt() -> None:
@@ -596,6 +644,8 @@ class MeteorDetectionPipeline:
     - Parameter optimization
     - Batch processing with multiprocessing
     - Progress tracking and resumption
+
+    This class implements the DetectionPipeline protocol.
     """
 
     def __init__(
@@ -635,10 +685,10 @@ class MeteorDetectionPipeline:
             input_loader_config: Configuration passed to the resolved loader
             output_handler: Optional custom :class:`OutputHandler` implementation
         """
-        self.target_folder = target_folder
-        self.output_folder = output_folder
-        self.debug_folder = debug_folder
-        self.params = params
+        self._target_folder = target_folder
+        self._output_folder = output_folder
+        self._debug_folder = debug_folder
+        self._params = params
         self.num_workers = num_workers
         self.batch_size = batch_size
         self.auto_batch_size = auto_batch_size
@@ -653,6 +703,26 @@ class MeteorDetectionPipeline:
             output_folder, debug_folder, progress_file, output_overwrite
         )
         self.progress_manager = ProgressManager(progress_file)
+
+    @property
+    def target_folder(self) -> str:
+        """Input folder containing RAW files."""
+        return self._target_folder
+
+    @property
+    def output_folder(self) -> str:
+        """Output folder for detected candidates."""
+        return self._output_folder
+
+    @property
+    def debug_folder(self) -> str:
+        """Folder for debug images."""
+        return self._debug_folder
+
+    @property
+    def params(self) -> DetectionParams:
+        """Detection parameters."""
+        return self._params
 
     def extract_metadata(self, filepath: str) -> Dict[str, Any]:
         """Extract metadata for the provided file using the configured loader."""
@@ -688,8 +758,8 @@ class MeteorDetectionPipeline:
         )
 
         # Safety check
-        target_fullpath = os.path.abspath(self.target_folder)
-        output_fullpath = os.path.abspath(self.output_folder)
+        target_fullpath = os.path.abspath(self._target_folder)
+        output_fullpath = os.path.abspath(self._output_folder)
 
         if target_fullpath == output_fullpath:
             print(f"\n{'='*60}")
@@ -698,8 +768,8 @@ class MeteorDetectionPipeline:
             return 0
 
         # Collect files
-        print(f"Collecting RAW files from: {self.target_folder}")
-        files = collect_files(self.target_folder)
+        print(f"Collecting RAW files from: {self._target_folder}")
+        files = collect_files(self._target_folder)
 
         if len(files) < 2:
             print("Need at least 2 images. Exiting.")
@@ -745,7 +815,7 @@ class MeteorDetectionPipeline:
             print("Skipping ROI selection. Processing entire image.")
 
         # Get params dict
-        params = self.params.to_dict()
+        params = self._params.to_dict()
 
         # Progress tracking setup
         params_for_hash = params.copy()
@@ -974,5 +1044,51 @@ class MeteorDetectionPipeline:
         return self.progress_manager.get_total_detected()
 
 
-# Alias for the default implementation to allow future pipeline swapping
-DefaultPipeline: DetectionPipeline = MeteorDetectionPipeline
+# Type alias for the default pipeline class
+# Note: This is Type[...], not an instance - use it to instantiate pipelines
+DefaultPipelineClass: Type[MeteorDetectionPipeline] = MeteorDetectionPipeline
+
+
+def create_default_pipeline(
+    target_folder: str,
+    output_folder: str,
+    debug_folder: str,
+    params: DetectionParams,
+    **kwargs: Any,
+) -> MeteorDetectionPipeline:
+    """Factory function to create the default detection pipeline.
+
+    This function provides a convenient way to create a MeteorDetectionPipeline
+    with the default configuration.
+
+    Args:
+        target_folder: Input folder containing RAW files
+        output_folder: Output folder for detected candidates
+        debug_folder: Folder for debug images
+        params: Detection parameters
+        **kwargs: Additional arguments passed to MeteorDetectionPipeline
+
+    Returns:
+        Configured MeteorDetectionPipeline instance.
+
+    Example:
+        >>> from meteor_core import create_default_pipeline, DetectionParams
+        >>> pipeline = create_default_pipeline(
+        ...     target_folder="./raw",
+        ...     output_folder="./candidates",
+        ...     debug_folder="./debug",
+        ...     params=DetectionParams(),
+        ... )
+        >>> detected = pipeline.run()
+    """
+    return MeteorDetectionPipeline(
+        target_folder=target_folder,
+        output_folder=output_folder,
+        debug_folder=debug_folder,
+        params=params,
+        **kwargs,
+    )
+
+
+# Backward compatibility alias (deprecated, use DefaultPipelineClass or create_default_pipeline)
+DefaultPipeline = DefaultPipelineClass

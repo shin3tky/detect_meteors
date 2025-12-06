@@ -58,6 +58,21 @@ from .image_io import (
 
 from .inputs.raw import RawImageLoader, RawLoaderConfig, create_raw_loader
 
+from .inputs.base import (
+    InputLoader,
+    MetadataExtractor,
+    DataclassInputLoader,
+    PydanticInputLoader,
+    supports_metadata_extraction,
+    _is_valid_input_loader,
+)
+
+from .inputs.discovery import (
+    discover_input_loaders,
+    PLUGIN_DIR,
+    PLUGIN_GROUP,
+)
+
 from .roi_selector import (
     select_roi,
     create_roi_mask_from_polygon,
@@ -117,7 +132,10 @@ from .pipeline import (
     estimate_min_line_score_from_image,
     DetectionPipeline,
     MeteorDetectionPipeline,
-    DefaultPipeline,
+    DefaultPipelineClass,
+    create_default_pipeline,
+    # Backward compatibility (deprecated)
+    DefaultPipelineClass as DefaultPipeline,
 )
 
 __all__ = [
@@ -158,9 +176,21 @@ __all__ = [
     # Image I/O
     "load_and_bin_raw_fast",
     "extract_exif_metadata",
+    # Input Loaders - Protocols
+    "InputLoader",
+    "MetadataExtractor",
+    "DataclassInputLoader",
+    "PydanticInputLoader",
+    "supports_metadata_extraction",
+    "_is_valid_input_loader",
+    # Input Loaders - RAW
     "RawImageLoader",
     "RawLoaderConfig",
     "create_raw_loader",
+    # Input Loaders - Discovery
+    "discover_input_loaders",
+    "PLUGIN_DIR",
+    "PLUGIN_GROUP",
     # ROI
     "select_roi",
     "create_roi_mask_from_polygon",
@@ -212,5 +242,7 @@ __all__ = [
     "estimate_min_line_score_from_image",
     "DetectionPipeline",
     "MeteorDetectionPipeline",
-    "DefaultPipeline",
+    "DefaultPipelineClass",
+    "create_default_pipeline",
+    "DefaultPipeline",  # Backward compatibility (deprecated)
 ]
