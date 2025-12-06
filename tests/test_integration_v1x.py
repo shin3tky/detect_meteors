@@ -9,7 +9,6 @@ Tests the process_image_batch() function with various:
 """
 
 import unittest
-from unittest.mock import patch
 import numpy as np
 import cv2
 import sys
@@ -70,17 +69,19 @@ class TestMeteorDetectionBase(unittest.TestCase):
         if roi_mask is None:
             roi_mask = self.create_roi_mask(full=True)
 
-        with patch("meteor_core.pipeline.load_and_bin_raw_fast") as mock_load:
+        class DummyLoader:
+            def __init__(self, curr_img, prev_img):
+                self.curr_img = curr_img
+                self.prev_img = prev_img
 
-            def side_effect(filepath):
+            def load(self, filepath):
                 if "current" in filepath:
-                    return img_current
-                else:
-                    return img_previous
+                    return self.curr_img
+                return self.prev_img
 
-            mock_load.side_effect = side_effect
-            batch_data = [("path/to/current.ORF", "path/to/prev.ORF")]
-            results = process_image_batch(batch_data, roi_mask, params)
+        batch_data = [("path/to/current.ORF", "path/to/prev.ORF")]
+        loader = DummyLoader(img_current, img_previous)
+        results = process_image_batch(batch_data, roi_mask, params, input_loader=loader)
 
         return results
 
