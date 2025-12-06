@@ -16,7 +16,7 @@ import signal
 import cv2
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import List, Tuple, Dict, Optional, Any
+from typing import List, Tuple, Dict, Optional, Any, Protocol
 
 from dataclasses import is_dataclass
 
@@ -110,6 +110,27 @@ def _extract_metadata_from_loader(loader: InputLoader, filepath: str) -> Dict[st
     if callable(extractor):
         return extractor(filepath)
     return extract_exif_metadata(filepath)
+
+
+class DetectionPipeline(Protocol):
+    """Protocol describing the interface for meteor detection pipelines."""
+
+    target_folder: str
+    output_folder: str
+    debug_folder: str
+    params: DetectionParams
+
+    def extract_metadata(self, filepath: str) -> Dict[str, Any]:
+        """Extract metadata for the provided file using the configured loader."""
+
+    def run(
+        self,
+        enable_roi_selection: bool = True,
+        roi_polygon_cli: Optional[List[List[int]]] = None,
+        resume: bool = True,
+        profile: bool = False,
+    ) -> int:
+        """Run the detection pipeline and return number of detected candidates."""
 
 
 def _init_worker_ignore_interrupt() -> None:
@@ -951,3 +972,7 @@ class MeteorDetectionPipeline:
                 self.progress_manager.record_result(filename, is_candidate)
 
         return self.progress_manager.get_total_detected()
+
+
+# Alias for the default implementation to allow future pipeline swapping
+DefaultPipeline: DetectionPipeline = MeteorDetectionPipeline

@@ -115,7 +115,9 @@ from .pipeline import (
     estimate_diff_threshold_from_samples,
     estimate_min_area_from_samples,
     estimate_min_line_score_from_image,
+    DetectionPipeline,
     MeteorDetectionPipeline,
+    DefaultPipeline,
 )
 
 __all__ = [
@@ -208,5 +210,7 @@ __all__ = [
     "estimate_diff_threshold_from_samples",
     "estimate_min_area_from_samples",
     "estimate_min_line_score_from_image",
+    "DetectionPipeline",
     "MeteorDetectionPipeline",
+    "DefaultPipeline",
 ]
