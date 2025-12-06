@@ -8,6 +8,7 @@ from .base import (
     forbid_unknown_keys,
 )
 from .raw import RawImageLoader, RawLoaderConfig, create_raw_loader
+from .discovery import PLUGIN_DIR, PLUGIN_GROUP, discover_input_loaders
 
 __all__ = [
     "ConfigType",
@@ -18,4 +19,7 @@ __all__ = [
     "RawImageLoader",
     "RawLoaderConfig",
     "create_raw_loader",
+    "PLUGIN_DIR",
+    "PLUGIN_GROUP",
+    "discover_input_loaders",
 ]
