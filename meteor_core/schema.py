@@ -15,7 +15,7 @@ import multiprocessing as mp
 # ==========================================
 # Version
 # ==========================================
-VERSION = "1.5.5"
+VERSION = "1.5.6"
 
 # ==========================================
 # Default Settings
@@ -256,6 +256,130 @@ class DetectionParams:
             threshold=self.hough_threshold,
             min_line_length=self.hough_min_line_length,
             max_line_gap=self.hough_max_line_gap,
+        )
+
+
+@dataclass
+class PipelineConfig:
+    """Configuration for MeteorDetectionPipeline.
+
+    This dataclass consolidates all pipeline configuration into a single object,
+    making it easier to manage, serialize, and pass around.
+
+    Attributes:
+        target_folder: Input folder containing RAW files to process.
+        output_folder: Output folder for detected meteor candidates.
+        debug_folder: Folder for debug mask images.
+        params: Detection algorithm parameters.
+        num_workers: Number of parallel worker processes.
+        batch_size: Number of image pairs to process per batch.
+        auto_batch_size: Whether to automatically adjust batch size based on memory.
+        enable_parallel: Whether to enable parallel processing.
+        progress_file: Path to the progress tracking JSON file.
+        output_overwrite: Whether to overwrite existing files in output folder.
+
+    Example:
+        >>> config = PipelineConfig(
+        ...     target_folder="./raw",
+        ...     output_folder="./candidates",
+        ...     debug_folder="./debug",
+        ...     params=DetectionParams(),
+        ... )
+        >>> # Use with MeteorDetectionPipeline
+        >>> pipeline = MeteorDetectionPipeline(config)
+    """
+
+    # Required fields (no defaults)
+    target_folder: str
+    output_folder: str
+    debug_folder: str
+    params: DetectionParams
+
+    # Optional fields with defaults
+    num_workers: int = DEFAULT_NUM_WORKERS
+    batch_size: int = DEFAULT_BATCH_SIZE
+    auto_batch_size: bool = False
+    enable_parallel: bool = True
+    progress_file: str = DEFAULT_PROGRESS_FILE
+    output_overwrite: bool = False
+
+    def __post_init__(self) -> None:
+        """Validate configuration after initialization."""
+        if self.num_workers < 1:
+            raise ValueError(f"num_workers must be >= 1, got {self.num_workers}")
+        if self.batch_size < 1:
+            raise ValueError(f"batch_size must be >= 1, got {self.batch_size}")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert configuration to dictionary.
+
+        Returns:
+            Dictionary representation of the configuration.
+        """
+        return {
+            "target_folder": self.target_folder,
+            "output_folder": self.output_folder,
+            "debug_folder": self.debug_folder,
+            "params": self.params.to_dict(),
+            "num_workers": self.num_workers,
+            "batch_size": self.batch_size,
+            "auto_batch_size": self.auto_batch_size,
+            "enable_parallel": self.enable_parallel,
+            "progress_file": self.progress_file,
+            "output_overwrite": self.output_overwrite,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PipelineConfig":
+        """Create configuration from dictionary.
+
+        Args:
+            data: Dictionary containing configuration values.
+
+        Returns:
+            PipelineConfig instance.
+        """
+        params_data = data.get("params", {})
+        if isinstance(params_data, dict):
+            params = DetectionParams(**params_data)
+        else:
+            params = params_data
+
+        return cls(
+            target_folder=data["target_folder"],
+            output_folder=data["output_folder"],
+            debug_folder=data["debug_folder"],
+            params=params,
+            num_workers=data.get("num_workers", DEFAULT_NUM_WORKERS),
+            batch_size=data.get("batch_size", DEFAULT_BATCH_SIZE),
+            auto_batch_size=data.get("auto_batch_size", False),
+            enable_parallel=data.get("enable_parallel", True),
+            progress_file=data.get("progress_file", DEFAULT_PROGRESS_FILE),
+            output_overwrite=data.get("output_overwrite", False),
+        )
+
+    @classmethod
+    def with_defaults(
+        cls,
+        target_folder: str = DEFAULT_TARGET_FOLDER,
+        output_folder: str = DEFAULT_OUTPUT_FOLDER,
+        debug_folder: str = DEFAULT_DEBUG_FOLDER,
+    ) -> "PipelineConfig":
+        """Create configuration with all default values.
+
+        Args:
+            target_folder: Input folder (default: "rawfiles").
+            output_folder: Output folder (default: "candidates").
+            debug_folder: Debug folder (default: "debug_masks").
+
+        Returns:
+            PipelineConfig with default settings.
+        """
+        return cls(
+            target_folder=target_folder,
+            output_folder=output_folder,
+            debug_folder=debug_folder,
+            params=DetectionParams(),
         )
 
 

@@ -43,6 +43,7 @@ from .schema import (
     AUTO_BATCH_MEMORY_FRACTION,
     HoughParams,
     DetectionParams,
+    PipelineConfig,
     ExifData,
     NPFMetrics,
     DetectionResult,
@@ -167,6 +168,7 @@ __all__ = [
     # Data Classes
     "HoughParams",
     "DetectionParams",
+    "PipelineConfig",
     "ExifData",
     "NPFMetrics",
     "DetectionResult",

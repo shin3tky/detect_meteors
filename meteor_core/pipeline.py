@@ -13,10 +13,11 @@ import os
 import glob
 import time
 import signal
+import warnings
 import cv2
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import List, Tuple, Dict, Optional, Any, Protocol, Type
+from typing import List, Tuple, Dict, Optional, Any, Protocol, Type, Union, overload
 
 from dataclasses import is_dataclass
 
@@ -26,7 +27,11 @@ from .schema import (
     DEFAULT_MIN_AREA,
     DEFAULT_MIN_LINE_SCORE,
     DEFAULT_FISHEYE_MODEL,
+    DEFAULT_NUM_WORKERS,
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_PROGRESS_FILE,
     DetectionParams,
+    PipelineConfig,
 )
 from .image_io import extract_exif_metadata
 from .inputs import InputLoader, create_raw_loader, discover_input_loaders
@@ -128,6 +133,11 @@ class DetectionPipeline(Protocol):
         - extract_metadata method: Metadata extraction
         - run method: Main execution
     """
+
+    @property
+    def config(self) -> PipelineConfig:
+        """Pipeline configuration."""
+        ...
 
     @property
     def target_folder(self) -> str:
@@ -646,19 +656,72 @@ class MeteorDetectionPipeline:
     - Progress tracking and resumption
 
     This class implements the DetectionPipeline protocol.
+
+    There are two ways to initialize this class:
+
+    1. New API (recommended): Pass a PipelineConfig object
+       >>> config = PipelineConfig(
+       ...     target_folder="./raw",
+       ...     output_folder="./candidates",
+       ...     debug_folder="./debug",
+       ...     params=DetectionParams(),
+       ... )
+       >>> pipeline = MeteorDetectionPipeline(config)
+
+    2. Legacy API (backward compatible): Pass individual arguments
+       >>> pipeline = MeteorDetectionPipeline(
+       ...     target_folder="./raw",
+       ...     output_folder="./candidates",
+       ...     debug_folder="./debug",
+       ...     params=DetectionParams(),
+       ... )
     """
 
+    @overload
+    def __init__(
+        self,
+        config: PipelineConfig,
+        *,
+        input_loader: Optional[InputLoader] = None,
+        input_loader_name: Optional[str] = None,
+        input_loader_config: Optional[Dict[str, Any]] = None,
+        output_handler: Optional[OutputHandler] = None,
+    ) -> None:
+        """Initialize with PipelineConfig (new API)."""
+        ...
+
+    @overload
     def __init__(
         self,
         target_folder: str,
         output_folder: str,
         debug_folder: str,
         params: DetectionParams,
-        num_workers: int = 1,
-        batch_size: int = 10,
+        num_workers: int = ...,
+        batch_size: int = ...,
+        auto_batch_size: bool = ...,
+        enable_parallel: bool = ...,
+        progress_file: str = ...,
+        output_overwrite: bool = ...,
+        input_loader: Optional[InputLoader] = ...,
+        input_loader_name: Optional[str] = ...,
+        input_loader_config: Optional[Dict[str, Any]] = ...,
+        output_handler: Optional[OutputHandler] = ...,
+    ) -> None:
+        """Initialize with individual arguments (legacy API)."""
+        ...
+
+    def __init__(
+        self,
+        config_or_target: Union[PipelineConfig, str],
+        output_folder: Optional[str] = None,
+        debug_folder: Optional[str] = None,
+        params: Optional[DetectionParams] = None,
+        num_workers: int = DEFAULT_NUM_WORKERS,
+        batch_size: int = DEFAULT_BATCH_SIZE,
         auto_batch_size: bool = False,
         enable_parallel: bool = True,
-        progress_file: str = "progress.json",
+        progress_file: str = DEFAULT_PROGRESS_FILE,
         output_overwrite: bool = False,
         input_loader: Optional[InputLoader] = None,
         input_loader_name: Optional[str] = None,
@@ -668,61 +731,138 @@ class MeteorDetectionPipeline:
         """
         Initialize the detection pipeline.
 
+        Can be called in two ways:
+
+        1. New API with PipelineConfig:
+           MeteorDetectionPipeline(config, input_loader=..., output_handler=...)
+
+        2. Legacy API with individual arguments:
+           MeteorDetectionPipeline(target_folder, output_folder, debug_folder, params, ...)
+
         Args:
-            target_folder: Input folder containing RAW files
-            output_folder: Output folder for detected candidates
-            debug_folder: Folder for debug images
-            params: Detection parameters
-            num_workers: Number of parallel workers
-            batch_size: Batch size for processing
-            auto_batch_size: Whether to auto-calculate batch size
-            enable_parallel: Whether to enable parallel processing
-            progress_file: Path to progress tracking file
-            output_overwrite: Whether to overwrite existing output files
-            input_loader: Optional pre-initialized :class:`InputLoader`
-            input_loader_name: Name of the loader plugin to use (fallback when
-                ``input_loader`` is not provided)
-            input_loader_config: Configuration passed to the resolved loader
-            output_handler: Optional custom :class:`OutputHandler` implementation
+            config_or_target: Either a PipelineConfig object (new API) or
+                target_folder string (legacy API)
+            output_folder: Output folder (legacy API only, ignored if config provided)
+            debug_folder: Debug folder (legacy API only, ignored if config provided)
+            params: Detection parameters (legacy API only, ignored if config provided)
+            num_workers: Number of parallel workers (legacy API only)
+            batch_size: Batch size for processing (legacy API only)
+            auto_batch_size: Auto-calculate batch size (legacy API only)
+            enable_parallel: Enable parallel processing (legacy API only)
+            progress_file: Progress tracking file path (legacy API only)
+            output_overwrite: Overwrite existing files (legacy API only)
+            input_loader: Pre-initialized InputLoader instance
+            input_loader_name: Name of loader plugin to use
+            input_loader_config: Configuration for the loader
+            output_handler: Custom OutputHandler implementation
         """
-        self._target_folder = target_folder
-        self._output_folder = output_folder
-        self._debug_folder = debug_folder
-        self._params = params
-        self.num_workers = num_workers
-        self.batch_size = batch_size
-        self.auto_batch_size = auto_batch_size
-        self.enable_parallel = enable_parallel
-        self.progress_file = progress_file
-        self.output_overwrite = output_overwrite
+        # Determine which API is being used
+        if isinstance(config_or_target, PipelineConfig):
+            # New API: PipelineConfig provided
+            self._config = config_or_target
+        elif isinstance(config_or_target, str):
+            # Legacy API: individual arguments
+            if output_folder is None or debug_folder is None or params is None:
+                raise TypeError(
+                    "When using legacy API, output_folder, debug_folder, and params "
+                    "are required. Consider using PipelineConfig instead."
+                )
+
+            # Issue deprecation warning for legacy API
+            warnings.warn(
+                "Passing individual arguments to MeteorDetectionPipeline is deprecated. "
+                "Use PipelineConfig instead: "
+                "MeteorDetectionPipeline(PipelineConfig(target_folder=..., ...))",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+            self._config = PipelineConfig(
+                target_folder=config_or_target,
+                output_folder=output_folder,
+                debug_folder=debug_folder,
+                params=params,
+                num_workers=num_workers,
+                batch_size=batch_size,
+                auto_batch_size=auto_batch_size,
+                enable_parallel=enable_parallel,
+                progress_file=progress_file,
+                output_overwrite=output_overwrite,
+            )
+        else:
+            raise TypeError(
+                f"First argument must be PipelineConfig or str (target_folder), "
+                f"got {type(config_or_target).__name__}"
+            )
+
+        # Store loader configuration
         self.input_loader = input_loader
         self.input_loader_name = input_loader_name
         self.input_loader_config = input_loader_config
 
+        # Initialize output handler
         self.output_writer: OutputHandler = output_handler or OutputWriter(
-            output_folder, debug_folder, progress_file, output_overwrite
+            self._config.output_folder,
+            self._config.debug_folder,
+            self._config.progress_file,
+            self._config.output_overwrite,
         )
-        self.progress_manager = ProgressManager(progress_file)
+        self.progress_manager = ProgressManager(self._config.progress_file)
+
+    @property
+    def config(self) -> PipelineConfig:
+        """Pipeline configuration."""
+        return self._config
 
     @property
     def target_folder(self) -> str:
         """Input folder containing RAW files."""
-        return self._target_folder
+        return self._config.target_folder
 
     @property
     def output_folder(self) -> str:
         """Output folder for detected candidates."""
-        return self._output_folder
+        return self._config.output_folder
 
     @property
     def debug_folder(self) -> str:
         """Folder for debug images."""
-        return self._debug_folder
+        return self._config.debug_folder
 
     @property
     def params(self) -> DetectionParams:
         """Detection parameters."""
-        return self._params
+        return self._config.params
+
+    @property
+    def num_workers(self) -> int:
+        """Number of parallel workers."""
+        return self._config.num_workers
+
+    @property
+    def batch_size(self) -> int:
+        """Batch size for processing."""
+        return self._config.batch_size
+
+    @property
+    def auto_batch_size(self) -> bool:
+        """Whether to auto-adjust batch size."""
+        return self._config.auto_batch_size
+
+    @property
+    def enable_parallel(self) -> bool:
+        """Whether parallel processing is enabled."""
+        return self._config.enable_parallel
+
+    @property
+    def progress_file(self) -> str:
+        """Path to progress tracking file."""
+        return self._config.progress_file
+
+    @property
+    def output_overwrite(self) -> bool:
+        """Whether to overwrite existing files."""
+        return self._config.output_overwrite
 
     def extract_metadata(self, filepath: str) -> Dict[str, Any]:
         """Extract metadata for the provided file using the configured loader."""
@@ -758,8 +898,8 @@ class MeteorDetectionPipeline:
         )
 
         # Safety check
-        target_fullpath = os.path.abspath(self._target_folder)
-        output_fullpath = os.path.abspath(self._output_folder)
+        target_fullpath = os.path.abspath(self._config.target_folder)
+        output_fullpath = os.path.abspath(self._config.output_folder)
 
         if target_fullpath == output_fullpath:
             print(f"\n{'='*60}")
@@ -768,8 +908,8 @@ class MeteorDetectionPipeline:
             return 0
 
         # Collect files
-        print(f"Collecting RAW files from: {self._target_folder}")
-        files = collect_files(self._target_folder)
+        print(f"Collecting RAW files from: {self._config.target_folder}")
+        files = collect_files(self._config.target_folder)
 
         if len(files) < 2:
             print("Need at least 2 images. Exiting.")
@@ -815,7 +955,7 @@ class MeteorDetectionPipeline:
             print("Skipping ROI selection. Processing entire image.")
 
         # Get params dict
-        params = self._params.to_dict()
+        params = self._config.params.to_dict()
 
         # Progress tracking setup
         params_for_hash = params.copy()
@@ -829,7 +969,7 @@ class MeteorDetectionPipeline:
             loaded = self.progress_manager.load()
             if loaded and self.progress_manager.get_params_hash() == params_hash:
                 print(
-                    f"Resuming from progress file: {self.progress_file} "
+                    f"Resuming from progress file: {self._config.progress_file} "
                     f"(processed={self.progress_manager.get_total_processed()}, "
                     f"detected={self.progress_manager.get_total_detected()})"
                 )
@@ -855,16 +995,17 @@ class MeteorDetectionPipeline:
         overall_total = resume_offset + len(image_pairs)
 
         print(f"Starting processing: {len(image_pairs)} image pairs")
-        if self.enable_parallel:
+        if self._config.enable_parallel:
             print(
-                f"Parallel processing: {self.num_workers} workers, batch size: {self.batch_size}"
+                f"Parallel processing: {self._config.num_workers} workers, "
+                f"batch size: {self._config.batch_size}"
             )
 
         detected_count = self.progress_manager.get_total_detected()
         t_process = time.time()
 
         try:
-            if self.enable_parallel and self.num_workers > 1:
+            if self._config.enable_parallel and self._config.num_workers > 1:
                 detected_count = self._process_parallel(
                     image_pairs,
                     roi_mask,
@@ -885,7 +1026,9 @@ class MeteorDetectionPipeline:
                     input_loader,
                 )
         except KeyboardInterrupt:
-            print(f"\nInterrupted by user. Progress saved to {self.progress_file}.")
+            print(
+                f"\nInterrupted by user. Progress saved to {self._config.progress_file}."
+            )
             self.progress_manager.save()
             return self.progress_manager.get_total_detected()
 
@@ -918,14 +1061,15 @@ class MeteorDetectionPipeline:
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
         batches = [
-            image_pairs[i : i + self.batch_size]
-            for i in range(0, len(image_pairs), self.batch_size)
+            image_pairs[i : i + self._config.batch_size]
+            for i in range(0, len(image_pairs), self._config.batch_size)
         ]
 
         print(f"Number of batches: {len(batches)}")
 
         executor = ProcessPoolExecutor(
-            max_workers=self.num_workers, initializer=_init_worker_ignore_interrupt
+            max_workers=self._config.num_workers,
+            initializer=_init_worker_ignore_interrupt,
         )
         futures: List = []
         wait_for_tasks = True
@@ -1050,22 +1194,44 @@ DefaultPipelineClass: Type[MeteorDetectionPipeline] = MeteorDetectionPipeline
 
 
 def create_default_pipeline(
-    target_folder: str,
-    output_folder: str,
-    debug_folder: str,
-    params: DetectionParams,
+    config: Optional[PipelineConfig] = None,
+    *,
+    # Legacy API support
+    target_folder: Optional[str] = None,
+    output_folder: Optional[str] = None,
+    debug_folder: Optional[str] = None,
+    params: Optional[DetectionParams] = None,
     **kwargs: Any,
 ) -> MeteorDetectionPipeline:
     """Factory function to create the default detection pipeline.
 
-    This function provides a convenient way to create a MeteorDetectionPipeline
-    with the default configuration.
+    This function provides a convenient way to create a MeteorDetectionPipeline.
+
+    Can be called in two ways:
+
+    1. New API with PipelineConfig (recommended):
+       >>> config = PipelineConfig(
+       ...     target_folder="./raw",
+       ...     output_folder="./candidates",
+       ...     debug_folder="./debug",
+       ...     params=DetectionParams(),
+       ... )
+       >>> pipeline = create_default_pipeline(config)
+
+    2. Legacy API with individual arguments:
+       >>> pipeline = create_default_pipeline(
+       ...     target_folder="./raw",
+       ...     output_folder="./candidates",
+       ...     debug_folder="./debug",
+       ...     params=DetectionParams(),
+       ... )
 
     Args:
-        target_folder: Input folder containing RAW files
-        output_folder: Output folder for detected candidates
-        debug_folder: Folder for debug images
-        params: Detection parameters
+        config: PipelineConfig object (new API)
+        target_folder: Input folder (legacy API)
+        output_folder: Output folder (legacy API)
+        debug_folder: Debug folder (legacy API)
+        params: Detection parameters (legacy API)
         **kwargs: Additional arguments passed to MeteorDetectionPipeline
 
     Returns:
@@ -1081,12 +1247,40 @@ def create_default_pipeline(
         ... )
         >>> detected = pipeline.run()
     """
-    return MeteorDetectionPipeline(
-        target_folder=target_folder,
-        output_folder=output_folder,
-        debug_folder=debug_folder,
-        params=params,
-        **kwargs,
+    if config is not None:
+        return MeteorDetectionPipeline(config, **kwargs)
+
+    if target_folder is not None:
+        # Legacy API
+        if output_folder is None or debug_folder is None or params is None:
+            raise TypeError(
+                "When using legacy API, output_folder, debug_folder, and params "
+                "are required. Consider using PipelineConfig instead."
+            )
+
+        pipeline_config = PipelineConfig(
+            target_folder=target_folder,
+            output_folder=output_folder,
+            debug_folder=debug_folder,
+            params=params,
+            **{
+                k: v
+                for k, v in kwargs.items()
+                if k in PipelineConfig.__dataclass_fields__
+            },
+        )
+
+        loader_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k not in PipelineConfig.__dataclass_fields__
+        }
+
+        return MeteorDetectionPipeline(pipeline_config, **loader_kwargs)
+
+    raise TypeError(
+        "Either config or target_folder must be provided. "
+        "Use PipelineConfig for the recommended API."
     )
 
 
