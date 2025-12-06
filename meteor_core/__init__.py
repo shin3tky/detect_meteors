@@ -56,6 +56,8 @@ from .image_io import (
     extract_exif_metadata,
 )
 
+from .inputs.raw import RawImageLoader, RawLoaderConfig, create_raw_loader
+
 from .roi_selector import (
     select_roi,
     create_roi_mask_from_polygon,
@@ -153,6 +155,9 @@ __all__ = [
     # Image I/O
     "load_and_bin_raw_fast",
     "extract_exif_metadata",
+    "RawImageLoader",
+    "RawLoaderConfig",
+    "create_raw_loader",
     # ROI
     "select_roi",
     "create_roi_mask_from_polygon",

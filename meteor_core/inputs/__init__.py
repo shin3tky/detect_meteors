@@ -7,6 +7,7 @@ from .base import (
     PydanticInputLoader,
     forbid_unknown_keys,
 )
+from .raw import RawImageLoader, RawLoaderConfig, create_raw_loader
 
 __all__ = [
     "ConfigType",
@@ -14,4 +15,7 @@ __all__ = [
     "InputLoader",
     "PydanticInputLoader",
     "forbid_unknown_keys",
+    "RawImageLoader",
+    "RawLoaderConfig",
+    "create_raw_loader",
 ]

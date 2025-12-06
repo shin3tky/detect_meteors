@@ -26,7 +26,7 @@ from .schema import (
     DEFAULT_FISHEYE_MODEL,
     DetectionParams,
 )
-from .image_io import load_and_bin_raw_fast, extract_exif_metadata
+from .inputs.raw import RawImageLoader, create_raw_loader
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import HoughDetector, compute_line_score_fast
 from .outputs import OutputWriter, ProgressManager, load_progress, save_progress
@@ -39,6 +39,13 @@ from .utils import (
     optimize_params_with_npf,
     estimate_batch_size,
 )
+
+
+_DEFAULT_RAW_LOADER = create_raw_loader()
+
+
+def _get_raw_loader(raw_loader: Optional[RawImageLoader] = None) -> RawImageLoader:
+    return raw_loader or _DEFAULT_RAW_LOADER
 
 
 def _init_worker_ignore_interrupt() -> None:
@@ -85,7 +92,7 @@ def collect_files(target_folder: str) -> List[str]:
 
 
 def validate_raw_file(
-    index: int, raw_file: str
+    index: int, raw_file: str, raw_loader: Optional[RawImageLoader] = None
 ) -> Tuple[int, str, Optional[Exception]]:
     """
     Attempt to load a RAW file, returning any validation error.
@@ -97,15 +104,20 @@ def validate_raw_file(
     Returns:
         Tuple of (index, filepath, error or None)
     """
+    loader = _get_raw_loader(raw_loader)
+
     try:
-        load_and_bin_raw_fast(raw_file)
+        loader.load(raw_file)
         return index, raw_file, None
     except Exception as exc:
         return index, raw_file, exc
 
 
 def process_image_batch(
-    batch_data: List[Tuple[str, str]], roi_mask: np.ndarray, params: dict
+    batch_data: List[Tuple[str, str]],
+    roi_mask: np.ndarray,
+    params: dict,
+    raw_loader: Optional[RawImageLoader] = None,
 ) -> List[Tuple]:
     """
     Process a batch of images (handle multiple pairs at once).
@@ -130,13 +142,15 @@ def process_image_batch(
         "max_line_gap": params["hough_max_line_gap"],
     }
 
+    loader = _get_raw_loader(raw_loader)
+
     for curr_file, prev_file in batch_data:
         filename = os.path.basename(curr_file)
 
         try:
             # Load images
-            curr_img = load_and_bin_raw_fast(curr_file)
-            prev_img = load_and_bin_raw_fast(prev_file)
+            curr_img = loader.load(curr_file)
+            prev_img = loader.load(prev_file)
 
             # Calculate difference (save memory with in-place operation)
             diff = cv2.absdiff(curr_img, prev_img)
@@ -217,7 +231,10 @@ def process_image_batch(
 
 
 def estimate_diff_threshold_from_samples(
-    files: List[str], roi_mask: np.ndarray, sample_size: int = 5
+    files: List[str],
+    roi_mask: np.ndarray,
+    sample_size: int = 5,
+    raw_loader: Optional[RawImageLoader] = None,
 ) -> int:
     """
     Estimation using percentile-based approach.
@@ -245,9 +262,11 @@ def estimate_diff_threshold_from_samples(
 
     samples = []
     print(f"Loading samples... ", end="", flush=True)
+    loader = _get_raw_loader(raw_loader)
+
     for i in range(sample_size):
         try:
-            img = load_and_bin_raw_fast(files[i])
+            img = loader.load(files[i])
             samples.append(img)
         except Exception as exc:
             print(f"\n⚠ Warning: Failed to load sample {i}: {exc}")
@@ -319,7 +338,11 @@ def estimate_diff_threshold_from_samples(
 
 
 def estimate_min_area_from_samples(
-    files: List[str], roi_mask: np.ndarray, diff_threshold: int, sample_size: int = 3
+    files: List[str],
+    roi_mask: np.ndarray,
+    diff_threshold: int,
+    sample_size: int = 3,
+    raw_loader: Optional[RawImageLoader] = None,
 ) -> int:
     """
     Improved min_area estimation with better star detection.
@@ -345,9 +368,11 @@ def estimate_min_area_from_samples(
 
     samples = []
     print(f"Loading samples... ", end="", flush=True)
+    loader = _get_raw_loader(raw_loader)
+
     for i in range(sample_size):
         try:
-            img = load_and_bin_raw_fast(files[i])
+            img = loader.load(files[i])
             samples.append(img)
         except Exception as exc:
             print(f"\n⚠ Warning: Failed to load sample {i}: {exc}")
@@ -553,6 +578,7 @@ class MeteorDetectionPipeline:
         """
         timing = {}
         t_total = time.time()
+        raw_loader = _get_raw_loader()
 
         # Safety check
         target_fullpath = os.path.abspath(self.target_folder)
@@ -577,7 +603,7 @@ class MeteorDetectionPipeline:
         # Load first image
         t_load = time.time()
         try:
-            prev_img = load_and_bin_raw_fast(files[0])
+            prev_img = raw_loader.load(files[0])
         except Exception as exc:
             print(
                 f"Failed to load first RAW file: {os.path.basename(files[0])} ({exc})"
@@ -669,6 +695,7 @@ class MeteorDetectionPipeline:
                     roi_polygon,
                     resume_offset,
                     overall_total,
+                    raw_loader,
                 )
             else:
                 detected_count = self._process_sequential(
@@ -678,6 +705,7 @@ class MeteorDetectionPipeline:
                     roi_polygon,
                     resume_offset,
                     overall_total,
+                    raw_loader,
                 )
         except KeyboardInterrupt:
             print(f"\nInterrupted by user. Progress saved to {self.progress_file}.")
@@ -709,6 +737,7 @@ class MeteorDetectionPipeline:
         roi_polygon: Optional[List[List[int]]],
         resume_offset: int,
         overall_total: int,
+        raw_loader: Optional[RawImageLoader],
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
         batches = [
@@ -726,7 +755,9 @@ class MeteorDetectionPipeline:
 
         try:
             for batch in batches:
-                future = executor.submit(process_image_batch, batch, roi_mask, params)
+                future = executor.submit(
+                    process_image_batch, batch, roi_mask, params, raw_loader
+                )
                 futures.append(future)
 
             # Collect results
@@ -789,6 +820,7 @@ class MeteorDetectionPipeline:
         roi_polygon: Optional[List[List[int]]],
         resume_offset: int,
         overall_total: int,
+        raw_loader: Optional[RawImageLoader],
     ) -> int:
         """Process images sequentially."""
         for idx, pair in enumerate(image_pairs):
@@ -801,7 +833,7 @@ class MeteorDetectionPipeline:
                 flush=True,
             )
 
-            batch_results = process_image_batch([pair], roi_mask, params)
+            batch_results = process_image_batch([pair], roi_mask, params, raw_loader)
 
             for result in batch_results:
                 (
