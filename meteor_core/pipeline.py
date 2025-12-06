@@ -18,6 +18,8 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import List, Tuple, Dict, Optional, Any
 
+from dataclasses import is_dataclass
+
 from .schema import (
     EXTENSIONS,
     DEFAULT_DIFF_THRESHOLD,
@@ -26,7 +28,8 @@ from .schema import (
     DEFAULT_FISHEYE_MODEL,
     DetectionParams,
 )
-from .inputs.raw import RawImageLoader, create_raw_loader
+from .image_io import extract_exif_metadata
+from .inputs import InputLoader, create_raw_loader, discover_input_loaders
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import HoughDetector, compute_line_score_fast
 from .outputs import OutputWriter, ProgressManager, load_progress, save_progress
@@ -41,11 +44,66 @@ from .utils import (
 )
 
 
-_DEFAULT_RAW_LOADER = create_raw_loader()
+_DEFAULT_INPUT_LOADER = create_raw_loader()
 
 
-def _get_raw_loader(raw_loader: Optional[RawImageLoader] = None) -> RawImageLoader:
-    return raw_loader or _DEFAULT_RAW_LOADER
+def _coerce_loader_config(loader_cls, loader_config: Optional[Dict[str, Any]]):
+    config_type = getattr(loader_cls, "ConfigType", None)
+
+    if loader_config is None:
+        if config_type is not None:
+            try:
+                return config_type()
+            except Exception:
+                return None
+        return None
+
+    if config_type is None:
+        return loader_config
+
+    if isinstance(loader_config, config_type):
+        return loader_config
+
+    if is_dataclass(config_type) and isinstance(loader_config, dict):
+        return config_type(**loader_config)
+
+    if hasattr(config_type, "model_validate") and isinstance(loader_config, dict):
+        return config_type.model_validate(loader_config)
+
+    if hasattr(config_type, "parse_obj") and isinstance(loader_config, dict):
+        return config_type.parse_obj(loader_config)
+
+    return loader_config
+
+
+def _resolve_input_loader(
+    input_loader: Optional[InputLoader] = None,
+    loader_name: Optional[str] = None,
+    loader_config: Optional[Dict[str, Any]] = None,
+) -> InputLoader:
+    if input_loader is not None:
+        return input_loader
+
+    if loader_name:
+        available_loaders = discover_input_loaders()
+        loader_cls = available_loaders.get(loader_name)
+        if loader_cls is None:
+            raise ValueError(
+                f"Unknown input loader '{loader_name}'. "
+                f"Available: {', '.join(sorted(available_loaders)) or 'none'}"
+            )
+
+        coerced_config = _coerce_loader_config(loader_cls, loader_config)
+        return loader_cls(coerced_config)
+
+    return _DEFAULT_INPUT_LOADER
+
+
+def _extract_metadata_from_loader(loader: InputLoader, filepath: str) -> Dict[str, Any]:
+    extractor = getattr(loader, "extract_metadata", None)
+    if callable(extractor):
+        return extractor(filepath)
+    return extract_exif_metadata(filepath)
 
 
 def _init_worker_ignore_interrupt() -> None:
@@ -92,7 +150,7 @@ def collect_files(target_folder: str) -> List[str]:
 
 
 def validate_raw_file(
-    index: int, raw_file: str, raw_loader: Optional[RawImageLoader] = None
+    index: int, raw_file: str, input_loader: Optional[InputLoader] = None
 ) -> Tuple[int, str, Optional[Exception]]:
     """
     Attempt to load a RAW file, returning any validation error.
@@ -104,7 +162,7 @@ def validate_raw_file(
     Returns:
         Tuple of (index, filepath, error or None)
     """
-    loader = _get_raw_loader(raw_loader)
+    loader = _resolve_input_loader(input_loader)
 
     try:
         loader.load(raw_file)
@@ -117,7 +175,7 @@ def process_image_batch(
     batch_data: List[Tuple[str, str]],
     roi_mask: np.ndarray,
     params: dict,
-    raw_loader: Optional[RawImageLoader] = None,
+    input_loader: Optional[InputLoader] = None,
 ) -> List[Tuple]:
     """
     Process a batch of images (handle multiple pairs at once).
@@ -142,7 +200,7 @@ def process_image_batch(
         "max_line_gap": params["hough_max_line_gap"],
     }
 
-    loader = _get_raw_loader(raw_loader)
+    loader = _resolve_input_loader(input_loader)
 
     for curr_file, prev_file in batch_data:
         filename = os.path.basename(curr_file)
@@ -234,7 +292,7 @@ def estimate_diff_threshold_from_samples(
     files: List[str],
     roi_mask: np.ndarray,
     sample_size: int = 5,
-    raw_loader: Optional[RawImageLoader] = None,
+    input_loader: Optional[InputLoader] = None,
 ) -> int:
     """
     Estimation using percentile-based approach.
@@ -262,7 +320,7 @@ def estimate_diff_threshold_from_samples(
 
     samples = []
     print(f"Loading samples... ", end="", flush=True)
-    loader = _get_raw_loader(raw_loader)
+    loader = _resolve_input_loader(input_loader)
 
     for i in range(sample_size):
         try:
@@ -342,7 +400,7 @@ def estimate_min_area_from_samples(
     roi_mask: np.ndarray,
     diff_threshold: int,
     sample_size: int = 3,
-    raw_loader: Optional[RawImageLoader] = None,
+    input_loader: Optional[InputLoader] = None,
 ) -> int:
     """
     Improved min_area estimation with better star detection.
@@ -368,7 +426,7 @@ def estimate_min_area_from_samples(
 
     samples = []
     print(f"Loading samples... ", end="", flush=True)
-    loader = _get_raw_loader(raw_loader)
+    loader = _resolve_input_loader(input_loader)
 
     for i in range(sample_size):
         try:
@@ -525,6 +583,9 @@ class MeteorDetectionPipeline:
         enable_parallel: bool = True,
         progress_file: str = "progress.json",
         output_overwrite: bool = False,
+        input_loader: Optional[InputLoader] = None,
+        input_loader_name: Optional[str] = None,
+        input_loader_config: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize the detection pipeline.
@@ -540,6 +601,10 @@ class MeteorDetectionPipeline:
             enable_parallel: Whether to enable parallel processing
             progress_file: Path to progress tracking file
             output_overwrite: Whether to overwrite existing output files
+            input_loader: Optional pre-initialized :class:`InputLoader`
+            input_loader_name: Name of the loader plugin to use (fallback when
+                ``input_loader`` is not provided)
+            input_loader_config: Configuration passed to the resolved loader
         """
         self.target_folder = target_folder
         self.output_folder = output_folder
@@ -551,11 +616,22 @@ class MeteorDetectionPipeline:
         self.enable_parallel = enable_parallel
         self.progress_file = progress_file
         self.output_overwrite = output_overwrite
+        self.input_loader = input_loader
+        self.input_loader_name = input_loader_name
+        self.input_loader_config = input_loader_config
 
         self.output_writer = OutputWriter(
             output_folder, debug_folder, progress_file, output_overwrite
         )
         self.progress_manager = ProgressManager(progress_file)
+
+    def extract_metadata(self, filepath: str) -> Dict[str, Any]:
+        """Extract metadata for the provided file using the configured loader."""
+
+        loader = _resolve_input_loader(
+            self.input_loader, self.input_loader_name, self.input_loader_config
+        )
+        return _extract_metadata_from_loader(loader, filepath)
 
     def run(
         self,
@@ -578,7 +654,9 @@ class MeteorDetectionPipeline:
         """
         timing = {}
         t_total = time.time()
-        raw_loader = _get_raw_loader()
+        input_loader = _resolve_input_loader(
+            self.input_loader, self.input_loader_name, self.input_loader_config
+        )
 
         # Safety check
         target_fullpath = os.path.abspath(self.target_folder)
@@ -603,7 +681,7 @@ class MeteorDetectionPipeline:
         # Load first image
         t_load = time.time()
         try:
-            prev_img = raw_loader.load(files[0])
+            prev_img = input_loader.load(files[0])
         except Exception as exc:
             print(
                 f"Failed to load first RAW file: {os.path.basename(files[0])} ({exc})"
@@ -695,7 +773,7 @@ class MeteorDetectionPipeline:
                     roi_polygon,
                     resume_offset,
                     overall_total,
-                    raw_loader,
+                    input_loader,
                 )
             else:
                 detected_count = self._process_sequential(
@@ -705,7 +783,7 @@ class MeteorDetectionPipeline:
                     roi_polygon,
                     resume_offset,
                     overall_total,
-                    raw_loader,
+                    input_loader,
                 )
         except KeyboardInterrupt:
             print(f"\nInterrupted by user. Progress saved to {self.progress_file}.")
@@ -737,7 +815,7 @@ class MeteorDetectionPipeline:
         roi_polygon: Optional[List[List[int]]],
         resume_offset: int,
         overall_total: int,
-        raw_loader: Optional[RawImageLoader],
+        input_loader: Optional[InputLoader],
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
         batches = [
@@ -756,7 +834,7 @@ class MeteorDetectionPipeline:
         try:
             for batch in batches:
                 future = executor.submit(
-                    process_image_batch, batch, roi_mask, params, raw_loader
+                    process_image_batch, batch, roi_mask, params, input_loader
                 )
                 futures.append(future)
 
@@ -820,7 +898,7 @@ class MeteorDetectionPipeline:
         roi_polygon: Optional[List[List[int]]],
         resume_offset: int,
         overall_total: int,
-        raw_loader: Optional[RawImageLoader],
+        input_loader: Optional[InputLoader],
     ) -> int:
         """Process images sequentially."""
         for idx, pair in enumerate(image_pairs):
@@ -833,7 +911,7 @@ class MeteorDetectionPipeline:
                 flush=True,
             )
 
-            batch_results = process_image_batch([pair], roi_mask, params, raw_loader)
+            batch_results = process_image_batch([pair], roi_mask, params, input_loader)
 
             for result in batch_results:
                 (
