@@ -32,7 +32,13 @@ from .image_io import extract_exif_metadata
 from .inputs import InputLoader, create_raw_loader, discover_input_loaders
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import HoughDetector, compute_line_score_fast
-from .outputs import OutputWriter, ProgressManager, load_progress, save_progress
+from .outputs import (
+    OutputHandler,
+    OutputWriter,
+    ProgressManager,
+    load_progress,
+    save_progress,
+)
 from .utils import (
     compute_params_hash,
     format_polygon_string,
@@ -586,6 +592,7 @@ class MeteorDetectionPipeline:
         input_loader: Optional[InputLoader] = None,
         input_loader_name: Optional[str] = None,
         input_loader_config: Optional[Dict[str, Any]] = None,
+        output_handler: Optional[OutputHandler] = None,
     ):
         """
         Initialize the detection pipeline.
@@ -605,6 +612,7 @@ class MeteorDetectionPipeline:
             input_loader_name: Name of the loader plugin to use (fallback when
                 ``input_loader`` is not provided)
             input_loader_config: Configuration passed to the resolved loader
+            output_handler: Optional custom :class:`OutputHandler` implementation
         """
         self.target_folder = target_folder
         self.output_folder = output_folder
@@ -620,7 +628,7 @@ class MeteorDetectionPipeline:
         self.input_loader_name = input_loader_name
         self.input_loader_config = input_loader_config
 
-        self.output_writer = OutputWriter(
+        self.output_writer: OutputHandler = output_handler or OutputWriter(
             output_folder, debug_folder, progress_file, output_overwrite
         )
         self.progress_manager = ProgressManager(progress_file)

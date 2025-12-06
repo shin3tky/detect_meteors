@@ -101,6 +101,7 @@ from .detectors import (
 )
 
 from .outputs import (
+    OutputHandler,
     OutputWriter,
     ProgressManager,
     load_progress,
@@ -195,6 +196,7 @@ __all__ = [
     "HoughDetector",
     "compute_line_score_fast",
     # Outputs
+    "OutputHandler",
     "OutputWriter",
     "ProgressManager",
     "load_progress",
