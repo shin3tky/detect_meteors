@@ -18,9 +18,10 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Set
 
 from ..schema import VERSION
+from .handler import OutputHandler
 
 
-class OutputWriter:
+class OutputWriter(OutputHandler):
     """
     Manages output files, debug images, and progress tracking.
 

@@ -81,6 +81,13 @@
   - [x] Enhanced type safety with TypedDict
   - [x] Maintained full backward compatibility
 
+### Input/Output Plugin Infrastructure
+- [x] **v1.5.6** - Plugin-ready input/output foundation
+  - [x] `InputLoader`/`MetadataExtractor` protocols with dataclass/Pydantic helper bases
+  - [x] Built-in `RawImageLoader` plugin plus discovery via entry points and `~/.detect_meteors/plugins`
+  - [x] `PipelineConfig` and `DetectionPipeline` protocol to centralize orchestration and loader resolution
+  - [x] `OutputHandler` protocol to standardize candidate/debug persistence
+
 ### Remaining Goals for v1.x (-2025 4Q)
 - [ ] Camera model database for automatic sensor detection from EXIF
 - [ ] Per-image adaptive parameter adjustment
@@ -107,5 +114,5 @@
 
 ---
 
-**Current Status**: v1.5.5 (Code Architecture Refactoring)  
-**Next Focus**: Enhanced stability and error handling
+**Current Status**: v1.5.6 (Input/Output Plugin Infrastructure)
+**Next Focus**: Enhanced stability, plugin ecosystem hardening, and error handling

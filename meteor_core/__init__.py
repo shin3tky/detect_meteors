@@ -43,6 +43,7 @@ from .schema import (
     AUTO_BATCH_MEMORY_FRACTION,
     HoughParams,
     DetectionParams,
+    PipelineConfig,
     ExifData,
     NPFMetrics,
     DetectionResult,
@@ -54,6 +55,23 @@ from .schema import (
 from .image_io import (
     load_and_bin_raw_fast,
     extract_exif_metadata,
+)
+
+from .inputs.raw import RawImageLoader, RawLoaderConfig, create_raw_loader
+
+from .inputs.base import (
+    InputLoader,
+    MetadataExtractor,
+    DataclassInputLoader,
+    PydanticInputLoader,
+    supports_metadata_extraction,
+    _is_valid_input_loader,
+)
+
+from .inputs.discovery import (
+    discover_input_loaders,
+    PLUGIN_DIR,
+    PLUGIN_GROUP,
 )
 
 from .roi_selector import (
@@ -99,6 +117,7 @@ from .detectors import (
 )
 
 from .outputs import (
+    OutputHandler,
     OutputWriter,
     ProgressManager,
     load_progress,
@@ -112,7 +131,12 @@ from .pipeline import (
     estimate_diff_threshold_from_samples,
     estimate_min_area_from_samples,
     estimate_min_line_score_from_image,
+    DetectionPipeline,
     MeteorDetectionPipeline,
+    DefaultPipelineClass,
+    create_default_pipeline,
+    # Backward compatibility (deprecated)
+    DefaultPipelineClass as DefaultPipeline,
 )
 
 __all__ = [
@@ -144,6 +168,7 @@ __all__ = [
     # Data Classes
     "HoughParams",
     "DetectionParams",
+    "PipelineConfig",
     "ExifData",
     "NPFMetrics",
     "DetectionResult",
@@ -153,6 +178,21 @@ __all__ = [
     # Image I/O
     "load_and_bin_raw_fast",
     "extract_exif_metadata",
+    # Input Loaders - Protocols
+    "InputLoader",
+    "MetadataExtractor",
+    "DataclassInputLoader",
+    "PydanticInputLoader",
+    "supports_metadata_extraction",
+    "_is_valid_input_loader",
+    # Input Loaders - RAW
+    "RawImageLoader",
+    "RawLoaderConfig",
+    "create_raw_loader",
+    # Input Loaders - Discovery
+    "discover_input_loaders",
+    "PLUGIN_DIR",
+    "PLUGIN_GROUP",
     # ROI
     "select_roi",
     "create_roi_mask_from_polygon",
@@ -190,6 +230,7 @@ __all__ = [
     "HoughDetector",
     "compute_line_score_fast",
     # Outputs
+    "OutputHandler",
     "OutputWriter",
     "ProgressManager",
     "load_progress",
@@ -201,5 +242,9 @@ __all__ = [
     "estimate_diff_threshold_from_samples",
     "estimate_min_area_from_samples",
     "estimate_min_line_score_from_image",
+    "DetectionPipeline",
     "MeteorDetectionPipeline",
+    "DefaultPipelineClass",
+    "create_default_pipeline",
+    "DefaultPipeline",  # Backward compatibility (deprecated)
 ]

@@ -508,11 +508,11 @@ def detect_meteors_advanced(
         # Focal length acquisition (priority)
         focal_length_source = "Unknown"
         if focal_length_mm:
-            # CLIarguments (--focal-length)has highest priority
+            # CLI arguments (--focal-length) have highest priority
             focal_length_source = "CLI (--focal-length)"
             exif_data["focal_length_35mm"] = focal_length_mm
         elif exif_data.get("focal_length_35mm"):
-            # EXIF 35mmEquivalentFocal Length
+            # EXIF 35mm equivalent focal length
             focal_length_mm = exif_data["focal_length_35mm"]
             focal_length_source = "EXIF"
         elif exif_data.get("focal_length") and focal_factor:
@@ -521,12 +521,12 @@ def detect_meteors_advanced(
             exif_data["focal_length_35mm"] = focal_length_mm
             focal_length_source = f"Calculated (EXIF {exif_data['focal_length']:.1f}mm × factor {focal_factor})"
         elif exif_data.get("focal_length"):
-            # EXIF Actual Focal Lengthonly (no 35mm equivalent)
+            # EXIF actual focal length only (no 35mm equivalent)
             focal_length_mm = exif_data["focal_length"]
             focal_length_source = "EXIF (actual, no 35mm equiv.)"
 
         # ========================================
-        # Step 2: NPF RuleAnalysis
+        # Step 2: NPF Rule Analysis
         # ========================================
         npf_metrics = calculate_npf_metrics(
             exif_data,

@@ -17,7 +17,7 @@ import tempfile
 import shutil
 import numpy as np
 import cv2
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Add project root directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -189,8 +189,7 @@ class TestAutoEstimationLogic(unittest.TestCase):
         self.shape = (100, 100)
         self.roi_mask = np.full(self.shape, 255, dtype=np.uint8)
 
-    @patch("meteor_core.pipeline.load_and_bin_raw_fast")
-    def test_estimate_diff_threshold(self, mock_load):
+    def test_estimate_diff_threshold(self):
         """Test diff_threshold estimation based on noise levels."""
         # Scenario: create 5 images with random noise
         # Mean diff should be around 10
@@ -203,12 +202,12 @@ class TestAutoEstimationLogic(unittest.TestCase):
             img = np.clip(base_img + noise, 0, 65535).astype(np.uint16)
             images.append(img)
 
-        mock_load.side_effect = images
+        loader = _IteratorLoader(images)
 
         # Run estimation
         files = ["f1", "f2", "f3", "f4", "f5"]
         threshold = estimate_diff_threshold_from_samples(
-            files, self.roi_mask, sample_size=5
+            files, self.roi_mask, sample_size=5, input_loader=loader
         )
 
         # Threshold should be greater than average noise (which is ~10-15 difference)
@@ -218,8 +217,7 @@ class TestAutoEstimationLogic(unittest.TestCase):
         self.assertGreaterEqual(threshold, 3)
         self.assertLessEqual(threshold, 25)
 
-    @patch("meteor_core.pipeline.load_and_bin_raw_fast")
-    def test_estimate_min_area(self, mock_load):
+    def test_estimate_min_area(self):
         """Test min_area estimation based on star sizes."""
         # Scenario: Create images with "stars" of specific sizes
         images = []
@@ -231,12 +229,12 @@ class TestAutoEstimationLogic(unittest.TestCase):
             cv2.circle(img, (80, 80), 2, 255, -1)  # Area ~12
             images.append(img)
 
-        mock_load.side_effect = images
+        loader = _IteratorLoader(images)
 
         # Use a low threshold so stars are detected
         files = ["f1", "f2", "f3"]
         min_area = estimate_min_area_from_samples(
-            files, self.roi_mask, diff_threshold=5, sample_size=3
+            files, self.roi_mask, diff_threshold=5, sample_size=3, input_loader=loader
         )
 
         # Logic uses 75th percentile * 2.0.
@@ -244,18 +242,34 @@ class TestAutoEstimationLogic(unittest.TestCase):
         # Should detect meaningful area size, not default
         self.assertGreater(min_area, 5)
 
-    @patch("meteor_core.pipeline.load_and_bin_raw_fast")
-    def test_estimate_defaults_on_error(self, mock_load):
+    def test_estimate_defaults_on_error(self):
         """Test that estimation falls back to defaults on loading error."""
-        mock_load.side_effect = Exception("Load error")
+        loader = _ErrorLoader()
 
         files = ["bad_file"]
 
-        threshold = estimate_diff_threshold_from_samples(files, self.roi_mask)
+        threshold = estimate_diff_threshold_from_samples(
+            files, self.roi_mask, input_loader=loader
+        )
         self.assertEqual(threshold, DEFAULT_DIFF_THRESHOLD)
 
-        area = estimate_min_area_from_samples(files, self.roi_mask, 10)
+        area = estimate_min_area_from_samples(
+            files, self.roi_mask, 10, input_loader=loader
+        )
         self.assertEqual(area, DEFAULT_MIN_AREA)
+
+
+class _IteratorLoader:
+    def __init__(self, images):
+        self._images = iter(images)
+
+    def load(self, filepath):
+        return next(self._images)
+
+
+class _ErrorLoader:
+    def load(self, filepath):
+        raise Exception("Load error")
 
 
 if __name__ == "__main__":

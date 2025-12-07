@@ -48,13 +48,13 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ## What's New in v1.5
 
-### v1.5.5 - Internal Structure Improvement
-- **Code architecture refactoring**: Separated CLI interface from core logic modules
-- **New `meteor_core/` package**: Modular components for better maintainability
-- **Type safety improvements**: Enhanced type hints with TypedDict
-- **v2.x preparation**: Foundation for plugin architecture
+### v1.5.6 - Input/Output plugin preparation
+- **Input loader protocol & discovery**: New `InputLoader`/`MetadataExtractor` interfaces with dataclass/Pydantic helper bases, a built-in `RawImageLoader`, and discovery via entry points (`detect_meteors.input`) or `~/.detect_meteors/plugins`
+- **PipelineConfig & DetectionPipeline**: Centralized configuration object and protocol wiring loaders, metadata extraction, and processing orchestration for v2.0 plugin architecture
+- **OutputHandler protocol**: Standardized contract for candidate/debug persistence to enable pluggable output destinations
 
-### v1.5.0–1.5.4 Summary
+### v1.5.0–1.5.5 Summary
+- **v1.5.5**: Internal Structure Improvement
 - **v1.5.4**: Improved ROI selection display, added NOTICE document
 - **v1.5.3**: Fisheye lens correction (`--fisheye` flag)
 - **v1.5.2**: Sensor override validation with automatic warnings
@@ -97,13 +97,14 @@ Camera Settings (EXIF Metadata)
 
 **What to look for:**
 - ✅ **If focal length is detected**: You can proceed directly to Step 2
-- ❌ **If focal length is missing or incorrect**: You'll need to specify it manually using `--focal-length` or `--focal-factor`
+- ❌ **If focal length is missing or incorrect**: You'll need to specify it manually using `--sensor-type`, `--focal-length` or `--focal-factor`
 
 **Step 2: Run Auto-Parameter Optimization**
 
 The most scientific approach - let the software automatically optimize detection parameters using the NPF Rule and EXIF metadata:
 
-**Option A: Use sensor type preset (recommended, v1.5+)**
+**Option A: Use sensor type preset**
+
 ```bash
 # Micro Four Thirds
 python detect_meteors_cli.py --auto-params --sensor-type MFT
@@ -120,7 +121,7 @@ python detect_meteors_cli.py --auto-params --sensor-type FF
 # Medium Format (Fujifilm GFX, Pentax 645Z, Hasselblad X2D)
 python detect_meteors_cli.py --auto-params --sensor-type MF44X33
 
-# Fisheye lens (v1.5.3+) - add --fisheye flag
+# Fisheye lens flag
 python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
 ```
 
@@ -135,7 +136,7 @@ python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
 
 **Option C: Legacy manual specification (still supported)**
 ```bash
-python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-factor MFT
+python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-factor 2.0
 ```
 
 This will:
@@ -207,7 +208,7 @@ python -m nuitka --onefile --standalone detect_meteors_cli.py
 
 ## Tips for Best Results
 
-### Recommended Workflow (v1.4+)
+### Recommended Workflow
 
 **Step 1: Check EXIF metadata**
 ```bash
@@ -215,7 +216,7 @@ python detect_meteors_cli.py --show-exif
 ```
 - Verify focal length is correctly extracted
 - Note your ISO, exposure, and aperture settings
-- If focal length is missing, prepare to use `--focal-length` or `--focal-factor`
+- If focal length is missing, prepare to use `--sensor-type`, `--focal-length` or `--focal-factor`
 
 **Step 2: Verify NPF compliance (optional)**
 ```bash
@@ -227,7 +228,7 @@ python detect_meteors_cli.py --show-npf --sensor-type MFT
 
 **Step 3: Run auto-parameter optimization**
 ```bash
-# Use sensor type preset (recommended, v1.5+)
+# Use sensor type preset
 python detect_meteors_cli.py --auto-params --sensor-type MFT
 
 # If focal length was missing in EXIF, add --focal-length
@@ -242,9 +243,9 @@ python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
 - If too many false positives: increase thresholds manually
 - If missing meteors: decrease thresholds manually
 
-### Using NPF Rule-based Auto-Parameters (v1.4+, simplified in v1.5)
+### Using NPF Rule-based Auto-Parameters
 
-1. **Use sensor type preset (v1.5+, recommended)**: Use `--sensor-type TYPE` for automatic configuration
+1. **Use sensor type preset**: Use `--sensor-type TYPE` for automatic configuration
    ```bash
    # Micro Four Thirds
    python detect_meteors_cli.py --auto-params --sensor-type MFT

@@ -1265,7 +1265,7 @@ def display_exif_info(
 
     print(f"{'='*60}\n")
 
-    # NPF RuleAnalysis
+    # NPF Rule Analysis
     if npf_metrics and npf_metrics.get("npf_recommended_sec"):
         print(f"{'='*60}")
         print("NPF Rule Analysis")
@@ -1280,7 +1280,7 @@ def display_exif_info(
             else:
                 print(" (default)")
 
-        # NPFRecommended Value
+        # NPF recommended value
         npf_rec = npf_metrics["npf_recommended_sec"]
         print(f"  NPF recommended:  {npf_rec:.1f}s")
 
