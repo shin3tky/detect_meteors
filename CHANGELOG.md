@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.5.6 - 2025-12-07
+- **Input loader pluginization**: Added `InputLoader`/`MetadataExtractor` protocols with dataclass/Pydantic helper bases, a built-in `RawImageLoader` plugin, and deterministic loader discovery via entry points (`detect_meteors.input`) and the local `~/.detect_meteors/plugins` directory
+- **Pipeline configuration object**: New `PipelineConfig` dataclass centralizes all runtime settings and powers a `DetectionPipeline` protocol plus helpers to resolve input loaders and metadata extraction paths
+- **Output extensibility**: Introduced `OutputHandler` protocol to formalize candidate/debug persistence ahead of v2.0 plugin architecture
+
 ## v1.5.5 - 2025-12-05
 - **Code Architecture Refactoring**: Reorganized codebase into modular structure for v2.x plugin architecture preparation
   - `detect_meteors_cli.py`: CLI interface only (argument parsing, user interaction)

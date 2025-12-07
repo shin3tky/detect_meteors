@@ -1,5 +1,40 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.6 (2025-12-06)
+
+### 🧩 Input/Output Plugin Preparation
+
+Version 1.5.6 refines the `meteor_core` interfaces so that input and output handling now follow the same plugin-ready structure as detectors.
+
+### Motivation
+
+- **v2.0 plugin architecture**: Align input/output with the detector plugin plan
+- **Configurable loaders**: Allow different RAW readers and metadata providers to coexist
+- **Extensible outputs**: Formalize how candidate and debug artifacts are persisted
+
+### Input Loader Architecture
+
+- **Protocols**: New `InputLoader` and `MetadataExtractor` protocols define the loader contract (`plugin_name`, `config`, `load()`, optional `extract_metadata()`).
+- **Helper bases**: Dataclass/Pydantic-friendly base classes validate configs automatically for loader authors.
+- **Built-in plugin**: `RawImageLoader` wraps the existing RAW helpers with configurable binning/normalization and EXIF metadata extraction.
+- **Discovery**: Deterministic discovery order—built-in loaders, then Python entry points (`detect_meteors.input`), then local plugin files under `~/.detect_meteors/plugins`.
+
+### Pipeline Configuration & Metadata Flow
+
+- **PipelineConfig dataclass** centralizes all runtime settings for the detection pipeline (folders, params, workers, batch sizing, progress tracking, overwrite policy).
+- **DetectionPipeline protocol** exposes a structured interface for future pipeline implementations.
+- **Loader resolution**: Pipelines now resolve input loaders by instance, name, or config, and use loader-provided metadata when available, falling back to EXIF helpers otherwise.
+
+### Output Handling Contract
+
+- **OutputHandler protocol** formalizes candidate and debug image persistence, paving the way for pluggable output destinations.
+
+### Backward Compatibility
+
+✅ Fully compatible with v1.5.5: defaults preserve existing behavior (RAW loader, EXIF extraction, output writer), while new hooks prepare the jump to v2.0 plugins.
+
+---
+
 ## Version 1.5.5 (2025-12-05)
 
 ### 🏗️ Code Architecture Refactoring

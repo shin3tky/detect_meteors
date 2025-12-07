@@ -231,20 +231,29 @@ def estimate_star_trail_length(
 ```
 detect_meteors/
 ├── detect_meteors_cli.py          # CLI interface (argument parsing, user interaction)
-├── meteor_core/                   # Core logic modules (v1.5.5+)
+├── meteor_core/                   # Core logic modules (v1.5.6 plugin-ready)
 │   ├── __init__.py
 │   ├── schema.py                  # Type definitions (TypedDict, constants)
-│   ├── pipeline.py                # Processing pipeline orchestration
-│   ├── image_io.py                # RAW image loading, EXIF extraction
-│   ├── roi_selector.py            # ROI selection interface
-│   ├── utils.py                   # Utility functions
+│   ├── pipeline.py                # Processing pipeline orchestration + PipelineConfig
+│   ├── image_io.py                # Shared image IO helpers, EXIF utilities
+│   ├── inputs/                    # Input loader plugins (RAW readers, metadata)
+│   │   ├── __init__.py
+│   │   ├── base.py                # InputLoader/MetadataExtractor protocols, helpers
+│   │   ├── discovery.py           # Plugin discovery (entry points, ~/.detect_meteors/plugins)
+│   │   └── raw.py                 # Built-in RAW loaders and configs
+│   ├── outputs/                   # Output handlers + writer orchestration
+│   │   ├── __init__.py
+│   │   ├── handler.py             # OutputHandler protocol + plugin helpers
+│   │   └── writer.py              # Result writer, output formatting
 │   ├── detectors/                 # Detection algorithm implementations
 │   │   ├── __init__.py
 │   │   ├── base.py                # Abstract base detector class
 │   │   └── hough_default.py       # Default Hough transform detector
-│   └── outputs/                   # Output handling
-│       ├── __init__.py
-│       └── writer.py              # Result file writer
+│   ├── roi_selector.py            # ROI selection interface
+│   └── utils.py                   # Utility functions (NPF calculations, estimation)
+├── candidates/                    # Sample candidate outputs
+├── rawfiles/                      # Sample input files
+├── debug_masks/                   # Debug masks for tests/examples
 ├── tests/                         # Test suite
 │   ├── test_calculations_v1x.py
 │   ├── test_integration_v1x.py
@@ -267,23 +276,28 @@ detect_meteors/
 ├── NPF_RULE.md                    # NPF Rule documentation
 ├── detect_meteors_cli_completion.bash  # Bash completion
 ├── _detect_meteors_cli            # Zsh completion
+├── workflow.png                   # Pipeline overview diagram
 ├── LICENSE                        # Apache License 2.0
 └── NOTICE                         # Attribution notices
 ```
 
-### Module Responsibilities (v1.5.5+)
+### Module Responsibilities (v1.5.6+)
 
 | Module | Responsibility |
 |--------|----------------|
 | `detect_meteors_cli.py` | CLI argument parsing, user interaction, main entry point |
 | `meteor_core/schema.py` | Type definitions (TypedDict), constants, data structures |
-| `meteor_core/pipeline.py` | Processing pipeline orchestration, batch processing |
-| `meteor_core/image_io.py` | RAW image loading, EXIF metadata extraction |
+| `meteor_core/pipeline.py` | DetectionPipeline protocol, PipelineConfig, orchestration hooks |
+| `meteor_core/image_io.py` | Shared image loading helpers, EXIF metadata utilities |
 | `meteor_core/roi_selector.py` | Interactive ROI selection interface |
 | `meteor_core/utils.py` | Utility functions (NPF calculations, parameter estimation) |
+| `meteor_core/inputs/base.py` | InputLoader/MetadataExtractor protocols and validation helpers |
+| `meteor_core/inputs/discovery.py` | Plugin discovery for input loaders (entry points, plugin dir) |
+| `meteor_core/inputs/raw.py` | Built-in RAW loader configs and factory helpers |
 | `meteor_core/detectors/base.py` | Abstract base class for detection algorithms |
 | `meteor_core/detectors/hough_default.py` | Default Hough transform-based meteor detector |
-| `meteor_core/outputs/writer.py` | Result file writing, output management |
+| `meteor_core/outputs/handler.py` | OutputHandler protocol, plugin helpers |
+| `meteor_core/outputs/writer.py` | Result writer, output management |
 
 This modular structure prepares for the v2.x plugin architecture by separating concerns and enabling future extensibility.
 
