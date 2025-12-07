@@ -204,7 +204,9 @@ python -m nuitka --onefile --standalone detect_meteors_cli.py
 - **Outputs:**
   - Candidate images saved to the directory provided with `-o/--output`.
   - Optional debug masks written to the directory provided with `--debug-dir`.
-  - `progress.json` file for tracking processed images (resumable processing).
+  - `progress.json` file for tracking processed images (resumable processing) with
+    recorded parameter metadata (`params`, selected `roi`, and final
+    `processing_params`) to ensure runs resume with the same configuration.
 
 ## Tips for Best Results
 

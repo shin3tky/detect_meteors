@@ -9,6 +9,7 @@
 
 import os
 import sys
+import shlex
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -417,6 +418,7 @@ def detect_meteors_advanced(
     pixel_pitch_um,
     output_overwrite: bool,
     fisheye: bool,
+    cli_param_string: str,
 ) -> int:
     """
     Main processing: detect meteor candidates from consecutive RAW images.
@@ -493,6 +495,8 @@ def detect_meteors_advanced(
             print("No ROI selected. Processing entire image.")
     else:
         print("Skipping ROI selection. Processing entire image.")
+
+    cli_params = cli_param_string
 
     # Auto-parameter estimation
     if auto_params:
@@ -644,7 +648,7 @@ def detect_meteors_advanced(
             else:
                 print(f"→ Using user-specified min_line_score: {min_line_score}")
 
-    params = {
+    processing_params = {
         "diff_threshold": diff_threshold,
         "min_area": min_area,
         "min_aspect_ratio": min_aspect_ratio,
@@ -667,13 +671,16 @@ def detect_meteors_advanced(
     print(f"{'='*50}\n")
 
     # Progress tracking setup
-    params_for_hash = params.copy()
+    params_for_hash = processing_params.copy()
     if roi_polygon:
         params_for_hash["roi_polygon"] = roi_polygon
 
     progress_data = {
         "version": VERSION,
         "params_hash": compute_params_hash(params_for_hash),
+        "params": cli_params,
+        "roi": roi_polygon or "full_image",
+        "processing_params": processing_params,
         "processed_files": [],
         "detected_files": [],
         "total_processed": 0,
@@ -690,6 +697,9 @@ def detect_meteors_advanced(
                     for key in [
                         "version",
                         "params_hash",
+                        "params",
+                        "roi",
+                        "processing_params",
                         "processed_files",
                         "detected_files",
                         "total_processed",
@@ -776,7 +786,7 @@ def detect_meteors_advanced(
             try:
                 for batch in batches:
                     future = executor.submit(
-                        process_image_batch, batch, roi_mask, params
+                        process_image_batch, batch, roi_mask, processing_params
                     )
                     futures.append(future)
 
@@ -864,7 +874,7 @@ def detect_meteors_advanced(
                     flush=True,
                 )
 
-                batch_results = process_image_batch([pair], roi_mask, params)
+                batch_results = process_image_batch([pair], roi_mask, processing_params)
 
                 for result in batch_results:
                     (
@@ -950,6 +960,7 @@ def main():
     """Main entry point for the CLI."""
     parser = build_arg_parser()
     args = parser.parse_args()
+    cli_param_string = shlex.join(sys.argv[1:])
 
     if args.remove_progress:
         if os.path.exists(args.progress_file):
@@ -1040,6 +1051,7 @@ def main():
         pixel_pitch_um=pixel_pitch_value,
         output_overwrite=args.output_overwrite,
         fisheye=args.fisheye,
+        cli_param_string=cli_param_string,
     )
 
 
