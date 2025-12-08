@@ -1,5 +1,20 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.7 (2025-12-08)
+
+### 🧭 Progress metadata parity
+
+Version 1.5.7 strengthens resumable processing by persisting the exact inputs used for a run so restarts remain safe and predictable.
+
+### Highlights
+
+- **Recorded configuration**: `progress.json` now stores CLI parameters, the selected ROI (or `full_image`), and the finalized processing parameters so resumes only occur when settings match.
+- **Consistent hashing**: Parameter hashes include ROI details, preventing accidental reuse of progress files from a different crop.
+- **Unified pipeline behavior**: Both the CLI path and `PipelineConfig`/`DetectionPipeline` flows write the same progress metadata, keeping restart behavior aligned across entry points.
+- **Clean resumes**: Existing filtering keeps only files that are still present while maintaining accurate processed/detected counts.
+
+---
+
 ## Version 1.5.6 (2025-12-06)
 
 ### 🧩 Input/Output Plugin Preparation

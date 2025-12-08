@@ -48,6 +48,10 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ## What's New in v1.5
 
+### v1.5.7 - Progress metadata parity
+- Resumable runs now persist CLI parameters, selected ROI (or `full_image`), and finalized processing parameters inside `progress.json` so resumes are validated against the exact configuration.
+- Parameter hashing includes ROI details and is applied across both the CLI path and `PipelineConfig`/`DetectionPipeline` flows for consistent restart behavior.
+
 ### v1.5.6 - Input/Output plugin preparation
 - **Input loader protocol & discovery**: New `InputLoader`/`MetadataExtractor` interfaces with dataclass/Pydantic helper bases, a built-in `RawImageLoader`, and discovery via entry points (`detect_meteors.input`) or `~/.detect_meteors/plugins`
 - **PipelineConfig & DetectionPipeline**: Centralized configuration object and protocol wiring loaders, metadata extraction, and processing orchestration for v2.0 plugin architecture
