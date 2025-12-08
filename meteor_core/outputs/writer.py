@@ -152,6 +152,9 @@ class ProgressManager:
         self.progress_data: Dict[str, Any] = {
             "version": VERSION,
             "params_hash": "",
+            "params": "",
+            "roi": "full_image",
+            "processing_params": {},
             "processed_files": [],
             "detected_files": [],
             "total_processed": 0,
@@ -197,6 +200,18 @@ class ProgressManager:
     def set_params_hash(self, params_hash: str) -> None:
         """Set the parameters hash for this session."""
         self.progress_data["params_hash"] = params_hash
+
+    def set_params(self, params: Any) -> None:
+        """Record the user-specified parameters."""
+        self.progress_data["params"] = params
+
+    def set_roi(self, roi: Any) -> None:
+        """Record the ROI selection (polygon or 'full_image')."""
+        self.progress_data["roi"] = roi
+
+    def set_processing_params(self, processing_params: Dict[str, Any]) -> None:
+        """Record the final processing parameters used."""
+        self.progress_data["processing_params"] = processing_params
 
     def get_params_hash(self) -> str:
         """Get the stored parameters hash."""
@@ -264,6 +279,9 @@ class ProgressManager:
         self.progress_data = {
             "version": VERSION,
             "params_hash": self.progress_data.get("params_hash", ""),
+            "params": self.progress_data.get("params", ""),
+            "roi": self.progress_data.get("roi", "full_image"),
+            "processing_params": self.progress_data.get("processing_params", {}),
             "processed_files": [],
             "detected_files": [],
             "total_processed": 0,

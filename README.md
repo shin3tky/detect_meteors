@@ -48,6 +48,10 @@ For detailed installation instructions for macOS and Windows, please refer to [I
 
 ## What's New in v1.5
 
+### v1.5.7 - Progress metadata parity
+- `progress.json` now records CLI parameters, selected ROI (or `full_image`), and finalized processing parameters for easier review and re-running of past sessions.
+- Both the CLI and `PipelineConfig`/`DetectionPipeline` entry points write the same metadata fields, ensuring consistent progress files.
+
 ### v1.5.6 - Input/Output plugin preparation
 - **Input loader protocol & discovery**: New `InputLoader`/`MetadataExtractor` interfaces with dataclass/Pydantic helper bases, a built-in `RawImageLoader`, and discovery via entry points (`detect_meteors.input`) or `~/.detect_meteors/plugins`
 - **PipelineConfig & DetectionPipeline**: Centralized configuration object and protocol wiring loaders, metadata extraction, and processing orchestration for v2.0 plugin architecture
@@ -204,7 +208,9 @@ python -m nuitka --onefile --standalone detect_meteors_cli.py
 - **Outputs:**
   - Candidate images saved to the directory provided with `-o/--output`.
   - Optional debug masks written to the directory provided with `--debug-dir`.
-  - `progress.json` file for tracking processed images (resumable processing).
+  - `progress.json` file for tracking processed images (resumable processing) with
+    recorded parameter metadata (`params`, selected `roi`, and final
+    `processing_params`) to ensure runs resume with the same configuration.
 
 ## Tips for Best Results
 

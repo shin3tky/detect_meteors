@@ -962,6 +962,9 @@ class MeteorDetectionPipeline:
         if roi_polygon:
             params_for_hash["roi_polygon"] = roi_polygon
 
+        self.progress_manager.set_params(params)
+        self.progress_manager.set_roi(roi_polygon or "full_image")
+        self.progress_manager.set_processing_params(params)
         params_hash = compute_params_hash(params_for_hash)
         self.progress_manager.set_params_hash(params_hash)
 

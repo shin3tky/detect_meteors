@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.5.7 - 2025-12-08
+- **Progress metadata enrichment**: `progress.json` now records CLI parameters (`params`), ROI selection (`roi`), and finalized processing parameters (`processing_params`) for reference when reviewing or re-running detection sessions.
+- **Pipeline consistency**: Both CLI and `PipelineConfig`-driven runs persist the same metadata fields, ensuring uniform progress files across entry points.
+
 ## v1.5.6 - 2025-12-07
 - **Input loader pluginization**: Added `InputLoader`/`MetadataExtractor` protocols with dataclass/Pydantic helper bases, a built-in `RawImageLoader` plugin, and deterministic loader discovery via entry points (`detect_meteors.input`) and the local `~/.detect_meteors/plugins` directory
 - **Pipeline configuration object**: New `PipelineConfig` dataclass centralizes all runtime settings and powers a `DetectionPipeline` protocol plus helpers to resolve input loaders and metadata extraction paths
