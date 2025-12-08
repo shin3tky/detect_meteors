@@ -1,9 +1,8 @@
 # Changelog
 
 ## v1.5.7 - 2025-12-08
-- **Progress metadata hardening**: The resumable processing flow now records CLI parameters, ROI selection, and finalized processing parameters in `progress.json`, using them to validate resumes and avoid mismatched runs.
-- **Pipeline parity**: Both CLI and `PipelineConfig`-driven runs persist the same progress metadata (including ROI hashes), ensuring consistent restarts across entry points.
-- **Safer resumes**: Progress filtering continues to drop missing files while keeping counts accurate, reducing the risk of stale state during long-running batches.
+- **Progress metadata enrichment**: `progress.json` now records CLI parameters (`params`), ROI selection (`roi`), and finalized processing parameters (`processing_params`) for reference when reviewing or re-running detection sessions.
+- **Pipeline consistency**: Both CLI and `PipelineConfig`-driven runs persist the same metadata fields, ensuring uniform progress files across entry points.
 
 ## v1.5.6 - 2025-12-07
 - **Input loader pluginization**: Added `InputLoader`/`MetadataExtractor` protocols with dataclass/Pydantic helper bases, a built-in `RawImageLoader` plugin, and deterministic loader discovery via entry points (`detect_meteors.input`) and the local `~/.detect_meteors/plugins` directory

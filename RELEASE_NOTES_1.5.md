@@ -2,16 +2,46 @@
 
 ## Version 1.5.7 (2025-12-08)
 
-### 🧭 Progress metadata parity
+### 📝 Progress metadata enrichment
 
-Version 1.5.7 strengthens resumable processing by persisting the exact inputs used for a run so restarts remain safe and predictable.
+Version 1.5.7 enriches `progress.json` with additional metadata to help users review past runs and adjust parameters for future sessions.
 
 ### Highlights
 
-- **Recorded configuration**: `progress.json` now stores CLI parameters, the selected ROI (or `full_image`), and the finalized processing parameters so resumes only occur when settings match.
-- **Consistent hashing**: Parameter hashes include ROI details, preventing accidental reuse of progress files from a different crop.
-- **Unified pipeline behavior**: Both the CLI path and `PipelineConfig`/`DetectionPipeline` flows write the same progress metadata, keeping restart behavior aligned across entry points.
-- **Clean resumes**: Existing filtering keeps only files that are still present while maintaining accurate processed/detected counts.
+- **Recorded configuration**: `progress.json` now stores CLI parameters (`params`), the selected ROI (`roi`), and the finalized processing parameters (`processing_params`). This information serves as a reference when reviewing detection results or planning subsequent runs with adjusted settings.
+- **Unified pipeline behavior**: Both the CLI path and `PipelineConfig`/`DetectionPipeline` flows write the same metadata fields, keeping progress files consistent across entry points.
+
+### New `progress.json` Fields
+
+| Field | Description |
+|-------|-------------|
+| `params` | Original CLI parameter string for reference |
+| `roi` | Selected ROI polygon or `"full_image"` |
+| `processing_params` | Finalized detection parameters used |
+
+### Example `progress.json`
+
+```json
+{
+  "version": "1.5.7",
+  "params_hash": "abc123...",
+  "params": "--auto-params --sensor-type MFT",
+  "roi": [[100, 100], [1000, 100], [1000, 800], [100, 800]],
+  "processing_params": {
+    "diff_threshold": 7,
+    "min_area": 5,
+    "min_aspect_ratio": 3.0,
+    "hough_threshold": 10,
+    "hough_min_line_length": 15,
+    "hough_max_line_gap": 5,
+    "min_line_score": 35.0
+  },
+  "processed_files": ["IMG_0001.ORF", "IMG_0002.ORF"],
+  "detected_files": ["IMG_0002.ORF"],
+  "total_processed": 2,
+  "total_detected": 1
+}
+```
 
 ---
 
