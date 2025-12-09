@@ -9,7 +9,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from meteor_core import (
+from meteor_core import (  # noqa: E402
     calculate_fisheye_effective_focal_length,
     calculate_fisheye_edge_focal_length,
     calculate_fisheye_trail_length_ratio,

@@ -82,6 +82,15 @@ black meteor_core/
 black tests/
 ```
 
+### Code Quality Tools
+
+This project uses two complementary tools for code quality:
+
+- **Black** (v1.5.0+): Automatic code formatting via pre-commit hooks
+- **flake8** (v1.5.8+): Static code analysis and style checking
+
+As of v1.5.8, flake8 is formally integrated with project-specific configuration in `.flake8`.
+
 ### Manual Linting
 
 To manually check code quality with flake8:
@@ -110,9 +119,14 @@ Pre-commit hooks configuration:
 ```yaml
 repos:
   - repo: https://github.com/psf/black
-    rev: 25.11.0
+    rev: 25.12.0
     hooks:
       - id: black
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
 ```
 
 #### `pyproject.toml`
@@ -162,8 +176,7 @@ exclude =
     *.egg-info,
     rawfiles,
     candidates,
-    debug_masks,
-    tests
+    debug_masks
 
 max-line-length = 88
 ignore = E203,W503,E501,E226

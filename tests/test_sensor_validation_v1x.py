@@ -16,7 +16,7 @@ from contextlib import redirect_stdout
 # Add project root directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from meteor_core import (
+from meteor_core import (  # noqa: E402
     get_sensor_preset,
     apply_sensor_preset,
     validate_sensor_overrides,

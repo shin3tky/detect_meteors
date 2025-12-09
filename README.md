@@ -49,6 +49,11 @@ I developed this tool hoping it would be useful for fellow astrophotography enth
 
 ## What's New in v1.5
 
+### v1.5.8 - Code quality improvements
+- **flake8 linter integration**: Added flake8 to the development toolchain alongside Black formatter for comprehensive code quality assurance.
+- **Consistent coding standards**: Configured linting rules optimized for Black compatibility and project-specific requirements.
+- **Developer workflow enhancement**: Manual linting checks before commits ensure maintainable, high-quality codebase.
+
 ### v1.5.7 - Progress metadata parity
 - `progress.json` now records CLI parameters, selected ROI (or `full_image`), and finalized processing parameters for easier review and re-running of past sessions.
 - Both the CLI and `PipelineConfig`/`DetectionPipeline` entry points write the same metadata fields, ensuring consistent progress files.

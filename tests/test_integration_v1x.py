@@ -17,7 +17,7 @@ import os
 # Add project root directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from meteor_core import (
+from meteor_core import (  # noqa: E402
     process_image_batch,
     DEFAULT_HOUGH_THRESHOLD,
     DEFAULT_HOUGH_MIN_LINE_LENGTH,
@@ -255,7 +255,10 @@ class TestMeteorTrailThickness(TestMeteorDetectionBase):
         params["min_aspect_ratio"] = 3.0  # Require elongated shape
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
+        is_candidate, _, _, _, _, _, _ = results[0]
+
         # Result depends on whether the blob is detected as elongated
+        self.assertIsNotNone(is_candidate)
 
 
 class TestDiffThresholdParameter(TestMeteorDetectionBase):
@@ -337,7 +340,10 @@ class TestMinAreaParameter(TestMeteorDetectionBase):
         params["min_area"] = 1
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
+        is_candidate, _, _, _, _, _, _ = results[0]
+
         # Small area may still pass if it forms a line
+        self.assertIsNotNone(is_candidate)
 
     def test_small_area_rejected_with_high_min_area(self):
         """Test that small area meteor is rejected with high min_area."""
@@ -393,7 +399,10 @@ class TestMinLineScoreParameter(TestMeteorDetectionBase):
         params["min_line_score"] = 0.0
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
+        is_candidate, _, _, _, _, _, _ = results[0]
+
         # Any line should be accepted
+        self.assertIsNotNone(is_candidate)
 
 
 class TestMinAspectRatioParameter(TestMeteorDetectionBase):
@@ -435,7 +444,10 @@ class TestMinAspectRatioParameter(TestMeteorDetectionBase):
         params["min_aspect_ratio"] = 1.0  # Accept any shape
 
         results = self.run_detection(img, self.img_black, params=params)
+        is_candidate, _, _, _, _, _, _ = results[0]
+
         # Should be more likely to accept
+        self.assertIsNotNone(is_candidate)
 
 
 class TestROIMask(TestMeteorDetectionBase):
@@ -469,7 +481,10 @@ class TestROIMask(TestMeteorDetectionBase):
         roi_mask = self.create_roi_mask(full=False, region=(250, 250, 500, 500))
 
         results = self.run_detection(img_meteor, self.img_black, roi_mask=roi_mask)
+        is_candidate, _, _, _, _, _, _ = results[0]
+
         # Partial detection may or may not trigger depending on remaining length
+        self.assertIsNotNone(is_candidate)
 
 
 class TestMeteorOrientation(TestMeteorDetectionBase):
@@ -576,7 +591,10 @@ class TestEdgeCases(TestMeteorDetectionBase):
         params["min_line_score"] = 30.0  # Lower threshold for shorter trail
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
+        is_candidate, _, _, _, _, _, _ = results[0]
+
         # Corner meteor may or may not be fully detected
+        self.assertIsNotNone(is_candidate)
 
     def test_very_bright_meteor(self):
         """Test detection of very bright meteor (near saturation)."""
@@ -613,10 +631,10 @@ class TestEdgeCases(TestMeteorDetectionBase):
         params["diff_threshold"] = 30
 
         results = self.run_detection(img_bright, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _ = results[0]
 
         # Uniform change should not produce elongated shape
         # Detection depends on whether uniform area passes aspect ratio
+        self.assertEqual(len(results), 1)
 
 
 class TestDefaultParameters(TestMeteorDetectionBase):

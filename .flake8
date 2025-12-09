@@ -12,8 +12,7 @@ exclude =
     *.egg-info,
     rawfiles,
     candidates,
-    debug_masks,
-    tests
+    debug_masks
 
 max-line-length = 88
 
