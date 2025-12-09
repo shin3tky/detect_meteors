@@ -21,7 +21,7 @@ from unittest.mock import patch
 # Add project root directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from meteor_core import (
+from meteor_core import (  # noqa: E402
     parse_roi_polygon_string,
     format_polygon_string,
     compute_params_hash,
@@ -32,7 +32,7 @@ from meteor_core import (
     DEFAULT_MIN_AREA,
 )
 
-from meteor_core.pipeline import (
+from meteor_core.pipeline import (  # noqa: E402
     estimate_diff_threshold_from_samples,
     estimate_min_area_from_samples,
 )

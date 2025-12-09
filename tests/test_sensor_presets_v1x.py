@@ -13,7 +13,7 @@ from argparse import Namespace
 # Add project root directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from meteor_core import (
+from meteor_core import (  # noqa: E402
     SENSOR_PRESETS,
     CROP_FACTORS,
     DEFAULT_SENSOR_WIDTHS,

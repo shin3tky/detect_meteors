@@ -18,7 +18,7 @@ import os
 # Add project root directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from meteor_core import (
+from meteor_core import (  # noqa: E402
     calculate_npf_rule,
     calculate_pixel_pitch,
     estimate_star_trail_length,
