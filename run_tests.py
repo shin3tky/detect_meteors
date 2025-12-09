@@ -41,7 +41,7 @@ def run_tests_for_version(major_version):
     """Run appropriate tests based on major version"""
 
     if major_version == 1:
-        print(f"Running tests for version 1.x")
+        print("Running tests for version 1.x")
         # Discover and run tests in tests/ directory (for version 1.x)
         loader = unittest.TestLoader()
         suite = loader.discover("tests", pattern="test_*.py")
@@ -52,7 +52,7 @@ def run_tests_for_version(major_version):
         return 0 if result.wasSuccessful() else 1
 
     elif major_version == 2:
-        print(f"Running tests for version 2.x")
+        print("Running tests for version 2.x")
         # For version 2.x, use different test directory or patterns
         # This is a placeholder - adjust based on actual 2.x structure
         loader = unittest.TestLoader()

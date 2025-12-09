@@ -465,7 +465,7 @@ def display_fisheye_info(
     print(f"  Nominal focal:      {nominal_focal_length_mm:.1f}mm (center)")
     print(f"  Effective focal:    {edge_focal:.1f}mm (edge)")
     print(f"  Trail length ratio: {max_ratio:.2f}× (edge vs center)")
-    print(f"  NPF calculation:    Based on edge (worst case)")
+    print("  NPF calculation:    Based on edge (worst case)")
     print(f"{'='*60}")
 
 
@@ -1231,15 +1231,15 @@ def display_exif_info(
                 f"                    ~ {equiv:.1f}mm (35mm equiv., calculated with factor {focal_factor})"
             )
         else:
-            print(f"                    ⚠ No 35mm equivalent found")
+            print("                    ⚠ No 35mm equivalent found")
     else:
-        print(f"  Focal length:     Not available")
+        print("  Focal length:     Not available")
 
     # ISO sensitivity
     if exif_data.get("iso"):
         print(f"  ISO:              {exif_data['iso']}")
     else:
-        print(f"  ISO:              Not available")
+        print("  ISO:              Not available")
 
     # Exposure time
     if exif_data.get("exposure_time"):
@@ -1251,7 +1251,7 @@ def display_exif_info(
         else:
             print(f"  Exposure:         1/{int(1/exp)}s")
     else:
-        print(f"  Exposure:         Not available")
+        print("  Exposure:         Not available")
 
     # F-number (aperture)
     if exif_data.get("f_number"):
@@ -1320,6 +1320,6 @@ def display_exif_info(
 
         # Data Completeness
         if not npf_metrics.get("has_complete_data"):
-            print(f"\n  ⚠ Note: Incomplete data - using default/estimated values")
+            print("\n  ⚠ Note: Incomplete data - using default/estimated values")
 
         print(f"{'='*60}\n")
