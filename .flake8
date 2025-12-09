@@ -12,8 +12,7 @@ exclude =
     *.egg-info,
     rawfiles,
     candidates,
-    debug_masks,
-    tests
+    debug_masks
 
 max-line-length = 88
 
@@ -21,6 +20,6 @@ max-line-length = 88
 # W503: line break before binary operator
 # E501: line too long
 # E226: arithmetic operator
-ignore = E203,W503,E501,E226
+ignore = E203,W503,E501,E226,E402
 
 max-complexity = 70
