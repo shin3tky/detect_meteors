@@ -15,7 +15,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from meteor_core import (
     estimate_batch_size,
-    AUTO_BATCH_MEMORY_FRACTION,
 )
 
 

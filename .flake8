@@ -1,0 +1,26 @@
+[flake8]
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .serena,
+    .ruff_cache,
+    .github,
+    build,
+    dist,
+    *.egg-info,
+    rawfiles,
+    candidates,
+    debug_masks,
+    tests
+
+max-line-length = 88
+
+# E203: whitespace before ':'
+# W503: line break before binary operator
+# E501: line too long
+# E226: arithmetic operator
+ignore = E203,W503,E501,E226
+
+max-complexity = 70

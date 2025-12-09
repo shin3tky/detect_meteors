@@ -11,7 +11,6 @@ import os
 import sys
 import shlex
 import argparse
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from meteor_core import (
     VERSION,
@@ -30,13 +29,10 @@ from meteor_core import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
     DEFAULT_FISHEYE_MODEL,
-    DetectionParams,
     # Functions
     collect_files,
-    validate_raw_file,
     extract_exif_metadata,
     load_and_bin_raw_fast,
-    parse_focal_factor,
     get_sensor_preset,
     apply_sensor_preset,
     validate_sensor_overrides,
@@ -51,12 +47,8 @@ from meteor_core import (
     estimate_min_area_from_samples,
     estimate_min_line_score_from_image,
     select_roi,
-    create_roi_mask_from_polygon,
-    create_full_roi_mask,
     process_image_batch,
     compute_params_hash,
-    OutputWriter,
-    ProgressManager,
     load_progress,
     save_progress,
 )
@@ -265,7 +257,7 @@ def handle_show_exif(args) -> None:
     if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
         print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
         print(
-            f"  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
+            "  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
         )
         return
 
@@ -284,7 +276,7 @@ def handle_show_exif(args) -> None:
     # Validate focal_factor
     if args.focal_factor and focal_factor_value is None:
         print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
-        print(f"  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
+        print("  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
         return
 
     try:
@@ -445,8 +437,8 @@ def detect_meteors_advanced(
         print(f"  Target:  {target_folder}")
         print(f"  Output:  {output_folder}")
         print(f"  Resolved to: {target_fullpath}")
-        print(f"\nThis configuration would overwrite original RAW files.")
-        print(f"Please specify a different output directory.")
+        print("\nThis configuration would overwrite original RAW files.")
+        print("Please specify a different output directory.")
         print(f"{'='*60}\n")
         return 0
 
@@ -612,11 +604,11 @@ def detect_meteors_advanced(
 
             # Parameter adjustment details
             if opt_info["adjustments"]:
-                print(f"\nParameter Adjustments:")
+                print("\nParameter Adjustments:")
                 for adjustment in opt_info["adjustments"]:
                     print(f"  • {adjustment}")
             else:
-                print(f"\nNo automatic adjustments (all parameters user-specified)")
+                print("\nNo automatic adjustments (all parameters user-specified)")
 
             print(f"\n{'='*60}\n")
         else:
@@ -998,7 +990,7 @@ def main():
     if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
         print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
         print(
-            f"  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
+            "  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
         )
         return
 
@@ -1017,7 +1009,7 @@ def main():
     # Validate focal_factor
     if args.focal_factor and focal_factor_value is None:
         print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
-        print(f"  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
+        print("  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
         return
 
     detect_meteors_advanced(

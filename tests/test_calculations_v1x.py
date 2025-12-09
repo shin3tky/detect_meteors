@@ -14,7 +14,6 @@ Covers:
 import unittest
 import sys
 import os
-import math
 
 # Add project root directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

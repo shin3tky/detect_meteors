@@ -25,8 +25,6 @@ from .schema import (
     EXTENSIONS,
     DEFAULT_DIFF_THRESHOLD,
     DEFAULT_MIN_AREA,
-    DEFAULT_MIN_LINE_SCORE,
-    DEFAULT_FISHEYE_MODEL,
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
@@ -37,22 +35,15 @@ from .image_io import extract_exif_metadata
 from .inputs import InputLoader, create_raw_loader, discover_input_loaders
 from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
-from .detectors import HoughDetector, compute_line_score_fast
+from .detectors import compute_line_score_fast
 from .outputs import (
     OutputHandler,
     OutputWriter,
     ProgressManager,
-    load_progress,
-    save_progress,
 )
 from .utils import (
     compute_params_hash,
     format_polygon_string,
-    display_exif_info,
-    display_fisheye_info,
-    calculate_npf_metrics,
-    optimize_params_with_npf,
-    estimate_batch_size,
 )
 
 
@@ -395,7 +386,7 @@ def estimate_diff_threshold_from_samples(
     """
     print(f"\n{'='*50}")
     print(f"Auto-estimating diff_threshold from {sample_size} samples")
-    print(f"Percentile-based approach")
+    print("Percentile-based approach")
     print(f"{'='*50}")
 
     sample_size = min(sample_size, len(files))
@@ -404,7 +395,7 @@ def estimate_diff_threshold_from_samples(
         return DEFAULT_DIFF_THRESHOLD
 
     samples = []
-    print(f"Loading samples... ", end="", flush=True)
+    print("Loading samples... ", end="", flush=True)
     loader = _resolve_input_loader(input_loader)
 
     for i in range(sample_size):
@@ -469,7 +460,7 @@ def estimate_diff_threshold_from_samples(
     print(f"  98th %ile:    {p98:.2f}")
     print(f"  99th %ile:    {p99:.2f}")
     print(f"{'─'*50}")
-    print(f"Estimation methods:")
+    print("Estimation methods:")
     print(f"  [1] 98th percentile:      {method_1}")
     print(f"  [2] Mean + 1.5σ:          {method_2}")
     print(f"  [3] Median × 3:           {method_3}")
@@ -501,7 +492,7 @@ def estimate_min_area_from_samples(
     """
     print(f"\n{'='*50}")
     print(f"Auto-estimating min_area from {sample_size} samples")
-    print(f"Star size distribution analysis")
+    print("Star size distribution analysis")
     print(f"{'='*50}")
 
     sample_size = min(sample_size, len(files))
@@ -510,7 +501,7 @@ def estimate_min_area_from_samples(
         return DEFAULT_MIN_AREA
 
     samples = []
-    print(f"Loading samples... ", end="", flush=True)
+    print("Loading samples... ", end="", flush=True)
     loader = _resolve_input_loader(input_loader)
 
     for i in range(sample_size):
@@ -581,7 +572,7 @@ def estimate_min_area_from_samples(
     print(f"  90th %ile:    {p90_star:.1f} pixels²")
     print(f"{'─'*50}")
     print(f"✓ Estimated min_area: {estimated_min_area}")
-    print(f"  → 75th percentile × 2.0 (robust to outliers)")
+    print("  → 75th percentile × 2.0 (robust to outliers)")
     print(f"{'='*50}\n")
 
     return estimated_min_area
@@ -601,7 +592,7 @@ def estimate_min_line_score_from_image(
         Estimated min_line_score value
     """
     print(f"\n{'='*50}")
-    print(f"Auto-estimating min_line_score from image geometry")
+    print("Auto-estimating min_line_score from image geometry")
     print(f"{'='*50}")
 
     height, width = image_shape
@@ -615,7 +606,7 @@ def estimate_min_line_score_from_image(
         adjusted_score = base_score * focal_factor
 
         print(f"\n{'─'*50}")
-        print(f"Image Geometry:")
+        print("Image Geometry:")
         print(f"{'─'*50}")
         print(f"  Dimensions:   {width}×{height} pixels")
         print(f"  Diagonal:     {diagonal:.0f} pixels")
@@ -626,19 +617,19 @@ def estimate_min_line_score_from_image(
     else:
         adjusted_score = base_score
         print(f"\n{'─'*50}")
-        print(f"Image Geometry:")
+        print("Image Geometry:")
         print(f"{'─'*50}")
         print(f"  Dimensions:   {width}×{height} pixels")
         print(f"  Diagonal:     {diagonal:.0f} pixels")
         print(f"  Base score:   {base_score:.1f}")
-        print(f"  (No focal length provided)")
+        print("  (No focal length provided)")
 
     # Adjusted clamp range based on real meteor data
     estimated_score = np.clip(adjusted_score, 40.0, 150.0)
 
     print(f"{'─'*50}")
     print(f"✓ Estimated min_line_score: {estimated_score:.1f}")
-    print(f"  → ~2.5% of image diagonal")
+    print("  → ~2.5% of image diagonal")
     print(f"{'='*50}\n")
 
     return estimated_score
