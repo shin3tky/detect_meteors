@@ -20,7 +20,6 @@ from meteor_core import (
     get_sensor_preset,
     apply_sensor_preset,
     validate_sensor_overrides,
-    SENSOR_PRESETS,
 )
 
 

@@ -25,8 +25,6 @@ from .schema import (
     EXTENSIONS,
     DEFAULT_DIFF_THRESHOLD,
     DEFAULT_MIN_AREA,
-    DEFAULT_MIN_LINE_SCORE,
-    DEFAULT_FISHEYE_MODEL,
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
@@ -37,22 +35,15 @@ from .image_io import extract_exif_metadata
 from .inputs import InputLoader, create_raw_loader, discover_input_loaders
 from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
-from .detectors import HoughDetector, compute_line_score_fast
+from .detectors import compute_line_score_fast
 from .outputs import (
     OutputHandler,
     OutputWriter,
     ProgressManager,
-    load_progress,
-    save_progress,
 )
 from .utils import (
     compute_params_hash,
     format_polygon_string,
-    display_exif_info,
-    display_fisheye_info,
-    calculate_npf_metrics,
-    optimize_params_with_npf,
-    estimate_batch_size,
 )
 
 

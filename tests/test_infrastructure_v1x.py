@@ -12,7 +12,6 @@ Covers:
 import unittest
 import sys
 import os
-import json
 import tempfile
 import shutil
 import numpy as np
