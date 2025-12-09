@@ -11,7 +11,6 @@ import os
 import sys
 import shlex
 import argparse
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from meteor_core import (
     VERSION,
@@ -30,13 +29,10 @@ from meteor_core import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
     DEFAULT_FISHEYE_MODEL,
-    DetectionParams,
     # Functions
     collect_files,
-    validate_raw_file,
     extract_exif_metadata,
     load_and_bin_raw_fast,
-    parse_focal_factor,
     get_sensor_preset,
     apply_sensor_preset,
     validate_sensor_overrides,
@@ -51,12 +47,8 @@ from meteor_core import (
     estimate_min_area_from_samples,
     estimate_min_line_score_from_image,
     select_roi,
-    create_roi_mask_from_polygon,
-    create_full_roi_mask,
     process_image_batch,
     compute_params_hash,
-    OutputWriter,
-    ProgressManager,
     load_progress,
     save_progress,
 )
