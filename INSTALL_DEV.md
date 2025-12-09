@@ -44,12 +44,12 @@ pre-commit run --all-files
 
 ### How It Works
 
-Once installed, Black will automatically format your code before each commit:
+Once installed, pre-commit will automatically run Black (formatter) and flake8 (linter) before each commit:
 
 1. You make changes and run `git commit`
-2. Pre-commit runs Black on staged files
-3. If formatting changes are made, the commit is aborted
-4. You review changes, stage them, and commit again
+2. Pre-commit runs Black (formatting) and flake8 (linting) on staged files
+3. If formatting changes are made or linting errors are found, the commit is aborted
+4. You fix any issues, stage the changes, and commit again
 
 ### Example Workflow
 
@@ -61,21 +61,31 @@ vim detect_meteors_cli.py
 git add detect_meteors_cli.py
 git commit -m "Add new feature"
 
-# If Black reformats files, you'll see:
-# - Files were modified by this hook
+# If Black reformats files or flake8 finds errors, you'll see:
+# - Files were modified by this hook (Black)
+# - or linting errors (flake8)
 # - Commit aborted
 
-# Stage the formatted files and commit again
+# Fix any issues, stage the changes, and commit again
 git add detect_meteors_cli.py
 git commit -m "Add new feature"
 ```
 
+### Code Quality Tools
+
+This project uses two complementary tools for code quality, both automatically executed via pre-commit hooks:
+
+- **Black**: Automatic code formatting
+- **flake8**: Static code analysis and style checking
+
+All tool configurations are consolidated in `pyproject.toml`.
+
 ### Manual Formatting
 
-To manually format files:
+To manually run formatting:
 
 ```bash
-# Format all files via pre-commit
+# Run both Black and flake8 via pre-commit
 pre-commit run --all-files
 
 # Or run Black directly on specific files
@@ -84,18 +94,9 @@ black meteor_core/
 black tests/
 ```
 
-### Code Quality Tools
-
-This project uses two complementary tools for code quality:
-
-- **Black**: Automatic code formatting via pre-commit hooks
-- **flake8**: Static code analysis and style checking
-
-All tool configurations are consolidated in `pyproject.toml`.
-
 ### Manual Linting
 
-To manually check code quality with flake8:
+To manually run linting:
 
 ```bash
 # Check all Python files
@@ -314,7 +315,7 @@ if __name__ == "__main__":
 
 - **flake8** for code quality and style checking
 - Helps catch common errors and enforce PEP 8 compliance
-- Run manually before committing
+- Automatically executed via pre-commit hooks
 
 ### Python Version
 
@@ -449,11 +450,10 @@ This modular structure prepares for the v2.x plugin architecture by separating c
 4. **Create** a feature branch: `git checkout -b feature/your-feature`
 5. **Make** changes and add tests
 6. **Run** tests: `python run_tests.py`
-7. **Check** code quality: `flake8 .`
-8. **Measure** coverage: `coverage run -m unittest discover tests && coverage report`
-9. **Commit** (pre-commit will format code automatically)
-10. **Push** to your fork
-11. **Create** a Pull Request
+7. **Measure** coverage: `coverage run -m unittest discover tests && coverage report`
+8. **Commit** (pre-commit will run Black and flake8 automatically)
+9. **Push** to your fork
+10. **Create** a Pull Request
 
 ## Troubleshooting
 
