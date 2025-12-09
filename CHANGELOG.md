@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.5.8 - 2025-12-09
+- **Code quality tooling**: Added flake8 linter with project-specific configuration (`.flake8`) to complement Black formatter for improved code quality and maintainability.
+- **Linting standards**: Configured flake8 with appropriate ignore rules (E203, W503, E501, E226) for Black compatibility, max complexity of 70, and comprehensive exclusion patterns.
+- **Developer workflow**: Integrated flake8 into development workflow with manual linting commands (`flake8 .`) before commits, ensuring consistent code quality across the codebase.
+
 ## v1.5.7 - 2025-12-08
 - **Progress metadata enrichment**: `progress.json` now records CLI parameters (`params`), ROI selection (`roi`), and finalized processing parameters (`processing_params`) for reference when reviewing or re-running detection sessions.
 - **Pipeline consistency**: Both CLI and `PipelineConfig`-driven runs persist the same metadata fields, ensuring uniform progress files across entry points.

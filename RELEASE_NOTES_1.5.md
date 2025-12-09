@@ -1,5 +1,151 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.8 (2025-12-09)
+
+### 🔍 Code Quality Improvements
+
+Version 1.5.8 strengthens the development workflow by integrating flake8 linter alongside the existing Black formatter, establishing comprehensive code quality standards for the project.
+
+### Highlights
+
+- **flake8 linter integration**: Added flake8 to complement Black formatter, providing static code analysis and style checking beyond automatic formatting.
+- **Project-specific configuration**: Implemented `.flake8` configuration file with rules optimized for Black compatibility and project requirements.
+- **Enhanced developer workflow**: Manual linting checks before commits help maintain consistent code quality and catch potential issues early.
+
+### Configuration Details
+
+#### `.flake8` Configuration
+```ini
+[flake8]
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .serena,
+    .ruff_cache,
+    .github,
+    build,
+    dist,
+    *.egg-info,
+    rawfiles,
+    candidates,
+    debug_masks,
+    tests
+
+max-line-length = 88
+ignore = E203,W503,E501,E226
+max-complexity = 70
+```
+
+**Key Settings:**
+
+| Setting | Value | Reason |
+|---------|-------|--------|
+| `max-line-length` | 88 | Matches Black's default line length |
+| `ignore: E203` | Whitespace before ':' | Black compatibility (slice formatting) |
+| `ignore: W503` | Line break before binary operator | Black compatibility |
+| `ignore: E501` | Line too long | Black handles line length |
+| `ignore: E226` | Missing whitespace around operator | Black compatibility |
+| `max-complexity` | 70 | Appropriate for image processing algorithms |
+
+### Usage
+
+#### Manual Linting
+```bash
+# Check all Python files
+flake8 .
+
+# Check specific files or directories
+flake8 detect_meteors_cli.py
+flake8 meteor_core/
+flake8 tests/
+
+# Show statistics
+flake8 --statistics --count .
+```
+
+#### Development Workflow
+```bash
+# 1. Make your changes
+vim detect_meteors_cli.py
+
+# 2. Format with Black (via pre-commit or manually)
+black detect_meteors_cli.py
+
+# 3. Check code quality with flake8
+flake8 detect_meteors_cli.py
+
+# 4. Fix any issues reported
+
+# 5. Commit your changes
+git add detect_meteors_cli.py
+git commit -m "Add new feature"
+```
+
+### Benefits
+
+1. **Early issue detection**: Catch potential bugs, unused imports, and code smells before they reach production
+2. **Consistent style**: Enforce coding standards across the entire codebase
+3. **Black compatibility**: Carefully configured to avoid conflicts with Black formatter
+4. **Developer guidance**: Provides helpful feedback for maintaining code quality
+
+### Toolchain Overview
+
+| Tool | Purpose | When It Runs |
+|------|---------|--------------|
+| **Black** | Automatic code formatting | Pre-commit hook (automatic) |
+| **flake8** | Static code analysis & style checking | Manual before commit (recommended) |
+
+### Common flake8 Checks
+
+**What flake8 catches:**
+
+- Unused imports: `F401`
+- Undefined names: `F821`
+- Syntax errors: `E999`
+- Code complexity: `C901`
+- PEP 8 violations: `E***`, `W***`
+- Logical errors: Missing return statements, undefined variables
+
+**Example:**
+```bash
+$ flake8 detect_meteors_cli.py
+detect_meteors_cli.py:45:1: F401 'os' imported but unused
+detect_meteors_cli.py:234:5: F841 local variable 'result' is assigned to but never used
+```
+
+### Ignored Warnings (Black Compatibility)
+
+Some flake8 warnings are intentionally ignored to avoid conflicts with Black:
+
+- `E203`: Black's slice formatting uses no space before `:`
+- `W503`: Black prefers line breaks before binary operators
+- `E501`: Black automatically handles line length
+- `E226`: Black handles operator spacing its own way
+
+### Test Files Exclusion
+
+Test files are excluded from flake8 checks by default to allow more flexible testing patterns. This prevents false positives from test-specific code structures.
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.5.7 and earlier:
+- No changes to runtime behavior
+- No breaking changes to API or CLI options
+- Pure development tooling enhancement
+
+### Files Updated
+
+| File | Changes |
+|------|---------|
+| `.flake8` | New configuration file for flake8 linter |
+| `INSTALL_DEV.md` | Updated with flake8 integration details |
+| `CHANGELOG.md` | Added v1.5.8 entry |
+| `README.md` | Added v1.5.8 section |
+
+---
+
 ## Version 1.5.7 (2025-12-08)
 
 ### 📝 Progress metadata enrichment

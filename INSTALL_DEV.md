@@ -82,6 +82,15 @@ black meteor_core/
 black tests/
 ```
 
+### Code Quality Tools
+
+This project uses two complementary tools for code quality:
+
+- **Black** (v1.5.0+): Automatic code formatting via pre-commit hooks
+- **flake8** (v1.5.8+): Static code analysis and style checking
+
+As of v1.5.8, flake8 is formally integrated with project-specific configuration in `.flake8`.
+
 ### Manual Linting
 
 To manually check code quality with flake8:
