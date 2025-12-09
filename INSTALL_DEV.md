@@ -15,7 +15,7 @@ Complete the basic installation from [INSTALL.md](INSTALL.md) first, then follow
 After activating your virtual environment, install development dependencies:
 
 ```bash
-pip install pre-commit black
+pip install pre-commit black flake8
 ```
 
 ### Step 2: Set Up Pre-commit Hooks
@@ -82,9 +82,30 @@ black meteor_core/
 black tests/
 ```
 
+### Manual Linting
+
+To manually check code quality with flake8:
+
+```bash
+# Check all Python files
+flake8 .
+
+# Check specific files or directories
+flake8 detect_meteors_cli.py
+flake8 meteor_core/
+flake8 tests/
+
+# Show statistics
+flake8 --statistics --count .
+```
+
 ### Configuration
 
-The pre-commit configuration is in `.pre-commit-config.yaml`:
+The project uses multiple configuration files for code quality and formatting:
+
+#### `.pre-commit-config.yaml`
+
+Pre-commit hooks configuration:
 
 ```yaml
 repos:
@@ -92,6 +113,61 @@ repos:
     rev: 25.11.0
     hooks:
       - id: black
+```
+
+#### `pyproject.toml`
+
+Black formatter configuration:
+
+```toml
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | venv
+  | __pycache__
+  | \.serena
+  | \.ruff_cache
+  | \.github
+  | build
+  | dist
+  | \.egg-info
+  | rawfiles
+  | candidates
+  | debug_masks
+)/
+'''
+```
+
+#### `.flake8`
+
+Flake8 linter configuration:
+
+```ini
+[flake8]
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .serena,
+    .ruff_cache,
+    .github,
+    build,
+    dist,
+    *.egg-info,
+    rawfiles,
+    candidates,
+    debug_masks,
+    tests
+
+max-line-length = 88
+ignore = E203,W503,E501,E226
+max-complexity = 70
 ```
 
 ## Running Tests
@@ -176,6 +252,12 @@ if __name__ == "__main__":
 
 - **Black** with default settings (88 character line length)
 - Automatically enforced via pre-commit hooks
+
+### Linter
+
+- **flake8** for code quality and style checking
+- Helps catch common errors and enforce PEP 8 compliance
+- Run manually before committing
 
 ### Python Version
 
@@ -265,6 +347,8 @@ detect_meteors/
 │   └── test_fisheye_v1x.py
 ├── run_tests.py                   # Version-aware test runner
 ├── .pre-commit-config.yaml        # Pre-commit hooks configuration
+├── pyproject.toml                 # Black formatter configuration
+├── .flake8                        # Flake8 linter configuration
 ├── requirements.txt               # Python dependencies
 ├── CHANGELOG.md                   # Release history
 ├── README.md                      # User documentation
@@ -309,9 +393,10 @@ This modular structure prepares for the v2.x plugin architecture by separating c
 4. **Create** a feature branch: `git checkout -b feature/your-feature`
 5. **Make** changes and add tests
 6. **Run** tests: `python run_tests.py`
-7. **Commit** (pre-commit will format code automatically)
-8. **Push** to your fork
-9. **Create** a Pull Request
+7. **Check** code quality: `flake8 .`
+8. **Commit** (pre-commit will format code automatically)
+9. **Push** to your fork
+10. **Create** a Pull Request
 
 ## Troubleshooting
 
@@ -345,7 +430,27 @@ source ./venv/bin/activate  # macOS/Linux
 **Missing dependencies:**
 ```bash
 pip install -r requirements.txt
-pip install pre-commit black
+pip install pre-commit black flake8
+```
+
+### Linting Issues
+
+**Too many errors:**
+```bash
+# Focus on specific error types first
+flake8 --select=E9,F63,F7,F82 .
+
+# Ignore specific errors temporarily
+flake8 --extend-ignore=E501,W503 .
+```
+
+**Configuration conflicts:**
+```bash
+# Check flake8 configuration
+cat .flake8
+
+# Check Black configuration
+cat pyproject.toml | grep -A 20 "\[tool.black\]"
 ```
 
 ### Module Import Issues (v1.5.5+)
@@ -373,6 +478,7 @@ For more information about Apache License 2.0 compliance, see the [Apache Licens
 ## Resources
 
 - [Black Documentation](https://black.readthedocs.io/)
+- [flake8 Documentation](https://flake8.pycqa.org/)
 - [Pre-commit Documentation](https://pre-commit.com/)
 - [Python unittest Documentation](https://docs.python.org/3/library/unittest.html)
 - [Project README](README.md)
