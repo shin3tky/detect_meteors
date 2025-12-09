@@ -44,7 +44,8 @@ I developed this tool hoping it would be useful for fellow astrophotography enth
 
 ## Installation
 
-For detailed installation instructions for macOS and Windows, please refer to [INSTALL.md](INSTALL.md).
+- For detailed installation instructions for macOS and Windows, please refer to [INSTALL.md](INSTALL.md).
+- Developers, please also refer to [INSTALL_DEV.md](INSTALL_DEV.md).
 
 ## What's New in v1.5
 
