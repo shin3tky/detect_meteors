@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.9 - 2025-12-10
+- **PEP 621 compliance**: Migrated project configuration to `pyproject.toml` with full metadata including name, description, authors, keywords, and classifiers.
+- **Unified tool configuration**: Consolidated flake8 settings from `.flake8` into `pyproject.toml` (via flake8-pyproject), providing single-file configuration for all development tools.
+- **Dependency management**: Defined runtime dependencies and optional dev dependencies in `pyproject.toml` for clearer dependency tracking.
+- **Test infrastructure**: Added testing and coverage configuration to `pyproject.toml` for standardized test execution and coverage measurement.
+- **Project URLs**: Added Homepage, Repository, Documentation, Issues, and Changelog links to project metadata.
+
 ## v1.5.8 - 2025-12-09
 - **Code quality tooling**: Added flake8 linter with project-specific configuration (`.flake8`) to complement Black formatter for improved code quality and maintainability.
 - **Linting standards**: Configured flake8 with appropriate ignore rules (E203, W503, E501, E226) for Black compatibility, max complexity of 70, and comprehensive exclusion patterns.
