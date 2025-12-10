@@ -42,6 +42,16 @@ I developed this tool hoping it would be useful for fellow astrophotography enth
 - Help wanted: verification on Apple Silicon Macs, Windows, and Linux would be greatly appreciated.
 - Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`, `psutil`, `pillow`.
 
+## Performance
+
+Multi-core parallel processing delivers high-speed batch analysis:
+
+| Environment | CPU | Images | Processing Time | Speed |
+|-------------|-----|--------|-----------------|-------|
+| MacBook Pro 16-inch 2019 | 2.3 GHz 8-Core Intel Core i9 | 3,736 | 715 sec | **0.18 sec/image** |
+
+The tool automatically utilizes all available CPU cores (N-1 cores in parallel) for maximum throughput. In the test above, 15 Python processes ran simultaneously at ~99% CPU utilization.
+
 ## Installation
 
 - For detailed installation instructions for macOS and Windows, please refer to [INSTALL.md](INSTALL.md).
