@@ -1114,7 +1114,9 @@ class MeteorDetectionPipeline:
                                 flush=True,
                             )
 
-                        self.progress_manager.record_result(filename, is_candidate)
+                        self.progress_manager.record_result(
+                            filename, is_candidate, aspect_ratio
+                        )
 
                 except Exception as e:
                     print(f"\nBatch processing error: {e}")
@@ -1179,7 +1181,9 @@ class MeteorDetectionPipeline:
                     else:
                         print(f"  [SKIP] {filename}: Already exists")
 
-                self.progress_manager.record_result(filename, is_candidate)
+                self.progress_manager.record_result(
+                    filename, is_candidate, aspect_ratio
+                )
 
         return self.progress_manager.get_total_detected()
 

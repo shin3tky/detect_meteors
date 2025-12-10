@@ -945,7 +945,7 @@ def _run_parallel_detection(
         batch_size: Batch size for processing
         resume_offset: Offset for progress display
         overall_total: Total number of files for progress display
-        record_result_callback: Callback to record results
+        record_result_callback: Callback to record results (filename, is_candidate, ratio)
 
     Returns:
         Number of detected candidates
@@ -1015,7 +1015,9 @@ def _run_parallel_detection(
                             flush=True,
                         )
 
-                    detected_count = record_result_callback(filename, is_candidate)
+                    detected_count = record_result_callback(
+                        filename, is_candidate, aspect_ratio
+                    )
 
             except Exception as e:
                 print(f"\nBatch processing error: {e}")
@@ -1056,7 +1058,7 @@ def _run_sequential_detection(
         output_overwrite: Whether to overwrite existing files
         resume_offset: Offset for progress display
         overall_total: Total number of files for progress display
-        record_result_callback: Callback to record results
+        record_result_callback: Callback to record results (filename, is_candidate, ratio)
 
     Returns:
         Number of detected candidates
@@ -1121,7 +1123,9 @@ def _run_sequential_detection(
                 )
                 progress_line_active = True
 
-            detected_count = record_result_callback(filename, is_candidate)
+            detected_count = record_result_callback(
+                filename, is_candidate, aspect_ratio
+            )
 
     return detected_count
 
@@ -1242,6 +1246,7 @@ def detect_meteors_advanced(
         "processing_params": processing_params,
         "processed_files": [],
         "detected_files": [],
+        "detected_ratios": {},
         "total_processed": 0,
         "total_detected": 0,
     }
@@ -1262,6 +1267,7 @@ def detect_meteors_advanced(
                         "processing_params",
                         "processed_files",
                         "detected_files",
+                        "detected_ratios",
                         "total_processed",
                         "total_detected",
                         "created_at",
@@ -1292,6 +1298,14 @@ def detect_meteors_advanced(
         if name in existing_basenames
     ]
 
+    # Filter detected_ratios to only include existing files
+    if "detected_ratios" in progress_data:
+        progress_data["detected_ratios"] = {
+            name: ratio
+            for name, ratio in progress_data["detected_ratios"].items()
+            if name in existing_basenames
+        }
+
     processed_set = set(progress_data["processed_files"])
     detected_set = set(progress_data["detected_files"])
 
@@ -1300,7 +1314,7 @@ def detect_meteors_advanced(
 
     save_progress(progress_file, progress_data)
 
-    def record_result(filename: str, is_candidate: bool) -> int:
+    def record_result(filename: str, is_candidate: bool, ratio: float = 0.0) -> int:
         """Record result and return current detected count."""
         processed_set.add(filename)
         if filename not in progress_data["processed_files"]:
@@ -1310,6 +1324,10 @@ def detect_meteors_advanced(
             detected_set.add(filename)
             if filename not in progress_data["detected_files"]:
                 progress_data["detected_files"].append(filename)
+            # Store ratio in detected_ratios dict
+            if "detected_ratios" not in progress_data:
+                progress_data["detected_ratios"] = {}
+            progress_data["detected_ratios"][filename] = ratio
 
         progress_data["total_processed"] = len(processed_set)
         progress_data["total_detected"] = len(detected_set)
