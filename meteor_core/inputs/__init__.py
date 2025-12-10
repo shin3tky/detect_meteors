@@ -1,10 +1,10 @@
-"""Input loader protocols and helper base classes."""
+"""Input loader abstract base classes and helpers."""
 
 from .base import (
     ConfigType,
+    BaseInputLoader,
+    BaseMetadataExtractor,
     DataclassInputLoader,
-    InputLoader,
-    MetadataExtractor,
     PydanticInputLoader,
     forbid_unknown_keys,
     supports_metadata_extraction,
@@ -16,10 +16,10 @@ from .discovery import PLUGIN_DIR, PLUGIN_GROUP, discover_input_loaders
 __all__ = [
     # Type variables
     "ConfigType",
-    # Protocols
-    "InputLoader",
-    "MetadataExtractor",
-    # Base classes
+    # Abstract base classes
+    "BaseInputLoader",
+    "BaseMetadataExtractor",
+    # Concrete base classes (for specific config types)
     "DataclassInputLoader",
     "PydanticInputLoader",
     # Utility functions

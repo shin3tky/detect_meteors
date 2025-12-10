@@ -14,20 +14,20 @@ try:  # pragma: no cover - fallback for older Python
 except ImportError:  # pragma: no cover
     import importlib_metadata as metadata  # type: ignore
 
-from .base import InputLoader, _is_valid_input_loader
+from .base import BaseInputLoader, _is_valid_input_loader
 from .raw import RawImageLoader
 
 PLUGIN_GROUP = "detect_meteors.input"
 PLUGIN_DIR = Path.home() / ".detect_meteors" / "plugins"
 
-# Classes to skip during discovery (base classes and protocols)
+# Classes to skip during discovery (base classes)
 _SKIP_CLASSES = frozenset(
     {
-        "InputLoader",
-        "MetadataExtractor",
+        "BaseInputLoader",
+        "BaseMetadataExtractor",
         "DataclassInputLoader",
         "PydanticInputLoader",
-        "Protocol",
+        "ABC",
         "Generic",
     }
 )
@@ -42,7 +42,9 @@ def _iter_entry_points() -> Iterable[metadata.EntryPoint]:
 
 
 def _add_loader(
-    registry: Dict[str, Type[InputLoader]], loader_cls: Type[InputLoader], origin: str
+    registry: Dict[str, Type[BaseInputLoader]],
+    loader_cls: Type[BaseInputLoader],
+    origin: str,
 ) -> None:
     """Add a loader class to the registry if valid.
 
@@ -67,7 +69,7 @@ def _add_loader(
         if "loader" in class_name_lower or "input" in class_name_lower:
             warnings.warn(
                 f"Skipping loader from {origin}: {loader_cls.__module__}.{loader_cls.__name__} "
-                "does not implement InputLoader protocol (missing plugin_name or load method).",
+                "does not inherit from BaseInputLoader (or missing plugin_name).",
                 stacklevel=3,
             )
         return
@@ -116,8 +118,8 @@ def _load_module_from_file(filepath: Path):
 
 def discover_input_loaders(
     plugin_dir: Path | None = None,
-) -> Dict[str, Type[InputLoader]]:
-    """Discover available :class:`InputLoader` implementations.
+) -> Dict[str, Type[BaseInputLoader]]:
+    """Discover available :class:`BaseInputLoader` implementations.
 
     Discovery order is deterministic:
 
@@ -142,7 +144,7 @@ def discover_input_loaders(
         >>> RawLoader = loaders['raw']
     """
 
-    registry: Dict[str, Type[InputLoader]] = {}
+    registry: Dict[str, Type[BaseInputLoader]] = {}
 
     # 1. Register built-in loaders first
     _add_loader(registry, RawImageLoader, "built-in RawImageLoader")

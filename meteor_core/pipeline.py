@@ -32,12 +32,12 @@ from .schema import (
     PipelineConfig,
 )
 from .image_io import extract_exif_metadata
-from .inputs import InputLoader, create_raw_loader, discover_input_loaders
+from .inputs import BaseInputLoader, create_raw_loader, discover_input_loaders
 from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import compute_line_score_fast
 from .outputs import (
-    OutputHandler,
+    BaseOutputHandler,
     OutputWriter,
     ProgressManager,
 )
@@ -80,10 +80,10 @@ def _coerce_loader_config(loader_cls, loader_config: Optional[Dict[str, Any]]):
 
 
 def _resolve_input_loader(
-    input_loader: Optional[InputLoader] = None,
+    input_loader: Optional[BaseInputLoader] = None,
     loader_name: Optional[str] = None,
     loader_config: Optional[Dict[str, Any]] = None,
-) -> InputLoader:
+) -> BaseInputLoader:
     if input_loader is not None:
         return input_loader
 
@@ -102,7 +102,9 @@ def _resolve_input_loader(
     return _DEFAULT_INPUT_LOADER
 
 
-def _extract_metadata_from_loader(loader: InputLoader, filepath: str) -> Dict[str, Any]:
+def _extract_metadata_from_loader(
+    loader: BaseInputLoader, filepath: str
+) -> Dict[str, Any]:
     """Extract metadata using the loader if it supports it, otherwise use default."""
     if supports_metadata_extraction(loader):
         return loader.extract_metadata(filepath)  # type: ignore[union-attr]
@@ -226,7 +228,7 @@ def collect_files(target_folder: str) -> List[str]:
 
 
 def validate_raw_file(
-    index: int, raw_file: str, input_loader: Optional[InputLoader] = None
+    index: int, raw_file: str, input_loader: Optional[BaseInputLoader] = None
 ) -> Tuple[int, str, Optional[Exception]]:
     """
     Attempt to load a RAW file, returning any validation error.
@@ -251,7 +253,7 @@ def process_image_batch(
     batch_data: List[Tuple[str, str]],
     roi_mask: np.ndarray,
     params: dict,
-    input_loader: Optional[InputLoader] = None,
+    input_loader: Optional[BaseInputLoader] = None,
 ) -> List[Tuple]:
     """
     Process a batch of images (handle multiple pairs at once).
@@ -368,7 +370,7 @@ def estimate_diff_threshold_from_samples(
     files: List[str],
     roi_mask: np.ndarray,
     sample_size: int = 5,
-    input_loader: Optional[InputLoader] = None,
+    input_loader: Optional[BaseInputLoader] = None,
 ) -> int:
     """
     Estimation using percentile-based approach.
@@ -476,7 +478,7 @@ def estimate_min_area_from_samples(
     roi_mask: np.ndarray,
     diff_threshold: int,
     sample_size: int = 3,
-    input_loader: Optional[InputLoader] = None,
+    input_loader: Optional[BaseInputLoader] = None,
 ) -> int:
     """
     Improved min_area estimation with better star detection.
@@ -673,10 +675,10 @@ class MeteorDetectionPipeline:
         self,
         config: PipelineConfig,
         *,
-        input_loader: Optional[InputLoader] = None,
+        input_loader: Optional[BaseInputLoader] = None,
         input_loader_name: Optional[str] = None,
         input_loader_config: Optional[Dict[str, Any]] = None,
-        output_handler: Optional[OutputHandler] = None,
+        output_handler: Optional[BaseOutputHandler] = None,
     ) -> None:
         """Initialize with PipelineConfig (new API)."""
         ...
@@ -694,10 +696,10 @@ class MeteorDetectionPipeline:
         enable_parallel: bool = ...,
         progress_file: str = ...,
         output_overwrite: bool = ...,
-        input_loader: Optional[InputLoader] = ...,
+        input_loader: Optional[BaseInputLoader] = ...,
         input_loader_name: Optional[str] = ...,
         input_loader_config: Optional[Dict[str, Any]] = ...,
-        output_handler: Optional[OutputHandler] = ...,
+        output_handler: Optional[BaseOutputHandler] = ...,
     ) -> None:
         """Initialize with individual arguments (legacy API)."""
         ...
@@ -714,10 +716,10 @@ class MeteorDetectionPipeline:
         enable_parallel: bool = True,
         progress_file: str = DEFAULT_PROGRESS_FILE,
         output_overwrite: bool = False,
-        input_loader: Optional[InputLoader] = None,
+        input_loader: Optional[BaseInputLoader] = None,
         input_loader_name: Optional[str] = None,
         input_loader_config: Optional[Dict[str, Any]] = None,
-        output_handler: Optional[OutputHandler] = None,
+        output_handler: Optional[BaseOutputHandler] = None,
     ):
         """
         Initialize the detection pipeline.
@@ -742,10 +744,10 @@ class MeteorDetectionPipeline:
             enable_parallel: Enable parallel processing (legacy API only)
             progress_file: Progress tracking file path (legacy API only)
             output_overwrite: Overwrite existing files (legacy API only)
-            input_loader: Pre-initialized InputLoader instance
+            input_loader: Pre-initialized BaseInputLoader instance
             input_loader_name: Name of loader plugin to use
             input_loader_config: Configuration for the loader
-            output_handler: Custom OutputHandler implementation
+            output_handler: Custom BaseOutputHandler implementation
         """
         # Determine which API is being used
         if isinstance(config_or_target, PipelineConfig):
@@ -792,7 +794,7 @@ class MeteorDetectionPipeline:
         self.input_loader_config = input_loader_config
 
         # Initialize output handler
-        self.output_writer: OutputHandler = output_handler or OutputWriter(
+        self.output_writer: BaseOutputHandler = output_handler or OutputWriter(
             self._config.output_folder,
             self._config.debug_folder,
             self._config.progress_file,
@@ -1051,7 +1053,7 @@ class MeteorDetectionPipeline:
         roi_polygon: Optional[List[List[int]]],
         resume_offset: int,
         overall_total: int,
-        input_loader: Optional[InputLoader],
+        input_loader: Optional[BaseInputLoader],
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
         batches = [
@@ -1135,7 +1137,7 @@ class MeteorDetectionPipeline:
         roi_polygon: Optional[List[List[int]]],
         resume_offset: int,
         overall_total: int,
-        input_loader: Optional[InputLoader],
+        input_loader: Optional[BaseInputLoader],
     ) -> int:
         """Process images sequentially."""
         for idx, pair in enumerate(image_pairs):

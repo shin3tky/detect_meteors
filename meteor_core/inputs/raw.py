@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 import numpy as np
 
 from ..image_io import extract_exif_metadata, load_and_bin_raw_fast
-from .base import DataclassInputLoader
+from .base import BaseMetadataExtractor, DataclassInputLoader
 
 
 @dataclass
@@ -39,7 +39,7 @@ class RawLoaderConfig:
             )
 
 
-class RawImageLoader(DataclassInputLoader[RawLoaderConfig]):
+class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtractor):
     """Loader that wraps the existing RAW helpers for plugin use.
 
     This loader uses rawpy to load RAW image files and applies 2x2 binning
