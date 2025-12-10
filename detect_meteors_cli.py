@@ -243,6 +243,198 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def validate_and_apply_sensor_preset(args, verbose: bool = False):
+    """
+    Validate and apply sensor preset settings.
+
+    Consolidates the repeated sensor preset validation/application logic
+    that was duplicated in handle_show_exif() and main().
+
+    Args:
+        args: Parsed argparse namespace
+        verbose: If True, print which values are being used
+
+    Returns:
+        Tuple of (focal_factor, sensor_width, focal_length, pixel_pitch, preset, error_message)
+        If error_message is not None, the caller should handle the error and return early.
+    """
+    # Validate --sensor-type
+    if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
+        return (
+            None,
+            None,
+            None,
+            None,
+            None,
+            f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'\n"
+            "  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40",
+        )
+
+    # Apply sensor preset
+    (
+        focal_factor_value,
+        sensor_width_value,
+        focal_length_value,
+        pixel_pitch_value,
+        preset,
+    ) = apply_sensor_preset(args, verbose=verbose)
+
+    # Validate sensor overrides
+    validate_sensor_overrides(args, preset, sensor_width_value, pixel_pitch_value)
+
+    # Validate focal_factor
+    if args.focal_factor and focal_factor_value is None:
+        return (
+            None,
+            None,
+            None,
+            None,
+            None,
+            f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'\n"
+            "  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)",
+        )
+
+    return (
+        focal_factor_value,
+        sensor_width_value,
+        focal_length_value,
+        pixel_pitch_value,
+        preset,
+        None,
+    )
+
+
+def prepare_exif_and_npf_analysis(
+    filepath: str,
+    focal_factor_value,
+    focal_length_value,
+    sensor_width_value,
+    pixel_pitch_value,
+    args_sensor_type,
+    args_focal_factor,
+    fisheye: bool = False,
+    fisheye_model: str = DEFAULT_FISHEYE_MODEL,
+):
+    """
+    Extract EXIF metadata and calculate NPF metrics.
+
+    Consolidates the EXIF extraction and NPF calculation logic that was
+    duplicated in handle_show_exif() and detect_meteors_advanced().
+
+    Args:
+        filepath: Path to the RAW file
+        focal_factor_value: Parsed focal factor value
+        focal_length_value: Parsed focal length value (from CLI)
+        sensor_width_value: Sensor width in mm
+        pixel_pitch_value: Pixel pitch in μm
+        args_sensor_type: --sensor-type argument value
+        args_focal_factor: --focal-factor argument value
+        fisheye: Whether fisheye correction is enabled
+        fisheye_model: Fisheye projection model
+
+    Returns:
+        Tuple of (exif_data, focal_length_source, npf_metrics)
+    """
+    exif_data = extract_exif_metadata(filepath)
+
+    # Focal length priority
+    focal_length_source = "Unknown"
+    if focal_length_value:
+        focal_length_source = "CLI (--focal-length)"
+        exif_data["focal_length_35mm"] = focal_length_value
+    elif exif_data.get("focal_length_35mm"):
+        focal_length_source = "EXIF"
+    elif exif_data.get("focal_length") and focal_factor_value:
+        if args_focal_factor:
+            focal_length_source = f"Calculated (--focal-factor {args_focal_factor})"
+        else:
+            focal_length_source = f"Calculated (--sensor-type {args_sensor_type})"
+        exif_data["focal_length_35mm"] = exif_data["focal_length"] * focal_factor_value
+    elif exif_data.get("focal_length"):
+        focal_length_source = "EXIF (actual, no 35mm equiv.)"
+
+    # NPF metrics calculation
+    npf_metrics = None
+    if exif_data.get("focal_length_35mm") and exif_data.get("f_number"):
+        npf_metrics = calculate_npf_metrics(
+            exif_data,
+            sensor_width_mm=sensor_width_value,
+            pixel_pitch_um=pixel_pitch_value,
+            fisheye=fisheye,
+            fisheye_model=fisheye_model,
+        )
+
+    return exif_data, focal_length_source, npf_metrics
+
+
+def collect_exif_warnings(
+    exif_data,
+    focal_length_value,
+    focal_factor_value,
+    sensor_width_value,
+    pixel_pitch_value,
+    npf_metrics,
+    check_npf: bool = True,
+):
+    """
+    Collect warnings related to EXIF data and NPF calculation.
+
+    Args:
+        exif_data: EXIF metadata dictionary
+        focal_length_value: CLI-specified focal length
+        focal_factor_value: Parsed focal factor
+        sensor_width_value: Sensor width in mm
+        pixel_pitch_value: Pixel pitch in μm
+        npf_metrics: NPF metrics dictionary
+        check_npf: Whether to include NPF-related warnings
+
+    Returns:
+        List of warning strings
+    """
+    warnings = []
+
+    if (
+        not exif_data.get("focal_length")
+        and not exif_data.get("focal_length_35mm")
+        and not focal_length_value
+    ):
+        warnings.append("Focal length not available")
+    elif (
+        not exif_data.get("focal_length_35mm")
+        and not focal_factor_value
+        and not focal_length_value
+    ):
+        warnings.append(
+            "35mm equivalent not found. Consider using --sensor-type or --focal-factor"
+        )
+
+    if not exif_data.get("iso"):
+        warnings.append("ISO value not available")
+    if not exif_data.get("exposure_time"):
+        warnings.append("Exposure time not available")
+
+    # NPF-related warnings
+    if check_npf and npf_metrics:
+        if not sensor_width_value and not exif_data.get("image_width"):
+            warnings.append(
+                "Sensor width not specified. Use --sensor-type or --sensor-width for accurate NPF calculation"
+            )
+        if not npf_metrics.get("has_complete_data"):
+            warnings.append("NPF calculation using default/estimated values")
+
+    return warnings
+
+
+def print_warnings(warnings):
+    """Print warnings in a formatted box."""
+    if warnings:
+        print(f"{'='*60}")
+        print("⚠ Warnings:")
+        for warning in warnings:
+            print(f"  • {warning}")
+        print(f"{'='*60}\n")
+
+
 def handle_show_exif(args) -> None:
     """Handle --show-exif / --show-npf commands."""
     print(f"\n{'='*60}")
@@ -253,30 +445,18 @@ def handle_show_exif(args) -> None:
     print(f"{'='*60}\n")
     print(f"Target folder: {args.target}")
 
-    # Validate --sensor-type
-    if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
-        print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
-        print(
-            "  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
-        )
-        return
-
-    # Apply sensor preset
+    # Validate and apply sensor preset
     (
         focal_factor_value,
         sensor_width_value,
         focal_length_value,
         pixel_pitch_value,
         preset,
-    ) = apply_sensor_preset(args, verbose=True)
+        error_message,
+    ) = validate_and_apply_sensor_preset(args, verbose=True)
 
-    # Validate sensor overrides
-    validate_sensor_overrides(args, preset, sensor_width_value, pixel_pitch_value)
-
-    # Validate focal_factor
-    if args.focal_factor and focal_factor_value is None:
-        print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
-        print("  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
+    if error_message:
+        print(error_message)
         return
 
     try:
@@ -288,31 +468,21 @@ def handle_show_exif(args) -> None:
         print(f"Found {len(files)} RAW files")
         print(f"Reading EXIF from first file: {os.path.basename(files[0])}\n")
 
-        exif_data = extract_exif_metadata(files[0])
+        # Extract EXIF and calculate NPF metrics
+        exif_data, focal_length_source, npf_metrics = prepare_exif_and_npf_analysis(
+            filepath=files[0],
+            focal_factor_value=focal_factor_value,
+            focal_length_value=focal_length_value,
+            sensor_width_value=sensor_width_value,
+            pixel_pitch_value=pixel_pitch_value,
+            args_sensor_type=args.sensor_type,
+            args_focal_factor=args.focal_factor,
+            fisheye=args.fisheye,
+            fisheye_model=DEFAULT_FISHEYE_MODEL,
+        )
 
-        # Focal length priority
-        focal_length_source = "Unknown"
-        if focal_length_value:
-            focal_length_source = "CLI (--focal-length)"
-            exif_data["focal_length_35mm"] = focal_length_value
-        elif exif_data.get("focal_length_35mm"):
-            focal_length_source = "EXIF"
-        elif exif_data.get("focal_length") and focal_factor_value:
-            if args.focal_factor:
-                focal_length_source = f"Calculated (--focal-factor {args.focal_factor})"
-            else:
-                focal_length_source = f"Calculated (--sensor-type {args.sensor_type})"
-            exif_data["focal_length_35mm"] = (
-                exif_data["focal_length"] * focal_factor_value
-            )
-        elif exif_data.get("focal_length"):
-            focal_length_source = "EXIF (actual, no 35mm equiv.)"
-
-        # NPF metrics (when --show-npf or sufficient information exists)
-        npf_metrics = None
-        if args.show_npf or (
-            exif_data.get("focal_length_35mm") and exif_data.get("f_number")
-        ):
+        # For --show-npf, force NPF calculation even if data is incomplete
+        if args.show_npf and npf_metrics is None:
             npf_metrics = calculate_npf_metrics(
                 exif_data,
                 sensor_width_mm=sensor_width_value,
@@ -329,42 +499,17 @@ def handle_show_exif(args) -> None:
             exif_data, focal_length_source, focal_factor_value, npf_metrics
         )
 
-        # Warnings
-        warnings = []
-        if (
-            not exif_data.get("focal_length")
-            and not exif_data.get("focal_length_35mm")
-            and not focal_length_value
-        ):
-            warnings.append("Focal length not available")
-        elif (
-            not exif_data.get("focal_length_35mm")
-            and not focal_factor_value
-            and not focal_length_value
-        ):
-            warnings.append(
-                "35mm equivalent not found. Consider using --sensor-type or --focal-factor"
-            )
-        if not exif_data.get("iso"):
-            warnings.append("ISO value not available")
-        if not exif_data.get("exposure_time"):
-            warnings.append("Exposure time not available")
-
-        # NPF-related warnings
-        if args.show_npf or npf_metrics:
-            if not sensor_width_value and not exif_data.get("image_width"):
-                warnings.append(
-                    "Sensor width not specified. Use --sensor-type or --sensor-width for accurate NPF calculation"
-                )
-            if npf_metrics and not npf_metrics.get("has_complete_data"):
-                warnings.append("NPF calculation using default/estimated values")
-
-        if warnings:
-            print(f"{'='*60}")
-            print("⚠ Warnings:")
-            for warning in warnings:
-                print(f"  • {warning}")
-            print(f"{'='*60}\n")
+        # Collect and print warnings
+        warnings = collect_exif_warnings(
+            exif_data=exif_data,
+            focal_length_value=focal_length_value,
+            focal_factor_value=focal_factor_value,
+            sensor_width_value=sensor_width_value,
+            pixel_pitch_value=pixel_pitch_value,
+            npf_metrics=npf_metrics,
+            check_npf=(args.show_npf or npf_metrics is not None),
+        )
+        print_warnings(warnings)
 
     except FileNotFoundError as e:
         print(f"⚠ Error: {e}")
@@ -377,6 +522,608 @@ def _init_worker_ignore_interrupt() -> None:
     import signal
 
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
+def _validate_directories(
+    target_folder: str, output_folder: str, debug_folder: str
+) -> bool:
+    """
+    Validate and create directories for processing.
+
+    Args:
+        target_folder: Input folder with RAW files
+        output_folder: Output folder for candidates
+        debug_folder: Folder for debug images
+
+    Returns:
+        True if directories are valid, False otherwise
+    """
+    import os
+
+    # Safety check: prevent overwriting source files
+    target_fullpath = os.path.abspath(target_folder)
+    output_fullpath = os.path.abspath(output_folder)
+
+    if target_fullpath == output_fullpath:
+        print(f"\n{'='*60}")
+        print("⚠ ERROR: Target and output directories are the same!")
+        print(f"{'='*60}")
+        print(f"  Target:  {target_folder}")
+        print(f"  Output:  {output_folder}")
+        print(f"  Resolved to: {target_fullpath}")
+        print("\nThis configuration would overwrite original RAW files.")
+        print("Please specify a different output directory.")
+        print(f"{'='*60}\n")
+        return False
+
+    os.makedirs(output_folder, exist_ok=True)
+    os.makedirs(debug_folder, exist_ok=True)
+    return True
+
+
+def _setup_roi(
+    prev_img,
+    roi_polygon_cli,
+    enable_roi_selection: bool,
+):
+    """
+    Set up ROI (Region of Interest) mask.
+
+    Args:
+        prev_img: First loaded image (numpy array)
+        roi_polygon_cli: ROI polygon from CLI argument
+        enable_roi_selection: Whether to enable interactive selection
+
+    Returns:
+        Tuple of (roi_mask, roi_polygon)
+    """
+    import cv2
+    import numpy as np
+
+    height, width = prev_img.shape
+    roi_mask = np.full((height, width), 255, dtype=np.uint8)
+    roi_polygon = None
+
+    if roi_polygon_cli:
+        print(
+            f"ROI specified via command line: polygon={format_polygon_string(roi_polygon_cli)}"
+        )
+        roi_mask = np.zeros((height, width), dtype=np.uint8)
+        cv2.fillPoly(roi_mask, [np.array(roi_polygon_cli, dtype=np.int32)], 255)
+        roi_polygon = roi_polygon_cli
+    elif enable_roi_selection:
+        roi_selection = select_roi(prev_img)
+        if roi_selection:
+            roi_mask = roi_selection["mask"]
+            roi_polygon = roi_selection["polygon"]
+            print(f"ROI setup complete: polygon={format_polygon_string(roi_polygon)}")
+        else:
+            print("No ROI selected. Processing entire image.")
+    else:
+        print("Skipping ROI selection. Processing entire image.")
+
+    return roi_mask, roi_polygon
+
+
+def _run_auto_params(
+    files,
+    prev_img,
+    roi_mask,
+    diff_threshold: int,
+    min_area: int,
+    min_line_score: float,
+    user_specified_diff_threshold: bool,
+    user_specified_min_area: bool,
+    user_specified_min_line_score: bool,
+    focal_length_mm,
+    focal_factor,
+    sensor_width_mm,
+    pixel_pitch_um,
+    fisheye: bool,
+):
+    """
+    Run automatic parameter estimation based on EXIF and NPF Rule.
+
+    Args:
+        files: List of RAW file paths
+        prev_img: First loaded image
+        roi_mask: ROI mask
+        diff_threshold: Current diff_threshold value
+        min_area: Current min_area value
+        min_line_score: Current min_line_score value
+        user_specified_*: Flags for user-specified values
+        focal_length_mm: Focal length from CLI
+        focal_factor: Focal factor value
+        sensor_width_mm: Sensor width in mm
+        pixel_pitch_um: Pixel pitch in μm
+        fisheye: Whether fisheye correction is enabled
+
+    Returns:
+        Tuple of (diff_threshold, min_area, min_line_score, focal_length_mm)
+    """
+    print(f"\n{'='*60}")
+    print("Auto-params: NPF Rule-based Optimization")
+    print(f"{'='*60}\n")
+
+    # Step 1: EXIF Information Extraction
+    exif_data = extract_exif_metadata(files[0])
+
+    # Focal length acquisition (priority)
+    focal_length_source = "Unknown"
+    if focal_length_mm:
+        focal_length_source = "CLI (--focal-length)"
+        exif_data["focal_length_35mm"] = focal_length_mm
+    elif exif_data.get("focal_length_35mm"):
+        focal_length_mm = exif_data["focal_length_35mm"]
+        focal_length_source = "EXIF"
+    elif exif_data.get("focal_length") and focal_factor:
+        focal_length_mm = exif_data["focal_length"] * focal_factor
+        exif_data["focal_length_35mm"] = focal_length_mm
+        focal_length_source = f"Calculated (EXIF {exif_data['focal_length']:.1f}mm × factor {focal_factor})"
+    elif exif_data.get("focal_length"):
+        focal_length_mm = exif_data["focal_length"]
+        focal_length_source = "EXIF (actual, no 35mm equiv.)"
+
+    # Step 2: NPF Rule Analysis
+    npf_metrics = calculate_npf_metrics(
+        exif_data,
+        sensor_width_mm=sensor_width_mm,
+        pixel_pitch_um=pixel_pitch_um,
+        fisheye=fisheye,
+        fisheye_model=DEFAULT_FISHEYE_MODEL,
+    )
+
+    # Display fisheye info if enabled
+    if fisheye and exif_data.get("focal_length_35mm"):
+        display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
+
+    # Display EXIF Information and NPF Analysis
+    display_exif_info(exif_data, focal_length_source, focal_factor, npf_metrics)
+
+    # Step 3: Display warnings
+    _display_auto_params_warnings(
+        exif_data,
+        focal_length_mm,
+        focal_factor,
+        sensor_width_mm,
+        pixel_pitch_um,
+        npf_metrics,
+    )
+
+    # Step 4: NPF-based parameter optimization
+    if npf_metrics and npf_metrics.get("npf_recommended_sec"):
+        diff_threshold, min_area, min_line_score = _optimize_with_npf(
+            exif_data,
+            npf_metrics,
+            diff_threshold,
+            min_area,
+            min_line_score,
+            user_specified_diff_threshold,
+            user_specified_min_area,
+            user_specified_min_line_score,
+        )
+    else:
+        diff_threshold, min_area, min_line_score = _optimize_with_legacy(
+            files,
+            prev_img,
+            roi_mask,
+            diff_threshold,
+            min_area,
+            min_line_score,
+            user_specified_diff_threshold,
+            user_specified_min_area,
+            user_specified_min_line_score,
+            focal_length_mm,
+        )
+
+    return diff_threshold, min_area, min_line_score, focal_length_mm
+
+
+def _display_auto_params_warnings(
+    exif_data,
+    focal_length_mm,
+    focal_factor,
+    sensor_width_mm,
+    pixel_pitch_um,
+    npf_metrics,
+):
+    """Display warnings for auto-params mode."""
+    warnings = []
+
+    if not focal_length_mm:
+        warnings.append("Focal length not available from EXIF")
+        warnings.append("  → Consider using --focal-length option")
+    elif not exif_data.get("focal_length_35mm") and not focal_factor:
+        warnings.append(
+            f"35mm equivalent not found in EXIF (using actual: {focal_length_mm:.1f}mm)"
+        )
+        warnings.append("  → For crop sensor cameras, use --focal-factor")
+
+    if not exif_data.get("iso"):
+        warnings.append("ISO value not available from EXIF")
+
+    if not exif_data.get("exposure_time"):
+        warnings.append("Exposure time not available from EXIF")
+
+    if npf_metrics and not npf_metrics.get("has_complete_data"):
+        if not sensor_width_mm and not pixel_pitch_um:
+            warnings.append("Using default pixel pitch for NPF calculation")
+            warnings.append(
+                "  → For better accuracy, use --sensor-width or --pixel-pitch"
+            )
+
+    if warnings:
+        print(f"{'='*60}")
+        print("⚠ Warnings:")
+        for warning in warnings:
+            if warning.startswith("  →"):
+                print(f"  {warning}")
+            else:
+                print(f"  • {warning}")
+        print(f"{'='*60}\n")
+
+
+def _optimize_with_npf(
+    exif_data,
+    npf_metrics,
+    diff_threshold,
+    min_area,
+    min_line_score,
+    user_specified_diff_threshold,
+    user_specified_min_area,
+    user_specified_min_line_score,
+):
+    """Optimize parameters using NPF Rule."""
+    print(f"{'='*60}")
+    print("Parameter Optimization (NPF Rule-based)")
+    print(f"{'='*60}\n")
+
+    diff_threshold, min_area, min_line_score, opt_info = optimize_params_with_npf(
+        exif_data,
+        npf_metrics,
+        user_specified_diff_threshold=user_specified_diff_threshold,
+        user_specified_min_area=user_specified_min_area,
+        user_specified_min_line_score=user_specified_min_line_score,
+        current_diff_threshold=diff_threshold,
+        current_min_area=min_area,
+        current_min_line_score=min_line_score,
+    )
+
+    print(
+        f"Shooting Quality Score: {opt_info['quality_score']:.2f} ({opt_info['quality_level']})"
+    )
+
+    if opt_info["adjustments"]:
+        print("\nParameter Adjustments:")
+        for adjustment in opt_info["adjustments"]:
+            print(f"  • {adjustment}")
+    else:
+        print("\nNo automatic adjustments (all parameters user-specified)")
+
+    print(f"\n{'='*60}\n")
+
+    return diff_threshold, min_area, min_line_score
+
+
+def _optimize_with_legacy(
+    files,
+    prev_img,
+    roi_mask,
+    diff_threshold,
+    min_area,
+    min_line_score,
+    user_specified_diff_threshold,
+    user_specified_min_area,
+    user_specified_min_line_score,
+    focal_length_mm,
+):
+    """Fallback to legacy parameter estimation method."""
+    print("⚠ Insufficient data for NPF-based optimization")
+    print("  Falling back to legacy auto-params method\n")
+
+    if not user_specified_diff_threshold:
+        diff_threshold = estimate_diff_threshold_from_samples(
+            files, roi_mask, sample_size=5
+        )
+        print(f"→ Using sample-based diff_threshold: {diff_threshold}")
+    else:
+        print(f"→ Using user-specified diff_threshold: {diff_threshold}")
+
+    if not user_specified_min_area:
+        min_area = estimate_min_area_from_samples(
+            files, roi_mask, diff_threshold, sample_size=3
+        )
+        print(f"→ Using sample-based min_area: {min_area}")
+    else:
+        print(f"→ Using user-specified min_area: {min_area}")
+
+    if not user_specified_min_line_score:
+        min_line_score = estimate_min_line_score_from_image(
+            prev_img.shape, focal_length_mm
+        )
+        print(f"→ Using image-based min_line_score: {min_line_score:.1f}")
+    else:
+        print(f"→ Using user-specified min_line_score: {min_line_score}")
+
+    return diff_threshold, min_area, min_line_score
+
+
+def _print_processing_params(processing_params):
+    """Print processing parameters in a formatted box."""
+    print(f"\n{'='*50}")
+    print("Processing Parameters:")
+    print(f"{'='*50}")
+    print(f"  diff_threshold:        {processing_params['diff_threshold']}")
+    print(f"  min_area:              {processing_params['min_area']}")
+    print(f"  min_aspect_ratio:      {processing_params['min_aspect_ratio']}")
+    print(f"  hough_threshold:       {processing_params['hough_threshold']}")
+    print(f"  hough_min_line_length: {processing_params['hough_min_line_length']}")
+    print(f"  hough_max_line_gap:    {processing_params['hough_max_line_gap']}")
+    print(f"  min_line_score:        {processing_params['min_line_score']:.1f}")
+    print(f"{'='*50}\n")
+
+
+def _save_candidate_file(
+    filepath: str,
+    filename: str,
+    output_folder: str,
+    debug_folder: str,
+    debug_img,
+    roi_polygon,
+    output_overwrite: bool,
+) -> bool:
+    """
+    Save a candidate file and its debug image.
+
+    Args:
+        filepath: Source file path
+        filename: Output filename
+        output_folder: Destination folder for RAW file
+        debug_folder: Destination folder for debug image
+        debug_img: Debug visualization image (or None)
+        roi_polygon: ROI polygon to draw on debug image
+        output_overwrite: Whether to overwrite existing files
+
+    Returns:
+        True if file was saved, False if skipped
+    """
+    import os
+    import shutil
+    import cv2
+    import numpy as np
+
+    output_path = os.path.join(output_folder, filename)
+
+    if os.path.exists(output_path) and not output_overwrite:
+        return False
+
+    shutil.copy(filepath, output_path)
+
+    if debug_img is not None:
+        if roi_polygon:
+            cv2.polylines(
+                debug_img,
+                [np.array(roi_polygon, dtype=np.int32)],
+                True,
+                (0, 255, 0),
+                2,
+            )
+        cv2.imwrite(
+            os.path.join(debug_folder, f"mask_{filename}.png"),
+            debug_img,
+        )
+
+    return True
+
+
+def _run_parallel_detection(
+    image_pairs,
+    roi_mask,
+    processing_params,
+    roi_polygon,
+    output_folder,
+    debug_folder,
+    output_overwrite,
+    num_workers,
+    batch_size,
+    resume_offset,
+    overall_total,
+    record_result_callback,
+):
+    """
+    Run detection in parallel using ProcessPoolExecutor.
+
+    Args:
+        image_pairs: List of (current_file, previous_file) tuples
+        roi_mask: ROI mask
+        processing_params: Detection parameters
+        roi_polygon: ROI polygon for debug visualization
+        output_folder: Output folder for candidates
+        debug_folder: Folder for debug images
+        output_overwrite: Whether to overwrite existing files
+        num_workers: Number of parallel workers
+        batch_size: Batch size for processing
+        resume_offset: Offset for progress display
+        overall_total: Total number of files for progress display
+        record_result_callback: Callback to record results
+
+    Returns:
+        Number of detected candidates
+    """
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+
+    batches = [
+        image_pairs[i : i + batch_size] for i in range(0, len(image_pairs), batch_size)
+    ]
+    print(f"Number of batches: {len(batches)}")
+
+    executor = ProcessPoolExecutor(
+        max_workers=num_workers, initializer=_init_worker_ignore_interrupt
+    )
+    futures = []
+    wait_for_tasks = True
+    detected_count = 0
+
+    try:
+        for batch in batches:
+            future = executor.submit(
+                process_image_batch, batch, roi_mask, processing_params
+            )
+            futures.append(future)
+
+        processed = 0
+        for future in as_completed(futures):
+            try:
+                batch_results = future.result()
+                for result in batch_results:
+                    (
+                        is_candidate,
+                        filename,
+                        filepath,
+                        line_score,
+                        debug_img,
+                        aspect_ratio,
+                        num_lines,
+                    ) = result
+                    processed += 1
+
+                    if line_score > 0:
+                        print(
+                            f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
+                        )
+
+                    if is_candidate:
+                        saved = _save_candidate_file(
+                            filepath,
+                            filename,
+                            output_folder,
+                            debug_folder,
+                            debug_img,
+                            roi_polygon,
+                            output_overwrite,
+                        )
+                        if saved:
+                            print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                        else:
+                            print(
+                                f"  [SKIP] {filename}: Already exists in output folder"
+                            )
+                    else:
+                        print(
+                            f"\rChecking... {resume_offset + processed}/{overall_total}",
+                            end="",
+                            flush=True,
+                        )
+
+                    detected_count = record_result_callback(filename, is_candidate)
+
+            except Exception as e:
+                print(f"\nBatch processing error: {e}")
+    except KeyboardInterrupt:
+        print("\nInterrupted by user. Cancelling worker processes...")
+        wait_for_tasks = False
+        for future in futures:
+            future.cancel()
+        raise
+    finally:
+        executor.shutdown(wait=wait_for_tasks, cancel_futures=not wait_for_tasks)
+
+    return detected_count
+
+
+def _run_sequential_detection(
+    image_pairs,
+    roi_mask,
+    processing_params,
+    roi_polygon,
+    output_folder,
+    debug_folder,
+    output_overwrite,
+    resume_offset,
+    overall_total,
+    record_result_callback,
+):
+    """
+    Run detection sequentially (single-threaded).
+
+    Args:
+        image_pairs: List of (current_file, previous_file) tuples
+        roi_mask: ROI mask
+        processing_params: Detection parameters
+        roi_polygon: ROI polygon for debug visualization
+        output_folder: Output folder for candidates
+        debug_folder: Folder for debug images
+        output_overwrite: Whether to overwrite existing files
+        resume_offset: Offset for progress display
+        overall_total: Total number of files for progress display
+        record_result_callback: Callback to record results
+
+    Returns:
+        Number of detected candidates
+    """
+    detected_count = 0
+
+    for idx, pair in enumerate(image_pairs):
+        current_index = resume_offset + idx + 1
+        current_file = os.path.basename(pair[0])
+        progress_line_active = True
+
+        print(
+            f"\rProcessing {current_index}/{overall_total}: {current_file}",
+            end="",
+            flush=True,
+        )
+
+        batch_results = process_image_batch([pair], roi_mask, processing_params)
+
+        for result in batch_results:
+            (
+                is_candidate,
+                filename,
+                filepath,
+                line_score,
+                debug_img,
+                aspect_ratio,
+                num_lines,
+            ) = result
+
+            if line_score > 0:
+                if progress_line_active:
+                    print()
+                    progress_line_active = False
+                print(f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}")
+
+            if is_candidate:
+                if progress_line_active:
+                    print()
+                    progress_line_active = False
+
+                saved = _save_candidate_file(
+                    filepath,
+                    filename,
+                    output_folder,
+                    debug_folder,
+                    debug_img,
+                    roi_polygon,
+                    output_overwrite,
+                )
+                if saved:
+                    print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                else:
+                    print(
+                        f"  [SKIP] {filename}: Already exists in output folder (use --output-overwrite to overwrite)"
+                    )
+            else:
+                print(
+                    f"\rChecking... {current_index}/{overall_total}",
+                    end="",
+                    flush=True,
+                )
+                progress_line_active = True
+
+            detected_count = record_result_callback(filename, is_candidate)
+
+    return detected_count
 
 
 def detect_meteors_advanced(
@@ -418,33 +1165,15 @@ def detect_meteors_advanced(
     This is the main entry point that orchestrates the detection workflow.
     """
     import time
-    import shutil
-    import cv2
-    import numpy as np
-    from concurrent.futures import ProcessPoolExecutor, as_completed
 
     timing = {}
     t_total = time.time()
 
-    # Safety check: prevent overwriting source files
-    target_fullpath = os.path.abspath(target_folder)
-    output_fullpath = os.path.abspath(output_folder)
-
-    if target_fullpath == output_fullpath:
-        print(f"\n{'='*60}")
-        print("⚠ ERROR: Target and output directories are the same!")
-        print(f"{'='*60}")
-        print(f"  Target:  {target_folder}")
-        print(f"  Output:  {output_folder}")
-        print(f"  Resolved to: {target_fullpath}")
-        print("\nThis configuration would overwrite original RAW files.")
-        print("Please specify a different output directory.")
-        print(f"{'='*60}\n")
+    # Validate and create directories
+    if not _validate_directories(target_folder, output_folder, debug_folder):
         return 0
 
-    os.makedirs(output_folder, exist_ok=True)
-    os.makedirs(debug_folder, exist_ok=True)
-
+    # Collect files
     print(f"Collecting RAW files from: {target_folder}")
     files = collect_files(target_folder)
 
@@ -464,182 +1193,30 @@ def detect_meteors_advanced(
 
     if profile:
         timing["first_load"] = time.time() - t_load
-    height, width = prev_img.shape
 
     # ROI setup
-    roi_mask = np.full((height, width), 255, dtype=np.uint8)
-    roi_polygon = None
-
-    if roi_polygon_cli:
-        print(
-            f"ROI specified via command line: polygon={format_polygon_string(roi_polygon_cli)}"
-        )
-        roi_mask = np.zeros((height, width), dtype=np.uint8)
-        cv2.fillPoly(roi_mask, [np.array(roi_polygon_cli, dtype=np.int32)], 255)
-        roi_polygon = roi_polygon_cli
-    elif enable_roi_selection:
-        roi_selection = select_roi(prev_img)
-        if roi_selection:
-            roi_mask = roi_selection["mask"]
-            roi_polygon = roi_selection["polygon"]
-            print(f"ROI setup complete: polygon={format_polygon_string(roi_polygon)}")
-        else:
-            print("No ROI selected. Processing entire image.")
-    else:
-        print("Skipping ROI selection. Processing entire image.")
-
-    cli_params = cli_param_string
+    roi_mask, roi_polygon = _setup_roi(prev_img, roi_polygon_cli, enable_roi_selection)
 
     # Auto-parameter estimation
     if auto_params:
-        print(f"\n{'='*60}")
-        print("Auto-params: NPF Rule-based Optimization")
-        print(f"{'='*60}\n")
-
-        # ========================================
-        # Step 1: EXIF Information Extraction
-        # ========================================
-        exif_data = extract_exif_metadata(files[0])
-
-        # Focal length acquisition (priority)
-        focal_length_source = "Unknown"
-        if focal_length_mm:
-            # CLI arguments (--focal-length) have highest priority
-            focal_length_source = "CLI (--focal-length)"
-            exif_data["focal_length_35mm"] = focal_length_mm
-        elif exif_data.get("focal_length_35mm"):
-            # EXIF 35mm equivalent focal length
-            focal_length_mm = exif_data["focal_length_35mm"]
-            focal_length_source = "EXIF"
-        elif exif_data.get("focal_length") and focal_factor:
-            # EXIF actual focal length + focal_factor calculation
-            focal_length_mm = exif_data["focal_length"] * focal_factor
-            exif_data["focal_length_35mm"] = focal_length_mm
-            focal_length_source = f"Calculated (EXIF {exif_data['focal_length']:.1f}mm × factor {focal_factor})"
-        elif exif_data.get("focal_length"):
-            # EXIF actual focal length only (no 35mm equivalent)
-            focal_length_mm = exif_data["focal_length"]
-            focal_length_source = "EXIF (actual, no 35mm equiv.)"
-
-        # ========================================
-        # Step 2: NPF Rule Analysis
-        # ========================================
-        npf_metrics = calculate_npf_metrics(
-            exif_data,
+        diff_threshold, min_area, min_line_score, focal_length_mm = _run_auto_params(
+            files=files,
+            prev_img=prev_img,
+            roi_mask=roi_mask,
+            diff_threshold=diff_threshold,
+            min_area=min_area,
+            min_line_score=min_line_score,
+            user_specified_diff_threshold=user_specified_diff_threshold,
+            user_specified_min_area=user_specified_min_area,
+            user_specified_min_line_score=user_specified_min_line_score,
+            focal_length_mm=focal_length_mm,
+            focal_factor=focal_factor,
             sensor_width_mm=sensor_width_mm,
             pixel_pitch_um=pixel_pitch_um,
             fisheye=fisheye,
-            fisheye_model=DEFAULT_FISHEYE_MODEL,
         )
 
-        # Display fisheye info if enabled
-        if fisheye and exif_data.get("focal_length_35mm"):
-            display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
-
-        # Display EXIF Information and NPF Analysis
-        display_exif_info(exif_data, focal_length_source, focal_factor, npf_metrics)
-
-        # ========================================
-        # Step 3: Display warnings
-        # ========================================
-        warnings = []
-        if not focal_length_mm:
-            warnings.append("Focal length not available from EXIF")
-            warnings.append("  → Consider using --focal-length option")
-        elif not exif_data.get("focal_length_35mm") and not focal_factor:
-            warnings.append(
-                f"35mm equivalent not found in EXIF (using actual: {focal_length_mm:.1f}mm)"
-            )
-            warnings.append("  → For crop sensor cameras, use --focal-factor")
-
-        if not exif_data.get("iso"):
-            warnings.append("ISO value not available from EXIF")
-
-        if not exif_data.get("exposure_time"):
-            warnings.append("Exposure time not available from EXIF")
-
-        if npf_metrics and not npf_metrics.get("has_complete_data"):
-            if not sensor_width_mm and not pixel_pitch_um:
-                warnings.append("Using default pixel pitch for NPF calculation")
-                warnings.append(
-                    "  → For better accuracy, use --sensor-width or --pixel-pitch"
-                )
-
-        if warnings:
-            print(f"{'='*60}")
-            print("⚠ Warnings:")
-            for warning in warnings:
-                if warning.startswith("  →"):
-                    print(f"  {warning}")
-                else:
-                    print(f"  • {warning}")
-            print(f"{'='*60}\n")
-
-        # ========================================
-        # Step 4: NPF-based parameter optimization
-        # ========================================
-        if npf_metrics and npf_metrics.get("npf_recommended_sec"):
-            print(f"{'='*60}")
-            print("Parameter Optimization (NPF Rule-based)")
-            print(f"{'='*60}\n")
-
-            # Integrated optimization
-            diff_threshold, min_area, min_line_score, opt_info = (
-                optimize_params_with_npf(
-                    exif_data,
-                    npf_metrics,
-                    user_specified_diff_threshold=user_specified_diff_threshold,
-                    user_specified_min_area=user_specified_min_area,
-                    user_specified_min_line_score=user_specified_min_line_score,
-                    current_diff_threshold=diff_threshold,
-                    current_min_area=min_area,
-                    current_min_line_score=min_line_score,
-                )
-            )
-
-            # Display Shooting Condition Quality Score
-            print(
-                f"Shooting Quality Score: {opt_info['quality_score']:.2f} ({opt_info['quality_level']})"
-            )
-
-            # Parameter adjustment details
-            if opt_info["adjustments"]:
-                print("\nParameter Adjustments:")
-                for adjustment in opt_info["adjustments"]:
-                    print(f"  • {adjustment}")
-            else:
-                print("\nNo automatic adjustments (all parameters user-specified)")
-
-            print(f"\n{'='*60}\n")
-        else:
-            # Fallback: legacy method
-            print("⚠ Insufficient data for NPF-based optimization")
-            print("  Falling back to legacy auto-params method\n")
-
-            if not user_specified_diff_threshold:
-                diff_threshold = estimate_diff_threshold_from_samples(
-                    files, roi_mask, sample_size=5
-                )
-                print(f"→ Using sample-based diff_threshold: {diff_threshold}")
-            else:
-                print(f"→ Using user-specified diff_threshold: {diff_threshold}")
-
-            if not user_specified_min_area:
-                min_area = estimate_min_area_from_samples(
-                    files, roi_mask, diff_threshold, sample_size=3
-                )
-                print(f"→ Using sample-based min_area: {min_area}")
-            else:
-                print(f"→ Using user-specified min_area: {min_area}")
-
-            if not user_specified_min_line_score:
-                min_line_score = estimate_min_line_score_from_image(
-                    prev_img.shape, focal_length_mm
-                )
-                print(f"→ Using image-based min_line_score: {min_line_score:.1f}")
-            else:
-                print(f"→ Using user-specified min_line_score: {min_line_score}")
-
+    # Build processing parameters
     processing_params = {
         "diff_threshold": diff_threshold,
         "min_area": min_area,
@@ -650,17 +1227,7 @@ def detect_meteors_advanced(
         "min_line_score": min_line_score,
     }
 
-    print(f"\n{'='*50}")
-    print("Processing Parameters:")
-    print(f"{'='*50}")
-    print(f"  diff_threshold:        {diff_threshold}")
-    print(f"  min_area:              {min_area}")
-    print(f"  min_aspect_ratio:      {min_aspect_ratio}")
-    print(f"  hough_threshold:       {hough_threshold}")
-    print(f"  hough_min_line_length: {hough_min_line_length}")
-    print(f"  hough_max_line_gap:    {hough_max_line_gap}")
-    print(f"  min_line_score:        {min_line_score:.1f}")
-    print(f"{'='*50}\n")
+    _print_processing_params(processing_params)
 
     # Progress tracking setup
     params_for_hash = processing_params.copy()
@@ -670,7 +1237,7 @@ def detect_meteors_advanced(
     progress_data = {
         "version": VERSION,
         "params_hash": compute_params_hash(params_for_hash),
-        "params": cli_params,
+        "params": cli_param_string,
         "roi": roi_polygon or "full_image",
         "processing_params": processing_params,
         "processed_files": [],
@@ -679,6 +1246,7 @@ def detect_meteors_advanced(
         "total_detected": 0,
     }
 
+    # Load existing progress if resuming
     loaded_progress = load_progress(progress_file) if resume else None
 
     if loaded_progress:
@@ -711,6 +1279,7 @@ def detect_meteors_advanced(
                 "Progress file exists but parameters differ. Starting with fresh progress."
             )
 
+    # Filter to only existing files
     existing_basenames = {os.path.basename(path) for path in files}
     progress_data["processed_files"] = [
         name
@@ -731,7 +1300,8 @@ def detect_meteors_advanced(
 
     save_progress(progress_file, progress_data)
 
-    def record_result(filename: str, is_candidate: bool) -> None:
+    def record_result(filename: str, is_candidate: bool) -> int:
+        """Record result and return current detected count."""
         processed_set.add(filename)
         if filename not in progress_data["processed_files"]:
             progress_data["processed_files"].append(filename)
@@ -744,7 +1314,9 @@ def detect_meteors_advanced(
         progress_data["total_processed"] = len(processed_set)
         progress_data["total_detected"] = len(detected_set)
         save_progress(progress_file, progress_data)
+        return progress_data["total_detected"]
 
+    # Build image pairs and filter already processed
     image_pairs = [(files[i], files[i - 1]) for i in range(1, len(files))]
     image_pairs = [
         pair for pair in image_pairs if os.path.basename(pair[0]) not in processed_set
@@ -762,176 +1334,39 @@ def detect_meteors_advanced(
 
     try:
         if enable_parallel and num_workers > 1:
-            # Split into batches
-            batches = [
-                image_pairs[i : i + batch_size]
-                for i in range(0, len(image_pairs), batch_size)
-            ]
-            print(f"Number of batches: {len(batches)}")
-
-            executor = ProcessPoolExecutor(
-                max_workers=num_workers, initializer=_init_worker_ignore_interrupt
+            detected_count = _run_parallel_detection(
+                image_pairs=image_pairs,
+                roi_mask=roi_mask,
+                processing_params=processing_params,
+                roi_polygon=roi_polygon,
+                output_folder=output_folder,
+                debug_folder=debug_folder,
+                output_overwrite=output_overwrite,
+                num_workers=num_workers,
+                batch_size=batch_size,
+                resume_offset=resume_offset,
+                overall_total=overall_total,
+                record_result_callback=record_result,
             )
-            futures = []
-            wait_for_tasks = True
-
-            try:
-                for batch in batches:
-                    future = executor.submit(
-                        process_image_batch, batch, roi_mask, processing_params
-                    )
-                    futures.append(future)
-
-                # Collect results
-                processed = 0
-                for future in as_completed(futures):
-                    try:
-                        batch_results = future.result()
-                        for result in batch_results:
-                            (
-                                is_candidate,
-                                filename,
-                                filepath,
-                                line_score,
-                                debug_img,
-                                aspect_ratio,
-                                num_lines,
-                            ) = result
-                            processed += 1
-
-                            if line_score > 0:
-                                print(
-                                    f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
-                                )
-
-                            if is_candidate:
-                                output_path = os.path.join(output_folder, filename)
-                                # Check if file exists
-                                if os.path.exists(output_path) and not output_overwrite:
-                                    print(
-                                        f"  [SKIP] {filename}: Already exists in output folder"
-                                    )
-                                else:
-                                    shutil.copy(filepath, output_path)
-                                    if debug_img is not None:
-                                        if roi_polygon:
-                                            cv2.polylines(
-                                                debug_img,
-                                                [np.array(roi_polygon, dtype=np.int32)],
-                                                True,
-                                                (0, 255, 0),
-                                                2,
-                                            )
-                                        cv2.imwrite(
-                                            os.path.join(
-                                                debug_folder, f"mask_{filename}.png"
-                                            ),
-                                            debug_img,
-                                        )
-                                    print(
-                                        f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}"
-                                    )
-                            else:
-                                print(
-                                    f"\rChecking... {resume_offset + processed}/{overall_total}",
-                                    end="",
-                                    flush=True,
-                                )
-
-                            record_result(filename, is_candidate)
-                            detected_count = progress_data["total_detected"]
-
-                    except Exception as e:
-                        print(f"\nBatch processing error: {e}")
-            except KeyboardInterrupt:
-                print("\nInterrupted by user. Cancelling worker processes...")
-                wait_for_tasks = False
-                for future in futures:
-                    future.cancel()
-                raise
-            finally:
-                executor.shutdown(
-                    wait=wait_for_tasks, cancel_futures=not wait_for_tasks
-                )
         else:
-            # Sequential processing with progress display
-            for idx, pair in enumerate(image_pairs):
-                current_index = resume_offset + idx + 1
-                current_file = os.path.basename(pair[0])
-                progress_line_active = True
-
-                print(
-                    f"\rProcessing {current_index}/{overall_total}: {current_file}",
-                    end="",
-                    flush=True,
-                )
-
-                batch_results = process_image_batch([pair], roi_mask, processing_params)
-
-                for result in batch_results:
-                    (
-                        is_candidate,
-                        filename,
-                        filepath,
-                        line_score,
-                        debug_img,
-                        aspect_ratio,
-                        num_lines,
-                    ) = result
-
-                    if line_score > 0:
-                        if progress_line_active:
-                            print()
-                            progress_line_active = False
-                        print(
-                            f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
-                        )
-
-                    if is_candidate:
-                        if progress_line_active:
-                            print()
-                            progress_line_active = False
-
-                        output_path = os.path.join(output_folder, filename)
-                        # Check if file exists
-                        if os.path.exists(output_path) and not output_overwrite:
-                            print(
-                                f"  [SKIP] {filename}: Already exists in output folder (use --output-overwrite to overwrite)"
-                            )
-                        else:
-                            shutil.copy(filepath, output_path)
-
-                            if debug_img is not None:
-                                if roi_polygon:
-                                    cv2.polylines(
-                                        debug_img,
-                                        [np.array(roi_polygon, dtype=np.int32)],
-                                        True,
-                                        (0, 255, 0),
-                                        2,
-                                    )
-                                cv2.imwrite(
-                                    os.path.join(debug_folder, f"mask_{filename}.png"),
-                                    debug_img,
-                                )
-
-                            print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
-                    else:
-                        print(
-                            f"\rChecking... {current_index}/{overall_total}",
-                            end="",
-                            flush=True,
-                        )
-                        progress_line_active = True
-
-                    record_result(filename, is_candidate)
-                    detected_count = progress_data["total_detected"]
-
+            detected_count = _run_sequential_detection(
+                image_pairs=image_pairs,
+                roi_mask=roi_mask,
+                processing_params=processing_params,
+                roi_polygon=roi_polygon,
+                output_folder=output_folder,
+                debug_folder=debug_folder,
+                output_overwrite=output_overwrite,
+                resume_offset=resume_offset,
+                overall_total=overall_total,
+                record_result_callback=record_result,
+            )
     except KeyboardInterrupt:
         print(f"\nInterrupted by user. Progress saved to {progress_file}.")
         save_progress(progress_file, progress_data)
         return detected_count
 
+    # Performance profiling
     if profile:
         timing["processing"] = time.time() - t_process
         timing["total"] = time.time() - t_total
@@ -986,30 +1421,18 @@ def main():
     user_specified_min_area = "--min-area" in sys.argv
     user_specified_min_line_score = "--min-line-score" in sys.argv
 
-    # Validate --sensor-type
-    if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
-        print(f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'")
-        print(
-            "  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40"
-        )
-        return
-
-    # Apply sensor preset
+    # Validate and apply sensor preset
     (
         focal_factor_value,
         sensor_width_value,
         focal_length_value,
         pixel_pitch_value,
         preset,
-    ) = apply_sensor_preset(args, verbose=False)
+        error_message,
+    ) = validate_and_apply_sensor_preset(args, verbose=False)
 
-    # Validate sensor overrides
-    validate_sensor_overrides(args, preset, sensor_width_value, pixel_pitch_value)
-
-    # Validate focal_factor
-    if args.focal_factor and focal_factor_value is None:
-        print(f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'")
-        print("  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)")
+    if error_message:
+        print(error_message)
         return
 
     detect_meteors_advanced(
