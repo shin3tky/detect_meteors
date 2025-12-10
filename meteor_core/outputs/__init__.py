@@ -8,11 +8,11 @@
 Output handling for meteor detection.
 """
 
-from .handler import OutputHandler
+from .handler import BaseOutputHandler
 from .writer import OutputWriter, ProgressManager, load_progress, save_progress
 
 __all__ = [
-    "OutputHandler",
+    "BaseOutputHandler",
     "OutputWriter",
     "ProgressManager",
     "load_progress",

@@ -59,6 +59,12 @@ The tool automatically utilizes all available CPU cores (N-1 cores in parallel) 
 
 ## What's New in v1.5
 
+### v1.5.10 - Plugin architecture: ABC migration
+- **ABC-based plugin interfaces**: Migrated from Protocol to Abstract Base Classes for improved developer experience with immediate error detection and full IDE support.
+- **Clear inheritance hierarchy**: `BaseInputLoader`, `BaseMetadataExtractor`, `BaseOutputHandler` provide explicit contracts for plugin development.
+- **Developer documentation**: Comprehensive plugin architecture guide in `INSTALL_DEV.md` with code examples.
+- ⚠️ **Note**: Plugin architecture is experimental and may change before v2.0 stable release.
+
 ### v1.5.9 - PEP 621 project configuration
 - **PEP 621 compliance**: Migrated project configuration to `pyproject.toml` with full metadata including name, description, authors, keywords, and classifiers.
 - **Unified tool configuration**: Consolidated flake8 settings from `.flake8` into `pyproject.toml` (via flake8-pyproject), providing single-file configuration for all development tools.

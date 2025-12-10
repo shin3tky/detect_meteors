@@ -60,8 +60,8 @@ from .image_io import (
 from .inputs.raw import RawImageLoader, RawLoaderConfig, create_raw_loader
 
 from .inputs.base import (
-    InputLoader,
-    MetadataExtractor,
+    BaseInputLoader,
+    BaseMetadataExtractor,
     DataclassInputLoader,
     PydanticInputLoader,
     supports_metadata_extraction,
@@ -117,7 +117,7 @@ from .detectors import (
 )
 
 from .outputs import (
-    OutputHandler,
+    BaseOutputHandler,
     OutputWriter,
     ProgressManager,
     load_progress,
@@ -178,9 +178,9 @@ __all__ = [
     # Image I/O
     "load_and_bin_raw_fast",
     "extract_exif_metadata",
-    # Input Loaders - Protocols
-    "InputLoader",
-    "MetadataExtractor",
+    # Input Loaders - Abstract Base Classes
+    "BaseInputLoader",
+    "BaseMetadataExtractor",
     "DataclassInputLoader",
     "PydanticInputLoader",
     "supports_metadata_extraction",
@@ -230,7 +230,7 @@ __all__ = [
     "HoughDetector",
     "compute_line_score_fast",
     # Outputs
-    "OutputHandler",
+    "BaseOutputHandler",
     "OutputWriter",
     "ProgressManager",
     "load_progress",

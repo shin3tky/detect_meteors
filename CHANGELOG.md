@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.5.10 - 2025-12-11
+- **Plugin architecture migration**: Migrated plugin interfaces from Protocol-based to ABC (Abstract Base Classes) for improved developer experience.
+  - `InputLoader` → `BaseInputLoader` (ABC)
+  - `MetadataExtractor` → `BaseMetadataExtractor` (ABC)
+  - `OutputHandler` → `BaseOutputHandler` (ABC)
+- **Immediate error detection**: ABC provides instantiation-time validation for missing abstract method implementations, unlike Protocol which only detects errors at runtime.
+- **Enhanced IDE support**: Full auto-complete and missing method warnings in modern IDEs for plugin development.
+- **Clear inheritance hierarchy**: Explicit class hierarchy makes plugin contracts more discoverable and easier to understand.
+- **Developer documentation**: Updated `INSTALL_DEV.md` with comprehensive plugin architecture guide including code examples for custom loaders, detectors, and output handlers.
+- **Note**: Plugin architecture is experimental and may change before v2.0 stable release.
+
 ## v1.5.9 - 2025-12-10
 - **PEP 621 compliance**: Migrated project configuration to `pyproject.toml` with full metadata including name, description, authors, keywords, and classifiers.
 - **Unified tool configuration**: Consolidated flake8 settings from `.flake8` into `pyproject.toml` (via flake8-pyproject), providing single-file configuration for all development tools.

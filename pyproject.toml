@@ -11,7 +11,7 @@
 # ==========================================
 [project]
 name = "detect-meteors"
-version = "1.5.9"
+version = "1.5.10"
 description = "Automated meteor detection in RAW astrophotography images using frame-to-frame difference analysis"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -103,7 +103,7 @@ exclude = '''
 # ==========================================
 [tool.flake8]
 max-line-length = 88
-max-complexity = 70
+max-complexity = 40
 exclude = [
     ".git",
     "__pycache__",

@@ -167,7 +167,7 @@ exclude = '''
 ```toml
 [tool.flake8]
 max-line-length = 88
-max-complexity = 70
+max-complexity = 40
 exclude = [
     ".git",
     "__pycache__",
@@ -324,21 +324,19 @@ if __name__ == "__main__":
 
 ### Type Hints
 
-Type hints are used throughout the codebase. As of v1.5.5, structured data uses TypedDict for improved type safety:
+Type hints are used throughout the codebase. As of v1.5.5, structured data uses dataclasses for improved type safety:
 
 ```python
-from typing import TypedDict
+from dataclasses import dataclass
+from typing import Optional
 
-class NPFMetrics(TypedDict):
-    pixel_pitch: float
-    npf_recommended: float
-    actual_exposure: float
-    npf_ratio: float
-    compliance: str
-
-def calculate_npf_metrics(...) -> NPFMetrics:
-    """Calculate NPF Rule metrics."""
-    ...
+@dataclass
+class NPFMetrics:
+    pixel_pitch_um: Optional[float] = None
+    npf_recommended_sec: Optional[float] = None
+    star_trail_px: Optional[float] = None
+    compliance_level: str = "UNKNOWN"
+    overshoot_factor: float = 0.0
 ```
 
 ### Docstrings
@@ -371,24 +369,24 @@ def estimate_star_trail_length(
 ```
 detect_meteors/
 ├── detect_meteors_cli.py          # CLI interface (argument parsing, user interaction)
-├── meteor_core/                   # Core logic modules (v1.5.6 plugin-ready)
+├── meteor_core/                   # Core logic modules (v1.5.10+ ABC-based plugin architecture)
 │   ├── __init__.py
-│   ├── schema.py                  # Type definitions (TypedDict), constants
+│   ├── schema.py                  # Type definitions (dataclasses), constants
 │   ├── pipeline.py                # Processing pipeline orchestration + PipelineConfig
 │   ├── image_io.py                # Shared image IO helpers, EXIF utilities
 │   ├── inputs/                    # Input loader plugins (RAW readers, metadata)
 │   │   ├── __init__.py
-│   │   ├── base.py                # InputLoader/MetadataExtractor protocols, helpers
+│   │   ├── base.py                # BaseInputLoader/BaseMetadataExtractor ABCs, helpers
 │   │   ├── discovery.py           # Plugin discovery (entry points, ~/.detect_meteors/plugins)
-│   │   └── raw.py                 # Built-in RAW loaders and configs
+│   │   └── raw.py                 # Built-in RAW loader (RawImageLoader)
 │   ├── outputs/                   # Output handlers + writer orchestration
 │   │   ├── __init__.py
-│   │   ├── handler.py             # OutputHandler protocol + plugin helpers
-│   │   └── writer.py              # Result writer, output formatting
+│   │   ├── handler.py             # BaseOutputHandler ABC
+│   │   └── writer.py              # OutputWriter, ProgressManager
 │   ├── detectors/                 # Detection algorithm implementations
 │   │   ├── __init__.py
-│   │   ├── base.py                # Abstract base detector class
-│   │   └── hough_default.py       # Default Hough transform detector
+│   │   ├── base.py                # BaseDetector ABC
+│   │   └── hough_default.py       # HoughDetector (default implementation)
 │   ├── roi_selector.py            # ROI selection interface
 │   └── utils.py                   # Utility functions (NPF calculations, estimation)
 ├── candidates/                    # Sample candidate outputs
@@ -427,20 +425,282 @@ detect_meteors/
 | Module | Responsibility |
 |--------|----------------|
 | `detect_meteors_cli.py` | CLI argument parsing, user interaction, main entry point |
-| `meteor_core/schema.py` | Type definitions (TypedDict), constants, data structures |
+| `meteor_core/schema.py` | Type definitions (dataclasses), constants, data structures |
 | `meteor_core/pipeline.py` | DetectionPipeline protocol, PipelineConfig, orchestration hooks |
 | `meteor_core/image_io.py` | Shared image loading helpers, EXIF metadata utilities |
 | `meteor_core/roi_selector.py` | Interactive ROI selection interface |
 | `meteor_core/utils.py` | Utility functions (NPF calculations, parameter estimation) |
-| `meteor_core/inputs/base.py` | InputLoader/MetadataExtractor protocols and validation helpers |
+| `meteor_core/inputs/base.py` | BaseInputLoader/BaseMetadataExtractor ABCs and validation helpers |
 | `meteor_core/inputs/discovery.py` | Plugin discovery for input loaders (entry points, plugin dir) |
-| `meteor_core/inputs/raw.py` | Built-in RAW loader configs and factory helpers |
-| `meteor_core/detectors/base.py` | Abstract base class for detection algorithms |
-| `meteor_core/detectors/hough_default.py` | Default Hough transform-based meteor detector |
-| `meteor_core/outputs/handler.py` | OutputHandler protocol, plugin helpers |
-| `meteor_core/outputs/writer.py` | Result writer, output management |
+| `meteor_core/inputs/raw.py` | Built-in RAW loader (RawImageLoader) |
+| `meteor_core/detectors/base.py` | BaseDetector ABC for detection algorithms |
+| `meteor_core/detectors/hough_default.py` | HoughDetector (default Hough transform-based detector) |
+| `meteor_core/outputs/handler.py` | BaseOutputHandler ABC |
+| `meteor_core/outputs/writer.py` | OutputWriter, ProgressManager |
 
 This modular structure prepares for the v2.x plugin architecture by separating concerns and enabling future extensibility.
+
+## Plugin Architecture (v1.5.10+)
+
+> ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**. Plugin interfaces, discovery mechanisms, base class signatures, and configuration formats could be modified based on feedback and evolving requirements. If you are developing custom plugins, please be prepared to update your code when upgrading to future versions.
+
+As of v1.5.10, the project uses **Abstract Base Classes (ABC)** for all plugin interfaces. This provides clear contracts for plugin developers with immediate error detection for missing implementations.
+
+### Abstract Base Classes Overview
+
+| ABC | Location | Purpose |
+|-----|----------|---------|
+| `BaseInputLoader` | `meteor_core/inputs/base.py` | Image loading plugins |
+| `BaseMetadataExtractor` | `meteor_core/inputs/base.py` | Metadata extraction (optional mixin) |
+| `BaseOutputHandler` | `meteor_core/outputs/handler.py` | Output handling plugins |
+| `BaseDetector` | `meteor_core/detectors/base.py` | Detection algorithm plugins |
+
+### Class Hierarchy
+
+```
+BaseInputLoader (ABC)
+├── DataclassInputLoader (ABC + Generic) - for dataclass-based config
+│   └── RawImageLoader (+ BaseMetadataExtractor)
+└── PydanticInputLoader (ABC + Generic) - for Pydantic-based config
+
+BaseMetadataExtractor (ABC)
+└── RawImageLoader (multiple inheritance)
+
+BaseOutputHandler (ABC)
+└── OutputWriter
+
+BaseDetector (ABC)
+└── HoughDetector
+```
+
+### Creating a Custom Input Loader
+
+To create a custom input loader, inherit from `BaseInputLoader` and implement the required `load()` method:
+
+```python
+from typing import Dict, Any
+import numpy as np
+from meteor_core.inputs.base import BaseInputLoader, BaseMetadataExtractor
+
+
+class MyCustomLoader(BaseInputLoader, BaseMetadataExtractor):
+    """Custom loader for a specific image format."""
+
+    plugin_name = "my_format"  # Required: unique identifier
+
+    def __init__(self, config: Any = None):
+        self.config = config
+
+    def load(self, filepath: str) -> np.ndarray:
+        """Load an image from the given filepath.
+
+        Args:
+            filepath: Path to the image file.
+
+        Returns:
+            Image data as numpy array.
+        """
+        # Your implementation here
+        import my_format_library
+        return my_format_library.load(filepath)
+
+    def extract_metadata(self, filepath: str) -> Dict[str, Any]:
+        """Extract metadata from the file.
+
+        Args:
+            filepath: Path to the image file.
+
+        Returns:
+            Dictionary containing metadata.
+        """
+        # Optional: implement if your format has metadata
+        return {"format": "my_format", "version": "1.0"}
+```
+
+**Key points:**
+
+- `plugin_name` must be defined as a non-empty string
+- `load()` is an abstract method - instantiation fails without it
+- `BaseMetadataExtractor` is optional - use when metadata extraction is needed
+- IDE will show errors for missing abstract methods
+
+### Creating a Custom Detector
+
+To create a custom detection algorithm, inherit from `BaseDetector`:
+
+```python
+from typing import Dict, List, Tuple, Optional, Any
+import numpy as np
+from meteor_core.detectors.base import BaseDetector
+
+
+class MyCustomDetector(BaseDetector):
+    """Custom meteor detection algorithm."""
+
+    name = "MyCustomDetector"
+    version = "1.0.0"
+
+    def detect(
+        self,
+        current_image: np.ndarray,
+        previous_image: np.ndarray,
+        roi_mask: np.ndarray,
+        params: Dict[str, Any],
+    ) -> Tuple[bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]]:
+        """Detect meteor candidates.
+
+        Args:
+            current_image: Current frame (uint16 grayscale)
+            previous_image: Previous frame (uint16 grayscale)
+            roi_mask: Binary mask for region of interest (uint8)
+            params: Detection parameters dictionary
+
+        Returns:
+            Tuple of (is_candidate, line_score, line_segments, max_aspect_ratio, debug_image)
+        """
+        # Your detection logic here
+        pass
+
+    def compute_line_score(
+        self,
+        mask: np.ndarray,
+        hough_params: Dict[str, int],
+    ) -> Tuple[float, List[Tuple[int, int, int, int]]]:
+        """Compute line detection score.
+
+        Args:
+            mask: Binary mask of detected changes
+            hough_params: Hough transform parameters
+
+        Returns:
+            Tuple of (score, line_segments)
+        """
+        # Your line scoring logic here
+        pass
+```
+
+### Creating a Custom Output Handler
+
+To create a custom output handler, inherit from `BaseOutputHandler`:
+
+```python
+from typing import List, Optional
+import numpy as np
+from meteor_core.outputs.handler import BaseOutputHandler
+
+
+class MyCustomOutputHandler(BaseOutputHandler):
+    """Custom output handler (e.g., for cloud storage)."""
+
+    def __init__(self, bucket_name: str):
+        self.bucket_name = bucket_name
+
+    def save_candidate(
+        self,
+        source_path: str,
+        filename: str,
+        debug_image: Optional[np.ndarray] = None,
+        roi_polygon: Optional[List[List[int]]] = None,
+    ) -> bool:
+        """Save a meteor candidate.
+
+        Args:
+            source_path: Path to the source file.
+            filename: Output filename.
+            debug_image: Optional debug visualization.
+            roi_polygon: Optional ROI polygon.
+
+        Returns:
+            True if saved successfully, False if skipped.
+        """
+        # Upload to cloud storage
+        pass
+
+    def save_debug_image(
+        self,
+        debug_image: np.ndarray,
+        filename: str,
+        roi_polygon: Optional[List[List[int]]] = None,
+    ) -> str:
+        """Save a debug visualization.
+
+        Args:
+            debug_image: Debug visualization image.
+            filename: Base filename.
+            roi_polygon: Optional ROI polygon.
+
+        Returns:
+            Path or URL to the saved debug image.
+        """
+        # Upload debug image
+        pass
+```
+
+### Using Dataclass-based Configuration
+
+For loaders with structured configuration, use `DataclassInputLoader`:
+
+```python
+from dataclasses import dataclass
+from typing import Dict, Any
+import numpy as np
+from meteor_core.inputs.base import DataclassInputLoader, BaseMetadataExtractor
+
+
+@dataclass
+class TiffLoaderConfig:
+    """Configuration for TIFF loader."""
+    normalize: bool = False
+    bit_depth: int = 16
+
+
+class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtractor):
+    """TIFF image loader with configuration."""
+
+    plugin_name = "tiff"
+    ConfigType = TiffLoaderConfig
+
+    def load(self, filepath: str) -> np.ndarray:
+        """Load a TIFF image."""
+        import tifffile
+        image = tifffile.imread(filepath)
+        if self.config.normalize:
+            max_val = 2 ** self.config.bit_depth - 1
+            image = image.astype(np.float32) / max_val
+        return image
+
+    def extract_metadata(self, filepath: str) -> Dict[str, Any]:
+        """Extract TIFF metadata."""
+        import tifffile
+        with tifffile.TiffFile(filepath) as tif:
+            return {"pages": len(tif.pages), "shape": tif.pages[0].shape}
+```
+
+### Plugin Discovery
+
+Plugins are discovered automatically from:
+
+1. **Built-in loaders** (e.g., `RawImageLoader`)
+2. **Entry points** in `pyproject.toml`:
+   ```toml
+   [project.entry-points."detect_meteors.input"]
+   my_loader = "my_package.loaders:MyCustomLoader"
+   ```
+3. **Plugin directory**: `~/.detect_meteors/plugins/*.py`
+
+### Why ABC over Protocol?
+
+The project uses ABC instead of Protocol for plugin interfaces because:
+
+| Aspect | ABC | Protocol |
+|--------|-----|----------|
+| **Error detection** | Immediate at instantiation | Runtime only |
+| **IDE support** | Full (auto-complete, warnings) | Limited |
+| **Learning curve** | Familiar pattern | Requires typing knowledge |
+| **Shared implementation** | Supported (default methods) | Not supported |
+| **Discoverability** | Clear inheritance hierarchy | Implicit structural matching |
+
+For plugin developers, ABC provides clearer guidance on what to implement and catches errors earlier in the development cycle.
 
 ## Contribution Workflow
 
@@ -519,7 +779,7 @@ If you encounter import errors after the v1.5.5 restructuring:
 ls meteor_core/__init__.py
 
 # Test imports
-python -c "from meteor_core import pipeline, utils"
+python -c "from meteor_core import BaseInputLoader, BaseOutputHandler, BaseDetector"
 ```
 
 ## License
@@ -540,5 +800,6 @@ For more information about Apache License 2.0 compliance, see the [Apache Licens
 - [Coverage.py Documentation](https://coverage.readthedocs.io/)
 - [Pre-commit Documentation](https://pre-commit.com/)
 - [Python unittest Documentation](https://docs.python.org/3/library/unittest.html)
+- [Python ABC Documentation](https://docs.python.org/3/library/abc.html)
 - [Project README](README.md)
 - [CHANGELOG](CHANGELOG.md)
