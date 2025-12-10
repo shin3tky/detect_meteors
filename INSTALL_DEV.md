@@ -15,8 +15,10 @@ Complete the basic installation from [INSTALL.md](INSTALL.md) first, then follow
 After activating your virtual environment, install development dependencies:
 
 ```bash
-pip install pre-commit black flake8
+pip install pre-commit black flake8 flake8-pyproject coverage
 ```
+
+**Note**: `flake8-pyproject` enables flake8 to read configuration from `pyproject.toml`.
 
 ### Step 2: Set Up Pre-commit Hooks
 
@@ -42,12 +44,12 @@ pre-commit run --all-files
 
 ### How It Works
 
-Once installed, Black will automatically format your code before each commit:
+Once installed, pre-commit will automatically run Black (formatter) and flake8 (linter) before each commit:
 
 1. You make changes and run `git commit`
-2. Pre-commit runs Black on staged files
-3. If formatting changes are made, the commit is aborted
-4. You review changes, stage them, and commit again
+2. Pre-commit runs Black (formatting) and flake8 (linting) on staged files
+3. If formatting changes are made or linting errors are found, the commit is aborted
+4. You fix any issues, stage the changes, and commit again
 
 ### Example Workflow
 
@@ -59,21 +61,31 @@ vim detect_meteors_cli.py
 git add detect_meteors_cli.py
 git commit -m "Add new feature"
 
-# If Black reformats files, you'll see:
-# - Files were modified by this hook
+# If Black reformats files or flake8 finds errors, you'll see:
+# - Files were modified by this hook (Black)
+# - or linting errors (flake8)
 # - Commit aborted
 
-# Stage the formatted files and commit again
+# Fix any issues, stage the changes, and commit again
 git add detect_meteors_cli.py
 git commit -m "Add new feature"
 ```
 
+### Code Quality Tools
+
+This project uses two complementary tools for code quality, both automatically executed via pre-commit hooks:
+
+- **Black**: Automatic code formatting
+- **flake8**: Static code analysis and style checking
+
+All tool configurations are consolidated in `pyproject.toml`.
+
 ### Manual Formatting
 
-To manually format files:
+To manually run formatting:
 
 ```bash
-# Format all files via pre-commit
+# Run both Black and flake8 via pre-commit
 pre-commit run --all-files
 
 # Or run Black directly on specific files
@@ -82,18 +94,9 @@ black meteor_core/
 black tests/
 ```
 
-### Code Quality Tools
-
-This project uses two complementary tools for code quality:
-
-- **Black** (v1.5.0+): Automatic code formatting via pre-commit hooks
-- **flake8** (v1.5.8+): Static code analysis and style checking
-
-As of v1.5.8, flake8 is formally integrated with project-specific configuration in `.flake8`.
-
 ### Manual Linting
 
-To manually check code quality with flake8:
+To manually run linting:
 
 ```bash
 # Check all Python files
@@ -110,7 +113,7 @@ flake8 --statistics --count .
 
 ### Configuration
 
-The project uses multiple configuration files for code quality and formatting:
+The project uses configuration files for code quality and formatting:
 
 #### `.pre-commit-config.yaml`
 
@@ -131,12 +134,14 @@ repos:
 
 #### `pyproject.toml`
 
-Black formatter configuration:
+All tool configurations are centralized in `pyproject.toml`:
+
+**Black formatter:**
 
 ```toml
 [tool.black]
 line-length = 88
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ["py312"]
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -157,30 +162,55 @@ exclude = '''
 '''
 ```
 
-#### `.flake8`
+**Flake8 linter:**
 
-Flake8 linter configuration:
-
-```ini
-[flake8]
-exclude =
-    .git,
-    __pycache__,
-    .venv,
-    venv,
-    .serena,
-    .ruff_cache,
-    .github,
-    build,
-    dist,
-    *.egg-info,
-    rawfiles,
-    candidates,
-    debug_masks
-
+```toml
+[tool.flake8]
 max-line-length = 88
-ignore = E203,W503,E501,E226
 max-complexity = 70
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".serena",
+    ".ruff_cache",
+    ".github",
+    "build",
+    "dist",
+    "*.egg-info",
+    "rawfiles",
+    "candidates",
+    "debug_masks",
+]
+# E203: whitespace before ':'
+# W503: line break before binary operator
+# E501: line too long (handled by Black)
+# E226: missing whitespace around arithmetic operator
+ignore = ["E203", "W503", "E501", "E226"]
+```
+
+**Coverage** (for test coverage measurement):
+
+```toml
+[tool.coverage.run]
+source = ["meteor_core"]
+branch = true
+omit = [
+    "tests/*",
+    "*/__pycache__/*",
+    ".venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
 ```
 
 ## Running Tests
@@ -207,6 +237,21 @@ python -m unittest tests.test_calculations_v1x.TestCalculateNPFRule -v
 
 # Run specific test method
 python -m unittest tests.test_calculations_v1x.TestCalculateNPFRule.test_npf_rule_basic -v
+```
+
+### Test Coverage
+
+To measure test coverage:
+
+```bash
+# Run tests with coverage measurement
+coverage run -m unittest discover tests
+
+# View coverage report in terminal
+coverage report
+
+# Generate HTML report (outputs to htmlcov/)
+coverage html
 ```
 
 ### Test Files
@@ -270,11 +315,11 @@ if __name__ == "__main__":
 
 - **flake8** for code quality and style checking
 - Helps catch common errors and enforce PEP 8 compliance
-- Run manually before committing
+- Automatically executed via pre-commit hooks
 
 ### Python Version
 
-- **Python 3.12+** recommended
+- **Python 3.12+** required
 - Tested on Python 3.12.12
 
 ### Type Hints
@@ -328,7 +373,7 @@ detect_meteors/
 ├── detect_meteors_cli.py          # CLI interface (argument parsing, user interaction)
 ├── meteor_core/                   # Core logic modules (v1.5.6 plugin-ready)
 │   ├── __init__.py
-│   ├── schema.py                  # Type definitions (TypedDict, constants)
+│   ├── schema.py                  # Type definitions (TypedDict), constants
 │   ├── pipeline.py                # Processing pipeline orchestration + PipelineConfig
 │   ├── image_io.py                # Shared image IO helpers, EXIF utilities
 │   ├── inputs/                    # Input loader plugins (RAW readers, metadata)
@@ -360,8 +405,7 @@ detect_meteors/
 │   └── test_fisheye_v1x.py
 ├── run_tests.py                   # Version-aware test runner
 ├── .pre-commit-config.yaml        # Pre-commit hooks configuration
-├── pyproject.toml                 # Black formatter configuration
-├── .flake8                        # Flake8 linter configuration
+├── pyproject.toml                 # Project metadata and tool configurations
 ├── requirements.txt               # Python dependencies
 ├── CHANGELOG.md                   # Release history
 ├── README.md                      # User documentation
@@ -378,7 +422,7 @@ detect_meteors/
 └── NOTICE                         # Attribution notices
 ```
 
-### Module Responsibilities (v1.5.6+)
+### Module Responsibilities
 
 | Module | Responsibility |
 |--------|----------------|
@@ -406,8 +450,8 @@ This modular structure prepares for the v2.x plugin architecture by separating c
 4. **Create** a feature branch: `git checkout -b feature/your-feature`
 5. **Make** changes and add tests
 6. **Run** tests: `python run_tests.py`
-7. **Check** code quality: `flake8 .`
-8. **Commit** (pre-commit will format code automatically)
+7. **Measure** coverage: `coverage run -m unittest discover tests && coverage report`
+8. **Commit** (pre-commit will run Black and flake8 automatically)
 9. **Push** to your fork
 10. **Create** a Pull Request
 
@@ -443,7 +487,7 @@ source ./venv/bin/activate  # macOS/Linux
 **Missing dependencies:**
 ```bash
 pip install -r requirements.txt
-pip install pre-commit black flake8
+pip install pre-commit black flake8 flake8-pyproject coverage
 ```
 
 ### Linting Issues
@@ -457,16 +501,16 @@ flake8 --select=E9,F63,F7,F82 .
 flake8 --extend-ignore=E501,W503 .
 ```
 
-**Configuration conflicts:**
+**Configuration not loading:**
 ```bash
-# Check flake8 configuration
-cat .flake8
+# Verify flake8-pyproject is installed
+pip show flake8-pyproject
 
-# Check Black configuration
-cat pyproject.toml | grep -A 20 "\[tool.black\]"
+# Check pyproject.toml has [tool.flake8] section
+cat pyproject.toml | grep -A 20 "\[tool.flake8\]"
 ```
 
-### Module Import Issues (v1.5.5+)
+### Module Import Issues
 
 If you encounter import errors after the v1.5.5 restructuring:
 
@@ -492,6 +536,8 @@ For more information about Apache License 2.0 compliance, see the [Apache Licens
 
 - [Black Documentation](https://black.readthedocs.io/)
 - [flake8 Documentation](https://flake8.pycqa.org/)
+- [flake8-pyproject Documentation](https://github.com/john-googletmp/flake8-pyproject)
+- [Coverage.py Documentation](https://coverage.readthedocs.io/)
 - [Pre-commit Documentation](https://pre-commit.com/)
 - [Python unittest Documentation](https://docs.python.org/3/library/unittest.html)
 - [Project README](README.md)

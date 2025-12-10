@@ -59,21 +59,19 @@ The tool automatically utilizes all available CPU cores (N-1 cores in parallel) 
 
 ## What's New in v1.5
 
+### v1.5.9 - PEP 621 project configuration
+- **PEP 621 compliance**: Migrated project configuration to `pyproject.toml` with full metadata including name, description, authors, keywords, and classifiers.
+- **Unified tool configuration**: Consolidated flake8 settings from `.flake8` into `pyproject.toml` (via flake8-pyproject), providing single-file configuration for all development tools.
+- **Dependency and test configuration**: Defined runtime/dev dependencies and coverage settings in `pyproject.toml` for standardized development workflow.
+
 ### v1.5.8 - Code quality improvements
 - **flake8 linter integration**: Added flake8 to the development toolchain alongside Black formatter for comprehensive code quality assurance.
 - **Consistent coding standards**: Configured linting rules optimized for Black compatibility and project-specific requirements.
 - **Developer workflow enhancement**: Manual linting checks before commits ensure maintainable, high-quality codebase.
 
-### v1.5.7 - Progress metadata parity
-- `progress.json` now records CLI parameters, selected ROI (or `full_image`), and finalized processing parameters for easier review and re-running of past sessions.
-- Both the CLI and `PipelineConfig`/`DetectionPipeline` entry points write the same metadata fields, ensuring consistent progress files.
-
-### v1.5.6 - Input/Output plugin preparation
-- **Input loader protocol & discovery**: New `InputLoader`/`MetadataExtractor` interfaces with dataclass/Pydantic helper bases, a built-in `RawImageLoader`, and discovery via entry points (`detect_meteors.input`) or `~/.detect_meteors/plugins`
-- **PipelineConfig & DetectionPipeline**: Centralized configuration object and protocol wiring loaders, metadata extraction, and processing orchestration for v2.0 plugin architecture
-- **OutputHandler protocol**: Standardized contract for candidate/debug persistence to enable pluggable output destinations
-
-### v1.5.0–1.5.5 Summary
+### v1.5.0–1.5.7 Summary
+- **v1.5.7**: Progress metadata parity - `progress.json` now records CLI parameters, selected ROI, and processing parameters
+- **v1.5.6**: Input/Output plugin preparation - New `InputLoader`/`MetadataExtractor` protocols, `PipelineConfig`, `OutputHandler`
 - **v1.5.5**: Internal Structure Improvement
 - **v1.5.4**: Improved ROI selection display, added NOTICE document
 - **v1.5.3**: Fisheye lens correction (`--fisheye` flag)

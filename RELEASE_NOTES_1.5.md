@@ -1,5 +1,161 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.9 (2025-12-10)
+
+### 📦 PEP 621 Project Configuration
+
+Version 1.5.9 modernizes the project configuration by migrating to PEP 621 compliant `pyproject.toml`, consolidating all tool configurations and project metadata in a single file.
+
+### Highlights
+
+- **PEP 621 compliance**: Full project metadata now defined in `pyproject.toml` including name, description, authors, maintainers, keywords, and classifiers.
+- **Unified tool configuration**: Consolidated flake8 settings from `.flake8` into `pyproject.toml` via flake8-pyproject, providing single-file configuration.
+- **Dependency management**: Runtime and optional dev dependencies clearly defined for clearer package requirements.
+- **Test infrastructure**: Testing and coverage configurations added to `pyproject.toml`.
+
+### Configuration Overview
+
+#### Project Metadata
+
+```toml
+[project]
+name = "detect-meteors"
+version = "1.5.9"
+description = "Automated meteor detection in RAW astrophotography images using frame-to-frame difference analysis"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12"
+```
+
+#### Dependencies
+
+**Runtime dependencies:**
+- `numpy>=2.2.6` - Numerical computing
+- `matplotlib>=3.10.7` - Plotting and visualization
+- `opencv-python>=4.12.0` - Image processing
+- `rawpy>=0.25.1` - RAW image reading
+- `psutil>=7.1.3` - System utilities
+- `pillow>=12.0.0` - Image handling and EXIF extraction
+
+**Development dependencies (optional):**
+```toml
+[project.optional-dependencies]
+dev = [
+    "black>=25.12.0",
+    "flake8>=7.3.0",
+    "flake8-pyproject>=1.2.4",
+    "pre-commit>=4.5.0",
+    "coverage>=7.6.0",
+]
+```
+
+#### Flake8 Configuration (Migrated)
+
+The flake8 configuration has been moved from `.flake8` to `pyproject.toml`:
+
+```toml
+[tool.flake8]
+max-line-length = 88
+max-complexity = 70
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    # ... other exclusions
+]
+ignore = ["E203", "W503", "E501", "E226"]
+```
+
+**Note**: `flake8-pyproject>=1.2.4` is required to read flake8 configuration from `pyproject.toml`.
+
+#### Testing Configuration
+
+```toml
+[tool.coverage.run]
+source = ["meteor_core"]
+branch = true
+omit = ["tests/*", "*/__pycache__/*", ".venv/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+```
+
+#### Project URLs
+
+```toml
+[project.urls]
+Homepage = "https://github.com/shin3tky/detect_meteors"
+Repository = "https://github.com/shin3tky/detect_meteors.git"
+Documentation = "https://github.com/shin3tky/detect_meteors#readme"
+Issues = "https://github.com/shin3tky/detect_meteors/issues"
+Changelog = "https://github.com/shin3tky/detect_meteors/blob/main/CHANGELOG.md"
+```
+
+### Pre-commit Hook Update
+
+The `.pre-commit-config.yaml` now includes `Flake8-pyproject` as an additional dependency:
+
+```yaml
+repos:
+  - repo: https://github.com/psf/black
+    rev: 25.12.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
+        additional_dependencies: [Flake8-pyproject]
+```
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `pyproject.toml` | Full PEP 621 metadata, flake8 config, testing config |
+| `.flake8` | Removed (migrated to pyproject.toml) |
+| `.pre-commit-config.yaml` | Added Flake8-pyproject dependency |
+| `CHANGELOG.md` | Added v1.5.9 entry |
+| `README.md` | Added v1.5.9 section |
+
+### Benefits
+
+1. **Single source of truth**: All project configuration in one file
+2. **Modern Python packaging**: PEP 621 compliance for future pip/PyPI compatibility
+3. **Clearer dependencies**: Explicit version requirements for all packages
+4. **Reduced file clutter**: Removed separate `.flake8` configuration file
+5. **Standardized testing**: Coverage configuration for consistent test measurement
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.5.8 and earlier:
+- No changes to runtime behavior
+- No breaking changes to API or CLI options
+- Development workflow unchanged (flake8 reads from pyproject.toml transparently)
+
+### Developer Notes
+
+When installing development dependencies:
+
+```bash
+# Install with dev dependencies
+pip install -e ".[dev]"
+
+# Or install individual tools
+pip install black flake8 flake8-pyproject coverage pre-commit
+```
+
+---
+
 ## Version 1.5.8 (2025-12-09)
 
 ### 🔍 Code Quality Improvements
@@ -900,7 +1056,34 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 
 ## Version Information
 
-- **Latest Version**: 1.5.5
+- **Latest Version**: 1.5.9
+- **Release Date**: 2025-12-10
+- **Major Changes**:
+  - PEP 621 compliant project configuration
+  - Flake8 config migrated to pyproject.toml
+  - Dependency and testing configuration centralized
+
+- **Version**: 1.5.8
+- **Release Date**: 2025-12-09
+- **Major Changes**:
+  - flake8 linter integration with Black formatter
+  - Project-specific linting configuration
+  - Enhanced developer workflow
+
+- **Version**: 1.5.7
+- **Release Date**: 2025-12-08
+- **Major Changes**:
+  - Progress metadata enrichment (params, roi, processing_params)
+  - Unified pipeline behavior for consistent progress files
+
+- **Version**: 1.5.6
+- **Release Date**: 2025-12-07
+- **Major Changes**:
+  - InputLoader/MetadataExtractor protocols
+  - PipelineConfig and DetectionPipeline protocol
+  - OutputHandler protocol for extensibility
+
+- **Version**: 1.5.5
 - **Release Date**: 2025-12-05
 - **Major Changes**:
   - Code architecture refactoring (CLI/core separation)
@@ -954,6 +1137,9 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 
 | File | Changes |
 |------|---------|
+| `pyproject.toml` | PEP 621 metadata, tool configs (v1.5.9) |
+| `.flake8` | Removed, migrated to pyproject.toml (v1.5.9) |
+| `.pre-commit-config.yaml` | Added Flake8-pyproject (v1.5.9) |
 | `detect_meteors_cli.py` | CLI interface (v1.5.5: reduced to CLI only) |
 | `meteor_core/` | New package with modular components (v1.5.5) |
 | `detect_meteors_cli_completion.bash` | Shell completions |

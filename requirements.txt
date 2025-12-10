@@ -3,3 +3,4 @@ matplotlib>=3.10.7
 opencv-python>=4.12.0
 rawpy>=0.25.1
 psutil>=7.1.3
+pillow>=12.0.0
