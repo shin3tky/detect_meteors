@@ -1,5 +1,189 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.10 (2025-12-11)
+
+### 🏗️ Plugin Architecture: ABC Migration
+
+Version 1.5.10 migrates all plugin interfaces from Protocol-based to Abstract Base Classes (ABC), providing a more robust foundation for plugin development.
+
+> ⚠️ **Important**: The plugin architecture is experimental and may undergo changes before the v2.0 stable release. Plugin interfaces, discovery mechanisms, and base class signatures could be modified based on feedback and evolving requirements.
+
+### Why ABC over Protocol?
+
+| Aspect | ABC (New) | Protocol (Old) |
+|--------|-----------|----------------|
+| **Error detection** | Immediate at instantiation | Runtime only |
+| **IDE support** | Full (auto-complete, warnings) | Limited |
+| **Learning curve** | Familiar pattern | Requires typing knowledge |
+| **Shared implementation** | Supported (default methods) | Not supported |
+| **Discoverability** | Clear inheritance hierarchy | Implicit structural matching |
+
+### Migration Summary
+
+| Old (Protocol) | New (ABC) | Location |
+|----------------|-----------|----------|
+| `InputLoader` | `BaseInputLoader` | `meteor_core/inputs/base.py` |
+| `MetadataExtractor` | `BaseMetadataExtractor` | `meteor_core/inputs/base.py` |
+| `OutputHandler` | `BaseOutputHandler` | `meteor_core/outputs/handler.py` |
+| `BaseDetector` | `BaseDetector` (unchanged) | `meteor_core/detectors/base.py` |
+
+### Class Hierarchy
+
+```
+BaseInputLoader (ABC)
+├── DataclassInputLoader (ABC + Generic)
+│   └── RawImageLoader (+ BaseMetadataExtractor)
+└── PydanticInputLoader (ABC + Generic)
+
+BaseMetadataExtractor (ABC)
+└── RawImageLoader (multiple inheritance)
+
+BaseOutputHandler (ABC)
+└── OutputWriter
+
+BaseDetector (ABC)
+└── HoughDetector
+```
+
+### Creating Custom Plugins
+
+#### Custom Input Loader
+
+```python
+from typing import Dict, Any
+import numpy as np
+from meteor_core.inputs.base import BaseInputLoader, BaseMetadataExtractor
+
+
+class MyCustomLoader(BaseInputLoader, BaseMetadataExtractor):
+    """Custom loader for a specific image format."""
+
+    plugin_name = "my_format"  # Required: unique identifier
+
+    def __init__(self, config: Any = None):
+        self.config = config
+
+    def load(self, filepath: str) -> np.ndarray:
+        """Load an image from the given filepath."""
+        # Your implementation here
+        pass
+
+    def extract_metadata(self, filepath: str) -> Dict[str, Any]:
+        """Extract metadata from the file (optional)."""
+        return {"format": "my_format"}
+```
+
+#### Custom Detector
+
+```python
+from typing import Dict, List, Tuple, Optional, Any
+import numpy as np
+from meteor_core.detectors.base import BaseDetector
+
+
+class MyCustomDetector(BaseDetector):
+    """Custom meteor detection algorithm."""
+
+    name = "MyCustomDetector"
+    version = "1.0.0"
+
+    def detect(
+        self,
+        current_image: np.ndarray,
+        previous_image: np.ndarray,
+        roi_mask: np.ndarray,
+        params: Dict[str, Any],
+    ) -> Tuple[bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]]:
+        """Detect meteor candidates."""
+        # Your detection logic here
+        pass
+
+    def compute_line_score(
+        self,
+        mask: np.ndarray,
+        hough_params: Dict[str, int],
+    ) -> Tuple[float, List[Tuple[int, int, int, int]]]:
+        """Compute line detection score."""
+        # Your line scoring logic here
+        pass
+```
+
+#### Custom Output Handler
+
+```python
+from typing import List, Optional
+import numpy as np
+from meteor_core.outputs.handler import BaseOutputHandler
+
+
+class MyCustomOutputHandler(BaseOutputHandler):
+    """Custom output handler (e.g., for cloud storage)."""
+
+    def save_candidate(
+        self,
+        source_path: str,
+        filename: str,
+        debug_image: Optional[np.ndarray] = None,
+        roi_polygon: Optional[List[List[int]]] = None,
+    ) -> bool:
+        """Save a meteor candidate."""
+        # Your implementation here
+        pass
+
+    def save_debug_image(
+        self,
+        debug_image: np.ndarray,
+        filename: str,
+        roi_polygon: Optional[List[List[int]]] = None,
+    ) -> str:
+        """Save a debug visualization."""
+        # Your implementation here
+        pass
+```
+
+### Benefits for Plugin Developers
+
+1. **Immediate feedback**: Missing abstract methods cause `TypeError` at instantiation, not at runtime
+2. **IDE integration**: Full auto-complete and "implement abstract methods" quick fixes
+3. **Clear contracts**: Explicit inheritance makes required methods obvious
+4. **Documentation**: ABC docstrings appear in IDE tooltips and help()
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `meteor_core/inputs/base.py` | `InputLoader` → `BaseInputLoader`, `MetadataExtractor` → `BaseMetadataExtractor` |
+| `meteor_core/inputs/raw.py` | Updated inheritance |
+| `meteor_core/inputs/__init__.py` | Updated exports |
+| `meteor_core/inputs/discovery.py` | Updated type hints and skip classes |
+| `meteor_core/outputs/handler.py` | `OutputHandler` → `BaseOutputHandler` |
+| `meteor_core/outputs/writer.py` | Updated inheritance |
+| `meteor_core/outputs/__init__.py` | Updated exports |
+| `meteor_core/__init__.py` | Updated exports |
+| `meteor_core/pipeline.py` | Updated type hints |
+| `INSTALL_DEV.md` | Added comprehensive plugin architecture documentation |
+
+### Backward Compatibility
+
+✅ **Internal refactoring only** - no breaking changes to CLI or runtime behavior:
+- All existing commands work unchanged
+- Detection results are identical
+- Progress files remain compatible
+
+⚠️ **For plugin developers**: If you have custom plugins using the old Protocol-based interfaces, update imports:
+
+```python
+# Old (v1.5.6-v1.5.9)
+from meteor_core.inputs import InputLoader, MetadataExtractor
+from meteor_core.outputs import OutputHandler
+
+# New (v1.5.10+)
+from meteor_core.inputs import BaseInputLoader, BaseMetadataExtractor
+from meteor_core.outputs import BaseOutputHandler
+```
+
+---
+
 ## Version 1.5.9 (2025-12-10)
 
 ### 📦 PEP 621 Project Configuration
@@ -1056,7 +1240,15 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 
 ## Version Information
 
-- **Latest Version**: 1.5.9
+- **Latest Version**: 1.5.10
+- **Release Date**: 2025-12-11
+- **Major Changes**:
+  - Plugin architecture migrated from Protocol to ABC
+  - Enhanced IDE support and immediate error detection
+  - Comprehensive plugin development documentation
+  - ⚠️ Plugin architecture is experimental until v2.0
+
+- **Version**: 1.5.9
 - **Release Date**: 2025-12-10
 - **Major Changes**:
   - PEP 621 compliant project configuration

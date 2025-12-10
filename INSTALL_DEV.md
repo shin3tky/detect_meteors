@@ -442,6 +442,8 @@ This modular structure prepares for the v2.x plugin architecture by separating c
 
 ## Plugin Architecture (v1.5.10+)
 
+> ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**. Plugin interfaces, discovery mechanisms, base class signatures, and configuration formats could be modified based on feedback and evolving requirements. If you are developing custom plugins, please be prepared to update your code when upgrading to future versions.
+
 As of v1.5.10, the project uses **Abstract Base Classes (ABC)** for all plugin interfaces. This provides clear contracts for plugin developers with immediate error detection for missing implementations.
 
 ### Abstract Base Classes Overview
