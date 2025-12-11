@@ -27,6 +27,7 @@ class HoughDetector(BaseDetector):
     5. Analyze contour shapes for aspect ratio filtering
     """
 
+    plugin_name: str = "hough"
     name: str = "HoughDetector"
     version: str = "1.0.0"
 

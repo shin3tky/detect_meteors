@@ -35,7 +35,7 @@ from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, create_raw_loader, discover_input_loaders
 from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
-from .detectors import BaseDetector, HoughDetector
+from .detectors import BaseDetector, HoughDetector, discover_detectors
 from .outputs import (
     BaseOutputHandler,
     OutputWriter,
@@ -50,10 +50,20 @@ from .utils import (
 _DEFAULT_INPUT_LOADER = create_raw_loader()
 _DEFAULT_DETECTOR = HoughDetector()
 
-# Available detectors registry (simple dict for now, will evolve to DetectorRegistry)
-_AVAILABLE_DETECTORS: Dict[str, type] = {
-    "hough": HoughDetector,
-}
+# Cache for discovered detectors (lazy initialization)
+_discovered_detectors: Optional[Dict[str, type]] = None
+
+
+def _get_available_detectors() -> Dict[str, type]:
+    """Get available detectors with lazy discovery.
+
+    Returns:
+        Dictionary mapping plugin_name to detector class.
+    """
+    global _discovered_detectors
+    if _discovered_detectors is None:
+        _discovered_detectors = discover_detectors()
+    return _discovered_detectors
 
 
 def _resolve_detector(
@@ -65,7 +75,7 @@ def _resolve_detector(
 
     Priority order:
     1. Explicit detector instance (if provided)
-    2. detector_name lookup (creates new instance)
+    2. detector_name lookup via discover_detectors() (creates new instance)
     3. Default detector (HoughDetector)
 
     Args:
@@ -89,9 +99,10 @@ def _resolve_detector(
         return detector
 
     if detector_name:
-        detector_cls = _AVAILABLE_DETECTORS.get(detector_name.lower())
+        available_detectors = _get_available_detectors()
+        detector_cls = available_detectors.get(detector_name.lower())
         if detector_cls is None:
-            available = ", ".join(sorted(_AVAILABLE_DETECTORS.keys())) or "none"
+            available = ", ".join(sorted(available_detectors.keys())) or "none"
             raise ValueError(
                 f"Unknown detector '{detector_name}'. Available: {available}"
             )

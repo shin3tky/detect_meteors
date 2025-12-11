@@ -114,6 +114,7 @@ from .detectors import (
     BaseDetector,
     HoughDetector,
     compute_line_score_fast,
+    discover_detectors,
 )
 
 from .outputs import (
@@ -228,6 +229,7 @@ __all__ = [
     # Detectors
     "BaseDetector",
     "HoughDetector",
+    "discover_detectors",
     "compute_line_score_fast",
     # Outputs
     "BaseOutputHandler",

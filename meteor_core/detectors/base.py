@@ -22,10 +22,12 @@ class BaseDetector(ABC):
     Subclasses should implement the `detect` method to perform the actual detection.
 
     Attributes:
+        plugin_name: Unique identifier for the detector plugin (used in registry)
         name: Human-readable name of the detector
         version: Version string of the detector
     """
 
+    plugin_name: str = ""  # Must be overridden by subclasses
     name: str = "BaseDetector"
     version: str = "1.0.0"
 
@@ -94,6 +96,7 @@ class BaseDetector(ABC):
             Dictionary with detector metadata
         """
         return {
+            "plugin_name": self.plugin_name,
             "name": self.name,
             "version": self.version,
             "class": self.__class__.__name__,
@@ -127,3 +130,26 @@ class BaseDetector(ABC):
                 return False
 
         return True
+
+
+def _is_valid_detector(cls: type) -> bool:
+    """Check if a class is a valid detector implementation.
+
+    Args:
+        cls: Class to check.
+
+    Returns:
+        True if the class is a valid BaseDetector subclass with plugin_name.
+    """
+    if not isinstance(cls, type):
+        return False
+
+    if not issubclass(cls, BaseDetector):
+        return False
+
+    # Must have a non-empty plugin_name
+    plugin_name = getattr(cls, "plugin_name", "")
+    if not plugin_name:
+        return False
+
+    return True

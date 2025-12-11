@@ -17,11 +17,15 @@ import os
 # Add project root directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from meteor_core.detectors import BaseDetector, HoughDetector  # noqa: E402
+from meteor_core.detectors import (  # noqa: E402
+    BaseDetector,
+    HoughDetector,
+    discover_detectors,
+)
 from meteor_core.schema import PipelineConfig, DetectionParams  # noqa: E402
 from meteor_core.pipeline import (  # noqa: E402
     _resolve_detector,
-    _AVAILABLE_DETECTORS,
+    _get_available_detectors,
     _DEFAULT_DETECTOR,
     process_image_batch,
 )
@@ -30,6 +34,7 @@ from meteor_core.pipeline import (  # noqa: E402
 class MockDetector(BaseDetector):
     """Mock detector for testing custom detector injection."""
 
+    plugin_name = "mock"
     name = "MockDetector"
     version = "1.0.0-test"
 
@@ -98,17 +103,29 @@ class TestResolveDetector(unittest.TestCase):
 
 
 class TestAvailableDetectors(unittest.TestCase):
-    """Tests for _AVAILABLE_DETECTORS registry."""
+    """Tests for discover_detectors() and _get_available_detectors()."""
 
     def test_hough_detector_registered(self):
         """HoughDetector is registered as 'hough'."""
-        self.assertIn("hough", _AVAILABLE_DETECTORS)
-        self.assertIs(_AVAILABLE_DETECTORS["hough"], HoughDetector)
+        available = _get_available_detectors()
+        self.assertIn("hough", available)
+        self.assertIs(available["hough"], HoughDetector)
 
     def test_registry_keys_are_lowercase(self):
         """All registry keys should be lowercase."""
-        for key in _AVAILABLE_DETECTORS:
+        available = _get_available_detectors()
+        for key in available:
             self.assertEqual(key, key.lower())
+
+    def test_discover_detectors_returns_dict(self):
+        """discover_detectors() returns a dictionary."""
+        detectors = discover_detectors()
+        self.assertIsInstance(detectors, dict)
+        self.assertIn("hough", detectors)
+
+    def test_hough_detector_has_plugin_name(self):
+        """HoughDetector has correct plugin_name."""
+        self.assertEqual(HoughDetector.plugin_name, "hough")
 
 
 class TestPipelineConfigDetector(unittest.TestCase):
@@ -269,9 +286,11 @@ class TestBaseDetectorInterface(unittest.TestCase):
         detector = HoughDetector()
         info = detector.get_info()
 
+        self.assertIn("plugin_name", info)
         self.assertIn("name", info)
         self.assertIn("version", info)
         self.assertIn("class", info)
+        self.assertEqual(info["plugin_name"], "hough")
         self.assertEqual(info["class"], "HoughDetector")
 
     def test_hough_detector_validate_params(self):
