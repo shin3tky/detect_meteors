@@ -256,6 +256,10 @@ class LoaderRegistry:
 
         Returns:
             Coerced configuration suitable for loader initialization.
+
+        Raises:
+            TypeError: If config cannot be coerced to the expected type.
+            ValueError: If config validation fails (e.g., invalid field values).
         """
         config_type = getattr(loader_cls, "ConfigType", None)
 
@@ -264,8 +268,17 @@ class LoaderRegistry:
             if config_type is not None:
                 try:
                     return config_type()  # Default instance
-                except Exception:
-                    return None
+                except TypeError as e:
+                    raise TypeError(
+                        f"Failed to create default config for loader "
+                        f"'{loader_cls.plugin_name}': {config_type.__name__} "
+                        f"requires arguments. Provide a config dict or instance."
+                    ) from e
+                except Exception as e:
+                    raise ValueError(
+                        f"Failed to create default config for loader "
+                        f"'{loader_cls.plugin_name}': {e}"
+                    ) from e
             return None
 
         # Case 2: No ConfigType defined on loader
@@ -278,17 +291,42 @@ class LoaderRegistry:
 
         # Case 4: Dict -> Dataclass
         if is_dataclass(config_type) and isinstance(config, dict):
-            return config_type(**config)
+            try:
+                return config_type(**config)
+            except TypeError as e:
+                raise TypeError(
+                    f"Invalid config for loader '{loader_cls.plugin_name}': {e}"
+                ) from e
 
         # Case 5: Dict -> Pydantic v2 (model_validate)
         if hasattr(config_type, "model_validate") and isinstance(config, dict):
-            return config_type.model_validate(config)
+            try:
+                return config_type.model_validate(config)
+            except Exception as e:
+                raise ValueError(
+                    f"Config validation failed for loader "
+                    f"'{loader_cls.plugin_name}': {e}"
+                ) from e
 
         # Case 6: Dict -> Pydantic v1 (parse_obj)
         if hasattr(config_type, "parse_obj") and isinstance(config, dict):
-            return config_type.parse_obj(config)
+            try:
+                return config_type.parse_obj(config)
+            except Exception as e:
+                raise ValueError(
+                    f"Config validation failed for loader "
+                    f"'{loader_cls.plugin_name}': {e}"
+                ) from e
 
-        # Fallback: return as-is
+        # Case 7: Incompatible type
+        if isinstance(config, dict):
+            raise TypeError(
+                f"Cannot coerce dict to {config_type.__name__} for loader "
+                f"'{loader_cls.plugin_name}': ConfigType is neither a "
+                f"dataclass nor a Pydantic model."
+            )
+
+        # Fallback: return as-is (may fail later in loader __init__)
         return config
 
     @classmethod
