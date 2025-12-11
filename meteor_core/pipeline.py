@@ -335,7 +335,7 @@ def process_image_batch(
     results = []
 
     loader = _resolve_input_loader(input_loader)
-    det = detector if detector is not None else _DEFAULT_DETECTOR
+    det = _resolve_detector(detector=detector)
 
     for curr_file, prev_file in batch_data:
         filename = os.path.basename(curr_file)
