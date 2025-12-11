@@ -384,7 +384,7 @@ class TestLoaderRegistryReset(unittest.TestCase):
         self.assertEqual(len(LoaderRegistry._custom), 0)
 
 
-class TestDiscoverInputLoadersDeprecation(unittest.TestCase):
+class TestDiscoverLoadersDeprecation(unittest.TestCase):
     """Tests for deprecated discover_input_loaders function."""
 
     def setUp(self):
@@ -395,23 +395,23 @@ class TestDiscoverInputLoadersDeprecation(unittest.TestCase):
         """Reset registry after each test."""
         LoaderRegistry._reset()
 
-    def test_discover_input_loaders_warns(self):
-        """discover_input_loaders() emits DeprecationWarning."""
-        from meteor_core.inputs.discovery import discover_input_loaders
+    def test_discover_loaders_warns(self):
+        """discover_loaders() emits DeprecationWarning."""
+        from meteor_core.inputs.discovery import discover_loaders
 
         with self.assertWarns(DeprecationWarning) as ctx:
-            discover_input_loaders()
+            discover_loaders()
 
         self.assertIn("deprecated", str(ctx.warning))
         self.assertIn("LoaderRegistry", str(ctx.warning))
 
-    def test_discover_input_loaders_returns_same_result(self):
-        """discover_input_loaders() returns same loaders as registry."""
-        from meteor_core.inputs.discovery import discover_input_loaders
+    def test_discover_loaders_returns_same_result(self):
+        """discover_loaders() returns same loaders as registry."""
+        from meteor_core.inputs.discovery import discover_loaders
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
-            deprecated_loaders = discover_input_loaders()
+            deprecated_loaders = discover_loaders()
 
         registry_loaders = LoaderRegistry.discover()
 

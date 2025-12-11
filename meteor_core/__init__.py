@@ -74,7 +74,7 @@ from .inputs.registry import LoaderRegistry
 from .inputs.discovery import PLUGIN_DIR, PLUGIN_GROUP
 
 # Deprecated: use LoaderRegistry.discover() instead
-from .inputs.discovery import discover_input_loaders
+from .inputs.discovery import discover_loaders
 
 from .roi_selector import (
     select_roi,
@@ -203,7 +203,7 @@ __all__ = [
     "PLUGIN_DIR",
     "PLUGIN_GROUP",
     # Input Loaders - Discovery function (deprecated)
-    "discover_input_loaders",
+    "discover_loaders",
     # ROI
     "select_roi",
     "create_roi_mask_from_polygon",

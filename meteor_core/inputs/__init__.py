@@ -15,7 +15,7 @@ from .registry import LoaderRegistry
 from .discovery import PLUGIN_DIR, PLUGIN_GROUP
 
 # Deprecated: use LoaderRegistry.discover() instead
-from .discovery import discover_input_loaders
+from .discovery import discover_loaders
 
 __all__ = [
     # Type variables
@@ -40,5 +40,5 @@ __all__ = [
     "PLUGIN_DIR",
     "PLUGIN_GROUP",
     # Discovery function (deprecated)
-    "discover_input_loaders",
+    "discover_loaders",
 ]

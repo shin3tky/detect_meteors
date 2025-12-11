@@ -29,12 +29,16 @@ class BaseInputLoader(ABC, Generic[ConfigType]):
         - load(filepath: str) -> Any - The loading method
 
     Attributes:
-        plugin_name: Unique string identifier for this loader plugin.
+        plugin_name: Unique identifier for the loader plugin (used in registry).
+        name: Human-readable name of the loader.
+        version: Version string of the loader.
         config: Configuration instance for this loader.
 
     Example:
         >>> class MyLoader(BaseInputLoader):
         ...     plugin_name = "my_loader"
+        ...     name = "My Custom Loader"
+        ...     version = "1.0.0"
         ...
         ...     def __init__(self, config):
         ...         self.config = config
@@ -45,6 +49,12 @@ class BaseInputLoader(ABC, Generic[ConfigType]):
 
     #: Unique name identifying this loader plugin
     plugin_name: str = ""
+
+    #: Human-readable name of the loader
+    name: str = "BaseInputLoader"
+
+    #: Version string of the loader
+    version: str = "1.0.0"
 
     #: Configuration instance for this loader
     config: ConfigType
@@ -60,6 +70,19 @@ class BaseInputLoader(ABC, Generic[ConfigType]):
             Loaded image data (typically a numpy array).
         """
         pass
+
+    def get_info(self) -> Dict[str, str]:
+        """Get information about the loader.
+
+        Returns:
+            Dictionary with loader metadata.
+        """
+        return {
+            "plugin_name": self.plugin_name,
+            "name": self.name,
+            "version": self.version,
+            "class": self.__class__.__name__,
+        }
 
 
 class BaseMetadataExtractor(ABC):

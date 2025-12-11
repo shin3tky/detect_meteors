@@ -119,7 +119,7 @@ def _load_module_from_file(filepath: Path):
     raise ImportError(f"Could not load spec for {filepath}")
 
 
-def discover_input_loaders(
+def discover_loaders(
     plugin_dir: Path | None = None,
 ) -> Dict[str, Type[BaseInputLoader]]:
     """Discover available :class:`BaseInputLoader` implementations.
@@ -139,20 +139,19 @@ def discover_input_loaders(
 
     Args:
         plugin_dir: Optional custom plugin directory. Defaults to
-            ``~/.detect_meteors/plugins``.
+            ``~/.detect_meteors/input_plugins``.
 
     Returns:
         Dictionary mapping plugin_name to loader class.
 
     Example:
-        >>> loaders = discover_input_loaders()
+        >>> loaders = discover_loaders()
         >>> print(loaders.keys())
         dict_keys(['raw', ...])
         >>> RawLoader = loaders['raw']
     """
     warnings.warn(
-        "discover_input_loaders() is deprecated. "
-        "Use LoaderRegistry.discover() instead.",
+        "discover_loaders() is deprecated. " "Use LoaderRegistry.discover() instead.",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -217,4 +216,4 @@ def _discover_loaders_internal(
     return registry
 
 
-__all__ = ["discover_input_loaders", "PLUGIN_DIR", "PLUGIN_GROUP"]
+__all__ = ["discover_loaders", "PLUGIN_DIR", "PLUGIN_GROUP"]
