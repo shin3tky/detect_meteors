@@ -25,6 +25,7 @@ _SKIP_CLASSES = frozenset(
     {
         "BaseDetector",
         "ABC",
+        "Generic",
     }
 )
 
