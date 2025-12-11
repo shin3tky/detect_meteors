@@ -37,6 +37,7 @@ from .schema import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
     DEFAULT_LOADER_NAME,
+    DEFAULT_DETECTOR_NAME,
     DEFAULT_TARGET_FOLDER,
     DEFAULT_OUTPUT_FOLDER,
     DEFAULT_DEBUG_FOLDER,
@@ -115,8 +116,11 @@ from .detectors import (
     BaseDetector,
     HoughDetector,
     compute_line_score_fast,
-    discover_detectors,
+    DetectorRegistry,
 )
+
+# Deprecated: use DetectorRegistry.discover() instead
+from .detectors import discover_detectors
 
 from .outputs import (
     BaseOutputHandler,
@@ -163,6 +167,7 @@ __all__ = [
     "DEFAULT_BATCH_SIZE",
     "DEFAULT_PROGRESS_FILE",
     "DEFAULT_LOADER_NAME",
+    "DEFAULT_DETECTOR_NAME",
     "DEFAULT_TARGET_FOLDER",
     "DEFAULT_OUTPUT_FOLDER",
     "DEFAULT_DEBUG_FOLDER",
@@ -234,8 +239,11 @@ __all__ = [
     # Detectors
     "BaseDetector",
     "HoughDetector",
-    "discover_detectors",
     "compute_line_score_fast",
+    # Detectors - Registry (recommended)
+    "DetectorRegistry",
+    # Detectors - Discovery function (deprecated)
+    "discover_detectors",
     # Outputs
     "BaseOutputHandler",
     "OutputWriter",

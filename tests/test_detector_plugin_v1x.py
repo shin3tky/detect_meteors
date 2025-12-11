@@ -20,13 +20,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from meteor_core.detectors import (  # noqa: E402
     BaseDetector,
     HoughDetector,
-    discover_detectors,
+    DetectorRegistry,
 )
 from meteor_core.schema import PipelineConfig, DetectionParams  # noqa: E402
 from meteor_core.pipeline import (  # noqa: E402
     _resolve_detector,
-    _get_available_detectors,
-    _DEFAULT_DETECTOR,
+    _get_default_detector,
     process_image_batch,
 )
 
@@ -85,8 +84,8 @@ class TestResolveDetector(unittest.TestCase):
         self.assertIsInstance(result_mixed, HoughDetector)
 
     def test_resolve_with_unknown_detector_name_raises(self):
-        """Unknown detector_name raises ValueError."""
-        with self.assertRaises(ValueError) as ctx:
+        """Unknown detector_name raises KeyError."""
+        with self.assertRaises(KeyError) as ctx:
             _resolve_detector(detector_name="unknown_detector")
 
         self.assertIn("Unknown detector", str(ctx.exception))
@@ -95,37 +94,54 @@ class TestResolveDetector(unittest.TestCase):
     def test_resolve_default_detector(self):
         """No arguments returns default detector."""
         result = _resolve_detector()
-        self.assertIs(result, _DEFAULT_DETECTOR)
+        default = _get_default_detector()
+        self.assertIs(result, default)
 
     def test_resolve_default_is_hough_detector(self):
         """Default detector is HoughDetector."""
-        self.assertIsInstance(_DEFAULT_DETECTOR, HoughDetector)
+        default = _get_default_detector()
+        self.assertIsInstance(default, HoughDetector)
 
 
 class TestAvailableDetectors(unittest.TestCase):
-    """Tests for discover_detectors() and _get_available_detectors()."""
+    """Tests for DetectorRegistry.discover()."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        DetectorRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        DetectorRegistry._reset()
 
     def test_hough_detector_registered(self):
         """HoughDetector is registered as 'hough'."""
-        available = _get_available_detectors()
+        available = DetectorRegistry.discover()
         self.assertIn("hough", available)
         self.assertIs(available["hough"], HoughDetector)
 
     def test_registry_keys_are_lowercase(self):
         """All registry keys should be lowercase."""
-        available = _get_available_detectors()
+        available = DetectorRegistry.discover()
         for key in available:
             self.assertEqual(key, key.lower())
 
-    def test_discover_detectors_returns_dict(self):
-        """discover_detectors() returns a dictionary."""
-        detectors = discover_detectors()
+    def test_discover_returns_dict(self):
+        """DetectorRegistry.discover() returns a dictionary."""
+        detectors = DetectorRegistry.discover()
         self.assertIsInstance(detectors, dict)
         self.assertIn("hough", detectors)
 
     def test_hough_detector_has_plugin_name(self):
         """HoughDetector has correct plugin_name."""
         self.assertEqual(HoughDetector.plugin_name, "hough")
+
+    def test_deprecated_discover_detectors_warns(self):
+        """discover_detectors() emits DeprecationWarning."""
+        from meteor_core.detectors import discover_detectors
+
+        with self.assertWarns(DeprecationWarning):
+            discover_detectors()
 
 
 class TestPipelineConfigDetector(unittest.TestCase):

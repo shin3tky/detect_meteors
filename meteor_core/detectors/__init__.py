@@ -10,14 +10,24 @@ Detector implementations for meteor detection.
 
 from .base import BaseDetector, _is_valid_detector
 from .hough_default import HoughDetector, compute_line_score_fast
-from .discovery import discover_detectors, PLUGIN_DIR, PLUGIN_GROUP
+from .registry import DetectorRegistry
+from .discovery import PLUGIN_DIR, PLUGIN_GROUP
+
+# Deprecated: use DetectorRegistry.discover() instead
+from .discovery import discover_detectors
 
 __all__ = [
+    # Base class
     "BaseDetector",
+    "_is_valid_detector",
+    # Built-in detector
     "HoughDetector",
     "compute_line_score_fast",
-    "_is_valid_detector",
-    "discover_detectors",
+    # Registry (recommended)
+    "DetectorRegistry",
+    # Discovery constants
     "PLUGIN_DIR",
     "PLUGIN_GROUP",
+    # Discovery function (deprecated)
+    "discover_detectors",
 ]

@@ -116,6 +116,10 @@ def discover_detectors(
 ) -> Dict[str, Type[BaseDetector]]:
     """Discover available :class:`BaseDetector` implementations.
 
+    .. deprecated::
+        Use :meth:`DetectorRegistry.discover` instead. This function will be
+        removed in a future version.
+
     Discovery order is deterministic:
 
     1. Built-in detectors are registered first
@@ -138,6 +142,33 @@ def discover_detectors(
         dict_keys(['hough', ...])
         >>> HoughDetector = detectors['hough']
     """
+    warnings.warn(
+        "discover_detectors() is deprecated. "
+        "Use DetectorRegistry.discover() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    return _discover_detectors_internal(plugin_dir)
+
+
+def _discover_detectors_internal(
+    plugin_dir: Path | None = None,
+) -> Dict[str, Type[BaseDetector]]:
+    """Internal discovery function used by DetectorRegistry.
+
+    This is the core discovery implementation. It discovers detectors from:
+    1. Built-in detectors (e.g., HoughDetector)
+    2. Entry points (detect_meteors.detector group)
+    3. Plugin directory
+
+    Args:
+        plugin_dir: Optional custom plugin directory. If None, uses PLUGIN_DIR.
+
+    Returns:
+        Dictionary mapping plugin_name to detector class.
+    """
+    directory = plugin_dir if plugin_dir is not None else PLUGIN_DIR
 
     registry: Dict[str, Type[BaseDetector]] = {}
 
@@ -148,21 +179,21 @@ def discover_detectors(
     for ep in sorted(_iter_entry_points(), key=lambda e: e.name):
         try:
             detector_cls = ep.load()
-        except Exception as exc:  # pragma: no cover - import-time failure handling
+        except Exception as exc:  # pragma: no cover
             warnings.warn(
-                f"Failed to load detector entry point '{ep.name}' from {ep.value}: {exc}",
+                f"Failed to load detector entry point '{ep.name}' "
+                f"from {ep.value}: {exc}",
                 stacklevel=2,
             )
             continue
         _add_detector(registry, detector_cls, f"entry point {ep.name}")
 
-    # 3. Register detectors from plugin directory (sorted for determinism)
-    directory = Path(plugin_dir) if plugin_dir is not None else PLUGIN_DIR
+    # 3. Register detectors from plugin directory
     if directory.exists() and directory.is_dir():
         for path in sorted(directory.glob("*.py")):
             try:
                 module = _load_module_from_file(path)
-            except Exception as exc:  # pragma: no cover - import-time failure handling
+            except Exception as exc:  # pragma: no cover
                 warnings.warn(
                     f"Failed to load detector plugin module {path}: {exc}",
                     stacklevel=2,

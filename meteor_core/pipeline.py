@@ -33,7 +33,7 @@ from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
-from .detectors import BaseDetector, HoughDetector, discover_detectors
+from .detectors import BaseDetector, DetectorRegistry
 from .outputs import (
     BaseOutputHandler,
     OutputWriter,
@@ -57,22 +57,16 @@ def _get_default_input_loader() -> BaseInputLoader:
     return _DEFAULT_INPUT_LOADER
 
 
-_DEFAULT_DETECTOR = HoughDetector()
-
-# Cache for discovered detectors (lazy initialization)
-_discovered_detectors: Optional[Dict[str, type]] = None
+# Lazy initialization for default detector
+_DEFAULT_DETECTOR: Optional[BaseDetector] = None
 
 
-def _get_available_detectors() -> Dict[str, type]:
-    """Get available detectors with lazy discovery.
-
-    Returns:
-        Dictionary mapping plugin_name to detector class.
-    """
-    global _discovered_detectors
-    if _discovered_detectors is None:
-        _discovered_detectors = discover_detectors()
-    return _discovered_detectors
+def _get_default_detector() -> BaseDetector:
+    """Get default detector with lazy initialization."""
+    global _DEFAULT_DETECTOR
+    if _DEFAULT_DETECTOR is None:
+        _DEFAULT_DETECTOR = DetectorRegistry.create_default()
+    return _DEFAULT_DETECTOR
 
 
 def _resolve_detector(
@@ -84,7 +78,7 @@ def _resolve_detector(
 
     Priority order:
     1. Explicit detector instance (if provided)
-    2. detector_name lookup via discover_detectors() (creates new instance)
+    2. detector_name lookup via DetectorRegistry (creates new instance)
     3. Default detector (HoughDetector)
 
     Args:
@@ -97,7 +91,7 @@ def _resolve_detector(
         BaseDetector instance ready for use.
 
     Raises:
-        ValueError: If detector_name is not found in available detectors.
+        KeyError: If detector_name is not found in available detectors.
 
     Example:
         >>> det = _resolve_detector()  # Returns default HoughDetector
@@ -108,17 +102,9 @@ def _resolve_detector(
         return detector
 
     if detector_name:
-        available_detectors = _get_available_detectors()
-        detector_cls = available_detectors.get(detector_name.lower())
-        if detector_cls is None:
-            available = ", ".join(sorted(available_detectors.keys())) or "none"
-            raise ValueError(
-                f"Unknown detector '{detector_name}'. Available: {available}"
-            )
-        # TODO: Pass detector_config to detector constructor when supported
-        return detector_cls()
+        return DetectorRegistry.create(detector_name, detector_config)
 
-    return _DEFAULT_DETECTOR
+    return _get_default_detector()
 
 
 def _resolve_input_loader(
