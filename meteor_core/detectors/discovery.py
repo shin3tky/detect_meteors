@@ -21,9 +21,12 @@ PLUGIN_GROUP = "detect_meteors.detector"
 PLUGIN_DIR = Path.home() / ".detect_meteors" / "detector_plugins"
 
 # Classes to skip during discovery (base classes)
+# Includes future abstract subclasses for consistency with inputs
 _SKIP_CLASSES = frozenset(
     {
         "BaseDetector",
+        "DataclassDetector",
+        "PydanticDetector",
         "ABC",
         "Generic",
     }
