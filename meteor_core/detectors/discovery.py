@@ -78,9 +78,12 @@ def _add_detector(
         )
         return
 
+    # Normalize to lowercase for case-insensitive lookup
+    plugin_name_lower = plugin_name.lower()
+
     # Check for duplicates
-    if plugin_name in registry:
-        existing = registry[plugin_name]
+    if plugin_name_lower in registry:
+        existing = registry[plugin_name_lower]
         warnings.warn(
             f"Duplicate detector name '{plugin_name}' from {origin}; "
             f"keeping {existing.__module__}.{existing.__name__}",
@@ -88,7 +91,7 @@ def _add_detector(
         )
         return
 
-    registry[plugin_name] = detector_cls
+    registry[plugin_name_lower] = detector_cls
 
 
 def _load_module_from_file(filepath: Path):

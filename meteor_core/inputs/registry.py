@@ -92,7 +92,7 @@ class LoaderRegistry:
         2. Discovered loaders (_discovered)
 
         Args:
-            name: Loader plugin_name.
+            name: Loader plugin_name (case-insensitive).
 
         Returns:
             Loader class.
@@ -100,14 +100,17 @@ class LoaderRegistry:
         Raises:
             KeyError: If loader not found.
         """
+        # Normalize name to lowercase for case-insensitive lookup
+        name_lower = name.lower()
+
         # 1. Custom (runtime-registered) takes priority
-        if name in cls._custom:
-            return cls._custom[name]
+        if name_lower in cls._custom:
+            return cls._custom[name_lower]
 
         # 2. Discovered loaders
         discovered = cls.discover()
-        if name in discovered:
-            return discovered[name]
+        if name_lower in discovered:
+            return discovered[name_lower]
 
         # 3. Not found - provide helpful error message
         available = cls.list_available()
@@ -143,14 +146,17 @@ class LoaderRegistry:
         if not name:
             raise ValueError("Loader must have non-empty plugin_name")
 
+        # Normalize to lowercase
+        name_lower = name.lower()
+
         # Warn on overwrite (but allow it for testing purposes)
-        if name in cls._custom:
+        if name_lower in cls._custom:
             warnings.warn(
                 f"Overwriting existing runtime-registered loader '{name}'",
                 stacklevel=2,
             )
 
-        cls._custom[name] = loader_cls
+        cls._custom[name_lower] = loader_cls
 
     @classmethod
     def unregister(cls, name: str) -> bool:
@@ -160,13 +166,14 @@ class LoaderRegistry:
         cannot be unregistered (they will be re-discovered).
 
         Args:
-            name: Loader plugin_name to remove.
+            name: Loader plugin_name to remove (case-insensitive).
 
         Returns:
             True if removed, False if not found in runtime registry.
         """
-        if name in cls._custom:
-            del cls._custom[name]
+        name_lower = name.lower()
+        if name_lower in cls._custom:
+            del cls._custom[name_lower]
             return True
         return False
 

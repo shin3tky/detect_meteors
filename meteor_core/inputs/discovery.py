@@ -83,9 +83,12 @@ def _add_loader(
         )
         return
 
+    # Normalize to lowercase for case-insensitive lookup
+    plugin_name_lower = plugin_name.lower()
+
     # Check for duplicates
-    if plugin_name in registry:
-        existing = registry[plugin_name]
+    if plugin_name_lower in registry:
+        existing = registry[plugin_name_lower]
         warnings.warn(
             f"Duplicate loader name '{plugin_name}' from {origin}; "
             f"keeping {existing.__module__}.{existing.__name__}",
@@ -93,7 +96,7 @@ def _add_loader(
         )
         return
 
-    registry[plugin_name] = loader_cls
+    registry[plugin_name_lower] = loader_cls
 
 
 def _load_module_from_file(filepath: Path):
