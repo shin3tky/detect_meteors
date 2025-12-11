@@ -18,7 +18,7 @@ from .base import BaseInputLoader, _is_valid_input_loader
 from .raw import RawImageLoader
 
 PLUGIN_GROUP = "detect_meteors.input"
-PLUGIN_DIR = Path.home() / ".detect_meteors" / "plugins"
+PLUGIN_DIR = Path.home() / ".detect_meteors" / "input_plugins"
 
 # Classes to skip during discovery (base classes)
 _SKIP_CLASSES = frozenset(
