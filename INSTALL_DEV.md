@@ -261,13 +261,16 @@ coverage html
 | `test_calculations_v1x.py` | 54 | NPF Rule, pixel pitch, star/meteor trail estimation |
 | `test_integration_v1x.py` | 44 | End-to-end meteor detection with various parameters |
 | `test_sensor_presets_v1x.py` | 42 | Sensor type presets (`--sensor-type`) |
+| `test_loader_registry_v1x.py` | 30 | Input loader registry (v1.5.6+) |
+| `test_fisheye_v1x.py` | 27 | Fisheye lens correction (v1.5.3+) |
+| `test_detector_registry_v1x.py` | 26 | Detector registry (v1.5.10+) |
+| `test_detector_plugin_v1x.py` | 24 | Detector plugin architecture (v1.5.10+) |
 | `test_sensor_validation_v1x.py` | 23 | Sensor override validation (v1.5.2+) |
 | `test_sensor_npf_integration_v1x.py` | 16 | Sensor preset integration with NPF calculations |
 | `test_infrastructure_v1x.py` | 16 | ROI parsing, progress tracking, file collection, auto-estimation logic |
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch size adjustment |
-| `test_fisheye_v1x.py` | 27 | Fisheye lens correction (v1.5.3+) |
 
-**Total: 228 tests**
+**Total: 308 tests**
 
 ### Writing Tests
 
@@ -369,7 +372,7 @@ def estimate_star_trail_length(
 ```
 detect_meteors/
 ├── detect_meteors_cli.py          # CLI interface (argument parsing, user interaction)
-├── meteor_core/                   # Core logic modules (v1.5.10+ ABC-based plugin architecture)
+├── meteor_core/                   # Core logic modules (v1.5.11+ ABC-based plugin architecture)
 │   ├── __init__.py
 │   ├── schema.py                  # Type definitions (dataclasses), constants
 │   ├── pipeline.py                # Processing pipeline orchestration + PipelineConfig
@@ -377,7 +380,8 @@ detect_meteors/
 │   ├── inputs/                    # Input loader plugins (RAW readers, metadata)
 │   │   ├── __init__.py
 │   │   ├── base.py                # BaseInputLoader/BaseMetadataExtractor ABCs, helpers
-│   │   ├── discovery.py           # Plugin discovery (entry points, ~/.detect_meteors/plugins)
+│   │   ├── registry.py            # LoaderRegistry (plugin registration and lookup)
+│   │   ├── discovery.py           # Plugin discovery (entry points, ~/.detect_meteors/input_plugins)
 │   │   └── raw.py                 # Built-in RAW loader (RawImageLoader)
 │   ├── outputs/                   # Output handlers + writer orchestration
 │   │   ├── __init__.py
@@ -386,6 +390,8 @@ detect_meteors/
 │   ├── detectors/                 # Detection algorithm implementations
 │   │   ├── __init__.py
 │   │   ├── base.py                # BaseDetector ABC
+│   │   ├── registry.py            # DetectorRegistry (plugin registration and lookup)
+│   │   ├── discovery.py           # Plugin discovery (entry points, ~/.detect_meteors/detector_plugins)
 │   │   └── hough_default.py       # HoughDetector (default implementation)
 │   ├── roi_selector.py            # ROI selection interface
 │   └── utils.py                   # Utility functions (NPF calculations, estimation)
@@ -394,13 +400,16 @@ detect_meteors/
 ├── debug_masks/                   # Debug masks for tests/examples
 ├── tests/                         # Test suite
 │   ├── test_calculations_v1x.py
-│   ├── test_integration_v1x.py
-│   ├── test_sensor_presets_v1x.py
-│   ├── test_sensor_validation_v1x.py
-│   ├── test_sensor_npf_integration_v1x.py
+│   ├── test_detector_plugin_v1x.py
+│   ├── test_detector_registry_v1x.py
+│   ├── test_fisheye_v1x.py
 │   ├── test_infrastructure_v1x.py
+│   ├── test_integration_v1x.py
+│   ├── test_loader_registry_v1x.py
 │   ├── test_memory_batch_size_v1x.py
-│   └── test_fisheye_v1x.py
+│   ├── test_sensor_npf_integration_v1x.py
+│   ├── test_sensor_presets_v1x.py
+│   └── test_sensor_validation_v1x.py
 ├── run_tests.py                   # Version-aware test runner
 ├── .pre-commit-config.yaml        # Pre-commit hooks configuration
 ├── pyproject.toml                 # Project metadata and tool configurations
@@ -431,9 +440,12 @@ detect_meteors/
 | `meteor_core/roi_selector.py` | Interactive ROI selection interface |
 | `meteor_core/utils.py` | Utility functions (NPF calculations, parameter estimation) |
 | `meteor_core/inputs/base.py` | BaseInputLoader/BaseMetadataExtractor ABCs and validation helpers |
-| `meteor_core/inputs/discovery.py` | Plugin discovery for input loaders (entry points, plugin dir) |
+| `meteor_core/inputs/registry.py` | LoaderRegistry for plugin registration and case-insensitive lookup |
+| `meteor_core/inputs/discovery.py` | Plugin discovery for input loaders (entry points, input_plugins dir) |
 | `meteor_core/inputs/raw.py` | Built-in RAW loader (RawImageLoader) |
 | `meteor_core/detectors/base.py` | BaseDetector ABC for detection algorithms |
+| `meteor_core/detectors/registry.py` | DetectorRegistry for plugin registration and case-insensitive lookup |
+| `meteor_core/detectors/discovery.py` | Plugin discovery for detectors (entry points, detector_plugins dir) |
 | `meteor_core/detectors/hough_default.py` | HoughDetector (default Hough transform-based detector) |
 | `meteor_core/outputs/handler.py` | BaseOutputHandler ABC |
 | `meteor_core/outputs/writer.py` | OutputWriter, ProgressManager |
@@ -487,6 +499,8 @@ class MyCustomLoader(BaseInputLoader, BaseMetadataExtractor):
     """Custom loader for a specific image format."""
 
     plugin_name = "my_format"  # Required: unique identifier
+    name = "My Format Loader"  # Human-readable name
+    version = "1.0.0"          # Version string
 
     def __init__(self, config: Any = None):
         self.config = config
@@ -515,14 +529,24 @@ class MyCustomLoader(BaseInputLoader, BaseMetadataExtractor):
         """
         # Optional: implement if your format has metadata
         return {"format": "my_format", "version": "1.0"}
+
+
+# Get plugin metadata
+loader = MyCustomLoader()
+info = loader.get_info()
+# Returns: {'plugin_name': 'my_format', 'name': 'My Format Loader',
+#           'version': '1.0.0', 'class': 'MyCustomLoader'}
 ```
 
 **Key points:**
 
 - `plugin_name` must be defined as a non-empty string
+- `name` and `version` are optional but recommended for plugin metadata
 - `load()` is an abstract method - instantiation fails without it
+- `get_info()` returns plugin metadata dictionary (inherited from base class)
 - `BaseMetadataExtractor` is optional - use when metadata extraction is needed
 - IDE will show errors for missing abstract methods
+- Registry lookup is case-insensitive: `get("my_format")` and `get("MY_FORMAT")` both work
 
 ### Creating a Custom Detector
 
@@ -680,13 +704,20 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
 
 Plugins are discovered automatically from:
 
-1. **Built-in loaders** (e.g., `RawImageLoader`)
+1. **Built-in plugins** (e.g., `RawImageLoader`, `HoughDetector`)
 2. **Entry points** in `pyproject.toml`:
    ```toml
    [project.entry-points."detect_meteors.input"]
    my_loader = "my_package.loaders:MyCustomLoader"
+   
+   [project.entry-points."detect_meteors.detector"]
+   my_detector = "my_package.detectors:MyCustomDetector"
    ```
-3. **Plugin directory**: `~/.detect_meteors/plugins/*.py`
+3. **Plugin directories**:
+   - Input loaders: `~/.detect_meteors/input_plugins/*.py`
+   - Detectors: `~/.detect_meteors/detector_plugins/*.py`
+
+**Note**: Registry lookup is case-insensitive. Both `LoaderRegistry.get("raw")` and `LoaderRegistry.get("RAW")` return the same class.
 
 ### Why ABC over Protocol?
 
