@@ -49,8 +49,7 @@ from meteor_core import (
     select_roi,
     process_image_batch,
     compute_params_hash,
-    load_progress,
-    save_progress,
+    ProgressManager,
 )
 
 
@@ -1238,81 +1237,34 @@ def detect_meteors_advanced(
     if roi_polygon:
         params_for_hash["roi_polygon"] = roi_polygon
 
-    progress_data = {
-        "version": VERSION,
-        "params_hash": compute_params_hash(params_for_hash),
-        "params": cli_param_string,
-        "roi": roi_polygon or "full_image",
-        "processing_params": processing_params,
-        "processed_files": [],
-        "detected_files": [],
-        "detected_details": [],
-        "total_processed": 0,
-        "total_detected": 0,
-    }
+    progress_manager = ProgressManager(progress_file)
+    loaded_progress = progress_manager.load() if resume else False
 
-    # Load existing progress if resuming
-    loaded_progress = load_progress(progress_file) if resume else None
-
-    if loaded_progress:
-        if loaded_progress.get("params_hash") == progress_data["params_hash"]:
-            progress_data.update(
-                {
-                    key: loaded_progress.get(key, progress_data.get(key))
-                    for key in [
-                        "version",
-                        "params_hash",
-                        "params",
-                        "roi",
-                        "processing_params",
-                        "processed_files",
-                        "detected_files",
-                        "detected_details",
-                        "total_processed",
-                        "total_detected",
-                        "created_at",
-                        "last_updated",
-                    ]
-                }
-            )
-            print(
-                f"Resuming from progress file: {progress_file} "
-                f"(processed={progress_data['total_processed']}, "
-                f"detected={progress_data['total_detected']})"
-            )
-        else:
+    params_hash = compute_params_hash(params_for_hash)
+    if loaded_progress and progress_manager.get_params_hash() == params_hash:
+        print(
+            f"Resuming from progress file: {progress_file} "
+            f"(processed={progress_manager.get_total_processed()}, "
+            f"detected={progress_manager.get_total_detected()})"
+        )
+    else:
+        if loaded_progress:
             print(
                 "Progress file exists but parameters differ. Starting with fresh progress."
             )
+        progress_manager.reset()
 
-    # Filter to only existing files
+    progress_manager.set_params_hash(params_hash)
+    progress_manager.set_params(cli_param_string)
+    progress_manager.set_roi(roi_polygon or "full_image")
+    progress_manager.set_processing_params(processing_params)
+
     existing_basenames = {os.path.basename(path) for path in files}
-    progress_data["processed_files"] = [
-        name
-        for name in progress_data.get("processed_files", [])
-        if name in existing_basenames
-    ]
-    progress_data["detected_files"] = [
-        name
-        for name in progress_data.get("detected_files", [])
-        if name in existing_basenames
-    ]
+    progress_manager.filter_existing_files(existing_basenames)
+    progress_manager.save()
 
-    # Filter detected_details to only include existing files
-    if "detected_details" in progress_data:
-        progress_data["detected_details"] = [
-            detail
-            for detail in progress_data["detected_details"]
-            if detail.get("filename") in existing_basenames
-        ]
-
-    processed_set = set(progress_data["processed_files"])
-    detected_set = set(progress_data["detected_files"])
-
-    progress_data["total_processed"] = len(processed_set)
-    progress_data["total_detected"] = len(detected_set)
-
-    save_progress(progress_file, progress_data)
+    processed_set = progress_manager.processed_set
+    detected_set = progress_manager.detected_set
 
     def record_result(
         filename: str,
@@ -1322,44 +1274,9 @@ def detect_meteors_advanced(
         ratio: float = 0.0,
     ) -> int:
         """Record result and return current detected count."""
-        processed_set.add(filename)
-        if filename not in progress_data["processed_files"]:
-            progress_data["processed_files"].append(filename)
-
-        if is_candidate:
-            detected_set.add(filename)
-            if filename not in progress_data["detected_files"]:
-                progress_data["detected_files"].append(filename)
-            # Store details in detected_details list
-            if "detected_details" not in progress_data:
-                progress_data["detected_details"] = []
-            # Check if entry already exists and update, otherwise append
-            existing_entry = next(
-                (
-                    d
-                    for d in progress_data["detected_details"]
-                    if d["filename"] == filename
-                ),
-                None,
-            )
-            if existing_entry:
-                existing_entry["score"] = score
-                existing_entry["lines"] = lines
-                existing_entry["ratio"] = ratio
-            else:
-                progress_data["detected_details"].append(
-                    {
-                        "filename": filename,
-                        "score": score,
-                        "lines": lines,
-                        "ratio": ratio,
-                    }
-                )
-
-        progress_data["total_processed"] = len(processed_set)
-        progress_data["total_detected"] = len(detected_set)
-        save_progress(progress_file, progress_data)
-        return progress_data["total_detected"]
+        return progress_manager.record_result(
+            filename, is_candidate, score, lines, ratio
+        )
 
     # Build image pairs and filter already processed
     image_pairs = [(files[i], files[i - 1]) for i in range(1, len(files))]
@@ -1408,7 +1325,7 @@ def detect_meteors_advanced(
             )
     except KeyboardInterrupt:
         print(f"\nInterrupted by user. Progress saved to {progress_file}.")
-        save_progress(progress_file, progress_data)
+        progress_manager.save()
         return detected_count
 
     # Performance profiling

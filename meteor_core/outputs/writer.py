@@ -163,6 +163,7 @@ class ProgressManager:
         }
         self.processed_set: Set[str] = set()
         self.detected_set: Set[str] = set()
+        self._detected_details_map: Dict[str, Dict[str, Any]] = {}
 
     def load(self) -> bool:
         """
@@ -180,6 +181,7 @@ class ProgressManager:
                 self.progress_data.update(loaded)
                 self.processed_set = set(self.progress_data.get("processed_files", []))
                 self.detected_set = set(self.progress_data.get("detected_files", []))
+                self._sync_detected_details_map()
                 return True
         except Exception as exc:
             print(f"Failed to read progress file {self.progress_file}: {exc}")
@@ -229,7 +231,7 @@ class ProgressManager:
         score: float = 0.0,
         lines: int = 0,
         ratio: float = 0.0,
-    ) -> None:
+    ) -> int:
         """
         Record the result of processing a file.
 
@@ -248,35 +250,18 @@ class ProgressManager:
             self.detected_set.add(filename)
             if filename not in self.progress_data["detected_files"]:
                 self.progress_data["detected_files"].append(filename)
-            # Store details in detected_details list
-            if "detected_details" not in self.progress_data:
-                self.progress_data["detected_details"] = []
-            # Check if entry already exists and update, otherwise append
-            existing_entry = next(
-                (
-                    d
-                    for d in self.progress_data["detected_details"]
-                    if d["filename"] == filename
-                ),
-                None,
-            )
-            if existing_entry:
-                existing_entry["score"] = score
-                existing_entry["lines"] = lines
-                existing_entry["ratio"] = ratio
-            else:
-                self.progress_data["detected_details"].append(
-                    {
-                        "filename": filename,
-                        "score": score,
-                        "lines": lines,
-                        "ratio": ratio,
-                    }
-                )
+            entry = self._detected_details_map.get(filename)
+            if not entry:
+                entry = {"filename": filename}
+                self._detected_details_map[filename] = entry
+
+            entry.update(score=score, lines=lines, ratio=ratio)
+            self._sync_detected_details_list()
 
         self.progress_data["total_processed"] = len(self.processed_set)
         self.progress_data["total_detected"] = len(self.detected_set)
         self.save()
+        return self.progress_data["total_detected"]
 
     def filter_existing_files(self, existing_basenames: Set[str]) -> None:
         """
@@ -303,6 +288,9 @@ class ProgressManager:
                 for detail in self.progress_data["detected_details"]
                 if detail.get("filename") in existing_basenames
             ]
+            self._sync_detected_details_map()
+        else:
+            self._detected_details_map = {}
 
         self.processed_set = set(self.progress_data["processed_files"])
         self.detected_set = set(self.progress_data["detected_files"])
@@ -334,6 +322,21 @@ class ProgressManager:
         }
         self.processed_set = set()
         self.detected_set = set()
+        self._detected_details_map = {}
+
+    def _sync_detected_details_map(self) -> None:
+        """Synchronize the detected details map from the list representation."""
+        self._detected_details_map = {}
+        for detail in self.progress_data.get("detected_details", []):
+            filename = detail.get("filename")
+            if filename:
+                self._detected_details_map[filename] = detail
+
+    def _sync_detected_details_list(self) -> None:
+        """Synchronize the detected details list from the map representation."""
+        self.progress_data["detected_details"] = list(
+            self._detected_details_map.values()
+        )
 
 
 # Standalone functions for backward compatibility
