@@ -277,6 +277,8 @@ class PipelineConfig:
         enable_parallel: Whether to enable parallel processing.
         progress_file: Path to the progress tracking JSON file.
         output_overwrite: Whether to overwrite existing files in output folder.
+        detector_name: Name of detector to use (e.g., "hough"). If None, uses default.
+        detector_config: Configuration dict for the detector. Structure depends on detector.
 
     Example:
         >>> config = PipelineConfig(
@@ -303,6 +305,10 @@ class PipelineConfig:
     progress_file: str = DEFAULT_PROGRESS_FILE
     output_overwrite: bool = False
 
+    # Detector configuration
+    detector_name: Optional[str] = None
+    detector_config: Optional[Dict[str, Any]] = None
+
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         if self.num_workers < 1:
@@ -327,6 +333,8 @@ class PipelineConfig:
             "enable_parallel": self.enable_parallel,
             "progress_file": self.progress_file,
             "output_overwrite": self.output_overwrite,
+            "detector_name": self.detector_name,
+            "detector_config": self.detector_config,
         }
 
     @classmethod
@@ -356,6 +364,8 @@ class PipelineConfig:
             enable_parallel=data.get("enable_parallel", True),
             progress_file=data.get("progress_file", DEFAULT_PROGRESS_FILE),
             output_overwrite=data.get("output_overwrite", False),
+            detector_name=data.get("detector_name"),
+            detector_config=data.get("detector_config"),
         )
 
     @classmethod

@@ -35,7 +35,7 @@ from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, create_raw_loader, discover_input_loaders
 from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
-from .detectors import compute_line_score_fast
+from .detectors import BaseDetector, HoughDetector
 from .outputs import (
     BaseOutputHandler,
     OutputWriter,
@@ -48,6 +48,57 @@ from .utils import (
 
 
 _DEFAULT_INPUT_LOADER = create_raw_loader()
+_DEFAULT_DETECTOR = HoughDetector()
+
+# Available detectors registry (simple dict for now, will evolve to DetectorRegistry)
+_AVAILABLE_DETECTORS: Dict[str, type] = {
+    "hough": HoughDetector,
+}
+
+
+def _resolve_detector(
+    detector: Optional[BaseDetector] = None,
+    detector_name: Optional[str] = None,
+    detector_config: Optional[Dict[str, Any]] = None,
+) -> BaseDetector:
+    """Resolve detector instance from various input combinations.
+
+    Priority order:
+    1. Explicit detector instance (if provided)
+    2. detector_name lookup (creates new instance)
+    3. Default detector (HoughDetector)
+
+    Args:
+        detector: Pre-initialized BaseDetector instance.
+        detector_name: Name of detector to use (e.g., "hough").
+        detector_config: Configuration dict for the detector (currently unused,
+            reserved for future detector configuration support).
+
+    Returns:
+        BaseDetector instance ready for use.
+
+    Raises:
+        ValueError: If detector_name is not found in available detectors.
+
+    Example:
+        >>> det = _resolve_detector()  # Returns default HoughDetector
+        >>> det = _resolve_detector(detector_name="hough")  # Returns new HoughDetector
+        >>> det = _resolve_detector(detector=my_detector)  # Returns my_detector
+    """
+    if detector is not None:
+        return detector
+
+    if detector_name:
+        detector_cls = _AVAILABLE_DETECTORS.get(detector_name.lower())
+        if detector_cls is None:
+            available = ", ".join(sorted(_AVAILABLE_DETECTORS.keys())) or "none"
+            raise ValueError(
+                f"Unknown detector '{detector_name}'. Available: {available}"
+            )
+        # TODO: Pass detector_config to detector constructor when supported
+        return detector_cls()
+
+    return _DEFAULT_DETECTOR
 
 
 def _coerce_loader_config(loader_cls, loader_config: Optional[Dict[str, Any]]):
@@ -254,6 +305,7 @@ def process_image_batch(
     roi_mask: np.ndarray,
     params: dict,
     input_loader: Optional[BaseInputLoader] = None,
+    detector: Optional[BaseDetector] = None,
 ) -> List[Tuple]:
     """
     Process a batch of images (handle multiple pairs at once).
@@ -262,6 +314,8 @@ def process_image_batch(
         batch_data: List of [(curr_file, prev_file), ...]
         roi_mask: ROI mask
         params: Parameter dictionary
+        input_loader: Optional input loader instance
+        detector: Optional detector instance (defaults to HoughDetector)
 
     Returns:
         List of processing results for each image:
@@ -269,16 +323,8 @@ def process_image_batch(
     """
     results = []
 
-    # Pre-create kernel for morphology
-    kernel = np.ones((3, 3), np.uint8)
-
-    hough_params = {
-        "threshold": params["hough_threshold"],
-        "min_line_length": params["hough_min_line_length"],
-        "max_line_gap": params["hough_max_line_gap"],
-    }
-
     loader = _resolve_input_loader(input_loader)
+    det = detector if detector is not None else _DEFAULT_DETECTOR
 
     for curr_file, prev_file in batch_data:
         filename = os.path.basename(curr_file)
@@ -288,68 +334,14 @@ def process_image_batch(
             curr_img = loader.load(curr_file)
             prev_img = loader.load(prev_file)
 
-            # Calculate difference (save memory with in-place operation)
-            diff = cv2.absdiff(curr_img, prev_img)
-
-            # Binarize
-            _, mask = cv2.threshold(
-                diff, params["diff_threshold"], 255, cv2.THRESH_BINARY
+            # Delegate detection to the detector
+            is_candidate, line_score, hough_lines, max_aspect_ratio, debug_img = (
+                det.detect(curr_img, prev_img, roi_mask, params)
             )
-            mask = mask.astype(np.uint8)
-
-            # Apply ROI
-            cv2.bitwise_and(mask, roi_mask, dst=mask)
-
-            # Noise removal
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-
-            # Hough transform
-            line_score, hough_lines = compute_line_score_fast(mask, hough_params)
-
-            # Shape detection
-            contours, _ = cv2.findContours(
-                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-
-            is_meteor_candidate = False
-            debug_img = None
-            max_aspect_ratio = 0.0
-
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-
-                if area > params["min_area"]:
-                    rect = cv2.minAreaRect(cnt)
-                    (w, h) = rect[1]
-
-                    if w == 0 or h == 0:
-                        continue
-
-                    long_side = max(w, h)
-                    short_side = min(w, h)
-                    aspect_ratio = long_side / max(short_side, 1)
-                    max_aspect_ratio = max(max_aspect_ratio, aspect_ratio)
-
-                    if (
-                        aspect_ratio > params["min_aspect_ratio"]
-                        and line_score >= params["min_line_score"]
-                    ):
-                        is_meteor_candidate = True
-
-                        if debug_img is None:
-                            debug_img = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-                            for x1, y1, x2, y2 in hough_lines:
-                                cv2.line(
-                                    debug_img, (x1, y1), (x2, y2), (0, 255, 255), 1
-                                )
-
-                        box = cv2.boxPoints(rect)
-                        box = np.int64(box)
-                        cv2.drawContours(debug_img, [box], 0, (0, 0, 255), 2)
 
             results.append(
                 (
-                    is_meteor_candidate,
+                    is_candidate,
                     filename,
                     curr_file,
                     line_score,
@@ -679,6 +671,7 @@ class MeteorDetectionPipeline:
         input_loader_name: Optional[str] = None,
         input_loader_config: Optional[Dict[str, Any]] = None,
         output_handler: Optional[BaseOutputHandler] = None,
+        detector: Optional[BaseDetector] = None,
     ) -> None:
         """Initialize with PipelineConfig (new API)."""
         ...
@@ -700,6 +693,7 @@ class MeteorDetectionPipeline:
         input_loader_name: Optional[str] = ...,
         input_loader_config: Optional[Dict[str, Any]] = ...,
         output_handler: Optional[BaseOutputHandler] = ...,
+        detector: Optional[BaseDetector] = ...,
     ) -> None:
         """Initialize with individual arguments (legacy API)."""
         ...
@@ -720,6 +714,7 @@ class MeteorDetectionPipeline:
         input_loader_name: Optional[str] = None,
         input_loader_config: Optional[Dict[str, Any]] = None,
         output_handler: Optional[BaseOutputHandler] = None,
+        detector: Optional[BaseDetector] = None,
     ):
         """
         Initialize the detection pipeline.
@@ -748,6 +743,7 @@ class MeteorDetectionPipeline:
             input_loader_name: Name of loader plugin to use
             input_loader_config: Configuration for the loader
             output_handler: Custom BaseOutputHandler implementation
+            detector: Custom BaseDetector implementation (defaults to HoughDetector)
         """
         # Determine which API is being used
         if isinstance(config_or_target, PipelineConfig):
@@ -792,6 +788,14 @@ class MeteorDetectionPipeline:
         self.input_loader = input_loader
         self.input_loader_name = input_loader_name
         self.input_loader_config = input_loader_config
+
+        # Resolve detector: explicit argument > config > default
+        # Note: We store the resolved detector, not the raw argument
+        self.detector = _resolve_detector(
+            detector=detector,
+            detector_name=self._config.detector_name,
+            detector_config=self._config.detector_config,
+        )
 
         # Initialize output handler
         self.output_writer: BaseOutputHandler = output_handler or OutputWriter(
@@ -1010,6 +1014,7 @@ class MeteorDetectionPipeline:
                     resume_offset,
                     overall_total,
                     input_loader,
+                    self.detector,
                 )
             else:
                 detected_count = self._process_sequential(
@@ -1020,6 +1025,7 @@ class MeteorDetectionPipeline:
                     resume_offset,
                     overall_total,
                     input_loader,
+                    self.detector,
                 )
         except KeyboardInterrupt:
             print(
@@ -1054,6 +1060,7 @@ class MeteorDetectionPipeline:
         resume_offset: int,
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
+        detector: Optional[BaseDetector],
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
         batches = [
@@ -1073,7 +1080,7 @@ class MeteorDetectionPipeline:
         try:
             for batch in batches:
                 future = executor.submit(
-                    process_image_batch, batch, roi_mask, params, input_loader
+                    process_image_batch, batch, roi_mask, params, input_loader, detector
                 )
                 futures.append(future)
 
@@ -1140,6 +1147,7 @@ class MeteorDetectionPipeline:
         resume_offset: int,
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
+        detector: Optional[BaseDetector],
     ) -> int:
         """Process images sequentially."""
         for idx, pair in enumerate(image_pairs):
@@ -1152,7 +1160,9 @@ class MeteorDetectionPipeline:
                 flush=True,
             )
 
-            batch_results = process_image_batch([pair], roi_mask, params, input_loader)
+            batch_results = process_image_batch(
+                [pair], roi_mask, params, input_loader, detector
+            )
 
             for result in batch_results:
                 (
