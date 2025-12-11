@@ -59,6 +59,12 @@ The tool automatically utilizes all available CPU cores (N-1 cores in parallel) 
 
 ## What's New in v1.5
 
+### v1.5.11 - Cross-package consistency
+- **Unified registry behavior**: Both `LoaderRegistry` and `DetectorRegistry` now support case-insensitive name lookup and follow consistent naming conventions.
+- **BaseInputLoader enhancement**: Added `name`, `version` attributes and `get_info()` method for uniform plugin metadata access across all plugin types.
+- **Early config validation**: Registry config coercion now raises explicit errors instead of silently failing, providing actionable error messages.
+- **Plugin directory standardization**: Input plugins now use `~/.detect_meteors/input_plugins/` (was `plugins/`).
+
 ### v1.5.10 - Plugin architecture: ABC migration
 - **ABC-based plugin interfaces**: Migrated from Protocol to Abstract Base Classes for improved developer experience with immediate error detection and full IDE support.
 - **Clear inheritance hierarchy**: `BaseInputLoader`, `BaseMetadataExtractor`, `BaseOutputHandler` provide explicit contracts for plugin development.
