@@ -11,7 +11,11 @@ from .base import (
     _is_valid_input_loader,
 )
 from .raw import RawImageLoader, RawLoaderConfig, create_raw_loader
-from .discovery import PLUGIN_DIR, PLUGIN_GROUP, discover_input_loaders
+from .registry import LoaderRegistry
+from .discovery import PLUGIN_DIR, PLUGIN_GROUP
+
+# Deprecated: use LoaderRegistry.discover() instead
+from .discovery import discover_input_loaders
 
 __all__ = [
     # Type variables
@@ -30,8 +34,11 @@ __all__ = [
     "RawImageLoader",
     "RawLoaderConfig",
     "create_raw_loader",
-    # Discovery
+    # Registry (recommended)
+    "LoaderRegistry",
+    # Discovery constants
     "PLUGIN_DIR",
     "PLUGIN_GROUP",
+    # Discovery function (deprecated)
     "discover_input_loaders",
 ]

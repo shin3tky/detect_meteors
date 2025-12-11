@@ -36,6 +36,7 @@ from .schema import (
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
+    DEFAULT_LOADER_NAME,
     DEFAULT_TARGET_FOLDER,
     DEFAULT_OUTPUT_FOLDER,
     DEFAULT_DEBUG_FOLDER,
@@ -68,11 +69,11 @@ from .inputs.base import (
     _is_valid_input_loader,
 )
 
-from .inputs.discovery import (
-    discover_input_loaders,
-    PLUGIN_DIR,
-    PLUGIN_GROUP,
-)
+from .inputs.registry import LoaderRegistry
+from .inputs.discovery import PLUGIN_DIR, PLUGIN_GROUP
+
+# Deprecated: use LoaderRegistry.discover() instead
+from .inputs.discovery import discover_input_loaders
 
 from .roi_selector import (
     select_roi,
@@ -161,6 +162,7 @@ __all__ = [
     "DEFAULT_NUM_WORKERS",
     "DEFAULT_BATCH_SIZE",
     "DEFAULT_PROGRESS_FILE",
+    "DEFAULT_LOADER_NAME",
     "DEFAULT_TARGET_FOLDER",
     "DEFAULT_OUTPUT_FOLDER",
     "DEFAULT_DEBUG_FOLDER",
@@ -190,10 +192,13 @@ __all__ = [
     "RawImageLoader",
     "RawLoaderConfig",
     "create_raw_loader",
-    # Input Loaders - Discovery
-    "discover_input_loaders",
+    # Input Loaders - Registry (recommended)
+    "LoaderRegistry",
+    # Input Loaders - Discovery constants
     "PLUGIN_DIR",
     "PLUGIN_GROUP",
+    # Input Loaders - Discovery function (deprecated)
+    "discover_input_loaders",
     # ROI
     "select_roi",
     "create_roi_mask_from_polygon",

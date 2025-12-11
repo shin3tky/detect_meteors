@@ -21,6 +21,7 @@ VERSION = "1.5.11"
 # Default Settings
 # ==========================================
 DEFAULT_PROGRESS_FILE = "progress.json"
+DEFAULT_LOADER_NAME = "raw"
 
 DEFAULT_TARGET_FOLDER = "rawfiles"
 DEFAULT_OUTPUT_FOLDER = "candidates"

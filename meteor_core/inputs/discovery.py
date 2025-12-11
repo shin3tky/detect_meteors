@@ -121,6 +121,10 @@ def discover_input_loaders(
 ) -> Dict[str, Type[BaseInputLoader]]:
     """Discover available :class:`BaseInputLoader` implementations.
 
+    .. deprecated::
+        Use :meth:`LoaderRegistry.discover` instead. This function will be
+        removed in a future version.
+
     Discovery order is deterministic:
 
     1. Built-in loaders are registered first
@@ -143,6 +147,33 @@ def discover_input_loaders(
         dict_keys(['raw', ...])
         >>> RawLoader = loaders['raw']
     """
+    warnings.warn(
+        "discover_input_loaders() is deprecated. "
+        "Use LoaderRegistry.discover() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+    return _discover_loaders_internal(plugin_dir)
+
+
+def _discover_loaders_internal(
+    plugin_dir: Path | None = None,
+) -> Dict[str, Type[BaseInputLoader]]:
+    """Internal discovery function used by LoaderRegistry.
+
+    This is the core discovery implementation. It discovers loaders from:
+    1. Built-in loaders (e.g., RawImageLoader)
+    2. Entry points (detect_meteors.input group)
+    3. Plugin directory
+
+    Args:
+        plugin_dir: Optional custom plugin directory. If None, uses PLUGIN_DIR.
+
+    Returns:
+        Dictionary mapping plugin_name to loader class.
+    """
+    directory = plugin_dir if plugin_dir is not None else PLUGIN_DIR
 
     registry: Dict[str, Type[BaseInputLoader]] = {}
 
@@ -153,21 +184,21 @@ def discover_input_loaders(
     for ep in sorted(_iter_entry_points(), key=lambda e: e.name):
         try:
             loader_cls = ep.load()
-        except Exception as exc:  # pragma: no cover - import-time failure handling
+        except Exception as exc:  # pragma: no cover
             warnings.warn(
-                f"Failed to load input loader entry point '{ep.name}' from {ep.value}: {exc}",
+                f"Failed to load input loader entry point '{ep.name}' "
+                f"from {ep.value}: {exc}",
                 stacklevel=2,
             )
             continue
         _add_loader(registry, loader_cls, f"entry point {ep.name}")
 
-    # 3. Register loaders from plugin directory (sorted for determinism)
-    directory = Path(plugin_dir) if plugin_dir is not None else PLUGIN_DIR
+    # 3. Register loaders from plugin directory
     if directory.exists() and directory.is_dir():
         for path in sorted(directory.glob("*.py")):
             try:
                 module = _load_module_from_file(path)
-            except Exception as exc:  # pragma: no cover - import-time failure handling
+            except Exception as exc:  # pragma: no cover
                 warnings.warn(
                     f"Failed to load plugin module {path}: {exc}",
                     stacklevel=2,

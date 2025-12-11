@@ -19,8 +19,6 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import List, Tuple, Dict, Optional, Any, Protocol, Type, Union, overload
 
-from dataclasses import is_dataclass
-
 from .schema import (
     EXTENSIONS,
     DEFAULT_DIFF_THRESHOLD,
@@ -32,7 +30,7 @@ from .schema import (
     PipelineConfig,
 )
 from .image_io import extract_exif_metadata
-from .inputs import BaseInputLoader, create_raw_loader, discover_input_loaders
+from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, HoughDetector, discover_detectors
@@ -47,7 +45,18 @@ from .utils import (
 )
 
 
-_DEFAULT_INPUT_LOADER = create_raw_loader()
+# Lazy initialization to avoid circular imports
+_DEFAULT_INPUT_LOADER: Optional[BaseInputLoader] = None
+
+
+def _get_default_input_loader() -> BaseInputLoader:
+    """Get default input loader with lazy initialization."""
+    global _DEFAULT_INPUT_LOADER
+    if _DEFAULT_INPUT_LOADER is None:
+        _DEFAULT_INPUT_LOADER = LoaderRegistry.create_default()
+    return _DEFAULT_INPUT_LOADER
+
+
 _DEFAULT_DETECTOR = HoughDetector()
 
 # Cache for discovered detectors (lazy initialization)
@@ -112,56 +121,36 @@ def _resolve_detector(
     return _DEFAULT_DETECTOR
 
 
-def _coerce_loader_config(loader_cls, loader_config: Optional[Dict[str, Any]]):
-    config_type = getattr(loader_cls, "ConfigType", None)
-
-    if loader_config is None:
-        if config_type is not None:
-            try:
-                return config_type()
-            except Exception:
-                return None
-        return None
-
-    if config_type is None:
-        return loader_config
-
-    if isinstance(loader_config, config_type):
-        return loader_config
-
-    if is_dataclass(config_type) and isinstance(loader_config, dict):
-        return config_type(**loader_config)
-
-    if hasattr(config_type, "model_validate") and isinstance(loader_config, dict):
-        return config_type.model_validate(loader_config)
-
-    if hasattr(config_type, "parse_obj") and isinstance(loader_config, dict):
-        return config_type.parse_obj(loader_config)
-
-    return loader_config
-
-
 def _resolve_input_loader(
     input_loader: Optional[BaseInputLoader] = None,
     loader_name: Optional[str] = None,
     loader_config: Optional[Dict[str, Any]] = None,
 ) -> BaseInputLoader:
+    """Resolve input loader instance from various input combinations.
+
+    Priority order:
+    1. Explicit loader instance (if provided)
+    2. loader_name lookup via LoaderRegistry (creates new instance)
+    3. Default loader (raw)
+
+    Args:
+        input_loader: Pre-initialized BaseInputLoader instance.
+        loader_name: Name of loader to use (e.g., "raw").
+        loader_config: Configuration dict or instance for the loader.
+
+    Returns:
+        BaseInputLoader instance ready for use.
+
+    Raises:
+        KeyError: If loader_name is not found in available loaders.
+    """
     if input_loader is not None:
         return input_loader
 
     if loader_name:
-        available_loaders = discover_input_loaders()
-        loader_cls = available_loaders.get(loader_name)
-        if loader_cls is None:
-            raise ValueError(
-                f"Unknown input loader '{loader_name}'. "
-                f"Available: {', '.join(sorted(available_loaders)) or 'none'}"
-            )
+        return LoaderRegistry.create(loader_name, loader_config)
 
-        coerced_config = _coerce_loader_config(loader_cls, loader_config)
-        return loader_cls(coerced_config)
-
-    return _DEFAULT_INPUT_LOADER
+    return _get_default_input_loader()
 
 
 def _extract_metadata_from_loader(
