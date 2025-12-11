@@ -1115,7 +1115,7 @@ class MeteorDetectionPipeline:
                             )
 
                         self.progress_manager.record_result(
-                            filename, is_candidate, aspect_ratio
+                            filename, is_candidate, line_score, num_lines, aspect_ratio
                         )
 
                 except Exception as e:
@@ -1182,7 +1182,7 @@ class MeteorDetectionPipeline:
                         print(f"  [SKIP] {filename}: Already exists")
 
                 self.progress_manager.record_result(
-                    filename, is_candidate, aspect_ratio
+                    filename, is_candidate, line_score, num_lines, aspect_ratio
                 )
 
         return self.progress_manager.get_total_detected()

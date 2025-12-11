@@ -157,7 +157,7 @@ class ProgressManager:
             "processing_params": {},
             "processed_files": [],
             "detected_files": [],
-            "detected_ratios": {},
+            "detected_details": [],
             "total_processed": 0,
             "total_detected": 0,
         }
@@ -223,7 +223,12 @@ class ProgressManager:
         return filename in self.processed_set
 
     def record_result(
-        self, filename: str, is_candidate: bool, ratio: float = 0.0
+        self,
+        filename: str,
+        is_candidate: bool,
+        score: float = 0.0,
+        lines: int = 0,
+        ratio: float = 0.0,
     ) -> None:
         """
         Record the result of processing a file.
@@ -231,7 +236,9 @@ class ProgressManager:
         Args:
             filename: Name of the processed file
             is_candidate: Whether the file was detected as a candidate
-            ratio: Aspect ratio of detected meteor candidate (only used when is_candidate is True)
+            score: Line score of detected meteor candidate
+            lines: Number of lines detected
+            ratio: Aspect ratio of detected meteor candidate
         """
         self.processed_set.add(filename)
         if filename not in self.progress_data["processed_files"]:
@@ -241,10 +248,31 @@ class ProgressManager:
             self.detected_set.add(filename)
             if filename not in self.progress_data["detected_files"]:
                 self.progress_data["detected_files"].append(filename)
-            # Store ratio in detected_ratios dict
-            if "detected_ratios" not in self.progress_data:
-                self.progress_data["detected_ratios"] = {}
-            self.progress_data["detected_ratios"][filename] = ratio
+            # Store details in detected_details list
+            if "detected_details" not in self.progress_data:
+                self.progress_data["detected_details"] = []
+            # Check if entry already exists and update, otherwise append
+            existing_entry = next(
+                (
+                    d
+                    for d in self.progress_data["detected_details"]
+                    if d["filename"] == filename
+                ),
+                None,
+            )
+            if existing_entry:
+                existing_entry["score"] = score
+                existing_entry["lines"] = lines
+                existing_entry["ratio"] = ratio
+            else:
+                self.progress_data["detected_details"].append(
+                    {
+                        "filename": filename,
+                        "score": score,
+                        "lines": lines,
+                        "ratio": ratio,
+                    }
+                )
 
         self.progress_data["total_processed"] = len(self.processed_set)
         self.progress_data["total_detected"] = len(self.detected_set)
@@ -268,13 +296,13 @@ class ProgressManager:
             if name in existing_basenames
         ]
 
-        # Filter detected_ratios to only include existing files
-        if "detected_ratios" in self.progress_data:
-            self.progress_data["detected_ratios"] = {
-                name: ratio
-                for name, ratio in self.progress_data["detected_ratios"].items()
-                if name in existing_basenames
-            }
+        # Filter detected_details to only include existing files
+        if "detected_details" in self.progress_data:
+            self.progress_data["detected_details"] = [
+                detail
+                for detail in self.progress_data["detected_details"]
+                if detail.get("filename") in existing_basenames
+            ]
 
         self.processed_set = set(self.progress_data["processed_files"])
         self.detected_set = set(self.progress_data["detected_files"])
@@ -300,7 +328,7 @@ class ProgressManager:
             "processing_params": self.progress_data.get("processing_params", {}),
             "processed_files": [],
             "detected_files": [],
-            "detected_ratios": {},
+            "detected_details": [],
             "total_processed": 0,
             "total_detected": 0,
         }
