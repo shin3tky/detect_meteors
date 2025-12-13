@@ -100,6 +100,35 @@ The tool automatically utilizes all available CPU cores (N-1 cores in parallel) 
 - **v1.3.1**: Complete auto-parameter estimation with star size and image geometry analysis ([details](RELEASE_NOTES_1.3.md))
 - **v1.2.1**: Percentile-based threshold estimation ([details](RELEASE_NOTES_1.2.md))
 
+## Output Handlers (developing plugins)
+
+Output plugins now follow the same registry pattern as inputs/detectors. Use `DataclassOutputHandler` from `meteor_core.outputs.base` (re-exported via `meteor_core.outputs`), register implementations with `OutputHandlerRegistry`, and supply configuration as dataclasses for automatic validation. Legacy imports from `meteor_core.outputs.handler` should be migrated to the new `base` module:
+
+```python
+from dataclasses import dataclass
+from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
+
+
+@dataclass
+class CloudOutputConfig:
+    bucket_name: str
+
+
+class CloudHandler(DataclassOutputHandler[CloudOutputConfig]):
+    plugin_name = "cloud"
+    ConfigType = CloudOutputConfig
+
+    def save_candidate(self, source_path, filename, debug_image=None, roi_polygon=None):
+        return True
+
+    def save_debug_image(self, debug_image, filename, roi_polygon=None):
+        return "s3://..."
+
+
+OutputHandlerRegistry.register(CloudHandler)
+handler = OutputHandlerRegistry.create("cloud", {"bucket_name": "my-bucket"})
+```
+
 ## Usage
 
 ### Quick Start

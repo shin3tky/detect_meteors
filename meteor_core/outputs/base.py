@@ -250,6 +250,7 @@ def _is_valid_output_handler(cls: type) -> bool:
 
 
 __all__ = [
+    "ConfigType",
     "BaseOutputHandler",
     "DataclassOutputHandler",
     "_is_valid_output_handler",

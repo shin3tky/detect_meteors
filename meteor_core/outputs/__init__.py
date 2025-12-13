@@ -38,6 +38,7 @@ For progress tracking::
 
 # Base classes
 from .base import (
+    ConfigType,
     BaseOutputHandler,
     DataclassOutputHandler,
     _is_valid_output_handler,
@@ -71,6 +72,7 @@ from .writer import OutputWriter
 
 __all__ = [
     # Base classes
+    "ConfigType",
     "BaseOutputHandler",
     "DataclassOutputHandler",
     "_is_valid_output_handler",

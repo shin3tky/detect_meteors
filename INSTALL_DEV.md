@@ -385,8 +385,12 @@ detect_meteors/
 │   │   └── raw.py                 # Built-in RAW loader (RawImageLoader)
 │   ├── outputs/                   # Output handlers + writer orchestration
 │   │   ├── __init__.py
-│   │   ├── handler.py             # BaseOutputHandler ABC
-│   │   └── writer.py              # OutputWriter, ProgressManager
+│   │   ├── base.py                # BaseOutputHandler/DataclassOutputHandler ABCs, helpers
+│   │   ├── registry.py            # OutputHandlerRegistry (plugin registration and lookup)
+│   │   ├── discovery.py           # Plugin discovery (entry points, ~/.detect_meteors/output_plugins)
+│   │   ├── file_handler.py        # FileOutputHandler (default implementation)
+│   │   ├── progress.py            # ProgressManager helpers
+│   │   └── writer.py              # OutputWriter (deprecated wrapper)
 │   ├── detectors/                 # Detection algorithm implementations
 │   │   ├── __init__.py
 │   │   ├── base.py                # BaseDetector ABC
@@ -447,8 +451,12 @@ detect_meteors/
 | `meteor_core/detectors/registry.py` | DetectorRegistry for plugin registration and case-insensitive lookup |
 | `meteor_core/detectors/discovery.py` | Plugin discovery for detectors (entry points, detector_plugins dir) |
 | `meteor_core/detectors/hough_default.py` | HoughDetector (default Hough transform-based detector) |
-| `meteor_core/outputs/handler.py` | BaseOutputHandler ABC |
-| `meteor_core/outputs/writer.py` | OutputWriter, ProgressManager |
+| `meteor_core/outputs/base.py` | BaseOutputHandler/DataclassOutputHandler ABCs and validation helpers |
+| `meteor_core/outputs/registry.py` | OutputHandlerRegistry for plugin registration and case-insensitive lookup |
+| `meteor_core/outputs/discovery.py` | Plugin discovery for output handlers (entry points, output_plugins dir) |
+| `meteor_core/outputs/file_handler.py` | FileOutputHandler default implementation |
+| `meteor_core/outputs/progress.py` | ProgressManager helpers |
+| `meteor_core/outputs/writer.py` | OutputWriter (deprecated wrapper) |
 
 This modular structure prepares for the v2.x plugin architecture by separating concerns and enabling future extensibility.
 
@@ -464,7 +472,7 @@ As of v1.5.10, the project uses **Abstract Base Classes (ABC)** for all plugin i
 |-----|----------|---------|
 | `BaseInputLoader` | `meteor_core/inputs/base.py` | Image loading plugins |
 | `BaseMetadataExtractor` | `meteor_core/inputs/base.py` | Metadata extraction (optional mixin) |
-| `BaseOutputHandler` | `meteor_core/outputs/handler.py` | Output handling plugins |
+| `BaseOutputHandler` | `meteor_core/outputs/base.py` | Output handling plugins (inherit via DataclassOutputHandler) |
 | `BaseDetector` | `meteor_core/detectors/base.py` | Detection algorithm plugins |
 
 ### Class Hierarchy
@@ -479,7 +487,8 @@ BaseMetadataExtractor (ABC)
 └── RawImageLoader (multiple inheritance)
 
 BaseOutputHandler (ABC)
-└── OutputWriter
+└── DataclassOutputHandler (ABC + Generic) - for dataclass-based config
+    └── FileOutputHandler
 
 BaseDetector (ABC)
 └── HoughDetector
@@ -605,19 +614,29 @@ class MyCustomDetector(BaseDetector):
 
 ### Creating a Custom Output Handler
 
-To create a custom output handler, inherit from `BaseOutputHandler`:
+Output handlers now mirror the input loader structure: use `DataclassOutputHandler` from `meteor_core.outputs.base` (or `meteor_core.outputs`), define a dataclass `ConfigType`, and register the handler with `OutputHandlerRegistry`. The legacy `meteor_core/outputs/handler.py` module has been removed—update imports to the `base` module or the package namespace.
 
 ```python
+from dataclasses import dataclass
 from typing import List, Optional
 import numpy as np
-from meteor_core.outputs.handler import BaseOutputHandler
+
+from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
 
 
-class MyCustomOutputHandler(BaseOutputHandler):
+@dataclass
+class CloudOutputConfig:
+    """Configuration for uploading outputs to cloud storage."""
+
+    bucket_name: str
+    prefix: str = "meteors/"
+
+
+class MyCustomOutputHandler(DataclassOutputHandler[CloudOutputConfig]):
     """Custom output handler (e.g., for cloud storage)."""
 
-    def __init__(self, bucket_name: str):
-        self.bucket_name = bucket_name
+    plugin_name = "cloud"
+    ConfigType = CloudOutputConfig
 
     def save_candidate(
         self,
@@ -626,19 +645,9 @@ class MyCustomOutputHandler(BaseOutputHandler):
         debug_image: Optional[np.ndarray] = None,
         roi_polygon: Optional[List[List[int]]] = None,
     ) -> bool:
-        """Save a meteor candidate.
-
-        Args:
-            source_path: Path to the source file.
-            filename: Output filename.
-            debug_image: Optional debug visualization.
-            roi_polygon: Optional ROI polygon.
-
-        Returns:
-            True if saved successfully, False if skipped.
-        """
+        """Save a meteor candidate."""
         # Upload to cloud storage
-        pass
+        return True
 
     def save_debug_image(
         self,
@@ -646,18 +655,15 @@ class MyCustomOutputHandler(BaseOutputHandler):
         filename: str,
         roi_polygon: Optional[List[List[int]]] = None,
     ) -> str:
-        """Save a debug visualization.
-
-        Args:
-            debug_image: Debug visualization image.
-            filename: Base filename.
-            roi_polygon: Optional ROI polygon.
-
-        Returns:
-            Path or URL to the saved debug image.
-        """
+        """Save a debug visualization."""
         # Upload debug image
-        pass
+        return f"s3://{self.config.bucket_name}/{self.config.prefix}{filename}"
+
+
+# Register and instantiate via the registry
+OutputHandlerRegistry.register(MyCustomOutputHandler)
+handler = OutputHandlerRegistry.create("cloud", {"bucket_name": "my-bucket"})
+handler.save_candidate("/tmp/source.CR2", "source.CR2")
 ```
 
 ### Using Dataclass-based Configuration

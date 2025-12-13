@@ -152,7 +152,7 @@ Version 1.5.10 migrates all plugin interfaces from Protocol-based to Abstract Ba
 |----------------|-----------|----------|
 | `InputLoader` | `BaseInputLoader` | `meteor_core/inputs/base.py` |
 | `MetadataExtractor` | `BaseMetadataExtractor` | `meteor_core/inputs/base.py` |
-| `OutputHandler` | `BaseOutputHandler` | `meteor_core/outputs/handler.py` |
+| `OutputHandler` | `BaseOutputHandler` | `meteor_core/outputs/base.py` |
 | `BaseDetector` | `BaseDetector` (unchanged) | `meteor_core/detectors/base.py` |
 
 ### Class Hierarchy
@@ -239,13 +239,24 @@ class MyCustomDetector(BaseDetector):
 #### Custom Output Handler
 
 ```python
+from dataclasses import dataclass
 from typing import List, Optional
 import numpy as np
-from meteor_core.outputs.handler import BaseOutputHandler
+
+from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
 
 
-class MyCustomOutputHandler(BaseOutputHandler):
+@dataclass
+class CloudOutputConfig:
+    bucket_name: str
+    prefix: str = "meteors/"
+
+
+class MyCustomOutputHandler(DataclassOutputHandler[CloudOutputConfig]):
     """Custom output handler (e.g., for cloud storage)."""
+
+    plugin_name = "cloud"
+    ConfigType = CloudOutputConfig
 
     def save_candidate(
         self,
@@ -255,8 +266,7 @@ class MyCustomOutputHandler(BaseOutputHandler):
         roi_polygon: Optional[List[List[int]]] = None,
     ) -> bool:
         """Save a meteor candidate."""
-        # Your implementation here
-        pass
+        return True
 
     def save_debug_image(
         self,
@@ -265,8 +275,12 @@ class MyCustomOutputHandler(BaseOutputHandler):
         roi_polygon: Optional[List[List[int]]] = None,
     ) -> str:
         """Save a debug visualization."""
-        # Your implementation here
-        pass
+        return f"s3://{self.config.bucket_name}/{self.config.prefix}{filename}"
+
+
+OutputHandlerRegistry.register(MyCustomOutputHandler)
+handler = OutputHandlerRegistry.create("cloud", {"bucket_name": "my-bucket"})
+handler.save_candidate("/tmp/source.CR2", "source.CR2")
 ```
 
 ### Benefits for Plugin Developers
@@ -284,7 +298,7 @@ class MyCustomOutputHandler(BaseOutputHandler):
 | `meteor_core/inputs/raw.py` | Updated inheritance |
 | `meteor_core/inputs/__init__.py` | Updated exports |
 | `meteor_core/inputs/discovery.py` | Updated type hints and skip classes |
-| `meteor_core/outputs/handler.py` | `OutputHandler` → `BaseOutputHandler` |
+| `meteor_core/outputs/base.py` | `OutputHandler` → `BaseOutputHandler` |
 | `meteor_core/outputs/writer.py` | Updated inheritance |
 | `meteor_core/outputs/__init__.py` | Updated exports |
 | `meteor_core/__init__.py` | Updated exports |
