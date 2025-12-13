@@ -608,5 +608,168 @@ class TestBaseOutputHandlerHooks(unittest.TestCase):
         self.assertEqual(callback_log[2], ("complete", 100, 10))
 
 
+class TestResolveOutputHandler(unittest.TestCase):
+    """Tests for _resolve_output_handler function."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_resolve_with_explicit_instance(self):
+        """Explicit handler instance is returned as-is."""
+        from meteor_core.pipeline import _resolve_output_handler
+
+        handler = FileOutputHandler(
+            FileOutputConfig(output_folder="./a", debug_folder="./b")
+        )
+        resolved = _resolve_output_handler(output_handler=handler)
+        self.assertIs(resolved, handler)
+
+    def test_resolve_with_handler_name(self):
+        """Handler is created from registry by name."""
+        from meteor_core.pipeline import _resolve_output_handler
+
+        resolved = _resolve_output_handler(
+            handler_name="file",
+            handler_config={"output_folder": "./x", "debug_folder": "./y"},
+        )
+        self.assertIsInstance(resolved, FileOutputHandler)
+        self.assertEqual(resolved.config.output_folder, "./x")
+        self.assertEqual(resolved.config.debug_folder, "./y")
+
+    def test_resolve_with_fallback_config(self):
+        """Default handler is created with fallback config."""
+        from meteor_core.pipeline import _resolve_output_handler
+
+        resolved = _resolve_output_handler(
+            fallback_output_folder="./out",
+            fallback_debug_folder="./debug",
+            fallback_output_overwrite=True,
+        )
+        self.assertIsInstance(resolved, FileOutputHandler)
+        self.assertEqual(resolved.config.output_folder, "./out")
+        self.assertEqual(resolved.config.debug_folder, "./debug")
+        self.assertTrue(resolved.config.output_overwrite)
+
+    def test_resolve_without_config_raises_error(self):
+        """ValueError raised when no config provided."""
+        from meteor_core.pipeline import _resolve_output_handler
+
+        with self.assertRaises(ValueError) as context:
+            _resolve_output_handler()
+        self.assertIn("Cannot resolve output handler", str(context.exception))
+
+    def test_resolve_priority_explicit_over_name(self):
+        """Explicit instance takes priority over handler_name."""
+        from meteor_core.pipeline import _resolve_output_handler
+
+        explicit_handler = FileOutputHandler(
+            FileOutputConfig(
+                output_folder="./explicit", debug_folder="./explicit_debug"
+            )
+        )
+        resolved = _resolve_output_handler(
+            output_handler=explicit_handler,
+            handler_name="file",
+            handler_config={
+                "output_folder": "./named",
+                "debug_folder": "./named_debug",
+            },
+        )
+        self.assertIs(resolved, explicit_handler)
+
+    def test_resolve_priority_name_over_fallback(self):
+        """Handler name takes priority over fallback config."""
+        from meteor_core.pipeline import _resolve_output_handler
+
+        resolved = _resolve_output_handler(
+            handler_name="file",
+            handler_config={
+                "output_folder": "./named",
+                "debug_folder": "./named_debug",
+            },
+            fallback_output_folder="./fallback",
+            fallback_debug_folder="./fallback_debug",
+        )
+        self.assertEqual(resolved.config.output_folder, "./named")
+
+    def test_resolve_invalid_handler_name_raises_keyerror(self):
+        """KeyError raised for unknown handler name."""
+        from meteor_core.pipeline import _resolve_output_handler
+
+        with self.assertRaises(KeyError):
+            _resolve_output_handler(handler_name="nonexistent")
+
+
+class TestPipelineOutputHandlerIntegration(unittest.TestCase):
+    """Tests for pipeline integration with output handler resolution."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_pipeline_with_output_handler_name(self):
+        """Pipeline uses output_handler_name from config."""
+        from meteor_core.pipeline import MeteorDetectionPipeline
+        from meteor_core.schema import PipelineConfig, DetectionParams
+
+        config = PipelineConfig(
+            target_folder="./raw",
+            output_folder="./out",
+            debug_folder="./debug",
+            params=DetectionParams(),
+            output_handler_name="file",
+            output_handler_config={
+                "output_folder": "./custom_out",
+                "debug_folder": "./custom_debug",
+            },
+        )
+        pipeline = MeteorDetectionPipeline(config)
+        self.assertIsInstance(pipeline.output_handler, FileOutputHandler)
+        self.assertEqual(pipeline.output_handler.config.output_folder, "./custom_out")
+
+    def test_pipeline_fallback_to_config_folders(self):
+        """Pipeline falls back to config folders when no handler specified."""
+        from meteor_core.pipeline import MeteorDetectionPipeline
+        from meteor_core.schema import PipelineConfig, DetectionParams
+
+        config = PipelineConfig(
+            target_folder="./raw",
+            output_folder="./fallback_out",
+            debug_folder="./fallback_debug",
+            params=DetectionParams(),
+        )
+        pipeline = MeteorDetectionPipeline(config)
+        self.assertIsInstance(pipeline.output_handler, FileOutputHandler)
+        self.assertEqual(pipeline.output_handler.config.output_folder, "./fallback_out")
+
+    def test_pipeline_with_explicit_handler(self):
+        """Pipeline accepts explicit output_handler parameter."""
+        from meteor_core.pipeline import MeteorDetectionPipeline
+        from meteor_core.schema import PipelineConfig, DetectionParams
+
+        explicit_handler = FileOutputHandler(
+            FileOutputConfig(
+                output_folder="./explicit", debug_folder="./explicit_debug"
+            )
+        )
+        config = PipelineConfig(
+            target_folder="./raw",
+            output_folder="./out",
+            debug_folder="./debug",
+            params=DetectionParams(),
+        )
+        pipeline = MeteorDetectionPipeline(config, output_handler=explicit_handler)
+        self.assertIs(pipeline.output_handler, explicit_handler)
+
+
 if __name__ == "__main__":
     unittest.main()

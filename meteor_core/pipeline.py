@@ -139,6 +139,67 @@ def _resolve_input_loader(
     return _get_default_input_loader()
 
 
+def _resolve_output_handler(
+    output_handler: Optional[BaseOutputHandler] = None,
+    handler_name: Optional[str] = None,
+    handler_config: Optional[Dict[str, Any]] = None,
+    *,
+    # Fallback values for default handler creation
+    fallback_output_folder: Optional[str] = None,
+    fallback_debug_folder: Optional[str] = None,
+    fallback_output_overwrite: bool = False,
+) -> BaseOutputHandler:
+    """Resolve output handler instance from various input combinations.
+
+    Priority order:
+    1. Explicit handler instance (if provided)
+    2. handler_name lookup via OutputHandlerRegistry (creates new instance)
+    3. Default handler (FileOutputHandler) with fallback config
+
+    Args:
+        output_handler: Pre-initialized BaseOutputHandler instance.
+        handler_name: Name of handler to use (e.g., "file").
+        handler_config: Configuration dict or instance for the handler.
+        fallback_output_folder: Output folder for default handler creation.
+        fallback_debug_folder: Debug folder for default handler creation.
+        fallback_output_overwrite: Overwrite flag for default handler creation.
+
+    Returns:
+        BaseOutputHandler instance ready for use.
+
+    Raises:
+        KeyError: If handler_name is not found in available handlers.
+        ValueError: If default handler is needed but fallback folders not provided.
+
+    Example:
+        >>> handler = _resolve_output_handler()  # Raises ValueError (no fallback)
+        >>> handler = _resolve_output_handler(handler_name="file", handler_config={...})
+        >>> handler = _resolve_output_handler(output_handler=my_handler)
+        >>> handler = _resolve_output_handler(
+        ...     fallback_output_folder="./out",
+        ...     fallback_debug_folder="./debug",
+        ... )
+    """
+    if output_handler is not None:
+        return output_handler
+
+    if handler_name:
+        return OutputHandlerRegistry.create(handler_name, handler_config)
+
+    # Create default handler with fallback config
+    if fallback_output_folder and fallback_debug_folder:
+        return OutputHandlerRegistry.create_default(
+            output_folder=fallback_output_folder,
+            debug_folder=fallback_debug_folder,
+            output_overwrite=fallback_output_overwrite,
+        )
+
+    raise ValueError(
+        "Cannot resolve output handler: provide output_handler, handler_name, "
+        "or fallback folder configuration (fallback_output_folder, fallback_debug_folder)."
+    )
+
+
 def _extract_metadata_from_loader(
     loader: BaseInputLoader, filepath: str
 ) -> Dict[str, Any]:
@@ -784,13 +845,13 @@ class MeteorDetectionPipeline:
         )
 
         # Initialize output handler
-        self.output_handler: BaseOutputHandler = (
-            output_handler
-            or OutputHandlerRegistry.create_default(
-                output_folder=self._config.output_folder,
-                debug_folder=self._config.debug_folder,
-                output_overwrite=self._config.output_overwrite,
-            )
+        self.output_handler = _resolve_output_handler(
+            output_handler=output_handler,
+            handler_name=self._config.output_handler_name,
+            handler_config=self._config.output_handler_config,
+            fallback_output_folder=self._config.output_folder,
+            fallback_debug_folder=self._config.debug_folder,
+            fallback_output_overwrite=self._config.output_overwrite,
         )
         self.progress_manager = ProgressManager(self._config.progress_file)
 

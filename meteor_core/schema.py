@@ -282,6 +282,8 @@ class PipelineConfig:
         output_overwrite: Whether to overwrite existing files in output folder.
         detector_name: Name of detector to use (e.g., "hough"). If None, uses default.
         detector_config: Configuration dict for the detector. Structure depends on detector.
+        output_handler_name: Name of output handler to use (e.g., "file"). If None, uses default.
+        output_handler_config: Configuration dict for the output handler.
 
     Example:
         >>> config = PipelineConfig(
@@ -312,6 +314,10 @@ class PipelineConfig:
     detector_name: Optional[str] = None
     detector_config: Optional[Dict[str, Any]] = None
 
+    # Output handler configuration
+    output_handler_name: Optional[str] = None
+    output_handler_config: Optional[Dict[str, Any]] = None
+
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         if self.num_workers < 1:
@@ -338,6 +344,8 @@ class PipelineConfig:
             "output_overwrite": self.output_overwrite,
             "detector_name": self.detector_name,
             "detector_config": self.detector_config,
+            "output_handler_name": self.output_handler_name,
+            "output_handler_config": self.output_handler_config,
         }
 
     @classmethod
@@ -369,6 +377,8 @@ class PipelineConfig:
             output_overwrite=data.get("output_overwrite", False),
             detector_name=data.get("detector_name"),
             detector_config=data.get("detector_config"),
+            output_handler_name=data.get("output_handler_name"),
+            output_handler_config=data.get("output_handler_config"),
         )
 
     @classmethod
