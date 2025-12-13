@@ -66,7 +66,7 @@ class LoaderRegistry:
         Discovers loaders from:
         1. Built-in loaders (e.g., RawImageLoader)
         2. Entry points (detect_meteors.input group)
-        3. Plugin directory (~/.detect_meteors/plugins)
+        3. Plugin directory (~/.detect_meteors/input_plugins)
 
         Args:
             force: If True, re-discover even if already cached.
@@ -78,6 +78,7 @@ class LoaderRegistry:
         """
         if cls._discovered is None or force:
             # Import here to avoid circular dependency
+            # Keep plugin directory path in sync with meteor_core.inputs.discovery.PLUGIN_DIR
             from .discovery import _discover_loaders_internal
 
             cls._discovered = _discover_loaders_internal()

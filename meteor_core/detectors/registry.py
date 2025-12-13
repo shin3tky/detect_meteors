@@ -15,7 +15,8 @@ and runtime registration for testing and dynamic plugins.
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional, Type
+from dataclasses import is_dataclass
+from typing import Any, Dict, List, Optional, Type, Union
 
 from ..schema import DEFAULT_DETECTOR_NAME
 from .base import BaseDetector, _is_valid_detector
@@ -196,15 +197,16 @@ class DetectorRegistry:
     def create(
         cls,
         name: str,
-        config: Optional[Dict[str, Any]] = None,
+        config: Optional[Union[Dict[str, Any], Any]] = None,
     ) -> BaseDetector:
         """Create a detector instance.
 
         Args:
             name: Detector plugin_name.
-            config: Configuration for the detector (reserved for future use).
-                   Currently, detectors don't have configuration support,
-                   but this parameter is included for API consistency.
+            config: Configuration for the detector. Can be:
+                - None: Uses default config (ConfigType() if available)
+                - Dict: Coerced to ConfigType (dataclass or Pydantic model)
+                - ConfigType instance: Used as-is
 
         Returns:
             Detector instance.
@@ -217,8 +219,13 @@ class DetectorRegistry:
             >>> detector = DetectorRegistry.create("hough", {"some_option": True})
         """
         detector_cls = cls.get(name)
-        # TODO: Pass config to detector constructor when supported
-        return detector_cls()
+        config_type = getattr(detector_cls, "ConfigType", None)
+        coerced_config = cls._coerce_config(detector_cls, config)
+
+        if config_type is None and coerced_config is None:
+            return detector_cls()
+
+        return detector_cls(coerced_config)
 
     @classmethod
     def create_default(cls) -> BaseDetector:
@@ -242,6 +249,92 @@ class DetectorRegistry:
         """
         cls._discovered = None
         cls._custom = {}
+
+    @classmethod
+    def _coerce_config(
+        cls,
+        detector_cls: Type[BaseDetector],
+        config: Optional[Union[Dict[str, Any], Any]],
+    ) -> Any:
+        """Coerce config to the detector's expected ConfigType.
+
+        Handles:
+        - None -> Default ConfigType instance (if available)
+        - Dict -> Dataclass or Pydantic model
+        - ConfigType instance -> Pass through
+
+        Args:
+            detector_cls: Detector class to get ConfigType from.
+            config: Configuration to coerce.
+
+        Returns:
+            Coerced configuration suitable for detector initialization.
+
+        Raises:
+            TypeError: If config cannot be coerced to the expected type.
+            ValueError: If config validation fails.
+        """
+        config_type = getattr(detector_cls, "ConfigType", None)
+
+        if config is None:
+            if config_type is not None:
+                try:
+                    return config_type()
+                except TypeError as exc:
+                    raise TypeError(
+                        f"Failed to create default config for detector "
+                        f"'{detector_cls.plugin_name}': {config_type.__name__} "
+                        f"requires arguments. Provide a config dict or instance."
+                    ) from exc
+                except (
+                    Exception
+                ) as exc:  # pragma: no cover - unexpected constructor errors
+                    raise ValueError(
+                        f"Failed to create default config for detector "
+                        f"'{detector_cls.plugin_name}': {exc}"
+                    ) from exc
+            return None
+
+        if config_type is None:
+            return config
+
+        if isinstance(config, config_type):
+            return config
+
+        if is_dataclass(config_type) and isinstance(config, dict):
+            try:
+                return config_type(**config)
+            except TypeError as exc:
+                raise TypeError(
+                    f"Invalid config for detector '{detector_cls.plugin_name}': {exc}"
+                ) from exc
+
+        if hasattr(config_type, "model_validate") and isinstance(config, dict):
+            try:
+                return config_type.model_validate(config)
+            except Exception as exc:  # pragma: no cover - pydantic error
+                raise ValueError(
+                    f"Config validation failed for detector "
+                    f"'{detector_cls.plugin_name}': {exc}"
+                ) from exc
+
+        if hasattr(config_type, "parse_obj") and isinstance(config, dict):
+            try:
+                return config_type.parse_obj(config)
+            except Exception as exc:  # pragma: no cover - pydantic error
+                raise ValueError(
+                    f"Config validation failed for detector "
+                    f"'{detector_cls.plugin_name}': {exc}"
+                ) from exc
+
+        if isinstance(config, dict):
+            raise TypeError(
+                f"Cannot coerce dict to {config_type.__name__} for detector "
+                f"'{detector_cls.plugin_name}': ConfigType is neither a "
+                f"dataclass nor a Pydantic model."
+            )
+
+        return config
 
 
 __all__ = ["DetectorRegistry"]

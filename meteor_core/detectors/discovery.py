@@ -16,12 +16,14 @@ except ImportError:  # pragma: no cover
 
 from .base import BaseDetector, _is_valid_detector
 from .hough_default import HoughDetector
+from .simple_threshold import SimpleThresholdDetector
 
 PLUGIN_GROUP = "detect_meteors.detector"
 PLUGIN_DIR = Path.home() / ".detect_meteors" / "detector_plugins"
 
-# Classes to skip during discovery (base classes)
-# Includes future abstract subclasses for consistency with inputs
+# Classes to skip during discovery (base classes).
+# Keep this list aligned with concrete abstract bases to avoid registering
+# helper classes in favor of real detector implementations.
 _SKIP_CLASSES = frozenset(
     {
         "BaseDetector",
@@ -181,6 +183,11 @@ def _discover_detectors_internal(
 
     # 1. Register built-in detectors first
     _add_detector(registry, HoughDetector, "built-in HoughDetector")
+    _add_detector(
+        registry,
+        SimpleThresholdDetector,
+        "built-in SimpleThresholdDetector",
+    )
 
     # 2. Register detectors from entry points (sorted for determinism)
     for ep in sorted(_iter_entry_points(), key=lambda e: e.name):

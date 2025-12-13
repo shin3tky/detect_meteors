@@ -10,8 +10,22 @@ Provides a plugin interface for different detection algorithms.
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Any, Optional, Dict
-import numpy as np
+from dataclasses import is_dataclass
+import importlib.util
+from typing import Tuple, List, Any, Optional, Dict, Generic, Type, TypeVar
+
+ConfigType = TypeVar("ConfigType")
+
+_PYDANTIC_SPEC = importlib.util.find_spec("pydantic")
+if _PYDANTIC_SPEC:
+    import pydantic
+    from pydantic import BaseModel
+
+    Extra = getattr(pydantic, "Extra", None)
+else:
+    BaseModel = None
+    Extra = None
+import numpy as np  # noqa: E402
 
 
 class BaseDetector(ABC):
@@ -130,6 +144,59 @@ class BaseDetector(ABC):
                 return False
 
         return True
+
+
+class DataclassDetector(BaseDetector, Generic[ConfigType]):
+    """Base class for detectors configured by dataclasses."""
+
+    ConfigType: Type[ConfigType]
+    config: ConfigType
+
+    def __init__(self, config: ConfigType) -> None:
+        plugin_name = getattr(self.__class__, "plugin_name", "")
+        if not plugin_name:
+            raise ValueError("Subclasses must define a non-empty 'plugin_name' string.")
+
+        config_type = getattr(self.__class__, "ConfigType", None)
+        if config_type is not None:
+            if not is_dataclass(config_type):
+                raise TypeError(
+                    "ConfigType must be a dataclass type for DataclassDetector."
+                )
+            if not isinstance(config, config_type):
+                raise TypeError(
+                    f"config must be an instance of {config_type.__name__}."
+                )
+        self.config = config
+
+
+class PydanticDetector(BaseDetector, Generic[ConfigType]):
+    """Base class for detectors configured by Pydantic models."""
+
+    ConfigType: Type[ConfigType]
+    config: ConfigType
+
+    def __init__(self, config: ConfigType) -> None:
+        if BaseModel is None:
+            raise ImportError(
+                "pydantic is required to use PydanticDetector. Install pydantic first."
+            )
+
+        plugin_name = getattr(self.__class__, "plugin_name", "")
+        if not plugin_name:
+            raise ValueError("Subclasses must define a non-empty 'plugin_name' string.")
+
+        config_type = getattr(self.__class__, "ConfigType", None)
+        if config_type is not None:
+            if not issubclass(config_type, BaseModel):
+                raise TypeError(
+                    "ConfigType must be a pydantic BaseModel for PydanticDetector."
+                )
+            if not isinstance(config, config_type):
+                raise TypeError(
+                    f"config must be an instance of {config_type.__name__}."
+                )
+        self.config = config
 
 
 def _is_valid_detector(cls: type) -> bool:

@@ -18,6 +18,11 @@ from meteor_core.detectors.registry import DetectorRegistry
 from meteor_core.detectors.base import BaseDetector
 from meteor_core.schema import DEFAULT_DETECTOR_NAME
 
+try:
+    from pydantic import BaseModel
+except ImportError:  # pragma: no cover - optional dependency
+    BaseModel = None
+
 
 class TestDetectorRegistryDiscovery(unittest.TestCase):
     """Tests for DetectorRegistry discovery functionality."""
@@ -39,6 +44,11 @@ class TestDetectorRegistryDiscovery(unittest.TestCase):
         """Built-in hough detector is always discovered."""
         detectors = DetectorRegistry.discover()
         self.assertIn("hough", detectors)
+
+    def test_discover_includes_simple_threshold(self):
+        """Built-in simple_threshold detector is discovered."""
+        detectors = DetectorRegistry.discover()
+        self.assertIn("simple_threshold", detectors)
 
     def test_discover_caches_result(self):
         """discover() caches results for subsequent calls."""
@@ -384,7 +394,7 @@ class TestDetectorRegistryCreate(unittest.TestCase):
         DetectorRegistry._reset()
 
     def test_create_hough_detector(self):
-        """create() creates hough detector instance."""
+        """create() creates hough detector instance without config."""
         detector = DetectorRegistry.create("hough")
         self.assertEqual(detector.plugin_name, "hough")
 
@@ -393,11 +403,69 @@ class TestDetectorRegistryCreate(unittest.TestCase):
         with self.assertRaises(KeyError):
             DetectorRegistry.create("nonexistent_detector")
 
-    def test_create_with_config_ignored(self):
-        """create() accepts config parameter (reserved for future use)."""
-        # Currently config is ignored, but should not raise
-        detector = DetectorRegistry.create("hough", {"some_option": True})
-        self.assertEqual(detector.plugin_name, "hough")
+    def test_create_dataclass_config_detector(self):
+        """create() coerces dict config for dataclass-based detectors."""
+        detector = DetectorRegistry.create(
+            "simple_threshold", {"diff_threshold": 7, "min_area": 2}
+        )
+
+        self.assertEqual(detector.config.diff_threshold, 7)
+        self.assertEqual(detector.config.min_area, 2)
+
+    def test_create_dataclass_config_default(self):
+        """create() uses default config when none is provided."""
+        detector = DetectorRegistry.create("simple_threshold")
+        self.assertEqual(detector.config.diff_threshold, 5)
+        self.assertEqual(detector.config.min_area, 1)
+
+    def test_create_invalid_dataclass_config_raises(self):
+        """create() raises TypeError when config dict mismatches dataclass."""
+        with self.assertRaises(TypeError):
+            DetectorRegistry.create("simple_threshold", {"unknown": 1})
+
+    def test_create_pydantic_config_detector(self):
+        """create() handles Pydantic-configured detectors when available."""
+
+        if BaseModel is None:
+            self.skipTest("pydantic not installed")
+
+        class PydanticConfig(BaseModel):  # type: ignore[misc]
+            flag: bool = False
+
+            class Config:
+                extra = "forbid"
+
+        class PydanticConfiguredDetector(BaseDetector):
+            plugin_name = "pydantic_configured"
+            ConfigType = PydanticConfig
+
+            def __init__(self, config: PydanticConfig) -> None:
+                self.config = config
+
+            def detect(
+                self,
+                current_image: np.ndarray,
+                previous_image: np.ndarray,
+                roi_mask: np.ndarray,
+                params: Dict[str, Any],
+            ) -> Tuple[
+                bool,
+                float,
+                List[Tuple[int, int, int, int]],
+                float,
+                Optional[np.ndarray],
+            ]:
+                return False, 0.0, [], 0.0, None
+
+            def compute_line_score(
+                self, mask: np.ndarray, hough_params: Dict[str, int]
+            ) -> Tuple[float, List[Tuple[int, int, int, int]]]:
+                return 0.0, []
+
+        DetectorRegistry.register(PydanticConfiguredDetector)
+
+        detector = DetectorRegistry.create("pydantic_configured", {"flag": True})
+        self.assertTrue(detector.config.flag)
 
 
 class TestDetectorRegistryCreateDefault(unittest.TestCase):
