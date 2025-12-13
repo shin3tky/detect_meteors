@@ -451,7 +451,7 @@ detect_meteors/
 | `meteor_core/detectors/registry.py` | DetectorRegistry for plugin registration and case-insensitive lookup |
 | `meteor_core/detectors/discovery.py` | Plugin discovery for detectors (entry points, detector_plugins dir) |
 | `meteor_core/detectors/hough_default.py` | HoughDetector (default Hough transform-based detector) |
-| `meteor_core/outputs/base.py` | BaseOutputHandler/DataclassOutputHandler ABCs and validation helpers |
+| `meteor_core/outputs/base.py` | BaseOutputHandler/DataclassOutputHandler/PydanticOutputHandler ABCs and validation helpers |
 | `meteor_core/outputs/registry.py` | OutputHandlerRegistry for plugin registration and case-insensitive lookup |
 | `meteor_core/outputs/discovery.py` | Plugin discovery for output handlers (entry points, output_plugins dir) |
 | `meteor_core/outputs/file_handler.py` | FileOutputHandler default implementation |
@@ -487,8 +487,9 @@ BaseMetadataExtractor (ABC)
 └── RawImageLoader (multiple inheritance)
 
 BaseOutputHandler (ABC)
-└── DataclassOutputHandler (ABC + Generic) - for dataclass-based config
-    └── FileOutputHandler
+├── DataclassOutputHandler (ABC + Generic) - for dataclass-based config
+│   └── FileOutputHandler
+└── PydanticOutputHandler (ABC + Generic) - for Pydantic-based config
 
 BaseDetector (ABC)
 └── HoughDetector

@@ -14,11 +14,22 @@ detection pipeline.
 
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
-from typing import Dict, Generic, List, Optional, Type, TypeVar
+import importlib.util
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
 import numpy as np
 
 ConfigType = TypeVar("ConfigType")
+
+_PYDANTIC_SPEC = importlib.util.find_spec("pydantic")
+if _PYDANTIC_SPEC:
+    import pydantic
+    from pydantic import BaseModel
+
+    Extra = getattr(pydantic, "Extra", None)
+else:
+    BaseModel = None
+    Extra = None
 
 
 class BaseOutputHandler(ABC):
@@ -226,6 +237,99 @@ class DataclassOutputHandler(BaseOutputHandler, Generic[ConfigType]):
         self.config = config
 
 
+class PydanticOutputHandler(BaseOutputHandler, Generic[ConfigType]):
+    """Abstract base class for handlers configured by Pydantic models.
+
+    This base class provides common functionality for handlers that use
+    Pydantic models for their configuration with validation support.
+
+    Subclasses must define:
+        - plugin_name: str - Unique identifier for the handler
+        - ConfigType: Type - The Pydantic model type for configuration
+        - save_candidate: Save a meteor candidate file
+        - save_debug_image: Save a debug visualization image
+
+    Requires pydantic to be installed.
+    """
+
+    ConfigType: Type[ConfigType]
+
+    def __init__(self, config: ConfigType) -> None:
+        """Initialize the handler with configuration.
+
+        Args:
+            config: Configuration instance (must match ConfigType).
+
+        Raises:
+            ImportError: If pydantic is not installed.
+            ValueError: If plugin_name is not defined.
+            TypeError: If ConfigType is not a Pydantic model or config type mismatches.
+        """
+
+        if BaseModel is None:
+            raise ImportError(
+                "pydantic must be installed to use PydanticOutputHandler."
+            )
+
+        plugin_name = getattr(self.__class__, "plugin_name", "")
+        if not plugin_name:
+            raise ValueError("Subclasses must define a non-empty 'plugin_name' string.")
+
+        config_type = getattr(self.__class__, "ConfigType", None)
+        if config_type is not None:
+            if not issubclass(config_type, BaseModel):
+                raise TypeError(
+                    "ConfigType must inherit from pydantic.BaseModel for PydanticOutputHandler."
+                )
+            if not isinstance(config, config_type):
+                raise TypeError(
+                    f"config must be an instance of {config_type.__name__}."
+                )
+        self.config = config
+
+
+def forbid_unknown_keys(model: Type[Any]) -> Type[Any]:
+    """Force a Pydantic model to reject unknown fields at parse time.
+
+    Args:
+        model: The Pydantic model class to modify.
+
+    Returns:
+        The modified model class.
+
+    Raises:
+        ImportError: If pydantic is not installed.
+        TypeError: If model is not a Pydantic BaseModel.
+    """
+
+    if BaseModel is None:
+        raise ImportError(
+            "pydantic is not installed; cannot enforce unknown key behavior."
+        )
+    if not issubclass(model, BaseModel):
+        raise TypeError("Model must inherit from pydantic.BaseModel.")
+
+    extra_value = Extra.forbid if Extra is not None else "forbid"
+    if hasattr(model, "model_config"):
+        existing_config = getattr(model, "model_config") or {}
+        merged_config = dict(existing_config)
+        merged_config["extra"] = extra_value
+        model.model_config = merged_config
+        return model
+
+    config_class = getattr(model, "Config", None)
+    if config_class is None:
+
+        class Config:
+            extra = extra_value
+
+        model.Config = Config
+    else:
+        setattr(config_class, "extra", extra_value)
+
+    return model
+
+
 def _is_valid_output_handler(cls: type) -> bool:
     """Check if a class is a valid output handler implementation.
 
@@ -253,5 +357,7 @@ __all__ = [
     "ConfigType",
     "BaseOutputHandler",
     "DataclassOutputHandler",
+    "PydanticOutputHandler",
+    "forbid_unknown_keys",
     "_is_valid_output_handler",
 ]

@@ -7,13 +7,23 @@
 Unit tests for OutputHandlerRegistry.
 """
 
+import importlib.util
 import unittest
 import warnings
 
 from meteor_core.outputs.registry import OutputHandlerRegistry
-from meteor_core.outputs.base import BaseOutputHandler, _is_valid_output_handler
+from meteor_core.outputs.base import (
+    BaseOutputHandler,
+    PydanticOutputHandler,
+    _is_valid_output_handler,
+    forbid_unknown_keys,
+)
 from meteor_core.outputs.file_handler import FileOutputHandler, FileOutputConfig
 from meteor_core.schema import DEFAULT_OUTPUT_HANDLER_NAME
+
+_PYDANTIC_AVAILABLE = importlib.util.find_spec("pydantic") is not None
+if _PYDANTIC_AVAILABLE:
+    from pydantic import BaseModel, ValidationError
 
 
 class TestOutputHandlerRegistryDiscovery(unittest.TestCase):
@@ -407,6 +417,63 @@ class TestOutputHandlerRegistryCoerceConfig(unittest.TestCase):
         )
         result = OutputHandlerRegistry._coerce_config(FileOutputHandler, original)
         self.assertIs(result, original)
+
+
+@unittest.skipUnless(_PYDANTIC_AVAILABLE, "pydantic not installed")
+class TestPydanticOutputHandlerSupport(unittest.TestCase):
+    """Tests for PydanticOutputHandler and config utilities."""
+
+    def setUp(self):
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        OutputHandlerRegistry._reset()
+
+    def test_coerce_dict_to_pydantic_model(self):
+        """_coerce_config() converts dict to Pydantic model for handlers."""
+
+        class PydanticConfig(BaseModel):
+            output_folder: str
+            debug_folder: str
+
+        class PydanticHandler(PydanticOutputHandler[PydanticConfig]):
+            plugin_name = "pydantic_handler"
+            ConfigType = PydanticConfig
+
+            def __init__(self, config: PydanticConfig):
+                super().__init__(config)
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+        coerced = OutputHandlerRegistry._coerce_config(
+            PydanticHandler,
+            {"output_folder": "/tmp/o", "debug_folder": "/tmp/d"},
+        )
+        self.assertIsInstance(coerced, PydanticConfig)
+        handler = PydanticHandler(coerced)
+        self.assertIsInstance(handler.config, PydanticConfig)
+
+    def test_forbid_unknown_keys_rejects_extra_fields(self):
+        """forbid_unknown_keys() enforces extra=forbid on Pydantic models."""
+
+        class Config(BaseModel):
+            output_folder: str
+
+        StrictConfig = forbid_unknown_keys(Config)
+
+        with self.assertRaises(ValidationError):
+            if hasattr(StrictConfig, "model_validate"):
+                StrictConfig.model_validate(
+                    {"output_folder": "/tmp/o", "unknown": "value"}
+                )
+            else:
+                StrictConfig.parse_obj({"output_folder": "/tmp/o", "unknown": "value"})
 
 
 class TestOutputHandlerRegistryReset(unittest.TestCase):

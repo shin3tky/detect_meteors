@@ -41,6 +41,8 @@ from .base import (
     ConfigType,
     BaseOutputHandler,
     DataclassOutputHandler,
+    PydanticOutputHandler,
+    forbid_unknown_keys,
     _is_valid_output_handler,
 )
 
@@ -75,6 +77,8 @@ __all__ = [
     "ConfigType",
     "BaseOutputHandler",
     "DataclassOutputHandler",
+    "PydanticOutputHandler",
+    "forbid_unknown_keys",
     "_is_valid_output_handler",
     # File handler (default implementation)
     "FileOutputConfig",
