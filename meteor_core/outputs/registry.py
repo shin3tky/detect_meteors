@@ -101,10 +101,23 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
         return handler_cls(coerced_config)
 
     @classmethod
-    def create_default(cls) -> BaseOutputHandler:
-        """Create the default handler with default config."""
+    def create_default(
+        cls,
+        *,
+        output_folder: str,
+        debug_folder: str,
+        output_overwrite: bool = False,
+    ) -> BaseOutputHandler:
+        """Create the default handler with explicit folder configuration."""
 
-        return cls.create(DEFAULT_OUTPUT_HANDLER_NAME)
+        return cls.create(
+            DEFAULT_OUTPUT_HANDLER_NAME,
+            {
+                "output_folder": output_folder,
+                "debug_folder": debug_folder,
+                "output_overwrite": output_overwrite,
+            },
+        )
 
 
 __all__ = ["OutputHandlerRegistry"]
