@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+#
+# Detect Meteors CLI - Detector Discovery
+# © 2025 Shinichi Morita (shin3tky)
+#
+
 """Discovery utilities for detector plugins."""
 
 from __future__ import annotations

@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+#
+# Detect Meteors CLI - Input Loader Discovery
+# © 2025 Shinichi Morita (shin3tky)
+#
+
 """Discovery utilities for input loader plugins."""
 
 from __future__ import annotations

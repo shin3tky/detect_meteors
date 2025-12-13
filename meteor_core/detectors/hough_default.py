@@ -31,8 +31,13 @@ class HoughDetector(BaseDetector):
     name: str = "HoughDetector"
     version: str = "1.0.0"
 
-    def __init__(self):
-        """Initialize the Hough detector."""
+    def __init__(self, config: Optional[Any] = None):
+        """Initialize the Hough detector.
+
+        Args:
+            config: Optional configuration to align with registry expectations.
+                Currently unused because the default detector is parameter-free.
+        """
         # Pre-create morphology kernel (reused across detections)
         self._kernel = np.ones((3, 3), np.uint8)
 
