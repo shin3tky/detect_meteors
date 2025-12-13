@@ -784,7 +784,7 @@ class MeteorDetectionPipeline:
         )
 
         # Initialize output handler
-        self.output_writer: BaseOutputHandler = (
+        self.output_handler: BaseOutputHandler = (
             output_handler
             or OutputHandlerRegistry.create_default(
                 output_folder=self._config.output_folder,
@@ -1095,7 +1095,7 @@ class MeteorDetectionPipeline:
                             )
 
                         if is_candidate:
-                            saved = self.output_writer.save_candidate(
+                            saved = self.output_handler.save_candidate(
                                 filepath, filename, debug_img, roi_polygon
                             )
                             if saved:
@@ -1171,7 +1171,7 @@ class MeteorDetectionPipeline:
 
                 if is_candidate:
                     print()
-                    saved = self.output_writer.save_candidate(
+                    saved = self.output_handler.save_candidate(
                         filepath, filename, debug_img, roi_polygon
                     )
                     if saved:
