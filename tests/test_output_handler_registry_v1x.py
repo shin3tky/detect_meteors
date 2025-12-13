@@ -8,8 +8,10 @@ Unit tests for OutputHandlerRegistry.
 """
 
 import importlib.util
+import tempfile
 import unittest
 import warnings
+from pathlib import Path
 
 from meteor_core.outputs.registry import OutputHandlerRegistry
 from meteor_core.outputs.base import (
@@ -681,17 +683,27 @@ class TestResolveOutputHandler(unittest.TestCase):
     def setUp(self):
         """Reset registry before each test."""
         OutputHandlerRegistry._reset()
+        self._tempdir = tempfile.TemporaryDirectory()
+        self.base_path = Path(self._tempdir.name)
 
     def tearDown(self):
         """Reset registry after each test."""
         OutputHandlerRegistry._reset()
+        self._tempdir.cleanup()
+
+    def _temp_path(self, name: str) -> str:
+        """Return a namespaced temporary path for the given name."""
+        return str(self.base_path / name)
 
     def test_resolve_with_explicit_instance(self):
         """Explicit handler instance is returned as-is."""
         from meteor_core.pipeline import _resolve_output_handler
 
         handler = FileOutputHandler(
-            FileOutputConfig(output_folder="./a", debug_folder="./b")
+            FileOutputConfig(
+                output_folder=self._temp_path("a"),
+                debug_folder=self._temp_path("b"),
+            )
         )
         resolved = _resolve_output_handler(output_handler=handler)
         self.assertIs(resolved, handler)
@@ -702,24 +714,27 @@ class TestResolveOutputHandler(unittest.TestCase):
 
         resolved = _resolve_output_handler(
             handler_name="file",
-            handler_config={"output_folder": "./x", "debug_folder": "./y"},
+            handler_config={
+                "output_folder": self._temp_path("x"),
+                "debug_folder": self._temp_path("y"),
+            },
         )
         self.assertIsInstance(resolved, FileOutputHandler)
-        self.assertEqual(resolved.config.output_folder, "./x")
-        self.assertEqual(resolved.config.debug_folder, "./y")
+        self.assertEqual(resolved.config.output_folder, self._temp_path("x"))
+        self.assertEqual(resolved.config.debug_folder, self._temp_path("y"))
 
     def test_resolve_with_fallback_config(self):
         """Default handler is created with fallback config."""
         from meteor_core.pipeline import _resolve_output_handler
 
         resolved = _resolve_output_handler(
-            fallback_output_folder="./out",
-            fallback_debug_folder="./debug",
+            fallback_output_folder=self._temp_path("out"),
+            fallback_debug_folder=self._temp_path("debug"),
             fallback_output_overwrite=True,
         )
         self.assertIsInstance(resolved, FileOutputHandler)
-        self.assertEqual(resolved.config.output_folder, "./out")
-        self.assertEqual(resolved.config.debug_folder, "./debug")
+        self.assertEqual(resolved.config.output_folder, self._temp_path("out"))
+        self.assertEqual(resolved.config.debug_folder, self._temp_path("debug"))
         self.assertTrue(resolved.config.output_overwrite)
 
     def test_resolve_without_config_raises_error(self):
@@ -736,15 +751,16 @@ class TestResolveOutputHandler(unittest.TestCase):
 
         explicit_handler = FileOutputHandler(
             FileOutputConfig(
-                output_folder="./explicit", debug_folder="./explicit_debug"
+                output_folder=self._temp_path("explicit"),
+                debug_folder=self._temp_path("explicit_debug"),
             )
         )
         resolved = _resolve_output_handler(
             output_handler=explicit_handler,
             handler_name="file",
             handler_config={
-                "output_folder": "./named",
-                "debug_folder": "./named_debug",
+                "output_folder": self._temp_path("named"),
+                "debug_folder": self._temp_path("named_debug"),
             },
         )
         self.assertIs(resolved, explicit_handler)
@@ -756,13 +772,13 @@ class TestResolveOutputHandler(unittest.TestCase):
         resolved = _resolve_output_handler(
             handler_name="file",
             handler_config={
-                "output_folder": "./named",
-                "debug_folder": "./named_debug",
+                "output_folder": self._temp_path("named"),
+                "debug_folder": self._temp_path("named_debug"),
             },
-            fallback_output_folder="./fallback",
-            fallback_debug_folder="./fallback_debug",
+            fallback_output_folder=self._temp_path("fallback"),
+            fallback_debug_folder=self._temp_path("fallback_debug"),
         )
-        self.assertEqual(resolved.config.output_folder, "./named")
+        self.assertEqual(resolved.config.output_folder, self._temp_path("named"))
 
     def test_resolve_invalid_handler_name_raises_keyerror(self):
         """KeyError raised for unknown handler name."""
@@ -778,10 +794,17 @@ class TestPipelineOutputHandlerIntegration(unittest.TestCase):
     def setUp(self):
         """Reset registry before each test."""
         OutputHandlerRegistry._reset()
+        self._tempdir = tempfile.TemporaryDirectory()
+        self.base_path = Path(self._tempdir.name)
 
     def tearDown(self):
         """Reset registry after each test."""
         OutputHandlerRegistry._reset()
+        self._tempdir.cleanup()
+
+    def _temp_path(self, name: str) -> str:
+        """Return a namespaced temporary path for the given name."""
+        return str(self.base_path / name)
 
     def test_pipeline_with_output_handler_name(self):
         """Pipeline uses output_handler_name from config."""
@@ -789,19 +812,21 @@ class TestPipelineOutputHandlerIntegration(unittest.TestCase):
         from meteor_core.schema import PipelineConfig, DetectionParams
 
         config = PipelineConfig(
-            target_folder="./raw",
-            output_folder="./out",
-            debug_folder="./debug",
+            target_folder=self._temp_path("raw"),
+            output_folder=self._temp_path("out"),
+            debug_folder=self._temp_path("debug"),
             params=DetectionParams(),
             output_handler_name="file",
             output_handler_config={
-                "output_folder": "./custom_out",
-                "debug_folder": "./custom_debug",
+                "output_folder": self._temp_path("custom_out"),
+                "debug_folder": self._temp_path("custom_debug"),
             },
         )
         pipeline = MeteorDetectionPipeline(config)
         self.assertIsInstance(pipeline.output_handler, FileOutputHandler)
-        self.assertEqual(pipeline.output_handler.config.output_folder, "./custom_out")
+        self.assertEqual(
+            pipeline.output_handler.config.output_folder, self._temp_path("custom_out")
+        )
 
     def test_pipeline_fallback_to_config_folders(self):
         """Pipeline falls back to config folders when no handler specified."""
@@ -809,14 +834,17 @@ class TestPipelineOutputHandlerIntegration(unittest.TestCase):
         from meteor_core.schema import PipelineConfig, DetectionParams
 
         config = PipelineConfig(
-            target_folder="./raw",
-            output_folder="./fallback_out",
-            debug_folder="./fallback_debug",
+            target_folder=self._temp_path("raw"),
+            output_folder=self._temp_path("fallback_out"),
+            debug_folder=self._temp_path("fallback_debug"),
             params=DetectionParams(),
         )
         pipeline = MeteorDetectionPipeline(config)
         self.assertIsInstance(pipeline.output_handler, FileOutputHandler)
-        self.assertEqual(pipeline.output_handler.config.output_folder, "./fallback_out")
+        self.assertEqual(
+            pipeline.output_handler.config.output_folder,
+            self._temp_path("fallback_out"),
+        )
 
     def test_pipeline_with_explicit_handler(self):
         """Pipeline accepts explicit output_handler parameter."""
@@ -825,13 +853,14 @@ class TestPipelineOutputHandlerIntegration(unittest.TestCase):
 
         explicit_handler = FileOutputHandler(
             FileOutputConfig(
-                output_folder="./explicit", debug_folder="./explicit_debug"
+                output_folder=self._temp_path("explicit"),
+                debug_folder=self._temp_path("explicit_debug"),
             )
         )
         config = PipelineConfig(
-            target_folder="./raw",
-            output_folder="./out",
-            debug_folder="./debug",
+            target_folder=self._temp_path("raw"),
+            output_folder=self._temp_path("out"),
+            debug_folder=self._temp_path("debug"),
             params=DetectionParams(),
         )
         pipeline = MeteorDetectionPipeline(config, output_handler=explicit_handler)

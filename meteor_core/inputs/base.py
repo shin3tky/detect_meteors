@@ -303,6 +303,8 @@ def forbid_unknown_keys(model: Type[Any]) -> Type[Any]:
         merged_config = dict(existing_config)
         merged_config["extra"] = extra_value
         model.model_config = merged_config
+        if hasattr(model, "model_rebuild"):
+            model.model_rebuild(force=True)
         return model
 
     config_class = getattr(model, "Config", None)
@@ -314,5 +316,8 @@ def forbid_unknown_keys(model: Type[Any]) -> Type[Any]:
         model.Config = Config
     else:
         setattr(config_class, "extra", extra_value)
+
+    if hasattr(model, "model_rebuild"):
+        model.model_rebuild(force=True)
 
     return model
