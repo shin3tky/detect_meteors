@@ -36,7 +36,7 @@ from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_
 from .detectors import BaseDetector, DetectorRegistry
 from .outputs import (
     BaseOutputHandler,
-    OutputWriter,
+    OutputHandlerRegistry,
     ProgressManager,
 )
 from .utils import (
@@ -784,11 +784,13 @@ class MeteorDetectionPipeline:
         )
 
         # Initialize output handler
-        self.output_writer: BaseOutputHandler = output_handler or OutputWriter(
-            self._config.output_folder,
-            self._config.debug_folder,
-            self._config.progress_file,
-            self._config.output_overwrite,
+        self.output_writer: BaseOutputHandler = (
+            output_handler
+            or OutputHandlerRegistry.create_default(
+                output_folder=self._config.output_folder,
+                debug_folder=self._config.debug_folder,
+                output_overwrite=self._config.output_overwrite,
+            )
         )
         self.progress_manager = ProgressManager(self._config.progress_file)
 
