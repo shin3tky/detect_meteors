@@ -38,6 +38,7 @@ from .schema import (
     DEFAULT_PROGRESS_FILE,
     DEFAULT_LOADER_NAME,
     DEFAULT_DETECTOR_NAME,
+    DEFAULT_OUTPUT_HANDLER_NAME,
     DEFAULT_TARGET_FOLDER,
     DEFAULT_OUTPUT_FOLDER,
     DEFAULT_DEBUG_FOLDER,
@@ -124,11 +125,24 @@ from .detectors import discover_detectors
 
 from .outputs import (
     BaseOutputHandler,
-    OutputWriter,
+    DataclassOutputHandler,
+    _is_valid_output_handler,
+    FileOutputConfig,
+    FileOutputHandler,
+    create_file_handler,
+    OutputHandlerRegistry,
     ProgressManager,
     load_progress,
     save_progress,
+    # Backward compatibility (deprecated)
+    OutputWriter,
 )
+
+from .outputs.discovery import PLUGIN_DIR as OUTPUT_PLUGIN_DIR
+from .outputs.discovery import PLUGIN_GROUP as OUTPUT_PLUGIN_GROUP
+
+# Deprecated: use OutputHandlerRegistry.discover() instead
+from .outputs import discover_handlers
 
 from .pipeline import (
     collect_files,
@@ -168,6 +182,7 @@ __all__ = [
     "DEFAULT_PROGRESS_FILE",
     "DEFAULT_LOADER_NAME",
     "DEFAULT_DETECTOR_NAME",
+    "DEFAULT_OUTPUT_HANDLER_NAME",
     "DEFAULT_TARGET_FOLDER",
     "DEFAULT_OUTPUT_FOLDER",
     "DEFAULT_DEBUG_FOLDER",
@@ -244,12 +259,27 @@ __all__ = [
     "DetectorRegistry",
     # Detectors - Discovery function (deprecated)
     "discover_detectors",
-    # Outputs
+    # Outputs - Base classes
     "BaseOutputHandler",
-    "OutputWriter",
+    "DataclassOutputHandler",
+    "_is_valid_output_handler",
+    # Outputs - File handler (default implementation)
+    "FileOutputConfig",
+    "FileOutputHandler",
+    "create_file_handler",
+    # Outputs - Registry (recommended)
+    "OutputHandlerRegistry",
+    # Outputs - Discovery constants
+    "OUTPUT_PLUGIN_DIR",
+    "OUTPUT_PLUGIN_GROUP",
+    # Outputs - Discovery function (deprecated)
+    "discover_handlers",
+    # Outputs - Progress tracking
     "ProgressManager",
     "load_progress",
     "save_progress",
+    # Outputs - Backward compatibility (deprecated)
+    "OutputWriter",
     # Pipeline
     "collect_files",
     "validate_raw_file",

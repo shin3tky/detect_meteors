@@ -1,0 +1,197 @@
+#!/usr/bin/env python
+#
+# Detect Meteors CLI - File Output Handler
+# © 2025 Shinichi Morita (shin3tky)
+#
+
+"""
+File-based output handler (default implementation).
+
+This module provides the default file-based output handler that saves
+meteor candidate RAW files and debug visualization images to disk.
+"""
+
+import os
+import shutil
+from dataclasses import dataclass
+from typing import List, Optional
+
+import cv2
+import numpy as np
+
+from .base import DataclassOutputHandler
+
+
+@dataclass
+class FileOutputConfig:
+    """Configuration for FileOutputHandler.
+
+    Attributes:
+        output_folder: Directory for candidate files.
+        debug_folder: Directory for debug images.
+        output_overwrite: Whether to overwrite existing files.
+    """
+
+    #: Directory for candidate files
+    output_folder: str
+
+    #: Directory for debug images
+    debug_folder: str
+
+    #: Whether to overwrite existing files
+    output_overwrite: bool = False
+
+
+class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
+    """Default file-based output handler.
+
+    Saves meteor candidate RAW files by copying them to the output folder,
+    and saves debug visualization images to the debug folder.
+
+    Attributes:
+        plugin_name: "file" - the unique identifier for this handler.
+        name: "File Output Handler" - human-readable name.
+        version: Version string of this handler.
+        config: FileOutputConfig instance with folder and overwrite settings.
+
+    Example:
+        >>> config = FileOutputConfig(
+        ...     output_folder="./candidates",
+        ...     debug_folder="./debug",
+        ...     output_overwrite=False,
+        ... )
+        >>> handler = FileOutputHandler(config)
+        >>> saved = handler.save_candidate("/path/to/source.CR2", "source.CR2")
+        >>> print(saved)
+        True
+    """
+
+    plugin_name = "file"
+    name = "File Output Handler"
+    version = "1.0.0"
+    ConfigType = FileOutputConfig
+
+    def __init__(self, config: FileOutputConfig) -> None:
+        """Initialize the file output handler.
+
+        Creates output and debug directories if they don't exist.
+
+        Args:
+            config: Configuration instance.
+        """
+        super().__init__(config)
+        os.makedirs(config.output_folder, exist_ok=True)
+        os.makedirs(config.debug_folder, exist_ok=True)
+
+    def save_candidate(
+        self,
+        source_path: str,
+        filename: str,
+        debug_image: Optional[np.ndarray] = None,
+        roi_polygon: Optional[List[List[int]]] = None,
+    ) -> bool:
+        """Save a meteor candidate file and optional debug image.
+
+        Args:
+            source_path: Path to the source RAW file.
+            filename: Output filename.
+            debug_image: Optional debug visualization image (BGR).
+            roi_polygon: Optional ROI polygon to draw on debug image.
+
+        Returns:
+            True if file was saved, False if skipped (already exists).
+        """
+        output_path = os.path.join(self.config.output_folder, filename)
+
+        # Check if file exists
+        if os.path.exists(output_path) and not self.config.output_overwrite:
+            return False
+
+        # Copy the RAW file
+        shutil.copy(source_path, output_path)
+
+        # Save debug image if provided
+        if debug_image is not None:
+            self._save_debug_with_roi(debug_image, filename, roi_polygon)
+
+        return True
+
+    def save_debug_image(
+        self,
+        debug_image: np.ndarray,
+        filename: str,
+        roi_polygon: Optional[List[List[int]]] = None,
+    ) -> str:
+        """Save a debug visualization image.
+
+        Args:
+            debug_image: Debug visualization image (BGR).
+            filename: Base filename (will be prefixed with 'mask_').
+            roi_polygon: Optional ROI polygon to draw.
+
+        Returns:
+            Path to saved debug image.
+        """
+        return self._save_debug_with_roi(debug_image, filename, roi_polygon)
+
+    def _save_debug_with_roi(
+        self,
+        debug_image: np.ndarray,
+        filename: str,
+        roi_polygon: Optional[List[List[int]]] = None,
+    ) -> str:
+        """Internal method to save debug image with optional ROI overlay.
+
+        Args:
+            debug_image: Debug visualization image (BGR).
+            filename: Base filename.
+            roi_polygon: Optional ROI polygon to draw.
+
+        Returns:
+            Path to saved debug image.
+        """
+        if roi_polygon:
+            cv2.polylines(
+                debug_image,
+                [np.array(roi_polygon, dtype=np.int32)],
+                True,
+                (0, 255, 0),
+                2,
+            )
+        debug_path = os.path.join(self.config.debug_folder, f"mask_{filename}.png")
+        cv2.imwrite(debug_path, debug_image)
+        return debug_path
+
+
+def create_file_handler(
+    output_folder: str,
+    debug_folder: str,
+    output_overwrite: bool = False,
+) -> FileOutputHandler:
+    """Factory helper to create a FileOutputHandler.
+
+    Args:
+        output_folder: Directory for candidate files.
+        debug_folder: Directory for debug images.
+        output_overwrite: Whether to overwrite existing files.
+
+    Returns:
+        Configured FileOutputHandler instance.
+
+    Example:
+        >>> handler = create_file_handler("./candidates", "./debug")
+        >>> handler = create_file_handler("./candidates", "./debug", output_overwrite=True)
+    """
+    config = FileOutputConfig(
+        output_folder=output_folder,
+        debug_folder=debug_folder,
+        output_overwrite=output_overwrite,
+    )
+    return FileOutputHandler(config)
+
+
+__all__ = [
+    "FileOutputConfig",
+    "FileOutputHandler",
+    "create_file_handler",
+]

@@ -1,0 +1,612 @@
+#
+# Detect Meteors CLI - Output Handler Registry Tests
+# © 2025 Shinichi Morita (shin3tky)
+#
+
+"""
+Unit tests for OutputHandlerRegistry.
+"""
+
+import unittest
+import warnings
+
+from meteor_core.outputs.registry import OutputHandlerRegistry
+from meteor_core.outputs.base import BaseOutputHandler, _is_valid_output_handler
+from meteor_core.outputs.file_handler import FileOutputHandler, FileOutputConfig
+from meteor_core.schema import DEFAULT_OUTPUT_HANDLER_NAME
+
+
+class TestOutputHandlerRegistryDiscovery(unittest.TestCase):
+    """Tests for OutputHandlerRegistry discovery functionality."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_discover_returns_dict(self):
+        """discover() returns a dictionary."""
+        handlers = OutputHandlerRegistry.discover()
+        self.assertIsInstance(handlers, dict)
+
+    def test_discover_includes_builtin_file(self):
+        """Built-in file handler is always discovered."""
+        handlers = OutputHandlerRegistry.discover()
+        self.assertIn("file", handlers)
+
+    def test_discover_caches_result(self):
+        """discover() caches results for subsequent calls."""
+        handlers1 = OutputHandlerRegistry.discover()
+        handlers2 = OutputHandlerRegistry.discover()
+        self.assertIs(handlers1, handlers2)
+
+    def test_discover_force_refreshes_cache(self):
+        """discover(force=True) refreshes the cache."""
+        handlers1 = OutputHandlerRegistry.discover()
+        handlers2 = OutputHandlerRegistry.discover(force=True)
+        # Should be equal content but different object
+        self.assertEqual(handlers1.keys(), handlers2.keys())
+
+
+class TestOutputHandlerRegistryGet(unittest.TestCase):
+    """Tests for OutputHandlerRegistry.get() method."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_get_existing_handler(self):
+        """get() returns handler class for existing name."""
+        handler_cls = OutputHandlerRegistry.get("file")
+        self.assertEqual(handler_cls.plugin_name, "file")
+
+    def test_get_case_insensitive(self):
+        """get() is case-insensitive."""
+        handler_cls1 = OutputHandlerRegistry.get("file")
+        handler_cls2 = OutputHandlerRegistry.get("FILE")
+        handler_cls3 = OutputHandlerRegistry.get("File")
+        self.assertIs(handler_cls1, handler_cls2)
+        self.assertIs(handler_cls2, handler_cls3)
+
+    def test_get_nonexistent_raises_keyerror(self):
+        """get() raises KeyError for unknown handler name."""
+        with self.assertRaises(KeyError) as ctx:
+            OutputHandlerRegistry.get("nonexistent_handler")
+
+        # Error message should include available handlers
+        error_msg = str(ctx.exception)
+        self.assertIn("nonexistent_handler", error_msg)
+        self.assertIn("Available", error_msg)
+
+    def test_get_custom_takes_priority(self):
+        """Runtime-registered handler takes priority over discovered."""
+
+        class CustomFileHandler(BaseOutputHandler):
+            plugin_name = "file"
+
+            def __init__(self, config=None):
+                self.config = config
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/custom/path"
+
+        OutputHandlerRegistry.register(CustomFileHandler)
+        handler_cls = OutputHandlerRegistry.get("file")
+        self.assertIs(handler_cls, CustomFileHandler)
+
+
+class TestOutputHandlerRegistryRegister(unittest.TestCase):
+    """Tests for OutputHandlerRegistry.register() method."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_register_valid_handler(self):
+        """register() accepts valid handler class."""
+
+        class MockHandler(BaseOutputHandler):
+            plugin_name = "mock"
+
+            def __init__(self, config=None):
+                self.config = config
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/mock/path"
+
+        OutputHandlerRegistry.register(MockHandler)
+        self.assertIn("mock", OutputHandlerRegistry.list_available())
+
+    def test_register_invalid_handler_raises_valueerror(self):
+        """register() raises ValueError for invalid handler."""
+
+        class NotAHandler:
+            plugin_name = "invalid"
+
+        with self.assertRaises(ValueError):
+            OutputHandlerRegistry.register(NotAHandler)
+
+    def test_register_empty_plugin_name_raises_valueerror(self):
+        """register() raises ValueError for empty plugin_name."""
+
+        class EmptyNameHandler(BaseOutputHandler):
+            plugin_name = ""
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+        with self.assertRaises(ValueError):
+            OutputHandlerRegistry.register(EmptyNameHandler)
+
+    def test_register_duplicate_warns(self):
+        """register() warns when overwriting existing handler."""
+
+        class MockHandler1(BaseOutputHandler):
+            plugin_name = "mock_dup"
+
+            def __init__(self, config=None):
+                self.config = config
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+        class MockHandler2(BaseOutputHandler):
+            plugin_name = "mock_dup"
+
+            def __init__(self, config=None):
+                self.config = config
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return False
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path2"
+
+        OutputHandlerRegistry.register(MockHandler1)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            OutputHandlerRegistry.register(MockHandler2)
+            self.assertEqual(len(w), 1)
+            self.assertIn("Overwriting", str(w[0].message))
+
+
+class TestOutputHandlerRegistryUnregister(unittest.TestCase):
+    """Tests for OutputHandlerRegistry.unregister() method."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_unregister_custom_handler(self):
+        """unregister() removes runtime-registered handler."""
+
+        class MockHandler(BaseOutputHandler):
+            plugin_name = "mock_unreg"
+
+            def __init__(self, config=None):
+                self.config = config
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+        OutputHandlerRegistry.register(MockHandler)
+        self.assertIn("mock_unreg", OutputHandlerRegistry.list_available())
+
+        result = OutputHandlerRegistry.unregister("mock_unreg")
+        self.assertTrue(result)
+        self.assertNotIn("mock_unreg", OutputHandlerRegistry.list_available())
+
+    def test_unregister_nonexistent_returns_false(self):
+        """unregister() returns False for nonexistent handler."""
+        result = OutputHandlerRegistry.unregister("nonexistent")
+        self.assertFalse(result)
+
+    def test_unregister_discovered_returns_false(self):
+        """unregister() returns False for discovered (not custom) handlers."""
+        # file handler is discovered, not custom
+        result = OutputHandlerRegistry.unregister("file")
+        self.assertFalse(result)
+        # Still available via discovery
+        self.assertIn("file", OutputHandlerRegistry.list_available())
+
+
+class TestOutputHandlerRegistryListAvailable(unittest.TestCase):
+    """Tests for OutputHandlerRegistry.list_available() method."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_list_available_returns_sorted_list(self):
+        """list_available() returns a sorted list of names."""
+        available = OutputHandlerRegistry.list_available()
+        self.assertIsInstance(available, list)
+        self.assertEqual(available, sorted(available))
+
+    def test_list_available_includes_file(self):
+        """list_available() includes built-in file handler."""
+        available = OutputHandlerRegistry.list_available()
+        self.assertIn("file", available)
+
+    def test_list_available_includes_custom(self):
+        """list_available() includes runtime-registered handlers."""
+
+        class CustomHandler(BaseOutputHandler):
+            plugin_name = "custom_list"
+
+            def __init__(self, config=None):
+                self.config = config
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+        OutputHandlerRegistry.register(CustomHandler)
+        available = OutputHandlerRegistry.list_available()
+        self.assertIn("custom_list", available)
+
+
+class TestOutputHandlerRegistryCreate(unittest.TestCase):
+    """Tests for OutputHandlerRegistry.create() method."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_create_with_config_dict(self):
+        """create() accepts config as dictionary."""
+        handler = OutputHandlerRegistry.create(
+            "file",
+            {
+                "output_folder": "/tmp/output",
+                "debug_folder": "/tmp/debug",
+            },
+        )
+        self.assertIsInstance(handler, FileOutputHandler)
+        self.assertEqual(handler.config.output_folder, "/tmp/output")
+        self.assertEqual(handler.config.debug_folder, "/tmp/debug")
+
+    def test_create_with_config_instance(self):
+        """create() accepts config as dataclass instance."""
+        config = FileOutputConfig(
+            output_folder="/tmp/output2",
+            debug_folder="/tmp/debug2",
+            output_overwrite=True,
+        )
+        handler = OutputHandlerRegistry.create("file", config)
+        self.assertIsInstance(handler, FileOutputHandler)
+        self.assertEqual(handler.config.output_folder, "/tmp/output2")
+        self.assertTrue(handler.config.output_overwrite)
+
+    def test_create_nonexistent_raises_keyerror(self):
+        """create() raises KeyError for unknown handler name."""
+        with self.assertRaises(KeyError):
+            OutputHandlerRegistry.create("nonexistent", {})
+
+    def test_create_with_invalid_config_raises_typeerror(self):
+        """create() raises TypeError for invalid config structure."""
+        with self.assertRaises(TypeError):
+            OutputHandlerRegistry.create("file", {"invalid_key": "value"})
+
+
+class TestOutputHandlerRegistryCreateDefault(unittest.TestCase):
+    """Tests for OutputHandlerRegistry.create_default() method."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_create_default_returns_file_handler(self):
+        """create_default() returns FileOutputHandler instance."""
+        handler = OutputHandlerRegistry.create_default(
+            output_folder="/tmp/out",
+            debug_folder="/tmp/dbg",
+        )
+        self.assertIsInstance(handler, FileOutputHandler)
+        self.assertEqual(handler.plugin_name, DEFAULT_OUTPUT_HANDLER_NAME)
+
+    def test_create_default_respects_overwrite_flag(self):
+        """create_default() passes output_overwrite to config."""
+        handler = OutputHandlerRegistry.create_default(
+            output_folder="/tmp/out",
+            debug_folder="/tmp/dbg",
+            output_overwrite=True,
+        )
+        self.assertTrue(handler.config.output_overwrite)
+
+
+class TestOutputHandlerRegistryCoerceConfig(unittest.TestCase):
+    """Tests for OutputHandlerRegistry._coerce_config() method."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_coerce_dict_to_dataclass(self):
+        """_coerce_config() converts dict to dataclass."""
+        config = OutputHandlerRegistry._coerce_config(
+            FileOutputHandler,
+            {"output_folder": "/tmp/o", "debug_folder": "/tmp/d"},
+        )
+        self.assertIsInstance(config, FileOutputConfig)
+        self.assertEqual(config.output_folder, "/tmp/o")
+
+    def test_coerce_none_with_required_fields_raises(self):
+        """_coerce_config() raises TypeError when None and required fields exist."""
+        with self.assertRaises(TypeError):
+            OutputHandlerRegistry._coerce_config(FileOutputHandler, None)
+
+    def test_coerce_passthrough_correct_type(self):
+        """_coerce_config() passes through correct type unchanged."""
+        original = FileOutputConfig(
+            output_folder="/tmp/o",
+            debug_folder="/tmp/d",
+        )
+        result = OutputHandlerRegistry._coerce_config(FileOutputHandler, original)
+        self.assertIs(result, original)
+
+
+class TestOutputHandlerRegistryReset(unittest.TestCase):
+    """Tests for OutputHandlerRegistry._reset() method."""
+
+    def test_reset_clears_custom_handlers(self):
+        """_reset() clears runtime-registered handlers."""
+
+        class TempHandler(BaseOutputHandler):
+            plugin_name = "temp_reset"
+
+            def __init__(self, config=None):
+                self.config = config
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+        OutputHandlerRegistry.register(TempHandler)
+        self.assertIn("temp_reset", OutputHandlerRegistry.list_available())
+
+        OutputHandlerRegistry._reset()
+        self.assertNotIn("temp_reset", OutputHandlerRegistry.list_available())
+
+    def test_reset_clears_discovered_cache(self):
+        """_reset() clears the discovered handlers cache."""
+        OutputHandlerRegistry.discover()  # Populate cache
+        self.assertIsNotNone(OutputHandlerRegistry._discovered)
+
+        OutputHandlerRegistry._reset()
+        self.assertIsNone(OutputHandlerRegistry._discovered)
+
+
+class TestDiscoverHandlersDeprecation(unittest.TestCase):
+    """Tests for deprecated discover_handlers() function."""
+
+    def setUp(self):
+        """Reset registry before each test."""
+        OutputHandlerRegistry._reset()
+
+    def tearDown(self):
+        """Reset registry after each test."""
+        OutputHandlerRegistry._reset()
+
+    def test_discover_handlers_warns_deprecation(self):
+        """discover_handlers() emits DeprecationWarning."""
+        from meteor_core.outputs.discovery import discover_handlers
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            discover_handlers()
+            self.assertEqual(len(w), 1)
+            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
+            self.assertIn("deprecated", str(w[0].message).lower())
+
+
+class TestIsValidOutputHandler(unittest.TestCase):
+    """Tests for _is_valid_output_handler() function."""
+
+    def test_valid_handler_returns_true(self):
+        """_is_valid_output_handler() returns True for valid handler."""
+
+        class ValidHandler(BaseOutputHandler):
+            plugin_name = "valid"
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+        self.assertTrue(_is_valid_output_handler(ValidHandler))
+
+    def test_empty_plugin_name_returns_false(self):
+        """_is_valid_output_handler() returns False for empty plugin_name."""
+
+        class EmptyNameHandler(BaseOutputHandler):
+            plugin_name = ""
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+        self.assertFalse(_is_valid_output_handler(EmptyNameHandler))
+
+    def test_non_subclass_returns_false(self):
+        """_is_valid_output_handler() returns False for non-subclass."""
+
+        class NotAHandler:
+            plugin_name = "not_handler"
+
+        self.assertFalse(_is_valid_output_handler(NotAHandler))
+
+    def test_non_type_returns_false(self):
+        """_is_valid_output_handler() returns False for non-type objects."""
+        self.assertFalse(_is_valid_output_handler("not a type"))
+        self.assertFalse(_is_valid_output_handler(123))
+        self.assertFalse(_is_valid_output_handler(None))
+
+
+class TestFileOutputHandler(unittest.TestCase):
+    """Tests for FileOutputHandler class."""
+
+    def test_file_output_handler_plugin_name(self):
+        """FileOutputHandler has correct plugin_name."""
+        self.assertEqual(FileOutputHandler.plugin_name, "file")
+
+    def test_file_output_handler_get_info(self):
+        """FileOutputHandler.get_info() returns correct metadata."""
+        config = FileOutputConfig(
+            output_folder="/tmp/o",
+            debug_folder="/tmp/d",
+        )
+        handler = FileOutputHandler(config)
+        info = handler.get_info()
+
+        self.assertEqual(info["plugin_name"], "file")
+        self.assertEqual(info["name"], "File Output Handler")
+        self.assertIn("version", info)
+        self.assertEqual(info["class"], "FileOutputHandler")
+
+
+class TestBaseOutputHandlerHooks(unittest.TestCase):
+    """Tests for BaseOutputHandler notification hooks."""
+
+    def test_hooks_are_callable_noop(self):
+        """Default hook implementations are callable and do nothing."""
+
+        class MinimalHandler(BaseOutputHandler):
+            plugin_name = "minimal"
+
+            def __init__(self):
+                pass
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+        handler = MinimalHandler()
+
+        # These should not raise
+        handler.on_candidate_detected("test.CR2", True, 100.0, 5.0)
+        handler.on_batch_complete(10, 2, 5)
+        handler.on_pipeline_complete(100, 10, 60.5)
+
+    def test_hooks_can_be_overridden(self):
+        """Hooks can be overridden to provide custom behavior."""
+        callback_log = []
+
+        class LoggingHandler(BaseOutputHandler):
+            plugin_name = "logging"
+
+            def __init__(self):
+                pass
+
+            def save_candidate(
+                self, source_path, filename, debug_image=None, roi_polygon=None
+            ):
+                return True
+
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return "/path"
+
+            def on_candidate_detected(
+                self, filename, saved, score=0.0, aspect_ratio=0.0
+            ):
+                callback_log.append(("candidate", filename, saved, score))
+
+            def on_batch_complete(self, processed_count, detected_count, batch_size):
+                callback_log.append(("batch", processed_count, detected_count))
+
+            def on_pipeline_complete(
+                self, total_processed, total_detected, elapsed_seconds
+            ):
+                callback_log.append(("complete", total_processed, total_detected))
+
+        handler = LoggingHandler()
+        handler.on_candidate_detected("test.CR2", True, 150.0, 5.0)
+        handler.on_batch_complete(10, 2, 5)
+        handler.on_pipeline_complete(100, 10, 60.0)
+
+        self.assertEqual(len(callback_log), 3)
+        self.assertEqual(callback_log[0], ("candidate", "test.CR2", True, 150.0))
+        self.assertEqual(callback_log[1], ("batch", 10, 2))
+        self.assertEqual(callback_log[2], ("complete", 100, 10))
+
+
+if __name__ == "__main__":
+    unittest.main()
