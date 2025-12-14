@@ -14,17 +14,15 @@ from dataclasses import is_dataclass
 import importlib.util
 from typing import Tuple, List, Any, Optional, Dict, Generic, Type, TypeVar
 
+from meteor_core.plugin_contract import require_config_type, require_plugin_name
+
 ConfigType = TypeVar("ConfigType")
 
 _PYDANTIC_SPEC = importlib.util.find_spec("pydantic")
 if _PYDANTIC_SPEC:
-    import pydantic
     from pydantic import BaseModel
-
-    Extra = getattr(pydantic, "Extra", None)
 else:
     BaseModel = None
-    Extra = None
 import numpy as np  # noqa: E402
 
 
@@ -153,11 +151,9 @@ class DataclassDetector(BaseDetector, Generic[ConfigType]):
     config: ConfigType
 
     def __init__(self, config: ConfigType) -> None:
-        plugin_name = getattr(self.__class__, "plugin_name", "")
-        if not plugin_name:
-            raise ValueError("Subclasses must define a non-empty 'plugin_name' string.")
+        require_plugin_name(self.__class__, kind="detector")
 
-        config_type = getattr(self.__class__, "ConfigType", None)
+        config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not is_dataclass(config_type):
                 raise TypeError(
@@ -182,11 +178,9 @@ class PydanticDetector(BaseDetector, Generic[ConfigType]):
                 "pydantic is required to use PydanticDetector. Install pydantic first."
             )
 
-        plugin_name = getattr(self.__class__, "plugin_name", "")
-        if not plugin_name:
-            raise ValueError("Subclasses must define a non-empty 'plugin_name' string.")
+        require_plugin_name(self.__class__, kind="detector")
 
-        config_type = getattr(self.__class__, "ConfigType", None)
+        config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not issubclass(config_type, BaseModel):
                 raise TypeError(

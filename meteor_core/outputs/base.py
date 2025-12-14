@@ -15,21 +15,25 @@ detection pipeline.
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
 import importlib.util
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
+from typing import Dict, Generic, List, Optional, Type, TypeVar
 
 import numpy as np
+
+from meteor_core.plugin_contract import (
+    forbid_unknown_keys as _forbid_unknown_keys,
+    require_config_type,
+    require_plugin_name,
+)
 
 ConfigType = TypeVar("ConfigType")
 
 _PYDANTIC_SPEC = importlib.util.find_spec("pydantic")
 if _PYDANTIC_SPEC:
-    import pydantic
     from pydantic import BaseModel
-
-    Extra = getattr(pydantic, "Extra", None)
 else:
     BaseModel = None
-    Extra = None
+
+forbid_unknown_keys = _forbid_unknown_keys
 
 
 class BaseOutputHandler(ABC):
@@ -220,11 +224,9 @@ class DataclassOutputHandler(BaseOutputHandler, Generic[ConfigType]):
             ValueError: If plugin_name is not defined.
             TypeError: If ConfigType is not a dataclass or config type mismatches.
         """
-        plugin_name = getattr(self.__class__, "plugin_name", "")
-        if not plugin_name:
-            raise ValueError("Subclasses must define a non-empty 'plugin_name' string.")
+        require_plugin_name(self.__class__, kind="output handler")
 
-        config_type = getattr(self.__class__, "ConfigType", None)
+        config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not is_dataclass(config_type):
                 raise TypeError(
@@ -271,11 +273,9 @@ class PydanticOutputHandler(BaseOutputHandler, Generic[ConfigType]):
                 "pydantic must be installed to use PydanticOutputHandler."
             )
 
-        plugin_name = getattr(self.__class__, "plugin_name", "")
-        if not plugin_name:
-            raise ValueError("Subclasses must define a non-empty 'plugin_name' string.")
+        require_plugin_name(self.__class__, kind="output handler")
 
-        config_type = getattr(self.__class__, "ConfigType", None)
+        config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not issubclass(config_type, BaseModel):
                 raise TypeError(
@@ -286,53 +286,6 @@ class PydanticOutputHandler(BaseOutputHandler, Generic[ConfigType]):
                     f"config must be an instance of {config_type.__name__}."
                 )
         self.config = config
-
-
-def forbid_unknown_keys(model: Type[Any]) -> Type[Any]:
-    """Force a Pydantic model to reject unknown fields at parse time.
-
-    Args:
-        model: The Pydantic model class to modify.
-
-    Returns:
-        The modified model class.
-
-    Raises:
-        ImportError: If pydantic is not installed.
-        TypeError: If model is not a Pydantic BaseModel.
-    """
-
-    if BaseModel is None:
-        raise ImportError(
-            "pydantic is not installed; cannot enforce unknown key behavior."
-        )
-    if not issubclass(model, BaseModel):
-        raise TypeError("Model must inherit from pydantic.BaseModel.")
-
-    extra_value = Extra.forbid if Extra is not None else "forbid"
-    if hasattr(model, "model_config"):
-        existing_config = getattr(model, "model_config") or {}
-        merged_config = dict(existing_config)
-        merged_config["extra"] = extra_value
-        model.model_config = merged_config
-        if hasattr(model, "model_rebuild"):
-            model.model_rebuild(force=True)
-        return model
-
-    config_class = getattr(model, "Config", None)
-    if config_class is None:
-
-        class Config:
-            extra = extra_value
-
-        model.Config = Config
-    else:
-        setattr(config_class, "extra", extra_value)
-
-    if hasattr(model, "model_rebuild"):
-        model.model_rebuild(force=True)
-
-    return model
 
 
 def _is_valid_output_handler(cls: type) -> bool:

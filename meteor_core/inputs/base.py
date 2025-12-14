@@ -5,17 +5,23 @@ from dataclasses import is_dataclass
 import importlib.util
 from typing import Any, Dict, Generic, Type, TypeVar
 
+from meteor_core.plugin_contract import (
+    forbid_unknown_keys as _forbid_unknown_keys,
+    require_config_type,
+    require_plugin_name,
+)
+
 ConfigType = TypeVar("ConfigType")
 
 _PYDANTIC_SPEC = importlib.util.find_spec("pydantic")
 if _PYDANTIC_SPEC:
-    import pydantic
     from pydantic import BaseModel
-
-    Extra = getattr(pydantic, "Extra", None)
 else:
     BaseModel = None
-    Extra = None
+
+
+# Exported helper for compatibility with existing imports
+forbid_unknown_keys = _forbid_unknown_keys
 
 
 class BaseInputLoader(ABC, Generic[ConfigType]):
@@ -151,38 +157,6 @@ def _is_valid_input_loader(cls: Type[Any]) -> bool:
     )
 
 
-def _require_plugin_name(cls: Type[Any]) -> str:
-    """Extract and validate plugin_name from a loader class.
-
-    Args:
-        cls: The loader class to check.
-
-    Returns:
-        The plugin_name string.
-
-    Raises:
-        ValueError: If plugin_name is missing or invalid.
-    """
-    plugin_name = getattr(cls, "plugin_name", "")
-    if not isinstance(plugin_name, str) or not plugin_name:
-        raise ValueError("Subclasses must define a non-empty 'plugin_name' string.")
-    return plugin_name
-
-
-def _require_config_type(cls: Type[Any]) -> Type[ConfigType]:
-    """Extract ConfigType from a loader class (optional).
-
-    Args:
-        cls: The loader class to check.
-
-    Returns:
-        The ConfigType class, or None if not defined.
-    """
-    config_type = getattr(cls, "ConfigType", None)
-    # ConfigType is optional - loaders may not require configuration
-    return config_type
-
-
 class DataclassInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
     """Abstract base class for loaders configured by dataclasses.
 
@@ -219,8 +193,8 @@ class DataclassInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
             ValueError: If plugin_name is not defined.
             TypeError: If ConfigType is not a dataclass or config type mismatches.
         """
-        _require_plugin_name(self.__class__)
-        config_type = _require_config_type(self.__class__)
+        require_plugin_name(self.__class__, kind="input loader")
+        config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not is_dataclass(config_type):
                 raise TypeError(
@@ -260,10 +234,10 @@ class PydanticInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
             ValueError: If plugin_name is not defined.
             TypeError: If ConfigType is not a Pydantic model or config type mismatches.
         """
-        _require_plugin_name(self.__class__)
+        require_plugin_name(self.__class__, kind="input loader")
         if BaseModel is None:
             raise ImportError("pydantic must be installed to use PydanticInputLoader.")
-        config_type = _require_config_type(self.__class__)
+        config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not issubclass(config_type, BaseModel):
                 raise TypeError(
@@ -274,50 +248,3 @@ class PydanticInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
                     f"config must be an instance of {config_type.__name__}."
                 )
         self.config = config
-
-
-def forbid_unknown_keys(model: Type[Any]) -> Type[Any]:
-    """Force a Pydantic model to reject unknown fields at parse time.
-
-    Args:
-        model: The Pydantic model class to modify.
-
-    Returns:
-        The modified model class.
-
-    Raises:
-        ImportError: If pydantic is not installed.
-        TypeError: If model is not a Pydantic BaseModel.
-    """
-
-    if BaseModel is None:
-        raise ImportError(
-            "pydantic is not installed; cannot enforce unknown key behavior."
-        )
-    if not issubclass(model, BaseModel):
-        raise TypeError("Model must inherit from pydantic.BaseModel.")
-
-    extra_value = Extra.forbid if Extra is not None else "forbid"
-    if hasattr(model, "model_config"):
-        existing_config = getattr(model, "model_config") or {}
-        merged_config = dict(existing_config)
-        merged_config["extra"] = extra_value
-        model.model_config = merged_config
-        if hasattr(model, "model_rebuild"):
-            model.model_rebuild(force=True)
-        return model
-
-    config_class = getattr(model, "Config", None)
-    if config_class is None:
-
-        class Config:
-            extra = extra_value
-
-        model.Config = Config
-    else:
-        setattr(config_class, "extra", extra_value)
-
-    if hasattr(model, "model_rebuild"):
-        model.model_rebuild(force=True)
-
-    return model
