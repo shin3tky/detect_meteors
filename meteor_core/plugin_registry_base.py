@@ -12,6 +12,8 @@ import warnings
 from dataclasses import is_dataclass
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
+from .plugin_registry import _PLUGIN_KIND_GENERIC
+
 PluginType = TypeVar("PluginType")
 
 
@@ -28,7 +30,7 @@ class PluginRegistryBase(Generic[PluginType]):
     and then override parameters as needed.
     """
 
-    _plugin_kind: str = "plugin"
+    _plugin_kind: str = _PLUGIN_KIND_GENERIC
 
     # Discovered plugins (from entry points + plugin dir), lazily initialized
     _discovered: Optional[Dict[str, Type[PluginType]]] = None

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Type, Union
 
+from ..plugin_registry import _PLUGIN_KIND_OUTPUT
 from ..plugin_registry_base import PluginRegistryBase
 from ..schema import DEFAULT_OUTPUT_HANDLER_NAME
 from .base import BaseOutputHandler, _is_valid_output_handler
@@ -51,7 +52,7 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
         >>> OutputHandlerRegistry.unregister("my_custom")
     """
 
-    _plugin_kind = "output handler"
+    _plugin_kind = _PLUGIN_KIND_OUTPUT
 
     @classmethod
     def _discover_internal(cls) -> Dict[str, Type[BaseOutputHandler]]:

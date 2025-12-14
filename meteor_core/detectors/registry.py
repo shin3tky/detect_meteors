@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Type, Union
 
+from ..plugin_registry import _PLUGIN_KIND_DETECTOR
 from ..plugin_registry_base import PluginRegistryBase
 from ..schema import DEFAULT_DETECTOR_NAME
 from .base import BaseDetector, _is_valid_detector
@@ -47,7 +48,7 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
         >>> DetectorRegistry.unregister("my_custom")
     """
 
-    _plugin_kind = "detector"
+    _plugin_kind = _PLUGIN_KIND_DETECTOR
 
     @classmethod
     def _discover_internal(cls) -> Dict[str, Type[BaseDetector]]:

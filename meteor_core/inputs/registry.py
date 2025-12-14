@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Type, Union
 
+from ..plugin_registry import _PLUGIN_KIND_INPUT
 from ..plugin_registry_base import PluginRegistryBase
 from ..schema import DEFAULT_LOADER_NAME
 from .base import BaseInputLoader, _is_valid_input_loader
@@ -48,7 +49,7 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
         >>> LoaderRegistry.unregister("my_custom")
     """
 
-    _plugin_kind = "loader"
+    _plugin_kind = _PLUGIN_KIND_INPUT
 
     @classmethod
     def _discover_internal(cls) -> Dict[str, Type[BaseInputLoader]]:

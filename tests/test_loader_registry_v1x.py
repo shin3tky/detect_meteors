@@ -131,7 +131,7 @@ class TestLoaderRegistryRegister(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             LoaderRegistry.register(NotALoader)  # type: ignore
 
-        self.assertIn("Invalid loader class", str(ctx.exception))
+        self.assertIn("Invalid input loader class", str(ctx.exception))
 
     def test_register_empty_plugin_name_raises(self):
         """register() raises ValueError for empty plugin_name."""
