@@ -26,7 +26,8 @@ from .file_handler import FileOutputHandler
 PLUGIN_GROUP = "detect_meteors.output"
 PLUGIN_DIR = Path.home() / ".detect_meteors" / "output_plugins"
 
-# Classes to skip during discovery (base classes)
+# Classes to skip during discovery (base classes).
+# Keep this list aligned with abstract bases to avoid registering helpers.
 _SKIP_CLASSES = frozenset(
     {
         "BaseOutputHandler",

@@ -76,3 +76,31 @@ class MyDetector(BaseDetector):
   `model_validate()` (Pydantic v2) or `parse_obj()` (v1).
 - Passing extra keys in the dict triggers a validation error when the model is
   configured with `extra="forbid"`.
+
+## Plugin lifecycle and hooks
+
+The three plugin kinds share a common lifecycle to keep authoring consistent:
+
+1. **Discovery order** — Registries register built-ins first, then entry points
+   (sorted by entry-point name), then files in the user plugin directory
+   (alphabetical). Duplicate `plugin_name` values are warned and skipped,
+   preserving deterministic resolution.
+2. **Config coercion** — Registry `create()`/`create_default()` methods convert
+   `dict` inputs into `ConfigType` (dataclass or Pydantic) and call the plugin
+   constructor. Supplying `None` defaults to `ConfigType()`; missing
+   `ConfigType` values cause `create_default()` to raise for clarity.
+3. **Default construction** — All registries expose a consistent
+   `create_default(config: ConfigType | dict | None = None)` signature to build
+   the default handler with optional overrides via normal coercion rules. The
+   output registry also offers `create_default_with_paths()` for the common
+   folder override use case while keeping `create_default()` symmetric.
+
+Output handlers provide additional optional progress hooks that other plugin
+kinds do not implement:
+
+- `on_candidate_detected(filename, saved, score=0.0, aspect_ratio=0.0)`
+- `on_batch_complete(processed_count, detected_count, batch_size)`
+- `on_pipeline_complete(total_processed, total_detected, elapsed_seconds)`
+
+These hooks are no-ops by default; override them to integrate notifications or
+pipeline metrics without affecting the primary save logic.

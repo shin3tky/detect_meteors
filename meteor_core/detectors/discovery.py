@@ -164,10 +164,18 @@ def discover_detectors(
         stacklevel=2,
     )
 
-    return _discover_detectors_internal(plugin_dir)
+    return _discover_handlers_internal(plugin_dir)
 
 
 def _discover_detectors_internal(
+    plugin_dir: Path | None = None,
+) -> Dict[str, Type[BaseDetector]]:
+    """Compatibility wrapper retained for legacy imports."""
+
+    return _discover_handlers_internal(plugin_dir)
+
+
+def _discover_handlers_internal(
     plugin_dir: Path | None = None,
 ) -> Dict[str, Type[BaseDetector]]:
     """Internal discovery function used by DetectorRegistry.

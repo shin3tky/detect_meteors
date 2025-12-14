@@ -62,9 +62,9 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
     def _discover_internal(cls) -> Dict[str, Type[BaseDetector]]:
         # Import here to avoid circular dependency
         # Keep plugin directory path in sync with meteor_core.detectors.discovery.PLUGIN_DIR
-        from .discovery import _discover_detectors_internal
+        from .discovery import _discover_handlers_internal
 
-        return _discover_detectors_internal()
+        return _discover_handlers_internal()
 
     @classmethod
     def _is_valid_plugin(cls, detector_cls: Type[BaseDetector]) -> bool:
@@ -108,27 +108,27 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
         return detector_cls(coerced_config)
 
     @classmethod
-    def create_default(cls) -> BaseDetector:
+    def create_default(
+        cls, config: Optional[Union[Dict[str, Any], Any]] = None
+    ) -> BaseDetector:
         """Create the default detector using its default configuration.
 
         The default detector must define a zero-argument ``ConfigType`` that
-        returns a fully populated configuration. This ensures the default
-        instance always reflects the canonical settings shipped with the
-        plugin. If a default ``ConfigType`` is missing, a ``TypeError`` is
-        raised so callers are aware the defaults are incomplete.
+        returns a fully populated configuration. Callers can optionally supply a
+        config object or mapping, which will be coerced using :meth:`create`
+        semantics.
 
         Returns:
             Default detector instance (currently "hough" detector).
         """
         detector_cls = cls.get(DEFAULT_DETECTOR_NAME)
-        config_type = getattr(detector_cls, "ConfigType", None)
-        if config_type is None:
+        coerced_config = cls._coerce_config(detector_cls, config)
+        if coerced_config is None:
             raise TypeError(
                 "Default detector does not define ConfigType; cannot create default."
             )
 
-        config = config_type()
-        return detector_cls(config)
+        return detector_cls(coerced_config)
 
 
 __all__ = ["DetectorRegistry"]

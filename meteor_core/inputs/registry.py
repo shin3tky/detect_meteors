@@ -63,9 +63,9 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
     def _discover_internal(cls) -> Dict[str, Type[BaseInputLoader]]:
         # Import here to avoid circular dependency
         # Keep plugin directory path in sync with meteor_core.inputs.discovery.PLUGIN_DIR
-        from .discovery import _discover_loaders_internal
+        from .discovery import _discover_handlers_internal
 
-        return _discover_loaders_internal()
+        return _discover_handlers_internal()
 
     @classmethod
     def _is_valid_plugin(cls, loader_cls: Type[BaseInputLoader]) -> bool:
@@ -111,24 +111,25 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
         return loader_cls(coerced_config)
 
     @classmethod
-    def create_default(cls) -> BaseInputLoader:
+    def create_default(
+        cls, config: Optional[Union[Dict[str, Any], Any]] = None
+    ) -> BaseInputLoader:
         """Create the default loader with default config.
 
         The default loader must expose a zero-argument ``ConfigType`` that
-        yields a complete configuration. The instance is built from that
-        constructor so callers always start from the canonical defaults; if no
-        such ``ConfigType`` exists, a ``TypeError`` is raised.
+        yields a complete configuration. Callers can optionally supply a config
+        object or mapping, which will be coerced using the same rules as
+        :meth:`create`.
         """
 
         loader_cls = cls.get(DEFAULT_LOADER_NAME)
-        config_type = getattr(loader_cls, "ConfigType", None)
-        if config_type is None:
+        coerced_config = cls._coerce_config(loader_cls, config)
+        if coerced_config is None:
             raise TypeError(
                 "Default loader does not define ConfigType; cannot create default."
             )
 
-        config = config_type()
-        return loader_cls(config)
+        return loader_cls(coerced_config)
 
 
 __all__ = ["LoaderRegistry"]

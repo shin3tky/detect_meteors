@@ -66,9 +66,9 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
     def _discover_internal(cls) -> Dict[str, Type[BaseOutputHandler]]:
         # Import here to avoid circular dependency
         # Keep plugin directory path in sync with meteor_core.outputs.discovery.PLUGIN_DIR
-        from .discovery import _discover_output_handlers_internal
+        from .discovery import _discover_handlers_internal
 
-        return _discover_output_handlers_internal()
+        return _discover_handlers_internal()
 
     @classmethod
     def _is_valid_plugin(cls, handler_cls: Type[BaseOutputHandler]) -> bool:
@@ -116,35 +116,77 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
     @classmethod
     def create_default(
         cls,
+        config: Optional[Union[Dict[str, Any], Any]] = None,
         *,
         output_folder: Optional[str] = None,
         debug_folder: Optional[str] = None,
         output_overwrite: Optional[bool] = None,
     ) -> BaseOutputHandler:
-        """Create the default handler using its ConfigType defaults.
+        """Create the default handler using its canonical defaults.
 
-        The default configuration is built by calling ``ConfigType()`` and then
-        overriding any provided parameters. Folders can be customized without
-        losing other defaults defined on the ConfigType. A missing ConfigType
-        triggers an error to surface incomplete default definitions early.
+        The default handler must expose a zero-argument ``ConfigType`` that
+        yields a fully populated configuration. Callers can optionally supply a
+        config object or mapping, which will be coerced via ``_coerce_config``
+        to honor the same semantics as :meth:`create`. Path-related overrides
+        remain supported for compatibility; they are applied after config
+        coercion when the underlying ``ConfigType`` exposes matching fields.
         """
 
         handler_cls = cls.get(DEFAULT_OUTPUT_HANDLER_NAME)
-        config_type = getattr(handler_cls, "ConfigType", None)
-        config = config_type() if config_type else None
-        if config is None:
+        coerced_config = cls._coerce_config(handler_cls, config)
+        if coerced_config is None:
             raise TypeError(
                 "Default output handler does not define ConfigType; cannot create default."
             )
 
+        cls._apply_path_overrides(
+            coerced_config,
+            output_folder=output_folder,
+            debug_folder=debug_folder,
+            output_overwrite=output_overwrite,
+        )
+
+        return handler_cls(coerced_config)
+
+    @classmethod
+    def create_default_with_paths(
+        cls,
+        *,
+        output_folder: Optional[str] = None,
+        debug_folder: Optional[str] = None,
+        output_overwrite: Optional[bool] = None,
+    ) -> BaseOutputHandler:
+        """Create the default handler while overriding common path settings."""
+
+        return cls.create_default(
+            None,
+            output_folder=output_folder,
+            debug_folder=debug_folder,
+            output_overwrite=output_overwrite,
+        )
+
+    @staticmethod
+    def _apply_path_overrides(
+        config: Any,
+        *,
+        output_folder: Optional[str],
+        debug_folder: Optional[str],
+        output_overwrite: Optional[bool],
+    ) -> None:
+        """Apply folder/overwrite overrides when the config exposes the fields."""
+
         if output_folder is not None:
+            if not hasattr(config, "output_folder"):
+                raise AttributeError("ConfigType is missing 'output_folder' field")
             config.output_folder = output_folder
         if debug_folder is not None:
+            if not hasattr(config, "debug_folder"):
+                raise AttributeError("ConfigType is missing 'debug_folder' field")
             config.debug_folder = debug_folder
         if output_overwrite is not None:
+            if not hasattr(config, "output_overwrite"):
+                raise AttributeError("ConfigType is missing 'output_overwrite' field")
             config.output_overwrite = output_overwrite
-
-        return handler_cls(config)
 
 
 __all__ = ["OutputHandlerRegistry"]

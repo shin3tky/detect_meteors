@@ -30,6 +30,9 @@ class BaseInputLoader(ABC, Generic[ConfigType]):
     All input loaders must inherit from this class to be discoverable
     and usable by the detection pipeline.
 
+    See :doc:`PLUGIN_AUTHOR_GUIDE` for lifecycle details shared across
+    plugin kinds (discovery order, config coercion, and hooks).
+
     Subclasses must define:
         - plugin_name: str - Unique identifier for the loader
         - load(filepath: str) -> Any - The loading method

@@ -26,7 +26,8 @@ from .raw import RawImageLoader
 PLUGIN_GROUP = "detect_meteors.input"
 PLUGIN_DIR = Path.home() / ".detect_meteors" / "input_plugins"
 
-# Classes to skip during discovery (base classes)
+# Classes to skip during discovery (base classes).
+# Keep this list aligned with abstract bases to avoid registering helpers.
 _SKIP_CLASSES = frozenset(
     {
         "BaseInputLoader",
@@ -162,10 +163,24 @@ def discover_loaders(
         stacklevel=2,
     )
 
-    return _discover_loaders_internal(plugin_dir)
+    return _discover_handlers_internal(plugin_dir)
 
 
 def _discover_loaders_internal(
+    plugin_dir: Path | None = None,
+) -> Dict[str, Type[BaseInputLoader]]:
+    """Compatibility wrapper retained for legacy imports.
+
+    Historically ``LoaderRegistry`` imported ``_discover_loaders_internal``.
+    The shared implementation now lives in ``_discover_handlers_internal``;
+    this wrapper delegates to preserve backward compatibility while
+    centralizing discovery logic under a single name.
+    """
+
+    return _discover_handlers_internal(plugin_dir)
+
+
+def _discover_handlers_internal(
     plugin_dir: Path | None = None,
 ) -> Dict[str, Type[BaseInputLoader]]:
     """Internal discovery function used by LoaderRegistry.

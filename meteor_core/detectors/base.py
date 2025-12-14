@@ -33,6 +33,9 @@ class BaseDetector(ABC):
     This class defines the interface that all detector implementations must follow.
     Subclasses should implement the `detect` method to perform the actual detection.
 
+    See :doc:`PLUGIN_AUTHOR_GUIDE` for lifecycle details shared across
+    plugin kinds (discovery order, config coercion, and hooks).
+
     Attributes:
         plugin_name: Unique identifier for the detector plugin (used in registry)
         name: Human-readable name of the detector
