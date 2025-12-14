@@ -20,6 +20,7 @@ import cv2
 import numpy as np
 
 from .base import DataclassOutputHandler
+from ..schema import DEFAULT_DEBUG_FOLDER, DEFAULT_OUTPUT_FOLDER
 
 
 @dataclass
@@ -33,10 +34,10 @@ class FileOutputConfig:
     """
 
     #: Directory for candidate files
-    output_folder: str
+    output_folder: str = DEFAULT_OUTPUT_FOLDER
 
     #: Directory for debug images
-    debug_folder: str
+    debug_folder: str = DEFAULT_DEBUG_FOLDER
 
     #: Whether to overwrite existing files
     output_overwrite: bool = False

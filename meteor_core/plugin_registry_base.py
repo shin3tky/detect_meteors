@@ -20,6 +20,12 @@ class PluginRegistryBase(Generic[PluginType]):
 
     Subclasses must implement `_discover_internal` and `_is_valid_plugin` to
     supply discovery logic and validation for their specific plugin type.
+
+    Registry consumers follow a shared convention for configuration objects:
+    plugins expose a ``ConfigType`` attribute, and its constructor accepts all
+    required fields while optional settings carry defaults. Helpers such as
+    ``create_default`` are expected to build configurations via ``ConfigType()``
+    and then override parameters as needed.
     """
 
     _plugin_kind: str = "plugin"

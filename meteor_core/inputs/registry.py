@@ -99,9 +99,16 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
 
     @classmethod
     def create_default(cls) -> BaseInputLoader:
-        """Create the default loader with default config."""
+        """Create the default loader with default config.
 
-        return cls.create(DEFAULT_LOADER_NAME)
+        This constructs the default loader's ConfigType instance with its own
+        defaults before instantiating the loader.
+        """
+
+        loader_cls = cls.get(DEFAULT_LOADER_NAME)
+        config_type = getattr(loader_cls, "ConfigType", None)
+        config = config_type() if config_type else None
+        return loader_cls(config)
 
 
 __all__ = ["LoaderRegistry"]

@@ -104,20 +104,33 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
     def create_default(
         cls,
         *,
-        output_folder: str,
-        debug_folder: str,
-        output_overwrite: bool = False,
+        output_folder: Optional[str] = None,
+        debug_folder: Optional[str] = None,
+        output_overwrite: Optional[bool] = None,
     ) -> BaseOutputHandler:
-        """Create the default handler with explicit folder configuration."""
+        """Create the default handler using its ConfigType defaults.
 
-        return cls.create(
-            DEFAULT_OUTPUT_HANDLER_NAME,
-            {
-                "output_folder": output_folder,
-                "debug_folder": debug_folder,
-                "output_overwrite": output_overwrite,
-            },
-        )
+        The default configuration is built by calling ``ConfigType()`` and then
+        overriding any provided parameters. Folders can be customized without
+        losing other defaults defined on the ConfigType.
+        """
+
+        handler_cls = cls.get(DEFAULT_OUTPUT_HANDLER_NAME)
+        config_type = getattr(handler_cls, "ConfigType", None)
+        config = config_type() if config_type else None
+        if config is None:
+            raise TypeError(
+                "Default output handler does not define ConfigType; cannot create default."
+            )
+
+        if output_folder is not None:
+            config.output_folder = output_folder
+        if debug_folder is not None:
+            config.debug_folder = debug_folder
+        if output_overwrite is not None:
+            config.output_overwrite = output_overwrite
+
+        return handler_cls(config)
 
 
 __all__ = ["OutputHandlerRegistry"]

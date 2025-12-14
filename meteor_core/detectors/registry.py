@@ -96,12 +96,15 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
 
     @classmethod
     def create_default(cls) -> BaseDetector:
-        """Create the default detector.
+        """Create the default detector using its default configuration.
 
         Returns:
             Default detector instance (currently "hough" detector).
         """
-        return cls.create(DEFAULT_DETECTOR_NAME)
+        detector_cls = cls.get(DEFAULT_DETECTOR_NAME)
+        config_type = getattr(detector_cls, "ConfigType", None)
+        config = config_type() if config_type else None
+        return detector_cls(config)
 
 
 __all__ = ["DetectorRegistry"]

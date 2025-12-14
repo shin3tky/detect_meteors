@@ -11,6 +11,7 @@ import importlib.util
 import tempfile
 import unittest
 import warnings
+from tempfile import TemporaryDirectory
 from pathlib import Path
 
 from meteor_core.outputs.registry import OutputHandlerRegistry
@@ -21,7 +22,11 @@ from meteor_core.outputs.base import (
     forbid_unknown_keys,
 )
 from meteor_core.outputs.file_handler import FileOutputHandler, FileOutputConfig
-from meteor_core.schema import DEFAULT_OUTPUT_HANDLER_NAME
+from meteor_core.schema import (
+    DEFAULT_DEBUG_FOLDER,
+    DEFAULT_OUTPUT_FOLDER,
+    DEFAULT_OUTPUT_HANDLER_NAME,
+)
 
 _PYDANTIC_AVAILABLE = importlib.util.find_spec("pydantic") is not None
 if _PYDANTIC_AVAILABLE:
@@ -369,21 +374,43 @@ class TestOutputHandlerRegistryCreateDefault(unittest.TestCase):
 
     def test_create_default_returns_file_handler(self):
         """create_default() returns FileOutputHandler instance."""
-        handler = OutputHandlerRegistry.create_default(
-            output_folder="/tmp/out",
-            debug_folder="/tmp/dbg",
-        )
-        self.assertIsInstance(handler, FileOutputHandler)
-        self.assertEqual(handler.plugin_name, DEFAULT_OUTPUT_HANDLER_NAME)
+        with (
+            TemporaryDirectory() as output_folder,
+            TemporaryDirectory() as debug_folder,
+        ):
+            handler = OutputHandlerRegistry.create_default(
+                output_folder=output_folder,
+                debug_folder=debug_folder,
+            )
+            self.assertIsInstance(handler, FileOutputHandler)
+            self.assertEqual(handler.plugin_name, DEFAULT_OUTPUT_HANDLER_NAME)
+            self.assertEqual(handler.config.output_folder, output_folder)
+            self.assertEqual(handler.config.debug_folder, debug_folder)
 
     def test_create_default_respects_overwrite_flag(self):
         """create_default() passes output_overwrite to config."""
-        handler = OutputHandlerRegistry.create_default(
-            output_folder="/tmp/out",
-            debug_folder="/tmp/dbg",
-            output_overwrite=True,
-        )
-        self.assertTrue(handler.config.output_overwrite)
+        with (
+            TemporaryDirectory() as output_folder,
+            TemporaryDirectory() as debug_folder,
+        ):
+            handler = OutputHandlerRegistry.create_default(
+                output_folder=output_folder,
+                debug_folder=debug_folder,
+                output_overwrite=True,
+            )
+            self.assertTrue(handler.config.output_overwrite)
+
+    def test_create_default_uses_config_defaults_when_not_overridden(self):
+        """create_default() seeds config from ConfigType defaults."""
+        with (
+            TemporaryDirectory() as output_folder,
+            TemporaryDirectory() as debug_folder,
+        ):
+            handler = OutputHandlerRegistry.create_default(
+                output_folder=output_folder,
+                debug_folder=debug_folder,
+            )
+            self.assertFalse(handler.config.output_overwrite)
 
 
 class TestOutputHandlerRegistryCoerceConfig(unittest.TestCase):
@@ -406,10 +433,12 @@ class TestOutputHandlerRegistryCoerceConfig(unittest.TestCase):
         self.assertIsInstance(config, FileOutputConfig)
         self.assertEqual(config.output_folder, "/tmp/o")
 
-    def test_coerce_none_with_required_fields_raises(self):
-        """_coerce_config() raises TypeError when None and required fields exist."""
-        with self.assertRaises(TypeError):
-            OutputHandlerRegistry._coerce_config(FileOutputHandler, None)
+    def test_coerce_none_uses_defaults(self):
+        """_coerce_config() creates default config when ConfigType has defaults."""
+        config = OutputHandlerRegistry._coerce_config(FileOutputHandler, None)
+        self.assertIsInstance(config, FileOutputConfig)
+        self.assertEqual(config.output_folder, DEFAULT_OUTPUT_FOLDER)
+        self.assertEqual(config.debug_folder, DEFAULT_DEBUG_FOLDER)
 
     def test_coerce_passthrough_correct_type(self):
         """_coerce_config() passes through correct type unchanged."""
