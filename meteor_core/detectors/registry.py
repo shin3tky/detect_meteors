@@ -10,6 +10,14 @@ Registry for detector plugins with discovery, registration, and instantiation.
 This module provides a centralized registry for managing detectors,
 supporting both automatic discovery (via entry points and plugin directory)
 and runtime registration for testing and dynamic plugins.
+
+Developer guidance
+------------------
+Use ``create`` when providing explicit configuration that may need to be
+coerced into the detector's ``ConfigType``. ``create_default`` is reserved for
+the built-in default detector and assumes its ``ConfigType`` can be
+instantiated with no arguments to supply a full default configuration; the
+method raises when that contract is not met.
 """
 
 from __future__ import annotations
@@ -74,6 +82,10 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
     ) -> BaseDetector:
         """Create a detector instance.
 
+        Select this method when you need to override default settings; the
+        registry will coerce dictionaries into ``ConfigType`` instances where
+        possible before constructing the detector.
+
         Args:
             name: Detector plugin_name.
             config: Configuration for the detector. Can be:
@@ -99,12 +111,23 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
     def create_default(cls) -> BaseDetector:
         """Create the default detector using its default configuration.
 
+        The default detector must define a zero-argument ``ConfigType`` that
+        returns a fully populated configuration. This ensures the default
+        instance always reflects the canonical settings shipped with the
+        plugin. If a default ``ConfigType`` is missing, a ``TypeError`` is
+        raised so callers are aware the defaults are incomplete.
+
         Returns:
             Default detector instance (currently "hough" detector).
         """
         detector_cls = cls.get(DEFAULT_DETECTOR_NAME)
         config_type = getattr(detector_cls, "ConfigType", None)
-        config = config_type() if config_type else None
+        if config_type is None:
+            raise TypeError(
+                "Default detector does not define ConfigType; cannot create default."
+            )
+
+        config = config_type()
         return detector_cls(config)
 
 

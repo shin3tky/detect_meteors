@@ -27,7 +27,11 @@ class PluginRegistryBase(Generic[PluginType]):
     plugins expose a ``ConfigType`` attribute, and its constructor accepts all
     required fields while optional settings carry defaults. Helpers such as
     ``create_default`` are expected to build configurations via ``ConfigType()``
-    and then override parameters as needed.
+    and then override parameters as needed. ``create_default`` assumes that
+    ``ConfigType`` can be instantiated without arguments to produce a complete
+    default configuration; implementations raise clear errors when that
+    contract is not satisfied so callers are not left with partially defined
+    defaults.
     """
 
     _plugin_kind: str = _PLUGIN_KIND_GENERIC

@@ -10,6 +10,14 @@ Registry for output handler plugins with discovery, registration, and instantiat
 This module provides a centralized registry for managing output handlers,
 supporting both automatic discovery (via entry points and plugin directory)
 and runtime registration for testing and dynamic plugins.
+
+Developer guidance
+------------------
+Call ``create`` when overriding configuration explicitly so that the registry
+can coerce dictionaries into the handler's ``ConfigType``. ``create_default``
+is reserved for the built-in default handler and assumes its ``ConfigType``
+constructor yields a fully populated configuration; it raises if no such
+defaults exist to avoid silently skipping required values.
 """
 
 from __future__ import annotations
@@ -78,6 +86,10 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
     ) -> BaseOutputHandler:
         """Create a handler instance with config coercion.
 
+        Use this when you need to supply custom settings. The registry will
+        coerce dictionaries into ``ConfigType`` instances when supported by the
+        handler, ensuring type-appropriate initialization.
+
         Args:
             name: Handler plugin_name.
             config: Configuration for the handler. Can be:
@@ -113,7 +125,8 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
 
         The default configuration is built by calling ``ConfigType()`` and then
         overriding any provided parameters. Folders can be customized without
-        losing other defaults defined on the ConfigType.
+        losing other defaults defined on the ConfigType. A missing ConfigType
+        triggers an error to surface incomplete default definitions early.
         """
 
         handler_cls = cls.get(DEFAULT_OUTPUT_HANDLER_NAME)

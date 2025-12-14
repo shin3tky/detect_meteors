@@ -8,11 +8,24 @@
 Default meteor detector using Hough line transform.
 """
 
-import cv2
-import numpy as np
+from dataclasses import dataclass
 from typing import Tuple, List, Optional, Dict, Any
 
+import cv2
+import numpy as np
+
 from .base import BaseDetector
+
+
+@dataclass
+class HoughDetectorConfig:
+    """Default configuration placeholder for :class:`HoughDetector`."""
+
+    # The default Hough detector currently relies on runtime parameters provided
+    # by the pipeline, so no fields are necessary. This dataclass exists to
+    # satisfy registry expectations for a zero-argument ``ConfigType`` that
+    # yields a complete default configuration.
+    pass
 
 
 class HoughDetector(BaseDetector):
@@ -31,13 +44,16 @@ class HoughDetector(BaseDetector):
     name: str = "HoughDetector"
     version: str = "1.0.0"
 
-    def __init__(self, config: Optional[Any] = None):
+    ConfigType = HoughDetectorConfig
+
+    def __init__(self, config: Optional[HoughDetectorConfig] = None):
         """Initialize the Hough detector.
 
         Args:
             config: Optional configuration to align with registry expectations.
                 Currently unused because the default detector is parameter-free.
         """
+        self.config = config or HoughDetectorConfig()
         # Pre-create morphology kernel (reused across detections)
         self._kernel = np.ones((3, 3), np.uint8)
 

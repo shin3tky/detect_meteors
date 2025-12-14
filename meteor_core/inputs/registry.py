@@ -10,6 +10,14 @@ Registry for input loader plugins with discovery, registration, and instantiatio
 This module provides a centralized registry for managing input loaders,
 supporting both automatic discovery (via entry points and plugin directory)
 and runtime registration for testing and dynamic plugins.
+
+Developer guidance
+------------------
+``create`` should be used when a caller supplies explicit configuration and
+wants registry-level coercion (e.g., converting a dict into ``ConfigType``).
+``create_default`` exists to build the default loader from its zero-argument
+``ConfigType`` constructor; if a loader does not expose such defaults, the
+method raises to avoid silently constructing an incomplete instance.
 """
 
 from __future__ import annotations
@@ -75,6 +83,10 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
     ) -> BaseInputLoader:
         """Create a loader instance with config coercion.
 
+        Prefer this method when the caller needs to control configuration
+        values explicitly; the registry will coerce dictionaries into
+        ``ConfigType`` instances where available.
+
         Args:
             name: Loader plugin_name.
             config: Configuration for the loader. Can be:
@@ -102,13 +114,20 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
     def create_default(cls) -> BaseInputLoader:
         """Create the default loader with default config.
 
-        This constructs the default loader's ConfigType instance with its own
-        defaults before instantiating the loader.
+        The default loader must expose a zero-argument ``ConfigType`` that
+        yields a complete configuration. The instance is built from that
+        constructor so callers always start from the canonical defaults; if no
+        such ``ConfigType`` exists, a ``TypeError`` is raised.
         """
 
         loader_cls = cls.get(DEFAULT_LOADER_NAME)
         config_type = getattr(loader_cls, "ConfigType", None)
-        config = config_type() if config_type else None
+        if config_type is None:
+            raise TypeError(
+                "Default loader does not define ConfigType; cannot create default."
+            )
+
+        config = config_type()
         return loader_cls(config)
 
 
