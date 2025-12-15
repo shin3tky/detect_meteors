@@ -84,9 +84,20 @@
 ### Input/Output Plugin Infrastructure
 - [x] **v1.5.6** - Plugin-ready input/output foundation
   - [x] `InputLoader`/`MetadataExtractor` protocols with dataclass/Pydantic helper bases
-  - [x] Built-in `RawImageLoader` plugin plus discovery via entry points and `~/.detect_meteors/plugins`
+  - [x] Built-in `RawImageLoader` plugin plus discovery via entry points and `~/.detect_meteors/input_plugins` (renamed from `~/.detect_meteors/plugins` in v1.5.11)
   - [x] `PipelineConfig` and `DetectionPipeline` protocol to centralize orchestration and loader resolution
   - [x] `OutputHandler` protocol to standardize candidate/debug persistence
+
+### Progress Metadata & Quality Tooling
+- [x] **v1.5.7** - Enhanced `progress.json` with CLI parameters, ROI, and processing metadata
+- [x] **v1.5.8** - Added flake8 linting to complement Black formatting
+
+### Packaging Modernization
+- [x] **v1.5.9** - Migrated project configuration to PEP 621 `pyproject.toml`
+
+### Plugin Architecture Hardening
+- [x] **v1.5.10** - Migrated plugin interfaces from Protocol to ABC base classes
+- [x] **v1.5.11** - Unified plugin registry behavior and standardized plugin directories
 
 ### Remaining Goals for v1.x (-2025 4Q)
 - [ ] Camera model database for automatic sensor detection from EXIF
@@ -114,5 +125,5 @@
 
 ---
 
-**Current Status**: v1.5.6 (Input/Output Plugin Infrastructure)
+**Current Status**: v1.5.11 (Plugin registry consistency and metadata)
 **Next Focus**: Enhanced stability, plugin ecosystem hardening, and error handling
