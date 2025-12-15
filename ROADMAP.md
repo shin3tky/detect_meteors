@@ -99,6 +99,14 @@
 - [x] **v1.5.10** - Migrated plugin interfaces from Protocol to ABC base classes
 - [x] **v1.5.11** - Unified plugin registry behavior and standardized plugin directories
 
+### Development Tooling Modernization
+- [ ] **v1.6.0** - Migration to modern Python tooling
+  - [ ] Replace Black + flake8 with `ruff` (unified linter/formatter)
+  - [ ] Adopt `uv` for faster dependency management and virtual environment handling
+  - [ ] Update `pyproject.toml` for ruff configuration
+  - [ ] Update pre-commit hooks for ruff integration
+  - [ ] Update CI/CD workflows for uv + ruff
+
 ### Remaining Goals for v1.x (-2025 4Q)
 - [ ] Camera model database for automatic sensor detection from EXIF
 - [ ] Per-image adaptive parameter adjustment
