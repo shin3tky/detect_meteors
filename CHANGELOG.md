@@ -3,7 +3,7 @@
 ## v1.5.11 - 2025-12-15
 - **Cross-package consistency**: Unified plugin registry behaviors between `inputs` and `detectors` packages for consistent developer experience.
   - Case-insensitive lookup: Both `LoaderRegistry` and `DetectorRegistry` now support case-insensitive name lookup (`get("raw")`, `get("RAW")`, `get("Raw")` all return the same class).
-  - Plugin directory naming: Unified to `~/.detect_meteors/input_plugins/` and `~/.detect_meteors/detector_plugins/`.
+  - Plugin directory naming: Unified to `~/.detect_meteors/input_plugins/`, `~/.detect_meteors/detector_plugins/`, and `~/.detect_meteors/output_plugins/`.
   - Skip classes list: Added `Generic` and future-proofing entries (`DataclassDetector`, `PydanticDetector`) to both packages.
 - **BaseInputLoader enhancement**: Added `name`, `version` attributes and `get_info()` method to match `BaseDetector` interface, enabling uniform plugin metadata access.
 - **Config validation improvement**: `LoaderRegistry._coerce_config()` now raises explicit `TypeError` or `ValueError` on validation failures instead of returning `None`, providing early error detection with actionable messages.

@@ -84,7 +84,7 @@
 ### Input/Output Plugin Infrastructure
 - [x] **v1.5.6** - Plugin-ready input/output foundation
   - [x] `InputLoader`/`MetadataExtractor` protocols with dataclass/Pydantic helper bases
-  - [x] Built-in `RawImageLoader` plugin plus discovery via entry points and `~/.detect_meteors/input_plugins` (renamed from `~/.detect_meteors/plugins` in v1.5.11)
+  - [x] Built-in `RawImageLoader` plugin plus discovery via entry points and standardized plugin directories (`~/.detect_meteors/input_plugins`, `~/.detect_meteors/detector_plugins`, `~/.detect_meteors/output_plugins`; input path renamed from `~/.detect_meteors/plugins` in v1.5.11)
   - [x] `PipelineConfig` and `DetectionPipeline` protocol to centralize orchestration and loader resolution
   - [x] `OutputHandler` protocol to standardize candidate/debug persistence
 
