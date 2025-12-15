@@ -306,12 +306,9 @@ def _is_valid_output_handler(cls: type) -> bool:
     if not issubclass(cls, BaseOutputHandler):
         return False
 
-    # Must have a non-empty plugin_name
-    plugin_name = getattr(cls, "plugin_name", "")
-    if not plugin_name:
-        return False
-
-    return True
+    # Must have a non-empty string plugin_name
+    plugin_name = getattr(cls, "plugin_name", None)
+    return isinstance(plugin_name, str) and bool(plugin_name)
 
 
 __all__ = [

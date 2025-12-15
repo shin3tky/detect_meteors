@@ -8,7 +8,14 @@
 Detector implementations for meteor detection.
 """
 
-from .base import BaseDetector, DataclassDetector, PydanticDetector, _is_valid_detector
+from .base import (
+    BaseDetector,
+    ConfigType,
+    DataclassDetector,
+    PydanticDetector,
+    forbid_unknown_keys,
+    _is_valid_detector,
+)
 from .hough_default import HoughDetector, compute_line_score_fast
 from .simple_threshold import SimpleThresholdConfig, SimpleThresholdDetector
 from .registry import DetectorRegistry
@@ -20,8 +27,10 @@ from .discovery import discover_detectors
 __all__ = [
     # Base class
     "BaseDetector",
+    "ConfigType",
     "DataclassDetector",
     "PydanticDetector",
+    "forbid_unknown_keys",
     "_is_valid_detector",
     # Built-in detector
     "HoughDetector",
