@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 #
-# Detect Meteors CLI - Input Loader Discovery
+# Detect Meteors CLI - Output Handler Discovery
 # © 2025 Shinichi Morita (shin3tky)
 #
 
-"""Discovery utilities for input loader plugins."""
+"""Discovery utilities for output handler plugins."""
 
 from __future__ import annotations
 
@@ -20,20 +20,19 @@ try:  # pragma: no cover - fallback for older Python
 except ImportError:  # pragma: no cover
     import importlib_metadata as metadata  # type: ignore
 
-from .base import BaseInputLoader, _is_valid_input_loader
-from .raw import RawImageLoader
+from .base import BaseOutputHandler, _is_valid_output_handler
+from .file_handler import FileOutputHandler
 
-PLUGIN_GROUP = "detect_meteors.input"
-PLUGIN_DIR = Path.home() / ".detect_meteors" / "input_plugins"
+PLUGIN_GROUP = "detect_meteors.output"
+PLUGIN_DIR = Path.home() / ".detect_meteors" / "output_plugins"
 
 # Classes to skip during discovery (base classes).
 # Keep this list aligned with abstract bases to avoid registering helpers.
 _SKIP_CLASSES = frozenset(
     {
-        "BaseInputLoader",
-        "BaseMetadataExtractor",
-        "DataclassInputLoader",
-        "PydanticInputLoader",
+        "BaseOutputHandler",
+        "DataclassOutputHandler",
+        "PydanticOutputHandler",
         "ABC",
         "Generic",
     }
@@ -48,44 +47,43 @@ def _iter_entry_points() -> Iterable[metadata.EntryPoint]:
     return eps.get(PLUGIN_GROUP, [])  # type: ignore[return-value]
 
 
-def _add_loader(
-    registry: Dict[str, Type[BaseInputLoader]],
-    loader_cls: Type[BaseInputLoader],
+def _add_handler(
+    registry: Dict[str, Type[BaseOutputHandler]],
+    handler_cls: Type[BaseOutputHandler],
     origin: str,
 ) -> None:
-    """Add a loader class to the registry if valid.
+    """Add a handler class to the registry if valid.
 
     Args:
         registry: The registry dictionary to add to.
-        loader_cls: The loader class to potentially add.
-        origin: Description of where this loader came from (for warnings).
+        handler_cls: The handler class to potentially add.
+        origin: Description of where this handler came from (for warnings).
     """
     # Skip non-class objects (functions, modules, etc.)
-    if not inspect.isclass(loader_cls):
+    if not inspect.isclass(handler_cls):
         return
 
-    # Skip base classes and protocols themselves
-    if loader_cls.__name__ in _SKIP_CLASSES:
+    # Skip base classes
+    if handler_cls.__name__ in _SKIP_CLASSES:
         return
 
-    # Use structural check instead of issubclass for Protocol
-    # This is more reliable than isinstance/issubclass with Protocol
-    if not _is_valid_input_loader(loader_cls):
-        # Only warn for classes that look like they might be intended loaders
-        class_name_lower = loader_cls.__name__.lower()
-        if "loader" in class_name_lower or "input" in class_name_lower:
+    # Validate handler class
+    if not _is_valid_output_handler(handler_cls):
+        # Only warn for classes that look like they might be intended handlers
+        class_name_lower = handler_cls.__name__.lower()
+        if "handler" in class_name_lower or "output" in class_name_lower:
             warnings.warn(
-                f"Skipping loader from {origin}: {loader_cls.__module__}.{loader_cls.__name__} "
-                "does not inherit from BaseInputLoader (or missing plugin_name).",
+                f"Skipping handler from {origin}: {handler_cls.__module__}.{handler_cls.__name__} "
+                "does not inherit from BaseOutputHandler (or missing plugin_name).",
                 stacklevel=3,
             )
         return
 
     # Get plugin_name from the class
-    plugin_name = getattr(loader_cls, "plugin_name", "")
+    plugin_name = getattr(handler_cls, "plugin_name", "")
     if not plugin_name:
         warnings.warn(
-            f"Skipping loader from {origin}: {loader_cls.__name__} has empty plugin_name",
+            f"Skipping handler from {origin}: {handler_cls.__name__} has empty plugin_name",
             stacklevel=3,
         )
         return
@@ -97,13 +95,13 @@ def _add_loader(
     if plugin_name_lower in registry:
         existing = registry[plugin_name_lower]
         warnings.warn(
-            f"Duplicate loader name '{plugin_name}' from {origin}; "
+            f"Duplicate handler name '{plugin_name}' from {origin}; "
             f"keeping {existing.__module__}.{existing.__name__}",
             stacklevel=3,
         )
         return
 
-    registry[plugin_name_lower] = loader_cls
+    registry[plugin_name_lower] = handler_cls
 
 
 def _load_module_from_file(filepath: Path):
@@ -126,18 +124,18 @@ def _load_module_from_file(filepath: Path):
     raise ImportError(f"Could not load spec for {filepath}")
 
 
-def discover_loaders(
+def discover_handlers(
     plugin_dir: Path | None = None,
-) -> Dict[str, Type[BaseInputLoader]]:
-    """Discover available :class:`BaseInputLoader` implementations.
+) -> Dict[str, Type[BaseOutputHandler]]:
+    """Discover available :class:`BaseOutputHandler` implementations.
 
     .. deprecated::
-        Use :meth:`LoaderRegistry.discover` instead. This function will be
+        Use :meth:`OutputHandlerRegistry.discover` instead. This function will be
         removed in a future version.
 
     Discovery order is deterministic:
 
-    1. Built-in loaders are registered first
+    1. Built-in handlers are registered first
     2. Entry points sorted by entry-point name
     3. Plugin files in the local plugin directory sorted alphabetically
 
@@ -146,19 +144,20 @@ def discover_loaders(
 
     Args:
         plugin_dir: Optional custom plugin directory. Defaults to
-            ``~/.detect_meteors/input_plugins``.
+            ``~/.detect_meteors/output_plugins``.
 
     Returns:
-        Dictionary mapping plugin_name to loader class.
+        Dictionary mapping plugin_name to handler class.
 
     Example:
-        >>> loaders = discover_loaders()
-        >>> print(loaders.keys())
-        dict_keys(['raw', ...])
-        >>> RawLoader = loaders['raw']
+        >>> handlers = discover_handlers()
+        >>> print(handlers.keys())
+        dict_keys(['file', ...])
+        >>> FileHandler = handlers['file']
     """
     warnings.warn(
-        "discover_loaders() is deprecated. " "Use LoaderRegistry.discover() instead.",
+        "discover_handlers() is deprecated. "
+        "Use OutputHandlerRegistry.discover() instead.",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -166,15 +165,19 @@ def discover_loaders(
     return _discover_handlers_internal(plugin_dir)
 
 
-def _discover_loaders_internal(
+# NOTE:
+# ``OutputHandlerRegistry`` imports ``_discover_handlers_internal`` for its
+# discovery step. The wrapper below remains for legacy imports while keeping
+# a single implementation path.
+def _discover_output_handlers_internal(
     plugin_dir: Path | None = None,
-) -> Dict[str, Type[BaseInputLoader]]:
-    """Compatibility wrapper retained for legacy imports.
+) -> Dict[str, Type[BaseOutputHandler]]:
+    """Compatibility wrapper used by :class:`OutputHandlerRegistry`.
 
-    Historically ``LoaderRegistry`` imported ``_discover_loaders_internal``.
-    The shared implementation now lives in ``_discover_handlers_internal``;
-    this wrapper delegates to preserve backward compatibility while
-    centralizing discovery logic under a single name.
+    Historically the registry imported ``_discover_output_handlers_internal``.
+    The core implementation lives in ``_discover_handlers_internal``; this
+    wrapper simply delegates to it to avoid import errors while keeping a
+    single discovery code path.
     """
 
     return _discover_handlers_internal(plugin_dir)
@@ -182,48 +185,48 @@ def _discover_loaders_internal(
 
 def _discover_handlers_internal(
     plugin_dir: Path | None = None,
-) -> Dict[str, Type[BaseInputLoader]]:
-    """Internal discovery function used by LoaderRegistry.
+) -> Dict[str, Type[BaseOutputHandler]]:
+    """Internal discovery function used by OutputHandlerRegistry.
 
-    This is the core discovery implementation. It discovers loaders from:
-    1. Built-in loaders (e.g., RawImageLoader)
-    2. Entry points (detect_meteors.input group)
+    This is the core discovery implementation. It discovers handlers from:
+    1. Built-in handlers (e.g., FileOutputHandler)
+    2. Entry points (detect_meteors.output group)
     3. Plugin directory
 
     Args:
         plugin_dir: Optional custom plugin directory. If None, uses PLUGIN_DIR.
 
     Returns:
-        Dictionary mapping plugin_name to loader class.
+        Dictionary mapping plugin_name to handler class.
     """
     directory = plugin_dir if plugin_dir is not None else PLUGIN_DIR
 
-    registry: Dict[str, Type[BaseInputLoader]] = {}
+    registry: Dict[str, Type[BaseOutputHandler]] = {}
 
-    # 1. Register built-in loaders first
-    _add_loader(registry, RawImageLoader, "built-in RawImageLoader")
+    # 1. Register built-in handlers first
+    _add_handler(registry, FileOutputHandler, "built-in FileOutputHandler")
 
-    # 2. Register loaders from entry points (sorted for determinism)
+    # 2. Register handlers from entry points (sorted for determinism)
     for ep in sorted(_iter_entry_points(), key=lambda e: e.name):
         try:
-            loader_cls = ep.load()
+            handler_cls = ep.load()
         except Exception as exc:  # pragma: no cover
             warnings.warn(
-                f"Failed to load input loader entry point '{ep.name}' "
+                f"Failed to load output handler entry point '{ep.name}' "
                 f"from {ep.value}: {exc}",
                 stacklevel=2,
             )
             continue
-        _add_loader(registry, loader_cls, f"entry point {ep.name}")
+        _add_handler(registry, handler_cls, f"entry point {ep.name}")
 
-    # 3. Register loaders from plugin directory
+    # 3. Register handlers from plugin directory
     if directory.exists() and directory.is_dir():
         for path in sorted(directory.glob("*.py")):
             try:
                 module = _load_module_from_file(path)
             except Exception as exc:  # pragma: no cover
                 warnings.warn(
-                    f"Failed to load plugin module {path}: {exc}",
+                    f"Failed to load output handler plugin module {path}: {exc}",
                     stacklevel=2,
                 )
                 continue
@@ -232,9 +235,13 @@ def _discover_handlers_internal(
             for _, obj in inspect.getmembers(module, inspect.isclass):
                 # Only consider classes defined in this module (not imports)
                 if obj.__module__ == module.__name__:
-                    _add_loader(registry, obj, f"plugin file {path}")
+                    _add_handler(registry, obj, f"plugin file {path}")
 
     return registry
 
 
-__all__ = ["discover_loaders", "PLUGIN_DIR", "PLUGIN_GROUP"]
+__all__ = [
+    "discover_handlers",
+    "PLUGIN_DIR",
+    "PLUGIN_GROUP",
+]

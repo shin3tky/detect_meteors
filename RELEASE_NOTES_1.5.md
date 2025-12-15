@@ -1,5 +1,37 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.11 (2025-12-15)
+
+### 🔧 Cross-Package Consistency & Plugin Metadata
+
+Version 1.5.11 focuses on unifying plugin registry behaviors and improving the plugin development experience.
+
+### Highlights
+
+- **Case-insensitive registry lookup**: Both `LoaderRegistry` and `DetectorRegistry` now support case-insensitive name lookup (e.g., `get("raw")`, `get("RAW")`, `get("Raw")` all return the same class).
+- **Unified plugin directories**: Standardized naming convention for plugin directories (`~/.detect_meteors/input_plugins/`, `~/.detect_meteors/detector_plugins/`, `~/.detect_meteors/output_plugins/`).
+- **BaseInputLoader metadata**: Added `name`, `version` attributes and `get_info()` method to match `BaseDetector` interface.
+- **Early config validation**: Registry config coercion now raises explicit `TypeError` or `ValueError` instead of silently returning `None`.
+- **Deprecated function rename**: `discover_input_loaders()` renamed to `discover_loaders()` for naming consistency.
+
+### For Plugin Developers
+
+For detailed information on creating custom plugins, including complete examples and best practices, see [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md).
+
+### Migration Notes
+
+⚠️ **For plugin developers**:
+- Move plugins from `~/.detect_meteors/plugins/` to `~/.detect_meteors/input_plugins/`
+- Update imports if using `discover_input_loaders()` → use `LoaderRegistry.discover()` instead
+- Consider adding `name` and `version` attributes to your loaders for metadata consistency
+
+### Backward Compatibility
+
+✅ **Internal refactoring only** - no breaking changes to CLI or runtime behavior.
+
+
+---
+
 ## Version 1.5.10 (2025-12-11)
 
 ### 🏗️ Plugin Architecture: ABC Migration
@@ -24,7 +56,7 @@ Version 1.5.10 migrates all plugin interfaces from Protocol-based to Abstract Ba
 |----------------|-----------|----------|
 | `InputLoader` | `BaseInputLoader` | `meteor_core/inputs/base.py` |
 | `MetadataExtractor` | `BaseMetadataExtractor` | `meteor_core/inputs/base.py` |
-| `OutputHandler` | `BaseOutputHandler` | `meteor_core/outputs/handler.py` |
+| `OutputHandler` | `BaseOutputHandler` | `meteor_core/outputs/base.py` |
 | `BaseDetector` | `BaseDetector` (unchanged) | `meteor_core/detectors/base.py` |
 
 ### Class Hierarchy
@@ -39,10 +71,15 @@ BaseMetadataExtractor (ABC)
 └── RawImageLoader (multiple inheritance)
 
 BaseOutputHandler (ABC)
-└── OutputWriter
+├── DataclassOutputHandler (ABC + Generic)
+│   └── FileOutputHandler
+└── PydanticOutputHandler (ABC + Generic)
 
 BaseDetector (ABC)
-└── HoughDetector
+├── DataclassDetector (ABC + Generic)
+│   ├── HoughDetector
+│   └── SimpleThresholdDetector
+└── PydanticDetector (ABC + Generic)
 ```
 
 ### Creating Custom Plugins
@@ -111,13 +148,24 @@ class MyCustomDetector(BaseDetector):
 #### Custom Output Handler
 
 ```python
+from dataclasses import dataclass
 from typing import List, Optional
 import numpy as np
-from meteor_core.outputs.handler import BaseOutputHandler
+
+from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
 
 
-class MyCustomOutputHandler(BaseOutputHandler):
+@dataclass
+class CloudOutputConfig:
+    bucket_name: str
+    prefix: str = "meteors/"
+
+
+class MyCustomOutputHandler(DataclassOutputHandler[CloudOutputConfig]):
     """Custom output handler (e.g., for cloud storage)."""
+
+    plugin_name = "cloud"
+    ConfigType = CloudOutputConfig
 
     def save_candidate(
         self,
@@ -127,8 +175,7 @@ class MyCustomOutputHandler(BaseOutputHandler):
         roi_polygon: Optional[List[List[int]]] = None,
     ) -> bool:
         """Save a meteor candidate."""
-        # Your implementation here
-        pass
+        return True
 
     def save_debug_image(
         self,
@@ -137,8 +184,12 @@ class MyCustomOutputHandler(BaseOutputHandler):
         roi_polygon: Optional[List[List[int]]] = None,
     ) -> str:
         """Save a debug visualization."""
-        # Your implementation here
-        pass
+        return f"s3://{self.config.bucket_name}/{self.config.prefix}{filename}"
+
+
+OutputHandlerRegistry.register(MyCustomOutputHandler)
+handler = OutputHandlerRegistry.create("cloud", {"bucket_name": "my-bucket"})
+handler.save_candidate("/tmp/source.CR2", "source.CR2")
 ```
 
 ### Benefits for Plugin Developers
@@ -156,7 +207,7 @@ class MyCustomOutputHandler(BaseOutputHandler):
 | `meteor_core/inputs/raw.py` | Updated inheritance |
 | `meteor_core/inputs/__init__.py` | Updated exports |
 | `meteor_core/inputs/discovery.py` | Updated type hints and skip classes |
-| `meteor_core/outputs/handler.py` | `OutputHandler` → `BaseOutputHandler` |
+| `meteor_core/outputs/base.py` | `OutputHandler` → `BaseOutputHandler` |
 | `meteor_core/outputs/writer.py` | Updated inheritance |
 | `meteor_core/outputs/__init__.py` | Updated exports |
 | `meteor_core/__init__.py` | Updated exports |
@@ -1240,7 +1291,16 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 
 ## Version Information
 
-- **Latest Version**: 1.5.10
+- **Latest Version**: 1.5.11
+- **Release Date**: 2025-12-15
+- **Major Changes**:
+  - Cross-package consistency for plugin registries
+  - Case-insensitive registry lookup
+  - BaseInputLoader metadata enhancement (`name`, `version`, `get_info()`)
+  - Early config validation with explicit errors
+  - Plugin directory naming standardization
+
+- **Version**: 1.5.10
 - **Release Date**: 2025-12-11
 - **Major Changes**:
   - Plugin architecture migrated from Protocol to ABC

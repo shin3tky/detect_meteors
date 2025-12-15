@@ -10,22 +10,46 @@ Provides a plugin interface for different detection algorithms.
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Any, Optional, Dict
-import numpy as np
+from dataclasses import is_dataclass
+import importlib.util
+from typing import Tuple, List, Any, Optional, Dict, Generic, Type, TypeVar
+
+from meteor_core.plugin_contract import (
+    forbid_unknown_keys as _forbid_unknown_keys,
+    require_config_type,
+    require_plugin_name,
+)
+
+ConfigType = TypeVar("ConfigType")
+
+_PYDANTIC_SPEC = importlib.util.find_spec("pydantic")
+if _PYDANTIC_SPEC:
+    from pydantic import BaseModel
+else:
+    BaseModel = None
+import numpy as np  # noqa: E402
 
 
-class BaseDetector(ABC):
+forbid_unknown_keys = _forbid_unknown_keys
+
+
+class BaseDetector(ABC, Generic[ConfigType]):
     """
     Abstract base class for meteor detection algorithms.
 
     This class defines the interface that all detector implementations must follow.
     Subclasses should implement the `detect` method to perform the actual detection.
 
+    See :doc:`PLUGIN_AUTHOR_GUIDE` for lifecycle details shared across
+    plugin kinds (discovery order, config coercion, and hooks).
+
     Attributes:
+        plugin_name: Unique identifier for the detector plugin (used in registry)
         name: Human-readable name of the detector
         version: Version string of the detector
     """
 
+    plugin_name: str = ""  # Must be overridden by subclasses
     name: str = "BaseDetector"
     version: str = "1.0.0"
 
@@ -94,6 +118,7 @@ class BaseDetector(ABC):
             Dictionary with detector metadata
         """
         return {
+            "plugin_name": self.plugin_name,
             "name": self.name,
             "version": self.version,
             "class": self.__class__.__name__,
@@ -127,3 +152,96 @@ class BaseDetector(ABC):
                 return False
 
         return True
+
+
+class DataclassDetector(BaseDetector[ConfigType], Generic[ConfigType]):
+    """Base class for detectors configured by dataclasses.
+
+    Subclasses must define ``plugin_name`` and ``ConfigType`` (a dataclass
+    type). During initialization, ``require_plugin_name`` verifies the
+    subclass declares a non-empty plugin identifier for registry discovery
+    while ``require_config_type`` fetches the declared configuration type so
+    that the incoming ``config`` instance can be type-checked.
+
+    The validation sequence mirrors :class:`meteor_core.inputs.base.DataclassInputLoader`
+    and :class:`meteor_core.outputs.base.DataclassOutputHandler`:
+
+    1. Verify the plugin name is present.
+    2. Fetch ``ConfigType`` and ensure it is a dataclass type.
+    3. Confirm the provided ``config`` instance matches ``ConfigType``.
+    """
+
+    ConfigType: Type[ConfigType]
+    config: ConfigType
+
+    def __init__(self, config: ConfigType) -> None:
+        require_plugin_name(self.__class__, kind="detector")
+
+        config_type = require_config_type(self.__class__)
+        if config_type is not None:
+            if not is_dataclass(config_type):
+                raise TypeError(
+                    "ConfigType must be a dataclass type for DataclassDetector."
+                )
+            if not isinstance(config, config_type):
+                raise TypeError(
+                    f"config must be an instance of {config_type.__name__}."
+                )
+        self.config = config
+
+
+class PydanticDetector(BaseDetector[ConfigType], Generic[ConfigType]):
+    """Base class for detectors configured by Pydantic models.
+
+    Subclasses must define ``plugin_name`` and ``ConfigType`` (a
+    :class:`pydantic.BaseModel`). The initializer follows the same
+    validation order used by the inputs/outputs plugin bases:
+
+    1. Ensure Pydantic is available.
+    2. Verify ``plugin_name`` is declared for discovery.
+    3. Fetch ``ConfigType`` and confirm it inherits ``BaseModel``.
+    4. Validate that the provided ``config`` instance matches ``ConfigType``.
+    """
+
+    ConfigType: Type[ConfigType]
+    config: ConfigType
+
+    def __init__(self, config: ConfigType) -> None:
+        if BaseModel is None:
+            raise ImportError(
+                "pydantic is required to use PydanticDetector. Install pydantic first."
+            )
+
+        require_plugin_name(self.__class__, kind="detector")
+
+        config_type = require_config_type(self.__class__)
+        if config_type is not None:
+            if not issubclass(config_type, BaseModel):
+                raise TypeError(
+                    "ConfigType must be a pydantic BaseModel for PydanticDetector."
+                )
+            if not isinstance(config, config_type):
+                raise TypeError(
+                    f"config must be an instance of {config_type.__name__}."
+                )
+        self.config = config
+
+
+def _is_valid_detector(cls: type) -> bool:
+    """Check if a class is a valid detector implementation.
+
+    Args:
+        cls: Class to check.
+
+    Returns:
+        True if the class is a valid BaseDetector subclass with plugin_name.
+    """
+    if not isinstance(cls, type):
+        return False
+
+    if not issubclass(cls, BaseDetector):
+        return False
+
+    # Must have a non-empty string plugin_name
+    plugin_name = getattr(cls, "plugin_name", None)
+    return isinstance(plugin_name, str) and bool(plugin_name)

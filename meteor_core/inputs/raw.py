@@ -48,6 +48,8 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
 
     Attributes:
         plugin_name: "raw" - the unique identifier for this loader.
+        name: "RAW Image Loader" - human-readable name.
+        version: Version string of this loader.
         config: RawLoaderConfig instance with binning and normalization settings.
 
     Example:
@@ -63,6 +65,8 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
     """
 
     plugin_name = "raw"
+    name = "RAW Image Loader"
+    version = "1.0.0"
     ConfigType = RawLoaderConfig
 
     def load(self, filepath: str) -> np.ndarray:

@@ -5,17 +5,23 @@ from dataclasses import is_dataclass
 import importlib.util
 from typing import Any, Dict, Generic, Type, TypeVar
 
+from meteor_core.plugin_contract import (
+    forbid_unknown_keys as _forbid_unknown_keys,
+    require_config_type,
+    require_plugin_name,
+)
+
 ConfigType = TypeVar("ConfigType")
 
 _PYDANTIC_SPEC = importlib.util.find_spec("pydantic")
 if _PYDANTIC_SPEC:
-    import pydantic
     from pydantic import BaseModel
-
-    Extra = getattr(pydantic, "Extra", None)
 else:
     BaseModel = None
-    Extra = None
+
+
+# Exported helper for compatibility with existing imports
+forbid_unknown_keys = _forbid_unknown_keys
 
 
 class BaseInputLoader(ABC, Generic[ConfigType]):
@@ -24,17 +30,24 @@ class BaseInputLoader(ABC, Generic[ConfigType]):
     All input loaders must inherit from this class to be discoverable
     and usable by the detection pipeline.
 
+    See :doc:`PLUGIN_AUTHOR_GUIDE` for lifecycle details shared across
+    plugin kinds (discovery order, config coercion, and hooks).
+
     Subclasses must define:
         - plugin_name: str - Unique identifier for the loader
         - load(filepath: str) -> Any - The loading method
 
     Attributes:
-        plugin_name: Unique string identifier for this loader plugin.
+        plugin_name: Unique identifier for the loader plugin (used in registry).
+        name: Human-readable name of the loader.
+        version: Version string of the loader.
         config: Configuration instance for this loader.
 
     Example:
         >>> class MyLoader(BaseInputLoader):
         ...     plugin_name = "my_loader"
+        ...     name = "My Custom Loader"
+        ...     version = "1.0.0"
         ...
         ...     def __init__(self, config):
         ...         self.config = config
@@ -45,6 +58,12 @@ class BaseInputLoader(ABC, Generic[ConfigType]):
 
     #: Unique name identifying this loader plugin
     plugin_name: str = ""
+
+    #: Human-readable name of the loader
+    name: str = "BaseInputLoader"
+
+    #: Version string of the loader
+    version: str = "1.0.0"
 
     #: Configuration instance for this loader
     config: ConfigType
@@ -60,6 +79,19 @@ class BaseInputLoader(ABC, Generic[ConfigType]):
             Loaded image data (typically a numpy array).
         """
         pass
+
+    def get_info(self) -> Dict[str, str]:
+        """Get information about the loader.
+
+        Returns:
+            Dictionary with loader metadata.
+        """
+        return {
+            "plugin_name": self.plugin_name,
+            "name": self.name,
+            "version": self.version,
+            "class": self.__class__.__name__,
+        }
 
 
 class BaseMetadataExtractor(ABC):
@@ -128,38 +160,6 @@ def _is_valid_input_loader(cls: Type[Any]) -> bool:
     )
 
 
-def _require_plugin_name(cls: Type[Any]) -> str:
-    """Extract and validate plugin_name from a loader class.
-
-    Args:
-        cls: The loader class to check.
-
-    Returns:
-        The plugin_name string.
-
-    Raises:
-        ValueError: If plugin_name is missing or invalid.
-    """
-    plugin_name = getattr(cls, "plugin_name", "")
-    if not isinstance(plugin_name, str) or not plugin_name:
-        raise ValueError("Subclasses must define a non-empty 'plugin_name' string.")
-    return plugin_name
-
-
-def _require_config_type(cls: Type[Any]) -> Type[ConfigType]:
-    """Extract ConfigType from a loader class (optional).
-
-    Args:
-        cls: The loader class to check.
-
-    Returns:
-        The ConfigType class, or None if not defined.
-    """
-    config_type = getattr(cls, "ConfigType", None)
-    # ConfigType is optional - loaders may not require configuration
-    return config_type
-
-
 class DataclassInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
     """Abstract base class for loaders configured by dataclasses.
 
@@ -196,8 +196,8 @@ class DataclassInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
             ValueError: If plugin_name is not defined.
             TypeError: If ConfigType is not a dataclass or config type mismatches.
         """
-        _require_plugin_name(self.__class__)
-        config_type = _require_config_type(self.__class__)
+        require_plugin_name(self.__class__, kind="input loader")
+        config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not is_dataclass(config_type):
                 raise TypeError(
@@ -237,10 +237,10 @@ class PydanticInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
             ValueError: If plugin_name is not defined.
             TypeError: If ConfigType is not a Pydantic model or config type mismatches.
         """
-        _require_plugin_name(self.__class__)
+        require_plugin_name(self.__class__, kind="input loader")
         if BaseModel is None:
             raise ImportError("pydantic must be installed to use PydanticInputLoader.")
-        config_type = _require_config_type(self.__class__)
+        config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not issubclass(config_type, BaseModel):
                 raise TypeError(
@@ -251,45 +251,3 @@ class PydanticInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
                     f"config must be an instance of {config_type.__name__}."
                 )
         self.config = config
-
-
-def forbid_unknown_keys(model: Type[Any]) -> Type[Any]:
-    """Force a Pydantic model to reject unknown fields at parse time.
-
-    Args:
-        model: The Pydantic model class to modify.
-
-    Returns:
-        The modified model class.
-
-    Raises:
-        ImportError: If pydantic is not installed.
-        TypeError: If model is not a Pydantic BaseModel.
-    """
-
-    if BaseModel is None:
-        raise ImportError(
-            "pydantic is not installed; cannot enforce unknown key behavior."
-        )
-    if not issubclass(model, BaseModel):
-        raise TypeError("Model must inherit from pydantic.BaseModel.")
-
-    extra_value = Extra.forbid if Extra is not None else "forbid"
-    if hasattr(model, "model_config"):
-        existing_config = getattr(model, "model_config") or {}
-        merged_config = dict(existing_config)
-        merged_config["extra"] = extra_value
-        model.model_config = merged_config
-        return model
-
-    config_class = getattr(model, "Config", None)
-    if config_class is None:
-
-        class Config:
-            extra = extra_value
-
-        model.Config = Config
-    else:
-        setattr(config_class, "extra", extra_value)
-
-    return model

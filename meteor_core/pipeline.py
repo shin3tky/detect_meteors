@@ -19,8 +19,6 @@ import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import List, Tuple, Dict, Optional, Any, Protocol, Type, Union, overload
 
-from dataclasses import is_dataclass
-
 from .schema import (
     EXTENSIONS,
     DEFAULT_DIFF_THRESHOLD,
@@ -32,13 +30,13 @@ from .schema import (
     PipelineConfig,
 )
 from .image_io import extract_exif_metadata
-from .inputs import BaseInputLoader, create_raw_loader, discover_input_loaders
+from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
-from .detectors import compute_line_score_fast
+from .detectors import BaseDetector, DetectorRegistry
 from .outputs import (
     BaseOutputHandler,
-    OutputWriter,
+    OutputHandlerRegistry,
     ProgressManager,
 )
 from .utils import (
@@ -47,36 +45,66 @@ from .utils import (
 )
 
 
-_DEFAULT_INPUT_LOADER = create_raw_loader()
+# Lazy initialization to avoid circular imports
+_DEFAULT_INPUT_LOADER: Optional[BaseInputLoader] = None
 
 
-def _coerce_loader_config(loader_cls, loader_config: Optional[Dict[str, Any]]):
-    config_type = getattr(loader_cls, "ConfigType", None)
+def _get_default_input_loader() -> BaseInputLoader:
+    """Get default input loader with lazy initialization."""
+    global _DEFAULT_INPUT_LOADER
+    if _DEFAULT_INPUT_LOADER is None:
+        _DEFAULT_INPUT_LOADER = LoaderRegistry.create_default()
+    return _DEFAULT_INPUT_LOADER
 
-    if loader_config is None:
-        if config_type is not None:
-            try:
-                return config_type()
-            except Exception:
-                return None
-        return None
 
-    if config_type is None:
-        return loader_config
+# Lazy initialization for default detector
+_DEFAULT_DETECTOR: Optional[BaseDetector] = None
 
-    if isinstance(loader_config, config_type):
-        return loader_config
 
-    if is_dataclass(config_type) and isinstance(loader_config, dict):
-        return config_type(**loader_config)
+def _get_default_detector() -> BaseDetector:
+    """Get default detector with lazy initialization."""
+    global _DEFAULT_DETECTOR
+    if _DEFAULT_DETECTOR is None:
+        _DEFAULT_DETECTOR = DetectorRegistry.create_default()
+    return _DEFAULT_DETECTOR
 
-    if hasattr(config_type, "model_validate") and isinstance(loader_config, dict):
-        return config_type.model_validate(loader_config)
 
-    if hasattr(config_type, "parse_obj") and isinstance(loader_config, dict):
-        return config_type.parse_obj(loader_config)
+def _resolve_detector(
+    detector: Optional[BaseDetector] = None,
+    detector_name: Optional[str] = None,
+    detector_config: Optional[Dict[str, Any]] = None,
+) -> BaseDetector:
+    """Resolve detector instance from various input combinations.
 
-    return loader_config
+    Priority order:
+    1. Explicit detector instance (if provided)
+    2. detector_name lookup via DetectorRegistry (creates new instance)
+    3. Default detector (HoughDetector)
+
+    Args:
+        detector: Pre-initialized BaseDetector instance.
+        detector_name: Name of detector to use (e.g., "hough").
+        detector_config: Configuration dict for the detector (currently unused,
+            reserved for future detector configuration support).
+
+    Returns:
+        BaseDetector instance ready for use.
+
+    Raises:
+        KeyError: If detector_name is not found in available detectors.
+
+    Example:
+        >>> det = _resolve_detector()  # Returns default HoughDetector
+        >>> det = _resolve_detector(detector_name="hough")  # Returns new HoughDetector
+        >>> det = _resolve_detector(detector=my_detector)  # Returns my_detector
+    """
+    if detector is not None:
+        return detector
+
+    if detector_name:
+        return DetectorRegistry.create(detector_name, detector_config)
+
+    return _get_default_detector()
 
 
 def _resolve_input_loader(
@@ -84,22 +112,92 @@ def _resolve_input_loader(
     loader_name: Optional[str] = None,
     loader_config: Optional[Dict[str, Any]] = None,
 ) -> BaseInputLoader:
+    """Resolve input loader instance from various input combinations.
+
+    Priority order:
+    1. Explicit loader instance (if provided)
+    2. loader_name lookup via LoaderRegistry (creates new instance)
+    3. Default loader (raw)
+
+    Args:
+        input_loader: Pre-initialized BaseInputLoader instance.
+        loader_name: Name of loader to use (e.g., "raw").
+        loader_config: Configuration dict or instance for the loader.
+
+    Returns:
+        BaseInputLoader instance ready for use.
+
+    Raises:
+        KeyError: If loader_name is not found in available loaders.
+    """
     if input_loader is not None:
         return input_loader
 
     if loader_name:
-        available_loaders = discover_input_loaders()
-        loader_cls = available_loaders.get(loader_name)
-        if loader_cls is None:
-            raise ValueError(
-                f"Unknown input loader '{loader_name}'. "
-                f"Available: {', '.join(sorted(available_loaders)) or 'none'}"
-            )
+        return LoaderRegistry.create(loader_name, loader_config)
 
-        coerced_config = _coerce_loader_config(loader_cls, loader_config)
-        return loader_cls(coerced_config)
+    return _get_default_input_loader()
 
-    return _DEFAULT_INPUT_LOADER
+
+def _resolve_output_handler(
+    output_handler: Optional[BaseOutputHandler] = None,
+    handler_name: Optional[str] = None,
+    handler_config: Optional[Dict[str, Any]] = None,
+    *,
+    # Fallback values for default handler creation
+    fallback_output_folder: Optional[str] = None,
+    fallback_debug_folder: Optional[str] = None,
+    fallback_output_overwrite: bool = False,
+) -> BaseOutputHandler:
+    """Resolve output handler instance from various input combinations.
+
+    Priority order:
+    1. Explicit handler instance (if provided)
+    2. handler_name lookup via OutputHandlerRegistry (creates new instance)
+    3. Default handler (FileOutputHandler) with fallback config
+
+    Args:
+        output_handler: Pre-initialized BaseOutputHandler instance.
+        handler_name: Name of handler to use (e.g., "file").
+        handler_config: Configuration dict or instance for the handler.
+        fallback_output_folder: Output folder for default handler creation.
+        fallback_debug_folder: Debug folder for default handler creation.
+        fallback_output_overwrite: Overwrite flag for default handler creation.
+
+    Returns:
+        BaseOutputHandler instance ready for use.
+
+    Raises:
+        KeyError: If handler_name is not found in available handlers.
+        ValueError: If default handler is needed but fallback folders not provided.
+
+    Example:
+        >>> handler = _resolve_output_handler()  # Raises ValueError (no fallback)
+        >>> handler = _resolve_output_handler(handler_name="file", handler_config={...})
+        >>> handler = _resolve_output_handler(output_handler=my_handler)
+        >>> handler = _resolve_output_handler(
+        ...     fallback_output_folder="./out",
+        ...     fallback_debug_folder="./debug",
+        ... )
+    """
+    if output_handler is not None:
+        return output_handler
+
+    if handler_name:
+        return OutputHandlerRegistry.create(handler_name, handler_config)
+
+    # Create default handler with fallback config
+    if fallback_output_folder and fallback_debug_folder:
+        return OutputHandlerRegistry.create_default(
+            output_folder=fallback_output_folder,
+            debug_folder=fallback_debug_folder,
+            output_overwrite=fallback_output_overwrite,
+        )
+
+    raise ValueError(
+        "Cannot resolve output handler: provide output_handler, handler_name, "
+        "or fallback folder configuration (fallback_output_folder, fallback_debug_folder)."
+    )
 
 
 def _extract_metadata_from_loader(
@@ -254,6 +352,7 @@ def process_image_batch(
     roi_mask: np.ndarray,
     params: dict,
     input_loader: Optional[BaseInputLoader] = None,
+    detector: Optional[BaseDetector] = None,
 ) -> List[Tuple]:
     """
     Process a batch of images (handle multiple pairs at once).
@@ -262,6 +361,8 @@ def process_image_batch(
         batch_data: List of [(curr_file, prev_file), ...]
         roi_mask: ROI mask
         params: Parameter dictionary
+        input_loader: Optional input loader instance
+        detector: Optional detector instance (defaults to HoughDetector)
 
     Returns:
         List of processing results for each image:
@@ -269,16 +370,8 @@ def process_image_batch(
     """
     results = []
 
-    # Pre-create kernel for morphology
-    kernel = np.ones((3, 3), np.uint8)
-
-    hough_params = {
-        "threshold": params["hough_threshold"],
-        "min_line_length": params["hough_min_line_length"],
-        "max_line_gap": params["hough_max_line_gap"],
-    }
-
     loader = _resolve_input_loader(input_loader)
+    det = _resolve_detector(detector=detector)
 
     for curr_file, prev_file in batch_data:
         filename = os.path.basename(curr_file)
@@ -288,68 +381,14 @@ def process_image_batch(
             curr_img = loader.load(curr_file)
             prev_img = loader.load(prev_file)
 
-            # Calculate difference (save memory with in-place operation)
-            diff = cv2.absdiff(curr_img, prev_img)
-
-            # Binarize
-            _, mask = cv2.threshold(
-                diff, params["diff_threshold"], 255, cv2.THRESH_BINARY
+            # Delegate detection to the detector
+            is_candidate, line_score, hough_lines, max_aspect_ratio, debug_img = (
+                det.detect(curr_img, prev_img, roi_mask, params)
             )
-            mask = mask.astype(np.uint8)
-
-            # Apply ROI
-            cv2.bitwise_and(mask, roi_mask, dst=mask)
-
-            # Noise removal
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-
-            # Hough transform
-            line_score, hough_lines = compute_line_score_fast(mask, hough_params)
-
-            # Shape detection
-            contours, _ = cv2.findContours(
-                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-
-            is_meteor_candidate = False
-            debug_img = None
-            max_aspect_ratio = 0.0
-
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-
-                if area > params["min_area"]:
-                    rect = cv2.minAreaRect(cnt)
-                    (w, h) = rect[1]
-
-                    if w == 0 or h == 0:
-                        continue
-
-                    long_side = max(w, h)
-                    short_side = min(w, h)
-                    aspect_ratio = long_side / max(short_side, 1)
-                    max_aspect_ratio = max(max_aspect_ratio, aspect_ratio)
-
-                    if (
-                        aspect_ratio > params["min_aspect_ratio"]
-                        and line_score >= params["min_line_score"]
-                    ):
-                        is_meteor_candidate = True
-
-                        if debug_img is None:
-                            debug_img = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-                            for x1, y1, x2, y2 in hough_lines:
-                                cv2.line(
-                                    debug_img, (x1, y1), (x2, y2), (0, 255, 255), 1
-                                )
-
-                        box = cv2.boxPoints(rect)
-                        box = np.int64(box)
-                        cv2.drawContours(debug_img, [box], 0, (0, 0, 255), 2)
 
             results.append(
                 (
-                    is_meteor_candidate,
+                    is_candidate,
                     filename,
                     curr_file,
                     line_score,
@@ -679,6 +718,7 @@ class MeteorDetectionPipeline:
         input_loader_name: Optional[str] = None,
         input_loader_config: Optional[Dict[str, Any]] = None,
         output_handler: Optional[BaseOutputHandler] = None,
+        detector: Optional[BaseDetector] = None,
     ) -> None:
         """Initialize with PipelineConfig (new API)."""
         ...
@@ -700,6 +740,7 @@ class MeteorDetectionPipeline:
         input_loader_name: Optional[str] = ...,
         input_loader_config: Optional[Dict[str, Any]] = ...,
         output_handler: Optional[BaseOutputHandler] = ...,
+        detector: Optional[BaseDetector] = ...,
     ) -> None:
         """Initialize with individual arguments (legacy API)."""
         ...
@@ -720,6 +761,7 @@ class MeteorDetectionPipeline:
         input_loader_name: Optional[str] = None,
         input_loader_config: Optional[Dict[str, Any]] = None,
         output_handler: Optional[BaseOutputHandler] = None,
+        detector: Optional[BaseDetector] = None,
     ):
         """
         Initialize the detection pipeline.
@@ -748,6 +790,7 @@ class MeteorDetectionPipeline:
             input_loader_name: Name of loader plugin to use
             input_loader_config: Configuration for the loader
             output_handler: Custom BaseOutputHandler implementation
+            detector: Custom BaseDetector implementation (defaults to HoughDetector)
         """
         # Determine which API is being used
         if isinstance(config_or_target, PipelineConfig):
@@ -793,12 +836,22 @@ class MeteorDetectionPipeline:
         self.input_loader_name = input_loader_name
         self.input_loader_config = input_loader_config
 
+        # Resolve detector: explicit argument > config > default
+        # Note: We store the resolved detector, not the raw argument
+        self.detector = _resolve_detector(
+            detector=detector,
+            detector_name=self._config.detector_name,
+            detector_config=self._config.detector_config,
+        )
+
         # Initialize output handler
-        self.output_writer: BaseOutputHandler = output_handler or OutputWriter(
-            self._config.output_folder,
-            self._config.debug_folder,
-            self._config.progress_file,
-            self._config.output_overwrite,
+        self.output_handler = _resolve_output_handler(
+            output_handler=output_handler,
+            handler_name=self._config.output_handler_name,
+            handler_config=self._config.output_handler_config,
+            fallback_output_folder=self._config.output_folder,
+            fallback_debug_folder=self._config.debug_folder,
+            fallback_output_overwrite=self._config.output_overwrite,
         )
         self.progress_manager = ProgressManager(self._config.progress_file)
 
@@ -1010,6 +1063,7 @@ class MeteorDetectionPipeline:
                     resume_offset,
                     overall_total,
                     input_loader,
+                    self.detector,
                 )
             else:
                 detected_count = self._process_sequential(
@@ -1020,6 +1074,7 @@ class MeteorDetectionPipeline:
                     resume_offset,
                     overall_total,
                     input_loader,
+                    self.detector,
                 )
         except KeyboardInterrupt:
             print(
@@ -1054,6 +1109,7 @@ class MeteorDetectionPipeline:
         resume_offset: int,
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
+        detector: Optional[BaseDetector],
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
         batches = [
@@ -1073,7 +1129,7 @@ class MeteorDetectionPipeline:
         try:
             for batch in batches:
                 future = executor.submit(
-                    process_image_batch, batch, roi_mask, params, input_loader
+                    process_image_batch, batch, roi_mask, params, input_loader, detector
                 )
                 futures.append(future)
 
@@ -1100,7 +1156,7 @@ class MeteorDetectionPipeline:
                             )
 
                         if is_candidate:
-                            saved = self.output_writer.save_candidate(
+                            saved = self.output_handler.save_candidate(
                                 filepath, filename, debug_img, roi_polygon
                             )
                             if saved:
@@ -1114,7 +1170,9 @@ class MeteorDetectionPipeline:
                                 flush=True,
                             )
 
-                        self.progress_manager.record_result(filename, is_candidate)
+                        self.progress_manager.record_result(
+                            filename, is_candidate, line_score, num_lines, aspect_ratio
+                        )
 
                 except Exception as e:
                     print(f"\nBatch processing error: {e}")
@@ -1138,6 +1196,7 @@ class MeteorDetectionPipeline:
         resume_offset: int,
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
+        detector: Optional[BaseDetector],
     ) -> int:
         """Process images sequentially."""
         for idx, pair in enumerate(image_pairs):
@@ -1150,7 +1209,9 @@ class MeteorDetectionPipeline:
                 flush=True,
             )
 
-            batch_results = process_image_batch([pair], roi_mask, params, input_loader)
+            batch_results = process_image_batch(
+                [pair], roi_mask, params, input_loader, detector
+            )
 
             for result in batch_results:
                 (
@@ -1171,7 +1232,7 @@ class MeteorDetectionPipeline:
 
                 if is_candidate:
                     print()
-                    saved = self.output_writer.save_candidate(
+                    saved = self.output_handler.save_candidate(
                         filepath, filename, debug_img, roi_polygon
                     )
                     if saved:
@@ -1179,7 +1240,9 @@ class MeteorDetectionPipeline:
                     else:
                         print(f"  [SKIP] {filename}: Already exists")
 
-                self.progress_manager.record_result(filename, is_candidate)
+                self.progress_manager.record_result(
+                    filename, is_candidate, line_score, num_lines, aspect_ratio
+                )
 
         return self.progress_manager.get_total_detected()
 

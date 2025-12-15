@@ -36,6 +36,9 @@ from .schema import (
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
+    DEFAULT_LOADER_NAME,
+    DEFAULT_DETECTOR_NAME,
+    DEFAULT_OUTPUT_HANDLER_NAME,
     DEFAULT_TARGET_FOLDER,
     DEFAULT_OUTPUT_FOLDER,
     DEFAULT_DEBUG_FOLDER,
@@ -68,11 +71,11 @@ from .inputs.base import (
     _is_valid_input_loader,
 )
 
-from .inputs.discovery import (
-    discover_input_loaders,
-    PLUGIN_DIR,
-    PLUGIN_GROUP,
-)
+from .inputs.registry import LoaderRegistry
+from .inputs.discovery import PLUGIN_DIR, PLUGIN_GROUP
+
+# Deprecated: use LoaderRegistry.discover() instead
+from .inputs.discovery import discover_loaders
 
 from .roi_selector import (
     select_roi,
@@ -114,15 +117,32 @@ from .detectors import (
     BaseDetector,
     HoughDetector,
     compute_line_score_fast,
+    DetectorRegistry,
 )
+
+# Deprecated: use DetectorRegistry.discover() instead
+from .detectors import discover_detectors
 
 from .outputs import (
     BaseOutputHandler,
-    OutputWriter,
+    DataclassOutputHandler,
+    _is_valid_output_handler,
+    FileOutputConfig,
+    FileOutputHandler,
+    create_file_handler,
+    OutputHandlerRegistry,
     ProgressManager,
     load_progress,
     save_progress,
+    # Backward compatibility (deprecated)
+    OutputWriter,
 )
+
+from .outputs.discovery import PLUGIN_DIR as OUTPUT_PLUGIN_DIR
+from .outputs.discovery import PLUGIN_GROUP as OUTPUT_PLUGIN_GROUP
+
+# Deprecated: use OutputHandlerRegistry.discover() instead
+from .outputs import discover_handlers
 
 from .pipeline import (
     collect_files,
@@ -160,6 +180,9 @@ __all__ = [
     "DEFAULT_NUM_WORKERS",
     "DEFAULT_BATCH_SIZE",
     "DEFAULT_PROGRESS_FILE",
+    "DEFAULT_LOADER_NAME",
+    "DEFAULT_DETECTOR_NAME",
+    "DEFAULT_OUTPUT_HANDLER_NAME",
     "DEFAULT_TARGET_FOLDER",
     "DEFAULT_OUTPUT_FOLDER",
     "DEFAULT_DEBUG_FOLDER",
@@ -189,10 +212,13 @@ __all__ = [
     "RawImageLoader",
     "RawLoaderConfig",
     "create_raw_loader",
-    # Input Loaders - Discovery
-    "discover_input_loaders",
+    # Input Loaders - Registry (recommended)
+    "LoaderRegistry",
+    # Input Loaders - Discovery constants
     "PLUGIN_DIR",
     "PLUGIN_GROUP",
+    # Input Loaders - Discovery function (deprecated)
+    "discover_loaders",
     # ROI
     "select_roi",
     "create_roi_mask_from_polygon",
@@ -229,12 +255,31 @@ __all__ = [
     "BaseDetector",
     "HoughDetector",
     "compute_line_score_fast",
-    # Outputs
+    # Detectors - Registry (recommended)
+    "DetectorRegistry",
+    # Detectors - Discovery function (deprecated)
+    "discover_detectors",
+    # Outputs - Base classes
     "BaseOutputHandler",
-    "OutputWriter",
+    "DataclassOutputHandler",
+    "_is_valid_output_handler",
+    # Outputs - File handler (default implementation)
+    "FileOutputConfig",
+    "FileOutputHandler",
+    "create_file_handler",
+    # Outputs - Registry (recommended)
+    "OutputHandlerRegistry",
+    # Outputs - Discovery constants
+    "OUTPUT_PLUGIN_DIR",
+    "OUTPUT_PLUGIN_GROUP",
+    # Outputs - Discovery function (deprecated)
+    "discover_handlers",
+    # Outputs - Progress tracking
     "ProgressManager",
     "load_progress",
     "save_progress",
+    # Outputs - Backward compatibility (deprecated)
+    "OutputWriter",
     # Pipeline
     "collect_files",
     "validate_raw_file",

@@ -11,7 +11,7 @@
 # ==========================================
 [project]
 name = "detect-meteors"
-version = "1.5.10"
+version = "1.5.11"
 description = "Automated meteor detection in RAW astrophotography images using frame-to-frame difference analysis"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -55,6 +55,7 @@ dependencies = [
     "rawpy>=0.25.1",
     "psutil>=7.1.3",
     "pillow>=12.0.0",
+    "pydantic>=2.12.5",
 ]
 
 [project.optional-dependencies]
