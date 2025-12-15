@@ -98,6 +98,8 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
 
         Raises:
             KeyError: If detector not found.
+            TypeError: If config type is incompatible or defaults cannot be built.
+            ValueError: If config validation fails.
 
         Example:
             >>> detector = DetectorRegistry.create("hough")
@@ -120,7 +122,14 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
 
         Returns:
             Default detector instance (currently "hough" detector).
+
+        Raises:
+            KeyError: If the default detector is not found.
+            TypeError: If ConfigType is missing or config type is incompatible.
+            ValueError: If config validation fails.
         """
+        # Detectors rely solely on their ConfigType defaults; unlike output handlers
+        # there are no registry-level path overrides to apply here.
         detector_cls = cls.get(DEFAULT_DETECTOR_NAME)
         coerced_config = cls._coerce_config(detector_cls, config)
         if coerced_config is None:

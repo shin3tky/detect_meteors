@@ -121,7 +121,9 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
         object or mapping, which will be coerced using the same rules as
         :meth:`create`.
         """
-
+        # Input loaders do not expose registry-level overrides; their defaults are
+        # defined solely by ConfigType, whereas output handlers also allow path
+        # overrides for CLI compatibility.
         loader_cls = cls.get(DEFAULT_LOADER_NAME)
         coerced_config = cls._coerce_config(loader_cls, config)
         if coerced_config is None:
