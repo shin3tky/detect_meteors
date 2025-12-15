@@ -71,10 +71,15 @@ BaseMetadataExtractor (ABC)
 └── RawImageLoader (multiple inheritance)
 
 BaseOutputHandler (ABC)
-└── OutputWriter
+├── DataclassOutputHandler (ABC + Generic)
+│   └── FileOutputHandler
+└── PydanticOutputHandler (ABC + Generic)
 
 BaseDetector (ABC)
-└── HoughDetector
+├── DataclassDetector (ABC + Generic)
+│   ├── HoughDetector
+│   └── SimpleThresholdDetector
+└── PydanticDetector (ABC + Generic)
 ```
 
 ### Creating Custom Plugins
