@@ -4,127 +4,31 @@
 
 ### 🔧 Cross-Package Consistency & Plugin Metadata
 
-Version 1.5.11 focuses on unifying plugin registry behaviors between the `inputs` and `detectors` packages, ensuring a consistent developer experience across all plugin types.
+Version 1.5.11 focuses on unifying plugin registry behaviors and improving the plugin development experience.
 
 ### Highlights
 
-- **Case-insensitive registry lookup**: Both `LoaderRegistry` and `DetectorRegistry` now normalize names to lowercase, allowing flexible lookups like `get("raw")`, `get("RAW")`, or `get("Raw")`.
-- **Unified plugin directories**: Standardized naming convention for plugin directories (`input_plugins`, `detector_plugins`).
-- **BaseInputLoader enhancement**: Added `name`, `version` attributes and `get_info()` method to match `BaseDetector` interface.
-- **Early config validation**: Registry config coercion now raises explicit errors instead of silently returning `None`.
+- **Case-insensitive registry lookup**: Both `LoaderRegistry` and `DetectorRegistry` now support case-insensitive name lookup (e.g., `get("raw")`, `get("RAW")`, `get("Raw")` all return the same class).
+- **Unified plugin directories**: Standardized naming convention for plugin directories (`~/.detect_meteors/input_plugins/`, `~/.detect_meteors/detector_plugins/`).
+- **BaseInputLoader metadata**: Added `name`, `version` attributes and `get_info()` method to match `BaseDetector` interface.
+- **Early config validation**: Registry config coercion now raises explicit `TypeError` or `ValueError` instead of silently returning `None`.
 - **Deprecated function rename**: `discover_input_loaders()` renamed to `discover_loaders()` for naming consistency.
 
-### Case-Insensitive Registry Lookup
+### For Plugin Developers
 
-Both registries now support case-insensitive name lookup:
+For detailed information on creating custom plugins, including complete examples and best practices, see [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md).
 
-```python
-from meteor_core.inputs import LoaderRegistry
-from meteor_core.detectors import DetectorRegistry
-
-# All of these return the same class
-LoaderRegistry.get("raw")
-LoaderRegistry.get("RAW")
-LoaderRegistry.get("Raw")
-
-DetectorRegistry.get("hough")
-DetectorRegistry.get("HOUGH")
-DetectorRegistry.get("Hough")
-```
-
-This makes plugin registration and retrieval more forgiving and reduces user errors.
-
-### Plugin Directory Naming Convention
-
-Plugin directories now follow a consistent naming pattern:
-
-| Package | Plugin Directory |
-|---------|------------------|
-| `inputs` | `~/.detect_meteors/input_plugins/` |
-| `detectors` | `~/.detect_meteors/detector_plugins/` |
-
-**Migration**: If you have plugins in `~/.detect_meteors/plugins/`, move them to `~/.detect_meteors/input_plugins/`.
-
-### BaseInputLoader Enhancement
-
-`BaseInputLoader` now has the same metadata interface as `BaseDetector`:
-
-```python
-from meteor_core.inputs.base import BaseInputLoader
-
-class MyLoader(BaseInputLoader):
-    plugin_name = "my_loader"
-    name = "My Custom Loader"      # NEW: Human-readable name
-    version = "1.0.0"              # NEW: Version string
-
-    def load(self, filepath: str):
-        ...
-
-# Get plugin metadata (NEW method)
-loader = MyLoader(config=None)
-info = loader.get_info()
-# Returns: {'plugin_name': 'my_loader', 'name': 'My Custom Loader', 
-#           'version': '1.0.0', 'class': 'MyLoader'}
-```
-
-### Config Validation Improvement
-
-`LoaderRegistry._coerce_config()` now provides early error detection:
-
-| Scenario | Old Behavior | New Behavior |
-|----------|--------------|--------------|
-| Default config creation fails | Returns `None` (late error) | Raises `TypeError` |
-| Dict→Dataclass conversion fails | Returns `None` | Raises `TypeError` |
-| Dict→Pydantic validation fails | Returns `None` | Raises `ValueError` |
-| Incompatible type | Returns `None` | Raises `TypeError` |
-
-**Example**:
-```python
-# Now raises TypeError immediately with clear message
-LoaderRegistry.create("raw", config="invalid_config")
-# TypeError: Config for 'raw' must be RawLoaderConfig, dict, or None, got str
-```
-
-### Deprecated Function Rename
-
-The deprecated function `discover_input_loaders()` has been renamed to `discover_loaders()` for consistency with `discover_detectors()`:
-
-```python
-# Old (removed)
-from meteor_core.inputs.discovery import discover_input_loaders
-
-# New (still deprecated, use LoaderRegistry.discover() instead)
-from meteor_core.inputs.discovery import discover_loaders
-
-# Recommended
-from meteor_core.inputs import LoaderRegistry
-loaders = LoaderRegistry.discover()
-```
-
-### Files Changed
-
-| File | Changes |
-|------|---------|
-| `meteor_core/inputs/registry.py` | Case-insensitive lookup, improved config validation |
-| `meteor_core/inputs/discovery.py` | Renamed function, updated plugin directory |
-| `meteor_core/inputs/base.py` | Added `name`, `version`, `get_info()` to BaseInputLoader |
-| `meteor_core/inputs/raw.py` | Added `name`, `version` attributes |
-| `meteor_core/detectors/discovery.py` | Lowercase key storage, expanded skip classes |
-| `meteor_core/inputs/__init__.py` | Updated exports |
-| `meteor_core/__init__.py` | Updated exports |
-| `tests/test_loader_registry_v1x.py` | Updated test names |
-
-### Backward Compatibility
-
-✅ **Internal refactoring only** - no breaking changes to CLI or runtime behavior:
-- All existing commands work unchanged
-- Detection results are identical
-- Progress files remain compatible
+### Migration Notes
 
 ⚠️ **For plugin developers**:
 - Move plugins from `~/.detect_meteors/plugins/` to `~/.detect_meteors/input_plugins/`
-- Update imports if using `discover_input_loaders` → use `LoaderRegistry.discover()` instead
+- Update imports if using `discover_input_loaders()` → use `LoaderRegistry.discover()` instead
 - Consider adding `name` and `version` attributes to your loaders for metadata consistency
+
+### Backward Compatibility
+
+✅ **Internal refactoring only** - no breaking changes to CLI or runtime behavior.
+
 
 ---
 
