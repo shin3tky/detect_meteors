@@ -13,13 +13,17 @@ Complete the basic installation from [INSTALL.md](INSTALL.md) first, then follow
 
 ### Step 1: Install Development Dependencies
 
-After activating your virtual environment, install development dependencies:
+After activating your virtual environment, install development dependencies (defined in `pyproject.toml`):
+
+```bash
+pip install -e ".[dev]"
+```
+
+This installs the project in editable mode plus the dev toolchain (Black, flake8, flake8-pyproject, coverage, pre-commit). If you prefer a minimal install, the equivalent explicit command is:
 
 ```bash
 pip install pre-commit black flake8 flake8-pyproject coverage
 ```
-
-**Note**: `flake8-pyproject` enables flake8 to read configuration from `pyproject.toml`.
 
 ### Step 2: Set Up Pre-commit Hooks
 
