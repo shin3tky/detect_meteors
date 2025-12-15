@@ -9,7 +9,7 @@ Version 1.5.11 focuses on unifying plugin registry behaviors and improving the p
 ### Highlights
 
 - **Case-insensitive registry lookup**: Both `LoaderRegistry` and `DetectorRegistry` now support case-insensitive name lookup (e.g., `get("raw")`, `get("RAW")`, `get("Raw")` all return the same class).
-- **Unified plugin directories**: Standardized naming convention for plugin directories (`~/.detect_meteors/input_plugins/`, `~/.detect_meteors/detector_plugins/`).
+- **Unified plugin directories**: Standardized naming convention for plugin directories (`~/.detect_meteors/input_plugins/`, `~/.detect_meteors/detector_plugins/`, `~/.detect_meteors/output_plugins/`).
 - **BaseInputLoader metadata**: Added `name`, `version` attributes and `get_info()` method to match `BaseDetector` interface.
 - **Early config validation**: Registry config coercion now raises explicit `TypeError` or `ValueError` instead of silently returning `None`.
 - **Deprecated function rename**: `discover_input_loaders()` renamed to `discover_loaders()` for naming consistency.
