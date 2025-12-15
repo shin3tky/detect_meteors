@@ -7,7 +7,7 @@
   - Skip classes list: Added `Generic` and future-proofing entries (`DataclassDetector`, `PydanticDetector`) to both packages.
 - **BaseInputLoader enhancement**: Added `name`, `version` attributes and `get_info()` method to match `BaseDetector` interface, enabling uniform plugin metadata access.
 - **Config validation improvement**: `LoaderRegistry._coerce_config()` now raises explicit `TypeError` or `ValueError` on validation failures instead of returning `None`, providing early error detection with actionable messages.
-- **Deprecated function rename**: Renamed `discover_input_loaders()` to `discover_loaders()` for consistency with `discover_detectors()`. The old name is removed; use `LoaderRegistry.discover()` instead.
+- **Deprecated function rename**: Renamed `discover_input_loaders()` to `discover_loaders()` for consistency with `discover_detectors()`. `discover_input_loaders()` is removed. Note: `discover_loaders()` is deprecated; prefer `LoaderRegistry.discover()`.
 
 ## v1.5.10 - 2025-12-11
 - **Plugin architecture migration**: Migrated plugin interfaces from Protocol-based to ABC (Abstract Base Classes) for improved developer experience.
