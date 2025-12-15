@@ -12,407 +12,126 @@ Automatically detect meteors in RAW astrophotography images using frame-to-frame
 
 During meteor shower events, manually reviewing thousands of RAW images to find meteors is tedious and time-consuming. This tool automates the initial detection process, allowing astrophotographers to quickly identify candidate images for further review.
 
-I developed this tool hoping it would be useful for fellow astrophotography enthusiasts who face the same challenge.
-
 ![workflow](workflow.png)
 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
-## Overview
-- **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata (ISO, exposure, focal length) and scientifically tunes all detection parameters
+## Features
+
+- **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata and scientifically tunes detection parameters
 - **Scientifically validated**: 100% detection rate on real-world test dataset (OM Digital OM-1, 1000+ RAW images)
-- **RAW format support**: Works with any format supported by [`rawpy`](https://github.com/letmaik/rawpy) (tested: Olympus/OM Digital ORF)
-- **Intelligent processing**: ROI cropping, Hough transform line detection, and resumable batch processing
-- See [CHANGELOG](CHANGELOG.md) for release history
-
-## Roadmap
-- Upcoming plans are outlined in [ROADMAP](ROADMAP.md).
-
-## Technical Overview
-- See the project wiki for a technical summary: [Technical Processing Summary](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Summary)
-- See the project wiki for a deeper technical walkthrough: [Technical Processing Overview](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview)
-- Auto-Parameter Estimation Extensions: [v1.3 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.3-Additions)
-- NPF Rule-based Scientific Optimization: [v1.4 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.4-Additions)
-- Sensor presets and fisheye correction: [v1.5 Additions](https://github.com/shin3tky/detect_meteors/wiki/Technical-Processing-Overview-v1.5-Additions)
+- **RAW format support**: Works with any format supported by [`rawpy`](https://github.com/letmaik/rawpy)
+- **Intelligent processing**: ROI cropping, Hough transform line detection, resumable batch processing
+- **High performance**: ~0.18 sec/image with multi-core parallel processing
 
 ## Requirements
-- Python 3.12.12 (tested).
-- macOS Tahoe 26.1 on an Intel MacBook Pro 16-inch, 2019 (tested); other Unix-like systems may work.
-- Windows 11 Pro 25H2 on HP ZBook 14u G5 (tested).
-- Help wanted: verification on Apple Silicon Macs, Windows, and Linux would be greatly appreciated.
-- Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`, `psutil`, `pillow`.
 
-## Performance
-
-Multi-core parallel processing delivers high-speed batch analysis:
-
-| Environment | CPU | Images | Processing Time | Speed |
-|-------------|-----|--------|-----------------|-------|
-| MacBook Pro 16-inch, 2019 | 2.3 GHz 8-Core Intel Core i9 | 3,736 | 715 sec | **0.18 sec/image** |
-
-The tool automatically utilizes all available CPU cores (N-1 cores in parallel) for maximum throughput. In the test above, 15 Python processes ran simultaneously at ~99% CPU utilization.
+- Python 3.12+
+- macOS, Windows, or Linux
+- Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`, `psutil`, `pillow`
 
 ## Installation
 
-- For detailed installation instructions for macOS and Windows, please refer to [INSTALL.md](INSTALL.md).
-- Developers, please also refer to [INSTALL_DEV.md](INSTALL_DEV.md).
+See [INSTALL.md](INSTALL.md) for detailed installation instructions.
 
-## What's New in v1.5
+## Quick Start
 
-### v1.5.11 - Cross-package consistency
-- **Unified registry behavior**: Both `LoaderRegistry` and `DetectorRegistry` now support case-insensitive name lookup and follow consistent naming conventions.
-- **BaseInputLoader enhancement**: Added `name`, `version` attributes and `get_info()` method for uniform plugin metadata access across all plugin types.
-- **Early config validation**: Registry config coercion now raises explicit errors instead of silently failing, providing actionable error messages.
-- **Plugin directory standardization**: Input plugins now use `~/.detect_meteors/input_plugins/` (was `plugins/`).
-
-### v1.5.10 - Plugin architecture: ABC migration
-- **ABC-based plugin interfaces**: Migrated from Protocol to Abstract Base Classes for improved developer experience with immediate error detection and full IDE support.
-- **Clear inheritance hierarchy**: `BaseInputLoader`, `BaseMetadataExtractor`, `BaseOutputHandler` provide explicit contracts for plugin development.
-- **Developer documentation**: Comprehensive plugin architecture guide in `INSTALL_DEV.md` with code examples.
-- ⚠️ **Note**: Plugin architecture is experimental and may change before v2.0 stable release.
-
-### v1.5.9 - PEP 621 project configuration
-- **PEP 621 compliance**: Migrated project configuration to `pyproject.toml` with full metadata including name, description, authors, keywords, and classifiers.
-- **Unified tool configuration**: Consolidated flake8 settings from `.flake8` into `pyproject.toml` (via flake8-pyproject), providing single-file configuration for all development tools.
-- **Dependency and test configuration**: Defined runtime/dev dependencies and coverage settings in `pyproject.toml` for standardized development workflow.
-
-### v1.5.8 - Code quality improvements
-- **flake8 linter integration**: Added flake8 to the development toolchain alongside Black formatter for comprehensive code quality assurance.
-- **Consistent coding standards**: Configured linting rules optimized for Black compatibility and project-specific requirements.
-- **Developer workflow enhancement**: Manual linting checks before commits ensure maintainable, high-quality codebase.
-
-### v1.5.0–1.5.7 Summary
-- **v1.5.7**: Progress metadata parity - `progress.json` now records CLI parameters, selected ROI, and processing parameters
-- **v1.5.6**: Input/Output plugin preparation - New `InputLoader`/`MetadataExtractor` protocols, `PipelineConfig`, `OutputHandler`
-- **v1.5.5**: Internal Structure Improvement
-- **v1.5.4**: Improved ROI selection display, added NOTICE document
-- **v1.5.3**: Fisheye lens correction (`--fisheye` flag)
-- **v1.5.2**: Sensor override validation with automatic warnings
-- **v1.5.1**: Medium format sensor support (MF44X33, MF54X40)
-- **v1.5.0**: Sensor type presets (`--sensor-type` option)
-
-👉 See [RELEASE_NOTES_1.5.md](RELEASE_NOTES_1.5.md) for complete details and usage examples.
-
-### Earlier Versions
-
-- **v1.4.2**: Output file protection - skip overwriting existing files by default ([details](RELEASE_NOTES_1.4.md))
-- **v1.4.1**: NPF Rule-based scientific optimization with EXIF metadata extraction ([details](RELEASE_NOTES_1.4.md))
-- **v1.3.1**: Complete auto-parameter estimation with star size and image geometry analysis ([details](RELEASE_NOTES_1.3.md))
-- **v1.2.1**: Percentile-based threshold estimation ([details](RELEASE_NOTES_1.2.md))
-
-## Output Handlers (developing plugins)
-
-Output plugins now follow the same registry pattern as inputs/detectors. Use `DataclassOutputHandler` from `meteor_core.outputs.base` (re-exported via `meteor_core.outputs`), register implementations with `OutputHandlerRegistry`, and supply configuration as dataclasses for automatic validation. Legacy imports from `meteor_core.outputs.handler` should be migrated to the new `base` module:
-
-```python
-from dataclasses import dataclass
-from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
-
-
-@dataclass
-class CloudOutputConfig:
-    bucket_name: str
-
-
-class CloudHandler(DataclassOutputHandler[CloudOutputConfig]):
-    plugin_name = "cloud"
-    ConfigType = CloudOutputConfig
-
-    def save_candidate(self, source_path, filename, debug_image=None, roi_polygon=None):
-        return True
-
-    def save_debug_image(self, debug_image, filename, roi_polygon=None):
-        return "s3://..."
-
-
-OutputHandlerRegistry.register(CloudHandler)
-handler = OutputHandlerRegistry.create("cloud", {"bucket_name": "my-bucket"})
-```
-
-## Usage
-
-### Quick Start
-
-**Step 1: Check EXIF Metadata (Recommended)**
-
-Before processing, verify that your RAW files contain focal length information:
+### Step 1: Check EXIF Metadata
 
 ```bash
 python detect_meteors_cli.py --show-exif
 ```
 
-This displays EXIF metadata from your first RAW file:
-```
-Camera Settings (EXIF Metadata)
-============================================================
-  Camera:           OM Digital OM-1
-  Focal length:     24.0mm (35mm equiv.)  ← Check this!
-  ISO:              1600
-  Exposure:         5.0s
-  Aperture:         f/2.8
-  Resolution:       5240×3912 px
-============================================================
-```
+Verify focal length is detected. If missing, you'll need to specify it with `--focal-length`.
 
-**What to look for:**
-- ✅ **If focal length is detected**: You can proceed directly to Step 2
-- ❌ **If focal length is missing or incorrect**: You'll need to specify it manually using `--sensor-type`, `--focal-length` or `--focal-factor`
-
-**Step 2: Run Auto-Parameter Optimization**
-
-The most scientific approach - let the software automatically optimize detection parameters using the NPF Rule and EXIF metadata:
-
-**Option A: Use sensor type preset**
+### Step 2: Run Detection
 
 ```bash
-# Micro Four Thirds
+# Micro Four Thirds camera
 python detect_meteors_cli.py --auto-params --sensor-type MFT
 
-# APS-C (Sony/Nikon/Fuji)
+# APS-C camera (Sony/Nikon/Fuji)
 python detect_meteors_cli.py --auto-params --sensor-type APS-C
 
-# APS-C (Canon)
-python detect_meteors_cli.py --auto-params --sensor-type APS-C_CANON
-
-# Full Frame
+# Full Frame camera
 python detect_meteors_cli.py --auto-params --sensor-type FF
 
-# Medium Format (Fujifilm GFX, Pentax 645Z, Hasselblad X2D)
-python detect_meteors_cli.py --auto-params --sensor-type MF44X33
-
-# Fisheye lens flag
+# With fisheye lens
 python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
 ```
 
-**Option B: If focal length is missing in EXIF - specify manually**
-```bash
-# Specify exact focal length (35mm equivalent)
-python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 24
+### Step 3: Review Candidates
 
-# Or override specific values from preset
-python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
-```
+Check the `candidates/` folder for detected meteor images.
 
-**Option C: Legacy manual specification (still supported)**
-```bash
-python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-factor 2.0
-```
+## Available Sensor Types
 
-This will:
-1. Extract EXIF metadata (ISO, exposure time, aperture, focal length) from your RAW files
-2. Calculate NPF Rule recommended exposure time based on sensor characteristics
-3. Evaluate shooting condition quality with scientific scoring
-4. Automatically optimize **all three critical parameters** based on:
-   - `diff_threshold`: ISO sensitivity and NPF compliance
-   - `min_area`: Estimated star trail length from Earth's rotation
-   - `min_line_score`: Expected meteor trail length (3× faster than stars)
-5. Display detailed analysis with optimization reasoning
-6. Process all images with scientifically-optimized settings
+| Sensor Type | Description |
+|-------------|-------------|
+| `1INCH` | 1-inch sensor |
+| `MFT` | Micro Four Thirds |
+| `APS-C` | APS-C (Sony/Nikon/Fuji) |
+| `APS-C_CANON` | APS-C (Canon) |
+| `APS-H` | APS-H |
+| `FF` | Full Frame 35mm |
+| `MF44X33` | Medium Format 44×33mm |
+| `MF54X40` | Medium Format 54×40mm |
 
-Example output:
-```
-============================================================
-Auto-params: NPF Rule-based Optimization
-============================================================
-
-Camera Settings (EXIF Metadata)
-============================================================
-  Camera:           OM Digital OM-1
-  Focal length:     24.0mm (35mm equiv.)
-  ISO:              1600
-  Exposure:         5.0s
-  Aperture:         f/2.8
-  Resolution:       5240×3912 px
-============================================================
-
-NPF Rule Analysis
-============================================================
-  Pixel pitch:      3.30μm (sensor: 17.3mm)
-  NPF recommended:  8.3s
-  Actual exposure:  5.0s ✓ OK (0.60× NPF)
-  Impact:           LOW
-============================================================
-
-Parameter Optimization (NPF Rule-based)
-============================================================
-
-Shooting Quality Score: 1.00 (EXCELLENT)
-
-Parameter Adjustments:
-  • diff_threshold: 8 → 7 (ISO/NPF-based)
-  • min_area: 10 → 3 (star trail-based)
-  • min_line_score: 80.0 → 30.0 (meteor trail-based)
-
-============================================================
-```
-
-For more details on the NPF Rule and focal length handling, see [NPF_RULE.md](NPF_RULE.md).
-
-For complete command line options reference, see [COMMAND_OPTIONS.md](COMMAND_OPTIONS.md).
-
-## Build a Single Binary with Nuitka
-If you want to distribute `detect_meteors_cli` as a standalone executable, you can bundle it with [Nuitka](https://nuitka.net/):
-
-```bash
-pip install nuitka
-python -m nuitka --onefile --standalone detect_meteors_cli.py
-```
+List all presets: `python detect_meteors_cli.py --list-sensor-types`
 
 ## Inputs and Outputs
-- **Inputs:** A directory of RAW images (all files supported by `rawpy` will be considered).
-- **Outputs:**
-  - Candidate images saved to the directory provided with `-o/--output`.
-  - Optional debug masks written to the directory provided with `--debug-dir`.
-  - `progress.json` file for tracking processed images (resumable processing) with
-    recorded parameter metadata (`params`, selected `roi`, and final
-    `processing_params`) to ensure runs resume with the same configuration.
 
-## Tips for Best Results
+- **Input**: Directory of RAW images (default: `rawfiles/`)
+- **Output**: 
+  - Candidate images in `candidates/` (or custom `-o` path)
+  - Optional debug masks with `--debug-dir`
+  - `progress.json` for resumable processing
 
-### Recommended Workflow
+## Resumable Processing
 
-**Step 1: Check EXIF metadata**
-```bash
-python detect_meteors_cli.py --show-exif
-```
-- Verify focal length is correctly extracted
-- Note your ISO, exposure, and aperture settings
-- If focal length is missing, prepare to use `--sensor-type`, `--focal-length` or `--focal-factor`
-
-**Step 2: Verify NPF compliance (optional)**
-```bash
-python detect_meteors_cli.py --show-npf --sensor-type MFT
-```
-- Check if your exposure time is within NPF recommendation
-- Understand your shooting quality score
-- See estimated star trail length
-
-**Step 3: Run auto-parameter optimization**
-```bash
-# Use sensor type preset
-python detect_meteors_cli.py --auto-params --sensor-type MFT
-
-# If focal length was missing in EXIF, add --focal-length
-python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 24
-
-# Or override specific preset values if needed
-python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
-```
-
-**Step 4: Review results and adjust if needed**
-- Check detected candidates
-- If too many false positives: increase thresholds manually
-- If missing meteors: decrease thresholds manually
-
-### Using NPF Rule-based Auto-Parameters
-
-1. **Use sensor type preset**: Use `--sensor-type TYPE` for automatic configuration
-   ```bash
-   # Micro Four Thirds
-   python detect_meteors_cli.py --auto-params --sensor-type MFT
-   
-   # Sony/Nikon/Fuji APS-C camera
-   python detect_meteors_cli.py --auto-params --sensor-type APS-C
-   
-   # Full Frame camera
-   python detect_meteors_cli.py --auto-params --sensor-type FF
-   
-   # Medium Format (Fujifilm GFX, Pentax 645Z)
-   python detect_meteors_cli.py --auto-params --sensor-type MF44X33
-   
-   # List all available sensor types
-   python detect_meteors_cli.py --list-sensor-types
-   ```
-
-2. **Override preset values when needed**: Individual parameters take priority over presets
-   ```bash
-   # Use MFT preset but override pixel pitch for specific camera
-   python detect_meteors_cli.py --auto-params --sensor-type MFT --pixel-pitch 3.3
-   ```
-
-3. **Check EXIF before processing**: Use `--show-exif` to verify focal length extraction
-   ```bash
-   python detect_meteors_cli.py --show-exif
-   ```
-   - If focal length is missing: add `--focal-length MM`
-
-4. **Check NPF compliance first**: Use `--show-npf` to understand your shooting conditions
-   ```bash
-   python detect_meteors_cli.py --show-npf --sensor-type MFT
-   ```
-
-5. **Optimal shooting conditions**:
-   - **Exposure time**: Keep within NPF recommended limit for best results
-   - **ISO**: Lower ISO reduces noise but requires longer exposure
-   - **Aperture**: Wider aperture (lower f-number) allows shorter exposures
-
-5. **Select a clean ROI**: Ensure the ROI contains only pure night sky without:
-   - Artificial lights (streetlights, light pollution sources)
-   - Ground objects (trees, buildings, horizon line)
-   - Atmospheric features (clouds, fog, aurora)
-
-### Expected Auto-Optimized Values
-
-#### By Sensor Type
-- **Micro Four Thirds (MFT)**: pixel_pitch ~3.3μm, NPF ~6-10s
-- **APS-C**: pixel_pitch ~3.9μm, NPF ~8-12s
-- **Full Frame**: pixel_pitch ~5.9μm, NPF ~12-16s
-- **Medium Format 44×33**: pixel_pitch ~3.76μm, NPF ~10-14s
-
-#### By Shooting Conditions
-- **Low ISO (≤1600), NPF OK**: diff_threshold ~5-7, min_area ~3-5, min_line_score ~30-40
-- **Medium ISO (~3200), NPF exceeded**: diff_threshold ~8-12, min_area ~4-8, min_line_score ~30-50
-- **High ISO (≥6400), NPF exceeded**: diff_threshold ~12-18, min_area ~6-12, min_line_score ~40-60
-
-#### By NPF Compliance
-- **Under NPF (OK)**: Optimal star trail control, lower thresholds
-- **Slight overshoot (1.0-1.5×)**: Acceptable, minor adjustments
-- **Moderate overshoot (1.5-2.5×)**: Noticeable star trails, increased thresholds
-- **Critical overshoot (>2.5×)**: Significant star trails, may affect detection quality
-
-### Shooting Quality Assessment
-
-The software provides a quality score (0.0-1.0) based on:
-
-1. **NPF Compliance** (most important, 60% weight):
-   - OK (≤1.0×): Perfect score
-   - WARNING (≤1.5×): 0.8
-   - MODERATE (≤2.5×): 0.5
-   - CRITICAL (>2.5×): 0.3
-
-2. **ISO Sensitivity** (25% weight):
-   - ≤1600: 1.0 (clean images)
-   - ≤3200: 0.9 (acceptable noise)
-   - ≤6400: 0.7 (noticeable noise)
-   - >6400: 0.5 (high noise)
-
-3. **Focal Length** (15% weight, wide angle advantageous):
-   - ≤24mm: 1.0 (excellent meteor coverage)
-   - ≤35mm: 0.95
-   - ≤50mm: 0.85
-   - >50mm: 0.7 (narrow field limits meteor visibility)
-
-**Overall Quality Levels**:
-- **EXCELLENT** (≥0.8): Ideal conditions for meteor detection
-- **GOOD** (≥0.6): Acceptable conditions, good detection probability
-- **FAIR** (≥0.4): Suboptimal conditions, detection may be limited
-- **POOR** (<0.4): Challenging conditions, consider adjusting shooting parameters
-
-### Resumable Processing
-- Long processing sessions can be interrupted with Ctrl-C
-- Progress is automatically saved to `progress.json`
-- Simply run the same command again to resume
+- Interrupt with Ctrl-C anytime
+- Resume by running the same command again
 - Use `--no-resume` for a fresh start
-- Use `--remove-progress` to clear saved progress
 
-### When to Use Manual Parameters
-- Extreme ISOs (>12800) where auto-optimization may need adjustment
-- Known problematic conditions (aurora, airglow, unusual atmospheric phenomena)
-- Fine-tuning based on initial auto-params results
-- Special requirements for specific research or publication needs
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [COMMAND_OPTIONS.md](COMMAND_OPTIONS.md) | Complete CLI options reference |
+| [NPF_RULE.md](NPF_RULE.md) | NPF Rule and focal length handling |
+| [INSTALL.md](INSTALL.md) | Installation guide |
+| [INSTALL_DEV.md](INSTALL_DEV.md) | Developer setup |
+| [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
+| [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
+
+## What's New in v1.5.11
+
+- **Case-insensitive registry lookup**: Plugin names like `raw`, `RAW`, `Raw` all work
+- **BaseInputLoader enhancement**: Added `name`, `version` attributes and `get_info()` method
+- **Early config validation**: Registry raises explicit errors instead of silent failures
+- **Plugin directory standardization**: `~/.detect_meteors/input_plugins/` for input loaders
+
+### Previous Releases
+
+| Version | Highlights | Details |
+|---------|------------|---------|
+| v1.5.x | Plugin architecture, sensor presets, fisheye support | [RELEASE_NOTES_1.5.md](RELEASE_NOTES_1.5.md) |
+| v1.4.x | NPF Rule optimization, EXIF extraction | [RELEASE_NOTES_1.4.md](RELEASE_NOTES_1.4.md) |
+| v1.3.x | Auto-parameter estimation | [RELEASE_NOTES_1.3.md](RELEASE_NOTES_1.3.md) |
+| v1.2.x | Threshold estimation improvements | [RELEASE_NOTES_1.2.md](RELEASE_NOTES_1.2.md) |
+
+See [CHANGELOG.md](CHANGELOG.md) for complete release history.
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for upcoming features.
 
 ## Contributing
+
 Issues and pull requests are welcome. Please open an issue to discuss substantial changes before submitting a PR.
 
+For development setup, see [INSTALL_DEV.md](INSTALL_DEV.md).
+
 ## License
-This project is licensed under the terms of the [Apache License 2.0](LICENSE).
+
+This project is licensed under the [Apache License 2.0](LICENSE).
