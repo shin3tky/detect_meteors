@@ -1,6 +1,12 @@
 # Plugin Author Guide
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
+>
+> **Current status (v1.5.x)**:
+> - ✅ Registry system and base classes are stable
+> - ✅ Input Loaders, Detectors, Output Handlers work as documented
+> - ⚠️ Method signatures may change (especially `detect` parameters)
+> - ⚠️ Configuration coercion behavior may be refined
 
 This guide provides comprehensive instructions for developing custom plugins for Detect Meteors CLI.
 
@@ -12,8 +18,8 @@ This guide provides comprehensive instructions for developing custom plugins for
 2. [Extension Points](#2-extension-points)
 3. [Plugin Architecture](#3-plugin-architecture)
 4. [Sample Code](#4-sample-code)
-5. [Implementation Guidelines](#5-implementation-guidelines)
-6. [Implementation Guide](#6-implementation-guide)
+5. [Best Practices](#5-best-practices)
+6. [Step-by-Step Tutorial](#6-step-by-step-tutorial)
 
 ---
 
@@ -114,6 +120,22 @@ The plugin system provides three extension points:
 - Implement `BaseMetadataExtractor` for EXIF-like metadata extraction
 - Define `name`, `version` attributes for plugin info
 
+**BaseMetadataExtractor mixin**:
+
+Implement this optional interface to extract metadata (EXIF, timestamps, camera info) from image files:
+
+```python
+class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
+    def extract_metadata(self, filepath: str) -> Dict[str, Any]:
+        # Return metadata dictionary
+        return {"timestamp": ..., "camera": ..., "exposure": ...}
+```
+
+**When is `extract_metadata` called?**
+- The pipeline calls it automatically when metadata logging is enabled (`--log-metadata`)
+- You can also call it manually for custom processing
+- If not implemented, metadata extraction is silently skipped
+
 ### 2.2 Detectors
 
 **Purpose**: Implement meteor detection algorithms
@@ -126,8 +148,34 @@ The plugin system provides three extension points:
 **Required methods**:
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `detect` | `(current, previous, roi_mask, params) -> Tuple[...]` | Main detection |
-| `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | Line scoring |
+| `detect` | `(current, previous, roi_mask, params) -> DetectionResult` | Main detection (see below) |
+| `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | Line scoring (called internally by `detect`) |
+
+**DetectionResult type** (return value of `detect`):
+```python
+Tuple[
+    bool,                              # is_candidate: Whether a meteor was detected
+    float,                             # score: Detection confidence score
+    List[Tuple[int, int, int, int]],   # lines: Line segments as (x1, y1, x2, y2)
+    float,                             # aspect_ratio: Contour aspect ratio
+    Optional[np.ndarray],              # debug_image: BGR visualization (or None)
+]
+```
+
+**Detection parameters** (`params` argument):
+
+The `params` dict contains CLI-configured detection settings:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `diff_threshold` | `int` | `8` | Frame difference threshold (0-255 scale) |
+| `min_line_score` | `float` | `30.0` | Minimum score to classify as candidate |
+| `min_aspect_ratio` | `float` | `2.0` | Minimum contour aspect ratio |
+| `hough_threshold` | `int` | `50` | Hough transform vote threshold |
+| `hough_min_line_length` | `int` | `50` | Minimum line length in pixels |
+| `hough_max_line_gap` | `int` | `10` | Maximum gap between line segments |
+
+**Note**: `compute_line_score` is a helper method typically called within your `detect` implementation. The pipeline calls only `detect`.
 
 ### 2.3 Output Handlers
 
@@ -221,7 +269,7 @@ LoaderRegistry.discover()
 
 ### 3.3 Configuration Management (ConfigType)
 
-Plugins can define a `ConfigType` for typed configuration:
+Plugins can define a `ConfigType` for typed configuration. See [5.1 Choosing ConfigType](#51-choosing-configtype) for guidance on when to use dataclass vs Pydantic.
 
 **Coercion Rules**:
 | Input | ConfigType | Result |
@@ -253,6 +301,20 @@ Plugins are discovered in this order (duplicates warn but don't overwrite):
 | Input Loaders | `~/.detect_meteors/input_plugins/` |
 | Detectors | `~/.detect_meteors/detector_plugins/` |
 | Output Handlers | `~/.detect_meteors/output_plugins/` |
+
+**How plugin directory discovery works**:
+1. Place your `.py` file in the appropriate directory (create it if needed)
+2. Your plugin class **must** call `Registry.register()` at module level (see examples)
+3. All `.py` files are loaded alphabetically on first registry access
+4. No special naming convention required, but descriptive names help organization
+
+Example file structure:
+```
+~/.detect_meteors/
+└── input_plugins/
+    ├── fits_loader.py      # Contains: LoaderRegistry.register(FitsLoader)
+    └── tiff_loader.py      # Contains: LoaderRegistry.register(TiffLoader)
+```
 
 **Entry Points** (in `pyproject.toml`):
 ```toml
@@ -695,7 +757,7 @@ OutputHandlerRegistry.register(SlackNotificationHandler)
 
 ---
 
-## 5. Implementation Guidelines
+## 5. Best Practices
 
 ### 5.1 Choosing ConfigType
 
@@ -821,7 +883,7 @@ class MyHandler(DataclassOutputHandler[MyConfig]):
 
 ---
 
-## 6. Implementation Guide
+## 6. Step-by-Step Tutorial
 
 ### 6.1 Step-by-Step: Creating a Plugin
 
@@ -969,6 +1031,12 @@ handler = OutputHandlerRegistry.create("my_handler")  # Uses ConfigType()
 
 ## See Also
 
+**Documentation**:
 - [INSTALL_DEV.md](INSTALL_DEV.md) — Development environment setup
 - [CHANGELOG.md](CHANGELOG.md) — Release history
 - [README.md](README.md) — User documentation
+
+**Built-in plugin implementations** (reference code):
+- [`meteor_core/inputs/raw_image_loader.py`](meteor_core/inputs/raw_image_loader.py) — RawImageLoader
+- [`meteor_core/detectors/hough_detector.py`](meteor_core/detectors/hough_detector.py) — HoughDetector
+- [`meteor_core/outputs/file_output_handler.py`](meteor_core/outputs/file_output_handler.py) — FileOutputHandler
