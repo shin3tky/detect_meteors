@@ -166,10 +166,9 @@ def discover_handlers(
 
 
 # NOTE:
-# ``OutputHandlerRegistry`` imports ``_discover_output_handlers_internal``
-# for its discovery step. Keep this wrapper in sync with
-# ``_discover_handlers_internal`` so registry discovery and the legacy
-# discovery helper share the same implementation.
+# ``OutputHandlerRegistry`` imports ``_discover_handlers_internal`` for its
+# discovery step. The wrapper below remains for legacy imports while keeping
+# a single implementation path.
 def _discover_output_handlers_internal(
     plugin_dir: Path | None = None,
 ) -> Dict[str, Type[BaseOutputHandler]]:
@@ -243,7 +242,6 @@ def _discover_handlers_internal(
 
 __all__ = [
     "discover_handlers",
-    "_discover_output_handlers_internal",
     "PLUGIN_DIR",
     "PLUGIN_GROUP",
 ]
