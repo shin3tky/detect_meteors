@@ -9,7 +9,7 @@ Image loading and EXIF extraction functions.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 import rawpy
@@ -270,9 +270,243 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
         ) from e
 
 
+# --- EXIF extraction helpers ---
+
+
+def _exif_ratio_to_float(value: Any) -> Optional[float]:
+    """Convert EXIF ratio tuple or scalar to float.
+
+    Args:
+        value: EXIF value (tuple of (numerator, denominator) or scalar)
+
+    Returns:
+        Float value, or None if conversion fails
+    """
+    if value is None:
+        return None
+    try:
+        if isinstance(value, tuple):
+            return float(value[0]) / float(value[1]) if value[1] != 0 else None
+        return float(value)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+def _populate_exif_from_dict(result: Dict[str, Any], exif_dict: Dict[str, Any]) -> int:
+    """Populate result dictionary from EXIF data dictionary.
+
+    Args:
+        result: Result dictionary to populate (modified in place)
+        exif_dict: Dictionary of EXIF tag names to values
+
+    Returns:
+        Number of fields that were populated
+    """
+    initial_count = sum(1 for v in result.values() if v is not None)
+
+    # Focal length
+    if "FocalLength" in exif_dict and result["focal_length"] is None:
+        result["focal_length"] = _exif_ratio_to_float(exif_dict["FocalLength"])
+
+    # 35mm equivalent focal length
+    if "FocalLengthIn35mmFilm" in exif_dict and result["focal_length_35mm"] is None:
+        try:
+            result["focal_length_35mm"] = float(exif_dict["FocalLengthIn35mmFilm"])
+        except (TypeError, ValueError):
+            pass
+
+    # ISO sensitivity
+    if result["iso"] is None:
+        iso_value = exif_dict.get("ISOSpeedRatings") or exif_dict.get(
+            "PhotographicSensitivity"
+        )
+        if iso_value is not None:
+            try:
+                if isinstance(iso_value, (list, tuple)):
+                    result["iso"] = int(iso_value[0])
+                else:
+                    result["iso"] = int(iso_value)
+            except (TypeError, ValueError, IndexError):
+                pass
+
+    # Exposure time
+    if "ExposureTime" in exif_dict and result["exposure_time"] is None:
+        result["exposure_time"] = _exif_ratio_to_float(exif_dict["ExposureTime"])
+
+    # F-number (aperture)
+    if "FNumber" in exif_dict and result["f_number"] is None:
+        result["f_number"] = _exif_ratio_to_float(exif_dict["FNumber"])
+
+    # Camera information
+    if "Make" in exif_dict and result["camera_make"] is None:
+        result["camera_make"] = str(exif_dict["Make"]).strip()
+    if "Model" in exif_dict and result["camera_model"] is None:
+        result["camera_model"] = str(exif_dict["Model"]).strip()
+
+    # Lens information
+    if result["lens_model"] is None:
+        lens = exif_dict.get("LensModel") or exif_dict.get("LensSpecification")
+        if lens is not None:
+            result["lens_model"] = str(lens).strip()
+
+    # Image resolution
+    if result["image_width"] is None:
+        width = exif_dict.get("ExifImageWidth") or exif_dict.get("ImageWidth")
+        if width is not None:
+            try:
+                result["image_width"] = int(width)
+            except (TypeError, ValueError):
+                pass
+
+    if result["image_height"] is None:
+        height = exif_dict.get("ExifImageHeight") or exif_dict.get("ImageLength")
+        if height is not None:
+            try:
+                result["image_height"] = int(height)
+            except (TypeError, ValueError):
+                pass
+
+    final_count = sum(1 for v in result.values() if v is not None)
+    return final_count - initial_count
+
+
+def _exif_strategy_thumbnail(filepath: str, result: Dict[str, Any]) -> bool:
+    """Strategy 1: Extract EXIF from embedded JPEG thumbnail.
+
+    Args:
+        filepath: Path to RAW file
+        result: Result dictionary to populate (modified in place)
+
+    Returns:
+        True if any fields were extracted, False otherwise
+    """
+    logger.debug("Strategy 1: Extracting EXIF from embedded thumbnail")
+    try:
+        with rawpy.imread(filepath) as raw:
+            thumb = raw.extract_thumb()
+            if thumb.format != rawpy.ThumbFormat.JPEG:
+                logger.debug(
+                    "Strategy 1: Thumbnail is not JPEG (format=%s) for: %s",
+                    thumb.format,
+                    filepath,
+                )
+                return False
+
+            from io import BytesIO
+
+            img = Image.open(BytesIO(thumb.data))
+            exif_data = img._getexif()
+
+            if not exif_data:
+                logger.debug("Strategy 1: Thumbnail EXIF is empty for: %s", filepath)
+                return False
+
+            exif_dict = {TAGS.get(tag_id, tag_id): v for tag_id, v in exif_data.items()}
+            fields_added = _populate_exif_from_dict(result, exif_dict)
+            logger.debug(
+                "Strategy 1 succeeded: extracted %d fields from thumbnail", fields_added
+            )
+            return fields_added > 0
+
+    except rawpy.LibRawNoThumbnailError:
+        logger.debug("Strategy 1: No thumbnail available in RAW file: %s", filepath)
+    except rawpy.LibRawUnsupportedThumbnailError:
+        logger.debug("Strategy 1: Unsupported thumbnail format in: %s", filepath)
+    except rawpy.LibRawError as e:
+        logger.warning(
+            "Strategy 1 failed: Cannot open RAW file %s: %s: %s",
+            filepath,
+            type(e).__name__,
+            e,
+        )
+    except Exception as e:
+        logger.debug("Strategy 1 failed for %s: %s: %s", filepath, type(e).__name__, e)
+    return False
+
+
+def _exif_strategy_pil_direct(filepath: str, result: Dict[str, Any]) -> bool:
+    """Strategy 2: Open RAW file directly with PIL.
+
+    Args:
+        filepath: Path to RAW file
+        result: Result dictionary to populate (modified in place)
+
+    Returns:
+        True if any fields were extracted, False otherwise
+    """
+    logger.debug("Strategy 2: Opening RAW file directly with PIL")
+    try:
+        img = Image.open(filepath)
+        exif_data = img._getexif()
+        if not exif_data:
+            logger.debug("Strategy 2: No EXIF data from PIL for: %s", filepath)
+            return False
+
+        exif_dict = {TAGS.get(tag_id, tag_id): v for tag_id, v in exif_data.items()}
+        fields_added = _populate_exif_from_dict(result, exif_dict)
+        logger.debug(
+            "Strategy 2 succeeded: added %d fields",
+            fields_added,
+        )
+        return fields_added > 0
+
+    except OSError as e:
+        logger.debug("Strategy 2: PIL cannot open RAW format for %s: %s", filepath, e)
+    except Exception as e:
+        logger.debug("Strategy 2 failed for %s: %s: %s", filepath, type(e).__name__, e)
+    return False
+
+
+def _exif_strategy_rawpy_dimensions(filepath: str, result: Dict[str, Any]) -> bool:
+    """Strategy 3: Get image dimensions from rawpy.
+
+    Args:
+        filepath: Path to RAW file
+        result: Result dictionary to populate (modified in place)
+
+    Returns:
+        True if dimensions were extracted, False otherwise
+    """
+    logger.debug("Strategy 3: Getting dimensions from rawpy")
+    try:
+        with rawpy.imread(filepath) as raw:
+            sizes = raw.sizes
+            if result["image_width"] is None:
+                result["image_width"] = sizes.raw_width
+            if result["image_height"] is None:
+                result["image_height"] = sizes.raw_height
+            logger.debug(
+                "Strategy 3 succeeded: %dx%d",
+                result["image_width"],
+                result["image_height"],
+            )
+            return True
+
+    except rawpy.LibRawError as e:
+        logger.warning(
+            "Strategy 3 failed: Cannot read dimensions from %s: %s: %s",
+            filepath,
+            type(e).__name__,
+            e,
+        )
+    except Exception as e:
+        logger.warning(
+            "Strategy 3 failed for %s: %s: %s", filepath, type(e).__name__, e
+        )
+    return False
+
+
 def extract_exif_metadata(filepath: str) -> Dict[str, Any]:
     """
     Extract EXIF information from RAW file.
+
+    This function uses multiple strategies to extract EXIF metadata:
+    1. Extract from embedded JPEG thumbnail (most reliable for RAW files)
+    2. Open RAW file directly with PIL (limited format support)
+    3. Get image dimensions from rawpy
+
+    The function is designed to never raise exceptions; any failures during
+    extraction are logged and the function returns partial or empty results.
 
     Args:
         filepath: Path to RAW file
@@ -291,8 +525,14 @@ def extract_exif_metadata(filepath: str) -> Dict[str, Any]:
             'image_width': int,             # Image width (px)
             'image_height': int,            # Image height (px)
         }
+
+    Note:
+        - Returns None for fields that could not be extracted
+        - Does not raise exceptions; failures are logged at debug/warning level
     """
-    result = {
+    logger.debug("Extracting EXIF metadata from: %s", filepath)
+
+    result: Dict[str, Any] = {
         "focal_length": None,
         "focal_length_35mm": None,
         "iso": None,
@@ -306,135 +546,29 @@ def extract_exif_metadata(filepath: str) -> Dict[str, Any]:
     }
 
     if not PILLOW_AVAILABLE:
+        logger.debug("Pillow not available, skipping EXIF extraction for: %s", filepath)
         return result
 
-    try:
-        # Strategy 1: Extract EXIF from embedded thumbnail
-        with rawpy.imread(filepath) as raw:
-            try:
-                thumb = raw.extract_thumb()
-                if thumb.format == rawpy.ThumbFormat.JPEG:
-                    from io import BytesIO
+    # Strategy 1: Extract EXIF from embedded thumbnail (most reliable)
+    _exif_strategy_thumbnail(filepath, result)
 
-                    img = Image.open(BytesIO(thumb.data))
-                    exif_data = img._getexif()
+    # Strategy 2: Try PIL direct open if we're missing focal length data
+    if result["focal_length"] is None:
+        _exif_strategy_pil_direct(filepath, result)
 
-                    if exif_data:
-                        exif_dict = {}
-                        for tag_id, value in exif_data.items():
-                            tag_name = TAGS.get(tag_id, tag_id)
-                            exif_dict[tag_name] = value
+    # Strategy 3: Get dimensions from rawpy if still missing
+    if result["image_width"] is None or result["image_height"] is None:
+        _exif_strategy_rawpy_dimensions(filepath, result)
 
-                        # Focal length
-                        if "FocalLength" in exif_dict:
-                            focal = exif_dict["FocalLength"]
-                            if isinstance(focal, tuple):
-                                result["focal_length"] = float(focal[0]) / float(
-                                    focal[1]
-                                )
-                            else:
-                                result["focal_length"] = float(focal)
-
-                        # 35mm equivalent focal length
-                        if "FocalLengthIn35mmFilm" in exif_dict:
-                            result["focal_length_35mm"] = float(
-                                exif_dict["FocalLengthIn35mmFilm"]
-                            )
-
-                        # ISO sensitivity
-                        if "ISOSpeedRatings" in exif_dict:
-                            iso_value = exif_dict["ISOSpeedRatings"]
-                            if isinstance(iso_value, (list, tuple)):
-                                result["iso"] = int(iso_value[0])
-                            else:
-                                result["iso"] = int(iso_value)
-                        elif "PhotographicSensitivity" in exif_dict:
-                            result["iso"] = int(exif_dict["PhotographicSensitivity"])
-
-                        # Exposure time
-                        if "ExposureTime" in exif_dict:
-                            exp = exif_dict["ExposureTime"]
-                            if isinstance(exp, tuple):
-                                result["exposure_time"] = float(exp[0]) / float(exp[1])
-                            else:
-                                result["exposure_time"] = float(exp)
-
-                        # F-number (aperture)
-                        if "FNumber" in exif_dict:
-                            fnum = exif_dict["FNumber"]
-                            if isinstance(fnum, tuple):
-                                result["f_number"] = float(fnum[0]) / float(fnum[1])
-                            else:
-                                result["f_number"] = float(fnum)
-
-                        # Camera information
-                        if "Make" in exif_dict:
-                            result["camera_make"] = str(exif_dict["Make"]).strip()
-                        if "Model" in exif_dict:
-                            result["camera_model"] = str(exif_dict["Model"]).strip()
-
-                        # Lens information
-                        if "LensModel" in exif_dict:
-                            result["lens_model"] = str(exif_dict["LensModel"]).strip()
-                        elif "LensSpecification" in exif_dict:
-                            result["lens_model"] = str(exif_dict["LensSpecification"])
-
-                        # Image resolution
-                        if "ExifImageWidth" in exif_dict:
-                            result["image_width"] = int(exif_dict["ExifImageWidth"])
-                        elif "ImageWidth" in exif_dict:
-                            result["image_width"] = int(exif_dict["ImageWidth"])
-
-                        if "ExifImageHeight" in exif_dict:
-                            result["image_height"] = int(exif_dict["ExifImageHeight"])
-                        elif "ImageLength" in exif_dict:
-                            result["image_height"] = int(exif_dict["ImageLength"])
-
-            except Exception:
-                pass
-
-        # Strategy 2: Open RAW file directly with PIL (limited format support)
-        if result["focal_length"] is None:
-            try:
-                img = Image.open(filepath)
-                exif_data = img._getexif()
-                if exif_data:
-                    exif_dict = {
-                        TAGS.get(tag_id, tag_id): value
-                        for tag_id, value in exif_data.items()
-                    }
-
-                    if "FocalLength" in exif_dict and result["focal_length"] is None:
-                        focal = exif_dict["FocalLength"]
-                        result["focal_length"] = (
-                            float(focal[0]) / float(focal[1])
-                            if isinstance(focal, tuple)
-                            else float(focal)
-                        )
-
-                    if (
-                        "FocalLengthIn35mmFilm" in exif_dict
-                        and result["focal_length_35mm"] is None
-                    ):
-                        result["focal_length_35mm"] = float(
-                            exif_dict["FocalLengthIn35mmFilm"]
-                        )
-            except Exception:
-                pass
-
-        # Strategy 3: Get image dimensions directly from rawpy
-        if result["image_width"] is None or result["image_height"] is None:
-            try:
-                with rawpy.imread(filepath) as raw:
-                    sizes = raw.sizes
-                    if result["image_width"] is None:
-                        result["image_width"] = sizes.raw_width
-                    if result["image_height"] is None:
-                        result["image_height"] = sizes.raw_height
-            except Exception:
-                pass
-
-    except Exception:
-        pass
+    # Log summary of extracted fields
+    extracted_fields = [k for k, v in result.items() if v is not None]
+    if extracted_fields:
+        logger.debug(
+            "EXIF extraction completed for %s: extracted fields: %s",
+            filepath,
+            ", ".join(extracted_fields),
+        )
+    else:
+        logger.debug("EXIF extraction completed for %s: no fields extracted", filepath)
 
     return result
