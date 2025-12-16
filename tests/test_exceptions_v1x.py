@@ -541,5 +541,170 @@ class TestExceptionChaining(unittest.TestCase):
             os.unlink(temp_path)
 
 
+class TestDependencyVersions(unittest.TestCase):
+    """Test cases for dependency version collection."""
+
+    def test_diagnostic_info_includes_dependencies(self):
+        """Test that DiagnosticInfo includes dependency versions."""
+        err = MeteorLoadError("Test error")
+        info = err.get_diagnostic_info()
+
+        self.assertIsInstance(info.dependencies, dict)
+        self.assertIn("numpy", info.dependencies)
+        self.assertIn("rawpy", info.dependencies)
+
+    def test_dependencies_in_format_for_issue(self):
+        """Test that dependencies are included in format_for_issue output."""
+        err = MeteorLoadError("Test error")
+        output = err.format_for_issue()
+
+        self.assertIn("### Dependencies", output)
+        self.assertIn("numpy:", output)
+
+    def test_to_dict_includes_dependencies(self):
+        """Test that to_dict includes dependencies."""
+        err = MeteorLoadError("Test error")
+        info = err.get_diagnostic_info()
+        d = info.to_dict()
+
+        self.assertIn("dependencies", d)
+        self.assertIsInstance(d["dependencies"], dict)
+
+
+class TestFormatErrorForUser(unittest.TestCase):
+    """Test cases for format_error_for_user helper function."""
+
+    def test_basic_format(self):
+        """Test basic error formatting."""
+        from meteor_core.exceptions import format_error_for_user
+
+        err = MeteorLoadError("File corrupted", filepath="/test/image.CR2")
+        output = format_error_for_user(err)
+
+        self.assertIn("ERROR:", output)
+        self.assertIn("File corrupted", output)
+        self.assertIn("/test/image.CR2", output)
+
+    def test_verbose_format(self):
+        """Test verbose error formatting includes diagnostics."""
+        from meteor_core.exceptions import format_error_for_user
+
+        err = MeteorLoadError("File corrupted", filepath="/test/image.CR2")
+        output = format_error_for_user(err, verbose=True)
+
+        self.assertIn("## Diagnostic Information", output)
+        self.assertIn("meteor_core version:", output)
+
+    def test_with_original_error(self):
+        """Test formatting with original error."""
+        from meteor_core.exceptions import format_error_for_user
+
+        original = ValueError("Bad value")
+        err = MeteorLoadError("Load failed", original_error=original)
+        output = format_error_for_user(err)
+
+        self.assertIn("Cause:", output)
+        self.assertIn("ValueError", output)
+
+
+class TestSaveDiagnosticReport(unittest.TestCase):
+    """Test cases for save_diagnostic_report helper function."""
+
+    def test_save_to_file(self):
+        """Test saving diagnostic report to file."""
+        from meteor_core.exceptions import save_diagnostic_report
+
+        err = MeteorLoadError("Test error", filepath="/test/file.CR2")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "diagnostic.md")
+            result_path = save_diagnostic_report(err, output_path)
+
+            self.assertEqual(result_path, output_path)
+            self.assertTrue(os.path.exists(output_path))
+
+            with open(output_path, encoding="utf-8") as f:
+                content = f.read()
+
+            self.assertIn("# Meteor Detection - Diagnostic Report", content)
+            self.assertIn("## Diagnostic Information", content)
+            self.assertIn("MeteorLoadError", content)
+
+    def test_auto_generated_filename(self):
+        """Test auto-generated filename when path not specified."""
+        from meteor_core.exceptions import save_diagnostic_report
+
+        err = MeteorLoadError("Test error")
+
+        # Change to temp directory to avoid polluting current dir
+        original_dir = os.getcwd()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.chdir(tmpdir)
+            try:
+                result_path = save_diagnostic_report(err)
+
+                self.assertTrue(result_path.startswith("meteor_diagnostic_"))
+                self.assertTrue(result_path.endswith(".md"))
+                self.assertTrue(os.path.exists(result_path))
+            finally:
+                os.chdir(original_dir)
+
+
+class TestCreateDiagnosticFromException(unittest.TestCase):
+    """Test cases for create_diagnostic_from_exception helper function."""
+
+    def test_from_standard_exception(self):
+        """Test creating diagnostic from standard exception."""
+        from meteor_core.exceptions import create_diagnostic_from_exception
+
+        exc = ValueError("Something went wrong")
+        info = create_diagnostic_from_exception(exc)
+
+        self.assertEqual(info.error_type, "ValueError")
+        self.assertEqual(info.error_message, "Something went wrong")
+        self.assertIn("numpy", info.dependencies)
+
+    def test_with_filepath_and_context(self):
+        """Test with filepath and context."""
+        from meteor_core.exceptions import create_diagnostic_from_exception
+
+        exc = IOError("File error")
+        info = create_diagnostic_from_exception(
+            exc,
+            filepath="/test/file.txt",
+            context={"operation": "read"},
+        )
+
+        self.assertEqual(info.filepath, "/test/file.txt")
+        self.assertEqual(info.context["operation"], "read")
+
+    def test_format_for_issue_works(self):
+        """Test that format_for_issue works on created diagnostic."""
+        from meteor_core.exceptions import create_diagnostic_from_exception
+
+        exc = RuntimeError("Unexpected")
+        info = create_diagnostic_from_exception(exc)
+        output = info.format_for_issue()
+
+        self.assertIn("## Diagnostic Information", output)
+        self.assertIn("RuntimeError", output)
+
+
+class TestImportFromPackage(unittest.TestCase):
+    """Test that all new functions are exported from meteor_core."""
+
+    def test_import_helper_functions(self):
+        """Test importing helper functions from meteor_core."""
+        from meteor_core import (
+            create_diagnostic_from_exception,
+            format_error_for_user,
+            save_diagnostic_report,
+        )
+
+        self.assertTrue(callable(format_error_for_user))
+        self.assertTrue(callable(save_diagnostic_report))
+        self.assertTrue(callable(create_diagnostic_from_exception))
+
+
 if __name__ == "__main__":
     unittest.main()

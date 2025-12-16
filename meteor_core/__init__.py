@@ -86,6 +86,9 @@ from .exceptions import (
     MeteorUnsupportedFormatError,
     MeteorValidationError,
     MeteorConfigError,
+    format_error_for_user,
+    save_diagnostic_report,
+    create_diagnostic_from_exception,
 )
 
 from .image_io import (
@@ -238,6 +241,9 @@ __all__ = [
     "MeteorUnsupportedFormatError",
     "MeteorValidationError",
     "MeteorConfigError",
+    "format_error_for_user",
+    "save_diagnostic_report",
+    "create_diagnostic_from_exception",
     # Image I/O
     "load_and_bin_raw_fast",
     "extract_exif_metadata",

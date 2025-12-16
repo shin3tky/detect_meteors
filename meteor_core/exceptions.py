@@ -36,6 +36,34 @@ from typing import Any, Dict, List, Optional
 
 from .schema import VERSION
 
+# Key dependencies to include in diagnostic reports
+_KEY_DEPENDENCIES = [
+    "numpy",
+    "opencv-python",
+    "rawpy",
+    "pillow",
+    "psutil",
+    "pydantic",
+]
+
+
+def _get_package_versions() -> Dict[str, str]:
+    """Collect versions of key dependencies.
+
+    Returns:
+        Dictionary mapping package names to version strings.
+        Returns "not installed" for missing packages.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+
+    versions: Dict[str, str] = {}
+    for pkg in _KEY_DEPENDENCIES:
+        try:
+            versions[pkg] = version(pkg)
+        except PackageNotFoundError:
+            versions[pkg] = "not installed"
+    return versions
+
 
 @dataclass
 class DiagnosticInfo:
@@ -71,6 +99,7 @@ class DiagnosticInfo:
     original_error_type: Optional[str] = None
     original_error_message: Optional[str] = None
     context: Dict[str, Any] = field(default_factory=dict)
+    dependencies: Dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization.
@@ -91,6 +120,7 @@ class DiagnosticInfo:
             "original_error_type": self.original_error_type,
             "original_error_message": self.original_error_message,
             "context": self.context,
+            "dependencies": self.dependencies,
         }
 
     def format_for_issue(self) -> str:
@@ -146,6 +176,12 @@ class DiagnosticInfo:
             lines.extend(["### Additional Context", "", "```"])
             for key, value in self.context.items():
                 lines.append(f"{key}: {value}")
+            lines.extend(["```", ""])
+
+        if self.dependencies:
+            lines.extend(["### Dependencies", "", "```"])
+            for pkg, ver in sorted(self.dependencies.items()):
+                lines.append(f"{pkg}: {ver}")
             lines.extend(["```", ""])
 
         return "\n".join(lines)
@@ -248,6 +284,7 @@ class MeteorError(Exception):
             original_error_type=original_type,
             original_error_message=original_message,
             context=self.context,
+            dependencies=_get_package_versions(),
         )
 
     def format_for_issue(self) -> str:
@@ -479,6 +516,162 @@ class MeteorConfigError(MeteorError):
         )
 
 
+# =============================================================================
+# CLI Helper Functions
+# =============================================================================
+
+
+def format_error_for_user(error: MeteorError, *, verbose: bool = False) -> str:
+    """Format an error message for CLI display.
+
+    Provides a user-friendly error message with optional verbose diagnostics.
+
+    Args:
+        error: The MeteorError to format.
+        verbose: If True, include full diagnostic information.
+
+    Returns:
+        Formatted error message string.
+
+    Example:
+        >>> try:
+        ...     load_and_bin_raw_fast("bad.CR2")
+        ... except MeteorError as e:
+        ...     print(format_error_for_user(e, verbose=True))
+    """
+    lines: List[str] = [
+        "",
+        "=" * 60,
+        f"ERROR: {error.message}",
+        "=" * 60,
+    ]
+
+    if error.filepath:
+        lines.append(f"File: {error.filepath}")
+
+    if error.original_error:
+        lines.append(
+            f"Cause: {type(error.original_error).__name__}: {error.original_error}"
+        )
+
+    if verbose:
+        lines.extend(
+            [
+                "",
+                "For bug reports, please include the following diagnostic information:",
+                "-" * 60,
+                error.format_for_issue(),
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "",
+                "Run with --verbose flag for detailed diagnostic information.",
+                "Or use --save-diagnostic to save a diagnostic report file.",
+            ]
+        )
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def save_diagnostic_report(
+    error: MeteorError,
+    output_path: Optional[str] = None,
+) -> str:
+    """Save diagnostic information to a file.
+
+    Creates a markdown file with full diagnostic information that can be
+    attached to GitHub issues.
+
+    Args:
+        error: The MeteorError to generate diagnostics for.
+        output_path: Path for the output file. If None, generates a
+            timestamped filename in the current directory.
+
+    Returns:
+        Path to the saved diagnostic file.
+
+    Example:
+        >>> try:
+        ...     load_and_bin_raw_fast("bad.CR2")
+        ... except MeteorError as e:
+        ...     path = save_diagnostic_report(e)
+        ...     print(f"Diagnostic saved to: {path}")
+    """
+    if output_path is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = f"meteor_diagnostic_{timestamp}.md"
+
+    diagnostic = error.get_diagnostic_info()
+    content = diagnostic.format_for_issue()
+
+    # Add header with instructions
+    header = [
+        "# Meteor Detection - Diagnostic Report",
+        "",
+        "This file contains diagnostic information for troubleshooting.",
+        "Please attach this file when reporting issues on GitHub:",
+        "https://github.com/shin3tky/detect_meteors/issues/new",
+        "",
+        "---",
+        "",
+    ]
+
+    full_content = "\n".join(header) + content
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(full_content)
+
+    return output_path
+
+
+def create_diagnostic_from_exception(
+    exc: BaseException,
+    *,
+    filepath: Optional[str] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> DiagnosticInfo:
+    """Create diagnostic info from any exception.
+
+    This is useful for wrapping non-MeteorError exceptions with
+    diagnostic information.
+
+    Args:
+        exc: Any exception to create diagnostics for.
+        filepath: Optional filepath related to the error.
+        context: Optional additional context.
+
+    Returns:
+        DiagnosticInfo instance with system and error details.
+
+    Example:
+        >>> try:
+        ...     risky_operation()
+        ... except Exception as e:
+        ...     diag = create_diagnostic_from_exception(e, filepath="data.txt")
+        ...     print(diag.format_for_issue())
+    """
+    file_exists, file_size = _collect_file_info(filepath)
+
+    return DiagnosticInfo(
+        version=VERSION,
+        python_version=sys.version,
+        platform=f"{platform.system()} {platform.release()} ({platform.machine()})",
+        timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        filepath=filepath,
+        file_exists=file_exists,
+        file_size=file_size,
+        error_type=type(exc).__name__,
+        error_message=str(exc),
+        original_error_type=None,
+        original_error_message=None,
+        context=context or {},
+        dependencies=_get_package_versions(),
+    )
+
+
 __all__ = [
     # Diagnostic info
     "DiagnosticInfo",
@@ -488,4 +681,8 @@ __all__ = [
     "MeteorUnsupportedFormatError",
     "MeteorValidationError",
     "MeteorConfigError",
+    # Helper functions
+    "format_error_for_user",
+    "save_diagnostic_report",
+    "create_diagnostic_from_exception",
 ]
