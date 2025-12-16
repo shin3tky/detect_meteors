@@ -130,6 +130,7 @@
 - Training on labeled meteor datasets
 - Advanced pattern recognition
 - Adaptive learning from user feedback
+- Detecting aircrafts and satellites
 
 ---
 
