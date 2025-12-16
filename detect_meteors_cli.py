@@ -11,6 +11,7 @@ import os
 import sys
 import shlex
 import argparse
+import logging
 
 from meteor_core import (
     VERSION,
@@ -258,6 +259,30 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
 
     return parser
+
+
+def _configure_logging(verbose: bool) -> None:
+    """Configure logging for CLI execution.
+
+    When verbose mode is enabled, DEBUG-level logs from input handling modules
+    become visible to aid troubleshooting; otherwise keep the default warning
+    noise level.
+    """
+
+    if not verbose:
+        return
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(levelname)s:%(name)s:%(message)s",
+        force=True,
+    )
+
+    for logger_name in (
+        "meteor_core.inputs",
+        "meteor_core.image_io",
+    ):
+        logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
 
 def validate_and_apply_sensor_preset(args, verbose: bool = False):
@@ -1384,6 +1409,8 @@ def main():
     parser = build_arg_parser()
     args = parser.parse_args()
     cli_param_string = shlex.join(sys.argv[1:])
+
+    _configure_logging(args.verbose)
 
     if args.remove_progress:
         if os.path.exists(args.progress_file):
