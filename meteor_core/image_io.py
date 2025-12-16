@@ -50,7 +50,7 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
     from .exceptions import MeteorLoadError, MeteorUnsupportedFormatError
     from .schema import EXTENSIONS
 
-    logger.debug("Loading RAW file: %s", filepath)
+    logger.info("Loading RAW file: %s", filepath)
 
     # Check if file exists first (provides clearer error message)
     if not os.path.exists(filepath):
@@ -107,7 +107,7 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
             temp += bayer[1::2, 1::2]
             result[:] = temp // 4
 
-            logger.debug("Successfully loaded and binned: %s", filepath)
+            logger.info("Successfully loaded and binned: %s", filepath)
             return result
 
     except rawpy.LibRawFileUnsupportedError as e:

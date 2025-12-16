@@ -233,7 +233,7 @@ def _discover_handlers_internal(
     """
     directory = plugin_dir if plugin_dir is not None else PLUGIN_DIR
 
-    logger.debug("Starting input loader discovery")
+    logger.info("Starting input loader discovery")
     logger.debug("Plugin directory: %s", directory)
 
     registry: Dict[str, Type[BaseInputLoader]] = {}
@@ -306,7 +306,7 @@ def _discover_handlers_internal(
             "Plugin directory does not exist or is not a directory: %s", directory
         )
 
-    logger.debug(
+    logger.info(
         "Input loader discovery completed: %d loaders registered (%s)",
         len(registry),
         ", ".join(sorted(registry.keys())),

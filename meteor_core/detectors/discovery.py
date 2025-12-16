@@ -228,7 +228,7 @@ def _discover_handlers_internal(
     """
     directory = plugin_dir if plugin_dir is not None else PLUGIN_DIR
 
-    logger.debug("Starting detector discovery")
+    logger.info("Starting detector discovery")
     logger.debug("Plugin directory: %s", directory)
 
     registry: Dict[str, Type[BaseDetector]] = {}
@@ -306,7 +306,7 @@ def _discover_handlers_internal(
             "Plugin directory does not exist or is not a directory: %s", directory
         )
 
-    logger.debug(
+    logger.info(
         "Detector discovery completed: %d detectors registered (%s)",
         len(registry),
         ", ".join(sorted(registry.keys())),

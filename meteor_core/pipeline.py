@@ -375,7 +375,7 @@ def collect_files(target_folder: str) -> List[str]:
         MeteorLoadError: If the directory doesn't exist, is not a directory,
             or no RAW files are found.
     """
-    logger.debug("Collecting RAW files from: %s", target_folder)
+    logger.info("Collecting RAW files from: %s", target_folder)
 
     # Check if the directory exists
     if not os.path.exists(target_folder):
