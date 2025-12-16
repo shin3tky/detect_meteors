@@ -22,6 +22,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from meteor_core import (  # noqa: E402
+    MeteorLoadError,
     parse_roi_polygon_string,
     format_polygon_string,
     compute_params_hash,
@@ -165,7 +166,7 @@ class TestFileCollection(unittest.TestCase):
     def test_collect_files_not_found(self, mock_exists):
         """Test error when directory doesn't exist."""
         mock_exists.return_value = False
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(MeteorLoadError):
             collect_files("/missing/path")
 
     @patch("glob.glob")
@@ -177,7 +178,7 @@ class TestFileCollection(unittest.TestCase):
         mock_isdir.return_value = True
         mock_glob.return_value = []  # No files found
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(MeteorLoadError):
             collect_files("/empty/path")
 
 

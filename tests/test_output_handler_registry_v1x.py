@@ -22,6 +22,7 @@ from meteor_core.outputs.base import (
     forbid_unknown_keys,
 )
 from meteor_core.outputs.file_handler import FileOutputHandler, FileOutputConfig
+from meteor_core.exceptions import MeteorConfigError
 from meteor_core.schema import (
     DEFAULT_DEBUG_FOLDER,
     DEFAULT_OUTPUT_FOLDER,
@@ -767,10 +768,10 @@ class TestResolveOutputHandler(unittest.TestCase):
         self.assertTrue(resolved.config.output_overwrite)
 
     def test_resolve_without_config_raises_error(self):
-        """ValueError raised when no config provided."""
+        """MeteorConfigError raised when no config provided."""
         from meteor_core.pipeline import _resolve_output_handler
 
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(MeteorConfigError) as context:
             _resolve_output_handler()
         self.assertIn("Cannot resolve output handler", str(context.exception))
 
@@ -809,12 +810,16 @@ class TestResolveOutputHandler(unittest.TestCase):
         )
         self.assertEqual(resolved.config.output_folder, self._temp_path("named"))
 
-    def test_resolve_invalid_handler_name_raises_keyerror(self):
-        """KeyError raised for unknown handler name."""
+    def test_resolve_invalid_handler_name_raises_config_error(self):
+        """MeteorConfigError raised for unknown handler name."""
         from meteor_core.pipeline import _resolve_output_handler
 
-        with self.assertRaises(KeyError):
+        with self.assertRaises(MeteorConfigError) as ctx:
             _resolve_output_handler(handler_name="nonexistent")
+
+        err = ctx.exception
+        self.assertIn("nonexistent", str(err))
+        self.assertEqual(err.plugin_name, "nonexistent")
 
 
 class TestPipelineOutputHandlerIntegration(unittest.TestCase):

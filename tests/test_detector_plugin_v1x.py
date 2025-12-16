@@ -17,6 +17,7 @@ import os
 # Add project root directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from meteor_core.exceptions import MeteorConfigError  # noqa: E402
 from meteor_core.detectors import (  # noqa: E402
     BaseDetector,
     HoughDetector,
@@ -84,12 +85,13 @@ class TestResolveDetector(unittest.TestCase):
         self.assertIsInstance(result_mixed, HoughDetector)
 
     def test_resolve_with_unknown_detector_name_raises(self):
-        """Unknown detector_name raises KeyError."""
-        with self.assertRaises(KeyError) as ctx:
+        """Unknown detector_name raises MeteorConfigError."""
+        with self.assertRaises(MeteorConfigError) as ctx:
             _resolve_detector(detector_name="unknown_detector")
 
-        self.assertIn("Unknown detector", str(ctx.exception))
-        self.assertIn("unknown_detector", str(ctx.exception))
+        err = ctx.exception
+        self.assertIn("unknown_detector", err.message.lower())
+        self.assertEqual(err.plugin_name, "unknown_detector")
 
     def test_resolve_default_detector(self):
         """No arguments returns default detector."""
