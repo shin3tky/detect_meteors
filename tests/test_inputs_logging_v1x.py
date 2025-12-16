@@ -8,6 +8,7 @@ import warnings
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 if "cv2" not in sys.modules:  # pragma: no cover - optional dependency shim
     sys.modules["cv2"] = types.SimpleNamespace()
@@ -15,7 +16,8 @@ if "cv2" not in sys.modules:  # pragma: no cover - optional dependency shim
 from meteor_core.exceptions import MeteorValidationError
 from meteor_core.inputs.base import BaseInputLoader
 from meteor_core.inputs.discovery import _add_loader, _discover_handlers_internal
-from meteor_core.inputs.raw import RawLoaderConfig
+from meteor_core.inputs.raw import RawImageLoader, RawLoaderConfig
+from meteor_core.inputs.registry import LoaderRegistry
 
 
 class DummyValidLoader(BaseInputLoader):
@@ -130,6 +132,50 @@ class TestRawLoaderConfigLogging(unittest.TestCase):
         self.assertTrue(
             any("Invalid binning factor" in message for message in logs.output),
             "Expected invalid binning to be logged as an error",
+        )
+
+    def test_loader_creation_logs_config_errors(self):
+        with self.assertLogs("meteor_core.inputs.registry", level="ERROR") as logs:
+            with self.assertRaises(MeteorValidationError):
+                LoaderRegistry.create("raw", {"binning": 3})
+
+        self.assertTrue(
+            any("Failed to coerce config" in message for message in logs.output),
+            "Expected config coercion failure to be logged",
+        )
+
+    def test_raw_loader_load_logs_errors(self):
+        loader = RawImageLoader(RawLoaderConfig())
+
+        with mock.patch(
+            "meteor_core.inputs.raw.load_and_bin_raw_fast",
+            side_effect=RuntimeError("boom"),
+        ):
+            with self.assertLogs("meteor_core.inputs.raw", level="ERROR") as logs:
+                with self.assertRaises(RuntimeError):
+                    loader.load("/tmp/example.raw")
+
+        self.assertTrue(
+            any("Failed to load RAW image" in message for message in logs.output),
+            "Expected loading failure to be logged",
+        )
+
+    def test_extract_metadata_logs_warning_on_failure(self):
+        loader = RawImageLoader(RawLoaderConfig())
+
+        with mock.patch(
+            "meteor_core.inputs.raw.extract_exif_metadata",
+            side_effect=RuntimeError("oops"),
+        ):
+            with self.assertLogs("meteor_core.inputs.raw", level="WARNING") as logs:
+                metadata = loader.extract_metadata("/tmp/example.raw")
+
+        self.assertEqual(metadata, {})
+        self.assertTrue(
+            any(
+                "Failed to extract EXIF metadata" in message for message in logs.output
+            ),
+            "Expected metadata extraction issues to be logged",
         )
 
 

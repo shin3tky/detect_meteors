@@ -112,8 +112,28 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
         """
         logger.debug("Creating input loader '%s' with config %r", name, config)
         loader_cls = cls.get(name)
-        coerced_config = cls._coerce_config(loader_cls, config)
-        instance = loader_cls(coerced_config)
+        try:
+            coerced_config = cls._coerce_config(loader_cls, config)
+        except Exception as exc:
+            logger.error(
+                "Failed to coerce config for input loader '%s': %s: %s",
+                name,
+                type(exc).__name__,
+                exc,
+            )
+            raise
+
+        try:
+            instance = loader_cls(coerced_config)
+        except Exception as exc:
+            logger.error(
+                "Failed to instantiate input loader '%s' (%s): %s: %s",
+                name,
+                loader_cls.__name__,
+                type(exc).__name__,
+                exc,
+            )
+            raise
         logger.debug(
             "Created input loader '%s' (%s) with config type %s",
             name,
@@ -142,13 +162,32 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
             config,
         )
         loader_cls = cls.get(DEFAULT_LOADER_NAME)
-        coerced_config = cls._coerce_config(loader_cls, config)
+        try:
+            coerced_config = cls._coerce_config(loader_cls, config)
+        except Exception as exc:
+            logger.error(
+                "Failed to coerce config for default input loader '%s': %s: %s",
+                DEFAULT_LOADER_NAME,
+                type(exc).__name__,
+                exc,
+            )
+            raise
         if coerced_config is None:
             raise TypeError(
                 "Default loader does not define ConfigType; cannot create default."
             )
 
-        instance = loader_cls(coerced_config)
+        try:
+            instance = loader_cls(coerced_config)
+        except Exception as exc:
+            logger.error(
+                "Failed to instantiate default input loader '%s' (%s): %s: %s",
+                DEFAULT_LOADER_NAME,
+                loader_cls.__name__,
+                type(exc).__name__,
+                exc,
+            )
+            raise
         logger.debug(
             "Created default input loader '%s' (%s) with config type %s",
             DEFAULT_LOADER_NAME,

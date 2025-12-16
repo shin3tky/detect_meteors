@@ -104,7 +104,18 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
 
         # Validation is done in RawLoaderConfig.__post_init__
         # MeteorLoadError/MeteorUnsupportedFormatError raised by load_and_bin_raw_fast
-        image = load_and_bin_raw_fast(filepath)
+        try:
+            image = load_and_bin_raw_fast(filepath)
+        except Exception as exc:
+            logger.error(
+                "Failed to load RAW image %s (binning=%d, normalize=%s): %s: %s",
+                filepath,
+                self.config.binning,
+                self.config.normalize,
+                type(exc).__name__,
+                exc,
+            )
+            raise
 
         if self.config.normalize:
             logger.debug("Normalizing image to float32 [0, 1] range")
@@ -144,7 +155,16 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
         """
         logger.debug("RawImageLoader.extract_metadata: filepath=%s", filepath)
 
-        metadata = extract_exif_metadata(filepath)
+        try:
+            metadata = extract_exif_metadata(filepath)
+        except Exception as exc:  # pragma: no cover - unexpected metadata failure
+            logger.warning(
+                "Failed to extract EXIF metadata from %s: %s: %s",
+                filepath,
+                type(exc).__name__,
+                exc,
+            )
+            return {}
 
         # Log extracted metadata summary
         available_fields = [k for k, v in metadata.items() if v is not None]
