@@ -162,6 +162,7 @@ This will install:
 - `rawpy` - RAW image reading
 - `psutil` - System utilities
 - `pillow` - Image handling and EXIF extraction
+- `pydantic` - Configuration and data validation
 
 ### Step 7: Verification
 
