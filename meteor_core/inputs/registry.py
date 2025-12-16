@@ -22,12 +22,16 @@ method raises to avoid silently constructing an incomplete instance.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Optional, Type, Union
 
 from ..plugin_registry import _PLUGIN_KIND_INPUT
 from ..plugin_registry_base import PluginRegistryBase
 from ..schema import DEFAULT_LOADER_NAME
 from .base import BaseInputLoader, _is_valid_input_loader
+
+# Module-level logger for registry operations
+logger = logging.getLogger(__name__)
 
 
 class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
@@ -106,9 +110,17 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
             >>> loader = LoaderRegistry.create("raw", {"normalize": True})
             >>> loader = LoaderRegistry.create("raw")  # default config
         """
+        logger.debug("Creating input loader '%s' with config %r", name, config)
         loader_cls = cls.get(name)
         coerced_config = cls._coerce_config(loader_cls, config)
-        return loader_cls(coerced_config)
+        instance = loader_cls(coerced_config)
+        logger.debug(
+            "Created input loader '%s' (%s) with config type %s",
+            name,
+            loader_cls.__name__,
+            type(coerced_config).__name__ if coerced_config is not None else None,
+        )
+        return instance
 
     @classmethod
     def create_default(
@@ -124,6 +136,11 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
         # Input loaders do not expose registry-level overrides; their defaults are
         # defined solely by ConfigType, whereas output handlers also allow path
         # overrides for CLI compatibility.
+        logger.debug(
+            "Creating default input loader '%s' with override config %r",
+            DEFAULT_LOADER_NAME,
+            config,
+        )
         loader_cls = cls.get(DEFAULT_LOADER_NAME)
         coerced_config = cls._coerce_config(loader_cls, config)
         if coerced_config is None:
@@ -131,7 +148,14 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
                 "Default loader does not define ConfigType; cannot create default."
             )
 
-        return loader_cls(coerced_config)
+        instance = loader_cls(coerced_config)
+        logger.debug(
+            "Created default input loader '%s' (%s) with config type %s",
+            DEFAULT_LOADER_NAME,
+            loader_cls.__name__,
+            type(coerced_config).__name__,
+        )
+        return instance
 
 
 __all__ = ["LoaderRegistry"]
