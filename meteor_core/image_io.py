@@ -31,28 +31,132 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
     Returns:
         Binned image as numpy array (uint16)
 
+    Raises:
+        MeteorUnsupportedFormatError: If the file format is not supported by rawpy.
+        MeteorLoadError: If the file cannot be loaded due to I/O errors,
+            data corruption, or other loading failures.
+
     Note:
         - Minimizes memory allocation
         - Optimizes casting operations
     """
-    with rawpy.imread(filepath) as raw:
-        bayer = raw.raw_image
+    import os
 
-        # Binning process (reduce memory copying with view operations)
-        h, w = bayer.shape
-        h_half, w_half = h // 2, w // 2
+    from .exceptions import MeteorLoadError, MeteorUnsupportedFormatError
+    from .schema import EXTENSIONS
 
-        # Calculate directly with uint16 (add incrementally to prevent overflow)
-        result = np.empty((h_half, w_half), dtype=np.uint16)
+    # Check if file exists first (provides clearer error message)
+    if not os.path.exists(filepath):
+        raise MeteorLoadError(
+            "File not found",
+            filepath=filepath,
+            context={"error_category": "file_not_found"},
+        )
 
-        # Single operation calculation (directly without going through uint32)
-        temp = bayer[0::2, 0::2].astype(np.uint32)
-        temp += bayer[0::2, 1::2]
-        temp += bayer[1::2, 0::2]
-        temp += bayer[1::2, 1::2]
-        result[:] = temp // 4
+    # Check file permissions
+    if not os.access(filepath, os.R_OK):
+        raise MeteorLoadError(
+            "Permission denied: cannot read file",
+            filepath=filepath,
+            context={"error_category": "permission_denied"},
+        )
 
-        return result
+    # Get supported formats for error messages
+    supported_formats = [ext.replace("*.", ".") for ext in EXTENSIONS]
+
+    try:
+        with rawpy.imread(filepath) as raw:
+            bayer = raw.raw_image
+
+            # Binning process (reduce memory copying with view operations)
+            h, w = bayer.shape
+            h_half, w_half = h // 2, w // 2
+
+            # Calculate directly with uint16 (add incrementally to prevent overflow)
+            result = np.empty((h_half, w_half), dtype=np.uint16)
+
+            # Single operation calculation (directly without going through uint32)
+            temp = bayer[0::2, 0::2].astype(np.uint32)
+            temp += bayer[0::2, 1::2]
+            temp += bayer[1::2, 0::2]
+            temp += bayer[1::2, 1::2]
+            result[:] = temp // 4
+
+            return result
+
+    except rawpy.LibRawFileUnsupportedError as e:
+        # File format is not supported by libraw
+        _, ext = os.path.splitext(filepath)
+        raise MeteorUnsupportedFormatError(
+            f"Unsupported RAW format: {ext or 'unknown'}",
+            filepath=filepath,
+            original_error=e,
+            detected_format=ext.upper() if ext else None,
+            supported_formats=supported_formats,
+        ) from e
+
+    except rawpy.LibRawIOError as e:
+        # I/O error during reading
+        raise MeteorLoadError(
+            "I/O error while reading RAW file",
+            filepath=filepath,
+            original_error=e,
+            context={"error_category": "io_error"},
+        ) from e
+
+    except rawpy.LibRawDataError as e:
+        # Data corruption or invalid data
+        raise MeteorLoadError(
+            "RAW file data is corrupted or invalid",
+            filepath=filepath,
+            original_error=e,
+            context={"error_category": "data_corruption"},
+        ) from e
+
+    except rawpy.LibRawUnsufficientMemoryError as e:
+        # Out of memory
+        raise MeteorLoadError(
+            "Insufficient memory to load RAW file",
+            filepath=filepath,
+            original_error=e,
+            context={"error_category": "memory_error"},
+        ) from e
+
+    except rawpy.LibRawTooBigError as e:
+        # File too large
+        raise MeteorLoadError(
+            "RAW file is too large to process",
+            filepath=filepath,
+            original_error=e,
+            context={"error_category": "file_too_large"},
+        ) from e
+
+    except rawpy.LibRawError as e:
+        # Generic libraw error
+        raise MeteorLoadError(
+            "Failed to load RAW file",
+            filepath=filepath,
+            original_error=e,
+            context={"error_category": "libraw_error"},
+        ) from e
+
+    except MemoryError as e:
+        # Python memory error during binning
+        raise MeteorLoadError(
+            "Out of memory during image processing",
+            filepath=filepath,
+            original_error=e,
+            context={"error_category": "memory_error", "stage": "binning"},
+        ) from e
+
+    except Exception as e:
+        # Catch-all for unexpected errors
+        raise MeteorLoadError(
+            f"Unexpected error loading RAW file: {type(e).__name__}",
+            filepath=filepath,
+            original_error=e,
+            context={"error_category": "unexpected"},
+        ) from e
 
 
 def extract_exif_metadata(filepath: str) -> Dict[str, Any]:
