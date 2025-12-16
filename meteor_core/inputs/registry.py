@@ -173,6 +173,11 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
             )
             raise
         if coerced_config is None:
+            logger.error(
+                "Default input loader '%s' does not define ConfigType; "
+                "cannot create default instance",
+                DEFAULT_LOADER_NAME,
+            )
             raise TypeError(
                 "Default loader does not define ConfigType; cannot create default."
             )

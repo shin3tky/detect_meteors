@@ -154,14 +154,29 @@ def _is_valid_input_loader(cls: Type[Any]) -> bool:
         True if the class is a valid BaseInputLoader subclass.
     """
     if not isinstance(cls, type):
+        logger.debug(
+            "_is_valid_input_loader: %r is not a type",
+            cls,
+        )
         return False
     if not issubclass(cls, BaseInputLoader):
+        logger.debug(
+            "_is_valid_input_loader: %s does not inherit from BaseInputLoader",
+            cls.__name__,
+        )
         return False
     # Check that plugin_name is defined and non-empty
     plugin_name = getattr(cls, "plugin_name", None)
-    return (
+    if not (
         plugin_name is not None and isinstance(plugin_name, str) and plugin_name != ""
-    )
+    ):
+        logger.debug(
+            "_is_valid_input_loader: %s has invalid plugin_name: %r",
+            cls.__name__,
+            plugin_name,
+        )
+        return False
+    return True
 
 
 class DataclassInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
