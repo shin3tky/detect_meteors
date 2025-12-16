@@ -8,9 +8,14 @@
 Image loading and EXIF extraction functions.
 """
 
-import rawpy
+import logging
+from typing import Any, Dict
+
 import numpy as np
-from typing import Dict, Any
+import rawpy
+
+# Module-level logger
+logger = logging.getLogger(__name__)
 
 try:
     from PIL import Image
@@ -45,8 +50,15 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
     from .exceptions import MeteorLoadError, MeteorUnsupportedFormatError
     from .schema import EXTENSIONS
 
+    logger.debug("Loading RAW file: %s", filepath)
+
     # Check if file exists first (provides clearer error message)
     if not os.path.exists(filepath):
+        logger.error(
+            "File not found: %s",
+            filepath,
+            extra={"error_category": "file_not_found", "filepath": filepath},
+        )
         raise MeteorLoadError(
             "File not found",
             filepath=filepath,
@@ -55,6 +67,11 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
 
     # Check file permissions
     if not os.access(filepath, os.R_OK):
+        logger.error(
+            "Permission denied: %s",
+            filepath,
+            extra={"error_category": "permission_denied", "filepath": filepath},
+        )
         raise MeteorLoadError(
             "Permission denied: cannot read file",
             filepath=filepath,
@@ -72,6 +89,14 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
             h, w = bayer.shape
             h_half, w_half = h // 2, w // 2
 
+            logger.debug(
+                "Processing image: original=%dx%d, binned=%dx%d",
+                w,
+                h,
+                w_half,
+                h_half,
+            )
+
             # Calculate directly with uint16 (add incrementally to prevent overflow)
             result = np.empty((h_half, w_half), dtype=np.uint16)
 
@@ -82,11 +107,23 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
             temp += bayer[1::2, 1::2]
             result[:] = temp // 4
 
+            logger.debug("Successfully loaded and binned: %s", filepath)
             return result
 
     except rawpy.LibRawFileUnsupportedError as e:
         # File format is not supported by libraw
         _, ext = os.path.splitext(filepath)
+        logger.error(
+            "Unsupported file format '%s': %s",
+            ext or "unknown",
+            filepath,
+            extra={
+                "error_category": "unsupported_format",
+                "filepath": filepath,
+                "detected_format": ext,
+                "original_error": str(e),
+            },
+        )
         raise MeteorUnsupportedFormatError(
             f"Unsupported RAW format: {ext or 'unknown'}",
             filepath=filepath,
@@ -97,6 +134,16 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
 
     except rawpy.LibRawIOError as e:
         # I/O error during reading
+        logger.error(
+            "I/O error reading file: %s - %s",
+            filepath,
+            e,
+            extra={
+                "error_category": "io_error",
+                "filepath": filepath,
+                "original_error": str(e),
+            },
+        )
         raise MeteorLoadError(
             "I/O error while reading RAW file",
             filepath=filepath,
@@ -106,6 +153,16 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
 
     except rawpy.LibRawDataError as e:
         # Data corruption or invalid data
+        logger.error(
+            "Data corruption in file: %s - %s",
+            filepath,
+            e,
+            extra={
+                "error_category": "data_corruption",
+                "filepath": filepath,
+                "original_error": str(e),
+            },
+        )
         raise MeteorLoadError(
             "RAW file data is corrupted or invalid",
             filepath=filepath,
@@ -115,6 +172,16 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
 
     except rawpy.LibRawUnsufficientMemoryError as e:
         # Out of memory
+        logger.error(
+            "Insufficient memory loading file: %s - %s",
+            filepath,
+            e,
+            extra={
+                "error_category": "memory_error",
+                "filepath": filepath,
+                "original_error": str(e),
+            },
+        )
         raise MeteorLoadError(
             "Insufficient memory to load RAW file",
             filepath=filepath,
@@ -124,6 +191,16 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
 
     except rawpy.LibRawTooBigError as e:
         # File too large
+        logger.error(
+            "File too large: %s - %s",
+            filepath,
+            e,
+            extra={
+                "error_category": "file_too_large",
+                "filepath": filepath,
+                "original_error": str(e),
+            },
+        )
         raise MeteorLoadError(
             "RAW file is too large to process",
             filepath=filepath,
@@ -133,6 +210,16 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
 
     except rawpy.LibRawError as e:
         # Generic libraw error
+        logger.error(
+            "LibRaw error loading file: %s - %s",
+            filepath,
+            e,
+            extra={
+                "error_category": "libraw_error",
+                "filepath": filepath,
+                "original_error": str(e),
+            },
+        )
         raise MeteorLoadError(
             "Failed to load RAW file",
             filepath=filepath,
@@ -142,6 +229,17 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
 
     except MemoryError as e:
         # Python memory error during binning
+        logger.error(
+            "Out of memory during binning: %s - %s",
+            filepath,
+            e,
+            extra={
+                "error_category": "memory_error",
+                "filepath": filepath,
+                "stage": "binning",
+                "original_error": str(e),
+            },
+        )
         raise MeteorLoadError(
             "Out of memory during image processing",
             filepath=filepath,
@@ -151,6 +249,19 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
 
     except Exception as e:
         # Catch-all for unexpected errors
+        logger.error(
+            "Unexpected error loading file: %s - %s: %s",
+            filepath,
+            type(e).__name__,
+            e,
+            extra={
+                "error_category": "unexpected",
+                "filepath": filepath,
+                "error_type": type(e).__name__,
+                "original_error": str(e),
+            },
+            exc_info=True,  # Include traceback for unexpected errors
+        )
         raise MeteorLoadError(
             f"Unexpected error loading RAW file: {type(e).__name__}",
             filepath=filepath,

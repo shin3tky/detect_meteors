@@ -15,7 +15,31 @@ This package provides the core functionality for meteor detection:
 - detectors: Detection algorithms
 - outputs: Output handling
 - pipeline: Processing orchestration
+
+Logging:
+    This library uses Python's standard logging module. By default, a NullHandler
+    is attached to prevent "No handler found" warnings. To see log output, configure
+    logging in your application:
+
+    Example:
+        >>> import logging
+        >>> logging.basicConfig(level=logging.DEBUG)
+
+    Or attach a handler to the 'meteor_core' logger:
+
+        >>> import logging
+        >>> logger = logging.getLogger('meteor_core')
+        >>> logger.addHandler(logging.StreamHandler())
+        >>> logger.setLevel(logging.DEBUG)
 """
+
+import logging
+
+# Configure library-level logger with NullHandler to prevent
+# "No handler found" warnings when the library is used without
+# explicit logging configuration.
+_logger = logging.getLogger(__name__)
+_logger.addHandler(logging.NullHandler())
 
 from .schema import (
     VERSION,

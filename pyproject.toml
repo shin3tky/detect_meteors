@@ -125,6 +125,11 @@ exclude = [
 # E501: line too long (handled by Black)
 # E226: missing whitespace around arithmetic operator
 ignore = ["E203", "W503", "E501", "E226"]
+# E402: module level import not at top of file
+# In __init__.py, logging setup must come before submodule imports
+per-file-ignores = [
+    "meteor_core/__init__.py:E402",
+]
 
 # ==========================================
 # Testing - unittest with coverage
