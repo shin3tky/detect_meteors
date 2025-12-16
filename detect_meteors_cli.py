@@ -14,6 +14,12 @@ import argparse
 
 from meteor_core import (
     VERSION,
+    # Exceptions
+    MeteorError,
+    MeteorLoadError,
+    MeteorValidationError,
+    format_error_for_user,
+    save_diagnostic_report,
     DEFAULT_TARGET_FOLDER,
     DEFAULT_OUTPUT_FOLDER,
     DEFAULT_DEBUG_FOLDER,
@@ -149,6 +155,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--no-parallel", action="store_true", help="Disable parallel processing"
     )
     parser.add_argument("--profile", action="store_true", help="Display timing profile")
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show detailed diagnostic information on errors",
+    )
+    parser.add_argument(
+        "--save-diagnostic",
+        metavar="FILE",
+        type=str,
+        default=None,
+        help="Save diagnostic report to file on error (default: auto-generated name)",
+    )
     parser.add_argument(
         "--validate-raw", action="store_true", help="Validate RAW files first"
     )
@@ -435,7 +453,11 @@ def print_warnings(warnings):
 
 
 def handle_show_exif(args) -> None:
-    """Handle --show-exif / --show-npf commands."""
+    """Handle --show-exif / --show-npf commands.
+
+    Raises:
+        MeteorError: On any error during EXIF extraction or display.
+    """
     print(f"\n{'='*60}")
     if args.show_npf:
         print("EXIF Metadata & NPF Rule Analysis")
@@ -455,65 +477,64 @@ def handle_show_exif(args) -> None:
     ) = validate_and_apply_sensor_preset(args, verbose=True)
 
     if error_message:
-        print(error_message)
-        return
+        raise MeteorValidationError(
+            error_message,
+            parameter_name="sensor_type",
+            provided_value=args.sensor_type,
+        )
 
-    try:
-        files = collect_files(args.target)
-        if not files:
-            print("⚠ No RAW files found in target folder.")
-            return
+    # Collect files (raises MeteorLoadError if directory doesn't exist)
+    files = collect_files(args.target)
+    if not files:
+        raise MeteorLoadError(
+            "No RAW files found in target folder",
+            filepath=args.target,
+            context={"error_category": "no_files"},
+        )
 
-        print(f"Found {len(files)} RAW files")
-        print(f"Reading EXIF from first file: {os.path.basename(files[0])}\n")
+    print(f"Found {len(files)} RAW files")
+    print(f"Reading EXIF from first file: {os.path.basename(files[0])}\n")
 
-        # Extract EXIF and calculate NPF metrics
-        exif_data, focal_length_source, npf_metrics = prepare_exif_and_npf_analysis(
-            filepath=files[0],
-            focal_factor_value=focal_factor_value,
-            focal_length_value=focal_length_value,
-            sensor_width_value=sensor_width_value,
-            pixel_pitch_value=pixel_pitch_value,
-            args_sensor_type=args.sensor_type,
-            args_focal_factor=args.focal_factor,
+    # Extract EXIF and calculate NPF metrics
+    exif_data, focal_length_source, npf_metrics = prepare_exif_and_npf_analysis(
+        filepath=files[0],
+        focal_factor_value=focal_factor_value,
+        focal_length_value=focal_length_value,
+        sensor_width_value=sensor_width_value,
+        pixel_pitch_value=pixel_pitch_value,
+        args_sensor_type=args.sensor_type,
+        args_focal_factor=args.focal_factor,
+        fisheye=args.fisheye,
+        fisheye_model=DEFAULT_FISHEYE_MODEL,
+    )
+
+    # For --show-npf, force NPF calculation even if data is incomplete
+    if args.show_npf and npf_metrics is None:
+        npf_metrics = calculate_npf_metrics(
+            exif_data,
+            sensor_width_mm=sensor_width_value,
+            pixel_pitch_um=pixel_pitch_value,
             fisheye=args.fisheye,
             fisheye_model=DEFAULT_FISHEYE_MODEL,
         )
 
-        # For --show-npf, force NPF calculation even if data is incomplete
-        if args.show_npf and npf_metrics is None:
-            npf_metrics = calculate_npf_metrics(
-                exif_data,
-                sensor_width_mm=sensor_width_value,
-                pixel_pitch_um=pixel_pitch_value,
-                fisheye=args.fisheye,
-                fisheye_model=DEFAULT_FISHEYE_MODEL,
-            )
+    # Display fisheye info
+    if args.fisheye and exif_data.get("focal_length_35mm"):
+        display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
 
-        # Display fisheye info
-        if args.fisheye and exif_data.get("focal_length_35mm"):
-            display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
+    display_exif_info(exif_data, focal_length_source, focal_factor_value, npf_metrics)
 
-        display_exif_info(
-            exif_data, focal_length_source, focal_factor_value, npf_metrics
-        )
-
-        # Collect and print warnings
-        warnings = collect_exif_warnings(
-            exif_data=exif_data,
-            focal_length_value=focal_length_value,
-            focal_factor_value=focal_factor_value,
-            sensor_width_value=sensor_width_value,
-            pixel_pitch_value=pixel_pitch_value,
-            npf_metrics=npf_metrics,
-            check_npf=(args.show_npf or npf_metrics is not None),
-        )
-        print_warnings(warnings)
-
-    except FileNotFoundError as e:
-        print(f"⚠ Error: {e}")
-    except Exception as e:
-        print(f"⚠ Error reading EXIF: {e}")
+    # Collect and print warnings
+    warnings = collect_exif_warnings(
+        exif_data=exif_data,
+        focal_length_value=focal_length_value,
+        focal_factor_value=focal_factor_value,
+        sensor_width_value=sensor_width_value,
+        pixel_pitch_value=pixel_pitch_value,
+        npf_metrics=npf_metrics,
+        check_npf=(args.show_npf or npf_metrics is not None),
+    )
+    print_warnings(warnings)
 
 
 def _init_worker_ignore_interrupt() -> None:
@@ -525,7 +546,7 @@ def _init_worker_ignore_interrupt() -> None:
 
 def _validate_directories(
     target_folder: str, output_folder: str, debug_folder: str
-) -> bool:
+) -> None:
     """
     Validate and create directories for processing.
 
@@ -534,8 +555,9 @@ def _validate_directories(
         output_folder: Output folder for candidates
         debug_folder: Folder for debug images
 
-    Returns:
-        True if directories are valid, False otherwise
+    Raises:
+        MeteorValidationError: If target and output directories are the same.
+        MeteorLoadError: If directories cannot be created.
     """
     import os
 
@@ -544,20 +566,28 @@ def _validate_directories(
     output_fullpath = os.path.abspath(output_folder)
 
     if target_fullpath == output_fullpath:
-        print(f"\n{'='*60}")
-        print("⚠ ERROR: Target and output directories are the same!")
-        print(f"{'='*60}")
-        print(f"  Target:  {target_folder}")
-        print(f"  Output:  {output_folder}")
-        print(f"  Resolved to: {target_fullpath}")
-        print("\nThis configuration would overwrite original RAW files.")
-        print("Please specify a different output directory.")
-        print(f"{'='*60}\n")
-        return False
+        raise MeteorValidationError(
+            "Target and output directories cannot be the same",
+            parameter_name="output_folder",
+            provided_value=output_folder,
+            expected="a different directory than target_folder",
+            context={
+                "target_folder": target_folder,
+                "output_folder": output_folder,
+                "resolved_path": target_fullpath,
+            },
+        )
 
-    os.makedirs(output_folder, exist_ok=True)
-    os.makedirs(debug_folder, exist_ok=True)
-    return True
+    try:
+        os.makedirs(output_folder, exist_ok=True)
+        os.makedirs(debug_folder, exist_ok=True)
+    except OSError as e:
+        raise MeteorLoadError(
+            f"Failed to create output directory: {e}",
+            filepath=output_folder if "output" in str(e).lower() else debug_folder,
+            original_error=e,
+            context={"error_category": "directory_creation"},
+        ) from e
 
 
 def _setup_roi(
@@ -1172,17 +1202,21 @@ def detect_meteors_advanced(
     timing = {}
     t_total = time.time()
 
-    # Validate and create directories
-    if not _validate_directories(target_folder, output_folder, debug_folder):
-        return 0
+    # Validate and create directories (raises MeteorError on failure)
+    _validate_directories(target_folder, output_folder, debug_folder)
 
-    # Collect files
+    # Collect files (raises MeteorLoadError if directory doesn't exist or is empty)
     print(f"Collecting RAW files from: {target_folder}")
     files = collect_files(target_folder)
 
     if len(files) < 2:
-        print("Need at least 2 images. Exiting.")
-        return 0
+        raise MeteorValidationError(
+            "Need at least 2 images for meteor detection",
+            parameter_name="target_folder",
+            provided_value=target_folder,
+            expected="directory with at least 2 RAW files",
+            context={"files_found": len(files)},
+        )
 
     print(f"Found {len(files)} files")
 
@@ -1369,6 +1403,57 @@ def main():
         handle_show_exif(args)
         return
 
+    try:
+        _run_main(args, cli_param_string)
+    except MeteorError as e:
+        # Handle meteor_core exceptions with user-friendly output
+        print(format_error_for_user(e, verbose=args.verbose), file=sys.stderr)
+
+        # Save diagnostic report if requested
+        if args.save_diagnostic is not None:
+            # Use provided path or auto-generate
+            diag_path = args.save_diagnostic if args.save_diagnostic else None
+            saved_path = save_diagnostic_report(e, diag_path)
+            print(f"Diagnostic report saved to: {saved_path}", file=sys.stderr)
+        elif not args.verbose:
+            # Hint about diagnostic options
+            print(
+                "Tip: Use --save-diagnostic to save a report for bug reporting.",
+                file=sys.stderr,
+            )
+
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nInterrupted by user.", file=sys.stderr)
+        sys.exit(130)
+    except Exception as e:
+        # Unexpected errors - show traceback in verbose mode
+        if args.verbose:
+            import traceback
+
+            traceback.print_exc()
+        else:
+            print(f"\nUnexpected error: {type(e).__name__}: {e}", file=sys.stderr)
+            print(
+                "Run with --verbose for full traceback, or report this issue.",
+                file=sys.stderr,
+            )
+        sys.exit(1)
+
+
+def _run_main(args, cli_param_string: str):
+    """Run the main detection logic.
+
+    This function contains the core logic extracted from main() to allow
+    proper exception handling at the top level.
+
+    Args:
+        args: Parsed command line arguments.
+        cli_param_string: Original CLI parameter string.
+
+    Raises:
+        MeteorError: On any meteor_core related errors.
+    """
     roi_polygon_cli = None
     enable_roi_selection = DEFAULT_ENABLE_ROI_SELECTION
 
@@ -1394,8 +1479,11 @@ def main():
     ) = validate_and_apply_sensor_preset(args, verbose=False)
 
     if error_message:
-        print(error_message)
-        return
+        raise MeteorValidationError(
+            error_message,
+            parameter_name="sensor_type",
+            provided_value=args.sensor_type,
+        )
 
     detect_meteors_advanced(
         target_folder=args.target,
