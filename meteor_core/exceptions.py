@@ -629,16 +629,18 @@ class MeteorProgressError(MeteorOutputError):
     """Exception raised when progress tracking fails.
 
     This exception is used for progress file read/write errors,
-    JSON parsing failures, and progress data validation errors.
+    JSON parsing failures, serialization errors, and progress data
+    validation errors.
 
     Common error categories (stored in context["error_category"]):
         - "read_failed": Failed to read progress file
         - "write_failed": Failed to write progress file
         - "parse_failed": Failed to parse progress JSON
+        - "serialize_failed": Failed to serialize progress JSON
         - "validation_failed": Progress data validation error
 
     Attributes:
-        progress_file: Path to the progress file.
+        progress_file: Path to the progress file (stored in `filepath`).
 
     Example:
         >>> raise MeteorProgressError(
@@ -665,7 +667,7 @@ class MeteorProgressError(MeteorOutputError):
             filepath: Path to the progress file.
             original_error: The original exception (if any).
             destination_path: Not typically used for progress errors.
-            operation: Type of operation (e.g., "load", "save", "parse").
+            operation: Type of operation (e.g., "load", "save", "parse", "serialize").
             context: Additional context information.
         """
         super().__init__(
