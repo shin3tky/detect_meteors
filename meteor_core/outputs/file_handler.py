@@ -22,6 +22,7 @@ import numpy as np
 
 from .base import DataclassOutputHandler
 from ..schema import DEFAULT_DEBUG_FOLDER, DEFAULT_OUTPUT_FOLDER
+from ..exceptions import MeteorWriteError
 
 # Module-level logger
 logger = logging.getLogger(__name__)
@@ -154,12 +155,22 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                 type(exc).__name__,
                 exc,
             )
-            raise
+            raise MeteorWriteError(
+                f"Failed to copy candidate file to {output_path}",
+                filepath=source_path,
+                original_error=exc,
+                destination_path=output_path,
+                operation="copy",
+                context={"error_category": "copy_failed"},
+            ) from exc
 
         # Save debug image if provided
         if debug_image is not None:
             try:
                 self._save_debug_with_roi(debug_image, filename, roi_polygon)
+            except MeteorWriteError:
+                # Already wrapped, re-raise as-is
+                raise
             except Exception as exc:
                 logger.error(
                     "Failed to save debug image for %s to %s: %s: %s",
@@ -168,7 +179,17 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                     type(exc).__name__,
                     exc,
                 )
-                raise
+                debug_path = os.path.join(
+                    self.config.debug_folder, f"mask_{filename}.png"
+                )
+                raise MeteorWriteError(
+                    f"Failed to save debug image for {filename}",
+                    filepath=source_path,
+                    original_error=exc,
+                    destination_path=debug_path,
+                    operation="save_image",
+                    context={"error_category": "image_write_failed"},
+                ) from exc
 
         logger.debug("save_candidate: completed successfully")
         return True
@@ -197,6 +218,9 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
         )
         try:
             return self._save_debug_with_roi(debug_image, filename, roi_polygon)
+        except MeteorWriteError:
+            # Already wrapped, re-raise as-is
+            raise
         except Exception as exc:
             logger.error(
                 "Failed to save debug image for %s to %s: %s: %s",
@@ -205,7 +229,14 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                 type(exc).__name__,
                 exc,
             )
-            raise
+            debug_path = os.path.join(self.config.debug_folder, f"mask_{filename}.png")
+            raise MeteorWriteError(
+                f"Failed to save debug image for {filename}",
+                original_error=exc,
+                destination_path=debug_path,
+                operation="save_image",
+                context={"error_category": "image_write_failed"},
+            ) from exc
 
     def _save_debug_with_roi(
         self,
@@ -237,13 +268,22 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                     2,
                 )
             except Exception as exc:
+                debug_path = os.path.join(
+                    self.config.debug_folder, f"mask_{filename}.png"
+                )
                 logger.error(
                     "Failed to draw ROI polygon for %s: %s: %s",
                     filename,
                     type(exc).__name__,
                     exc,
                 )
-                raise
+                raise MeteorWriteError(
+                    f"Failed to draw ROI polygon for {filename}",
+                    original_error=exc,
+                    destination_path=debug_path,
+                    operation="draw_roi",
+                    context={"error_category": "image_write_failed"},
+                ) from exc
         debug_path = os.path.join(self.config.debug_folder, f"mask_{filename}.png")
         try:
             success = cv2.imwrite(debug_path, debug_image)
@@ -254,11 +294,22 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                 type(exc).__name__,
                 exc,
             )
-            raise
+            raise MeteorWriteError(
+                f"Failed to write debug image to {debug_path}",
+                original_error=exc,
+                destination_path=debug_path,
+                operation="save_image",
+                context={"error_category": "image_write_failed"},
+            ) from exc
 
         if not success:
             logger.error("OpenCV failed to write debug image to %s", debug_path)
-            raise IOError(f"Failed to write debug image to {debug_path}")
+            raise MeteorWriteError(
+                f"Failed to write debug image to {debug_path}",
+                destination_path=debug_path,
+                operation="save_image",
+                context={"error_category": "image_write_failed"},
+            )
 
         logger.debug("_save_debug_with_roi: saved debug image to %s", debug_path)
         return debug_path

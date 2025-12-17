@@ -516,6 +516,168 @@ class MeteorConfigError(MeteorError):
         )
 
 
+class MeteorOutputError(MeteorError):
+    """Base exception for output operation failures.
+
+    This exception serves as the base for all output-related errors,
+    including file saving, directory creation, and progress tracking failures.
+
+    Attributes:
+        destination_path: Path where the output was attempted (if applicable).
+        operation: Type of operation being performed (e.g., "save", "copy").
+
+    Example:
+        >>> raise MeteorOutputError(
+        ...     "Output operation failed",
+        ...     destination_path="./candidates/image.CR2",
+        ...     operation="copy",
+        ... )
+    """
+
+    def __init__(
+        self,
+        message: str = "Output operation failed",
+        *,
+        filepath: Optional[str] = None,
+        original_error: Optional[BaseException] = None,
+        destination_path: Optional[str] = None,
+        operation: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize MeteorOutputError.
+
+        Args:
+            message: Human-readable error message.
+            filepath: Source file path (if applicable).
+            original_error: The original exception (if any).
+            destination_path: Destination path for the output.
+            operation: Type of operation being performed.
+            context: Additional context information.
+        """
+        self.destination_path = destination_path
+        self.operation = operation
+
+        # Add output info to context
+        ctx = context.copy() if context else {}
+        if destination_path:
+            ctx["destination_path"] = destination_path
+        if operation:
+            ctx["operation"] = operation
+
+        super().__init__(
+            message,
+            filepath=filepath,
+            original_error=original_error,
+            context=ctx,
+        )
+
+
+class MeteorWriteError(MeteorOutputError):
+    """Exception raised when writing files fails.
+
+    This exception is used for file copy failures, debug image saving errors,
+    directory creation failures, and other write-related issues.
+
+    Common error categories (stored in context["error_category"]):
+        - "copy_failed": Failed to copy candidate file
+        - "image_write_failed": Failed to save debug image
+        - "directory_creation_failed": Failed to create output directory
+        - "permission_denied": Write permission denied
+        - "disk_full": Insufficient disk space
+
+    Example:
+        >>> raise MeteorWriteError(
+        ...     "Failed to copy candidate file",
+        ...     filepath="/source/image.CR2",
+        ...     destination_path="/output/image.CR2",
+        ...     operation="copy",
+        ...     context={"error_category": "copy_failed"},
+        ... )
+    """
+
+    def __init__(
+        self,
+        message: str = "Failed to write file",
+        *,
+        filepath: Optional[str] = None,
+        original_error: Optional[BaseException] = None,
+        destination_path: Optional[str] = None,
+        operation: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize MeteorWriteError.
+
+        Args:
+            message: Human-readable error message.
+            filepath: Source file path.
+            original_error: The original exception from the I/O operation.
+            destination_path: Destination path where write was attempted.
+            operation: Type of write operation (e.g., "copy", "save_image").
+            context: Additional context information.
+        """
+        super().__init__(
+            message,
+            filepath=filepath,
+            original_error=original_error,
+            destination_path=destination_path,
+            operation=operation,
+            context=context,
+        )
+
+
+class MeteorProgressError(MeteorOutputError):
+    """Exception raised when progress tracking fails.
+
+    This exception is used for progress file read/write errors,
+    JSON parsing failures, and progress data validation errors.
+
+    Common error categories (stored in context["error_category"]):
+        - "read_failed": Failed to read progress file
+        - "write_failed": Failed to write progress file
+        - "parse_failed": Failed to parse progress JSON
+        - "validation_failed": Progress data validation error
+
+    Attributes:
+        progress_file: Path to the progress file.
+
+    Example:
+        >>> raise MeteorProgressError(
+        ...     "Failed to parse progress file",
+        ...     filepath="progress.json",
+        ...     context={"error_category": "parse_failed"},
+        ... )
+    """
+
+    def __init__(
+        self,
+        message: str = "Progress tracking error",
+        *,
+        filepath: Optional[str] = None,
+        original_error: Optional[BaseException] = None,
+        destination_path: Optional[str] = None,
+        operation: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize MeteorProgressError.
+
+        Args:
+            message: Human-readable error message.
+            filepath: Path to the progress file.
+            original_error: The original exception (if any).
+            destination_path: Not typically used for progress errors.
+            operation: Type of operation (e.g., "load", "save", "parse").
+            context: Additional context information.
+        """
+        super().__init__(
+            message,
+            filepath=filepath,
+            original_error=original_error,
+            destination_path=destination_path,
+            operation=operation,
+            context=context,
+        )
+
+
 # =============================================================================
 # CLI Helper Functions
 # =============================================================================
@@ -681,6 +843,9 @@ __all__ = [
     "MeteorUnsupportedFormatError",
     "MeteorValidationError",
     "MeteorConfigError",
+    "MeteorOutputError",
+    "MeteorWriteError",
+    "MeteorProgressError",
     # Helper functions
     "format_error_for_user",
     "save_diagnostic_report",

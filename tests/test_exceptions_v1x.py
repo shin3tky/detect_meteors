@@ -18,8 +18,11 @@ from meteor_core.exceptions import (
     MeteorConfigError,
     MeteorError,
     MeteorLoadError,
+    MeteorOutputError,
+    MeteorProgressError,
     MeteorUnsupportedFormatError,
     MeteorValidationError,
+    MeteorWriteError,
 )
 from meteor_core.schema import VERSION
 
@@ -220,6 +223,128 @@ class TestMeteorConfigError(unittest.TestCase):
         self.assertEqual(err.context["config_key"], "output_folder")
         self.assertEqual(err.context["plugin_name"], "file")
         self.assertEqual(err.context["severity"], "critical")
+
+
+class TestMeteorOutputError(unittest.TestCase):
+    """Test cases for MeteorOutputError."""
+
+    def test_default_message(self):
+        """Test MeteorOutputError with default message."""
+        err = MeteorOutputError()
+        self.assertEqual(err.message, "Output operation failed")
+
+    def test_is_subclass_of_meteor_error(self):
+        """Test that MeteorOutputError is subclass of MeteorError."""
+        self.assertTrue(issubclass(MeteorOutputError, MeteorError))
+
+    def test_with_output_info(self):
+        """Test MeteorOutputError with output information."""
+        err = MeteorOutputError(
+            "Failed to save file",
+            destination_path="/output/file.CR2",
+            operation="copy",
+        )
+        self.assertEqual(err.destination_path, "/output/file.CR2")
+        self.assertEqual(err.operation, "copy")
+
+    def test_output_info_in_context(self):
+        """Test that output info is added to context."""
+        err = MeteorOutputError(
+            "Operation failed",
+            destination_path="/output/dir",
+            operation="mkdir",
+            context={"permissions": "755"},
+        )
+        self.assertEqual(err.context["destination_path"], "/output/dir")
+        self.assertEqual(err.context["operation"], "mkdir")
+        self.assertEqual(err.context["permissions"], "755")
+
+
+class TestMeteorWriteError(unittest.TestCase):
+    """Test cases for MeteorWriteError."""
+
+    def test_default_message(self):
+        """Test MeteorWriteError with default message."""
+        err = MeteorWriteError()
+        self.assertEqual(err.message, "Failed to write file")
+
+    def test_is_subclass_of_output_error(self):
+        """Test that MeteorWriteError is subclass of MeteorOutputError."""
+        self.assertTrue(issubclass(MeteorWriteError, MeteorOutputError))
+        self.assertTrue(issubclass(MeteorWriteError, MeteorError))
+
+    def test_can_catch_as_output_error(self):
+        """Test catching MeteorWriteError as MeteorOutputError."""
+        try:
+            raise MeteorWriteError("Copy failed")
+        except MeteorOutputError as e:
+            self.assertIsInstance(e, MeteorWriteError)
+
+    def test_with_write_info(self):
+        """Test MeteorWriteError with write operation information."""
+        original = IOError("Disk full")
+        err = MeteorWriteError(
+            "Failed to copy candidate file",
+            filepath="/source/image.CR2",
+            destination_path="/output/image.CR2",
+            operation="copy",
+            original_error=original,
+            context={"error_category": "copy_failed"},
+        )
+        self.assertEqual(err.filepath, "/source/image.CR2")
+        self.assertEqual(err.destination_path, "/output/image.CR2")
+        self.assertEqual(err.operation, "copy")
+        self.assertEqual(err.original_error, original)
+        self.assertEqual(err.context["error_category"], "copy_failed")
+
+
+class TestMeteorProgressError(unittest.TestCase):
+    """Test cases for MeteorProgressError."""
+
+    def test_default_message(self):
+        """Test MeteorProgressError with default message."""
+        err = MeteorProgressError()
+        self.assertEqual(err.message, "Progress tracking error")
+
+    def test_is_subclass_of_output_error(self):
+        """Test that MeteorProgressError is subclass of MeteorOutputError."""
+        self.assertTrue(issubclass(MeteorProgressError, MeteorOutputError))
+        self.assertTrue(issubclass(MeteorProgressError, MeteorError))
+
+    def test_can_catch_as_output_error(self):
+        """Test catching MeteorProgressError as MeteorOutputError."""
+        try:
+            raise MeteorProgressError("Parse failed")
+        except MeteorOutputError as e:
+            self.assertIsInstance(e, MeteorProgressError)
+
+    def test_with_progress_info(self):
+        """Test MeteorProgressError with progress file information."""
+        original = ValueError("Invalid JSON")
+        err = MeteorProgressError(
+            "Failed to parse progress file",
+            filepath="progress.json",
+            operation="parse",
+            original_error=original,
+            context={"error_category": "parse_failed"},
+        )
+        self.assertEqual(err.filepath, "progress.json")
+        self.assertEqual(err.operation, "parse")
+        self.assertEqual(err.original_error, original)
+        self.assertEqual(err.context["error_category"], "parse_failed")
+
+    def test_diagnostic_info_generation(self):
+        """Test that MeteorProgressError can generate diagnostic info."""
+        err = MeteorProgressError(
+            "Failed to save progress",
+            filepath="progress.json",
+            operation="save",
+            context={"error_category": "write_failed"},
+        )
+        diag = err.get_diagnostic_info()
+        self.assertIsInstance(diag, DiagnosticInfo)
+        self.assertEqual(diag.error_type, "MeteorProgressError")
+        self.assertEqual(diag.filepath, "progress.json")
 
 
 class TestDiagnosticInfo(unittest.TestCase):

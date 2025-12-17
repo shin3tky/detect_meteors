@@ -17,6 +17,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Set
 
+from ..exceptions import MeteorProgressError
 from ..schema import VERSION
 
 # Module-level logger for progress tracking diagnostics
@@ -102,13 +103,25 @@ class ProgressManager:
                     self.progress_file,
                 )
                 return True
-        except Exception as exc:
-            logger.warning(
-                "Failed to read progress file %s: %s: %s",
-                self.progress_file,
-                type(exc).__name__,
-                exc,
+        except json.JSONDecodeError as exc:
+            error = MeteorProgressError(
+                f"Failed to parse progress file: {exc}",
+                filepath=self.progress_file,
+                original_error=exc,
+                operation="parse",
+                context={"error_category": "parse_failed"},
             )
+            logger.warning("%s", error)
+            return False
+        except OSError as exc:
+            error = MeteorProgressError(
+                f"Failed to read progress file: {exc}",
+                filepath=self.progress_file,
+                original_error=exc,
+                operation="load",
+                context={"error_category": "read_failed"},
+            )
+            logger.warning("%s", error)
             return False
 
     def save(self) -> None:
@@ -128,13 +141,25 @@ class ProgressManager:
             with open(self.progress_file, "w", encoding="utf-8") as fp:
                 json.dump(self.progress_data, fp, ensure_ascii=False, indent=2)
             logger.debug("Progress saved successfully to %s", self.progress_file)
-        except Exception as exc:
-            logger.warning(
-                "Failed to write progress file %s: %s: %s",
-                self.progress_file,
-                type(exc).__name__,
-                exc,
+        except OSError as exc:
+            error = MeteorProgressError(
+                f"Failed to write progress file: {exc}",
+                filepath=self.progress_file,
+                original_error=exc,
+                operation="save",
+                context={"error_category": "write_failed"},
             )
+            logger.warning("%s", error)
+        except (TypeError, ValueError) as exc:
+            # JSON serialization errors
+            error = MeteorProgressError(
+                f"Failed to serialize progress data: {exc}",
+                filepath=self.progress_file,
+                original_error=exc,
+                operation="serialize",
+                context={"error_category": "serialize_failed"},
+            )
+            logger.warning("%s", error)
 
     def set_params_hash(self, params_hash: str) -> None:
         """Set the parameters hash for this session.
@@ -367,13 +392,25 @@ def load_progress(progress_path: str) -> Optional[Dict]:
                 len(data.get("detected_files", [])),
             )
             return data
-    except Exception as exc:
-        logger.warning(
-            "Failed to read progress file %s: %s: %s",
-            progress_path,
-            type(exc).__name__,
-            exc,
+    except json.JSONDecodeError as exc:
+        error = MeteorProgressError(
+            f"Failed to parse progress file: {exc}",
+            filepath=progress_path,
+            original_error=exc,
+            operation="parse",
+            context={"error_category": "parse_failed"},
         )
+        logger.warning("%s", error)
+        return None
+    except OSError as exc:
+        error = MeteorProgressError(
+            f"Failed to read progress file: {exc}",
+            filepath=progress_path,
+            original_error=exc,
+            operation="load",
+            context={"error_category": "read_failed"},
+        )
+        logger.warning("%s", error)
         return None
 
 
@@ -399,13 +436,25 @@ def save_progress(progress_path: str, progress_data: Dict) -> None:
         with open(progress_path, "w", encoding="utf-8") as fp:
             json.dump(progress_data, fp, ensure_ascii=False, indent=2)
         logger.debug("Progress saved successfully to %s", progress_path)
-    except Exception as exc:
-        logger.warning(
-            "Failed to write progress file %s: %s: %s",
-            progress_path,
-            type(exc).__name__,
-            exc,
+    except OSError as exc:
+        error = MeteorProgressError(
+            f"Failed to write progress file: {exc}",
+            filepath=progress_path,
+            original_error=exc,
+            operation="save",
+            context={"error_category": "write_failed"},
         )
+        logger.warning("%s", error)
+    except (TypeError, ValueError) as exc:
+        # JSON serialization errors
+        error = MeteorProgressError(
+            f"Failed to serialize progress data: {exc}",
+            filepath=progress_path,
+            original_error=exc,
+            operation="serialize",
+            context={"error_category": "serialize_failed"},
+        )
+        logger.warning("%s", error)
 
 
 __all__ = [
