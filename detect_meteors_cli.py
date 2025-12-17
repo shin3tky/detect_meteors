@@ -164,6 +164,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--save-diagnostic",
         metavar="FILE",
+        nargs="?",
+        const="",
         type=str,
         default=None,
         help="Save diagnostic report to file on error (default: auto-generated name)",
