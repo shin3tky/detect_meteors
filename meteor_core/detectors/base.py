@@ -12,6 +12,7 @@ Provides a plugin interface for different detection algorithms.
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
 import importlib.util
+import logging
 from typing import Tuple, List, Any, Optional, Dict, Generic, Type, TypeVar
 
 from meteor_core.plugin_contract import (
@@ -28,6 +29,9 @@ if _PYDANTIC_SPEC:
 else:
     BaseModel = None
 import numpy as np  # noqa: E402
+
+
+logger = logging.getLogger(__name__)
 
 
 forbid_unknown_keys = _forbid_unknown_keys
@@ -135,8 +139,13 @@ class BaseDetector(ABC, Generic[ConfigType]):
             True if parameters are valid, False otherwise
 
         Raises:
+            TypeError: If parameters are not provided as a dictionary
             ValueError: If parameters are invalid (optional, for detailed error info)
         """
+        if not isinstance(params, dict):
+            logger.error("Detection parameters must be provided as a dictionary.")
+            raise TypeError("params must be a dictionary.")
+
         required_keys = [
             "diff_threshold",
             "min_area",
@@ -149,8 +158,10 @@ class BaseDetector(ABC, Generic[ConfigType]):
 
         for key in required_keys:
             if key not in params:
+                logger.error("Missing required detection parameter: %s", key)
                 return False
 
+        logger.debug("All required detection parameters are present.")
         return True
 
 

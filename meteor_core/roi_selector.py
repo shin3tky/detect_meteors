@@ -8,10 +8,14 @@
 ROI (Region of Interest) selection GUI for meteor detection.
 """
 
+import logging
 import math
 import cv2
 import numpy as np
 from typing import List, Optional, Tuple, Dict, Any
+
+
+logger = logging.getLogger(__name__)
 
 
 def select_roi(image_data: np.ndarray) -> Optional[Dict[str, Any]]:
@@ -34,8 +38,21 @@ def select_roi(image_data: np.ndarray) -> Optional[Dict[str, Any]]:
         - Close by clicking the start circle (when >= 3 vertices)
         - 'q': cancel selection
     """
+    if image_data is None:
+        logger.error("No image data provided for ROI selection.")
+        raise ValueError("image_data must not be None")
+
+    if image_data.size == 0:
+        logger.error("Empty image data provided for ROI selection.")
+        raise ValueError("image_data must contain pixel data")
+
     disp_img = image_data.astype(np.float32)
-    disp_img = disp_img / np.max(disp_img)
+    max_value = np.max(disp_img)
+    if max_value == 0:
+        logger.error("ROI selection image has zero maximum intensity.")
+        raise ValueError("image_data must contain non-zero values")
+
+    disp_img = disp_img / max_value
     # Brighten the image by 50% to improve visibility in dark shooting conditions
     disp_img = np.clip(disp_img * 1.5, 0, 1)
     disp_img = (disp_img * 255).astype(np.uint8)
@@ -54,6 +71,7 @@ def select_roi(image_data: np.ndarray) -> Optional[Dict[str, Any]]:
     display_img = cv2.cvtColor(disp_img_resized, cv2.COLOR_GRAY2BGR)
     window_name = "Select Sky Area"
 
+    logger.info("Starting ROI selection UI with image size (h=%d, w=%d)", h, w)
     print("\n--- ROI Selection Mode ---")
     print(
         "Left click: add vertex | Esc: delete last vertex | Close by clicking the start circle"
@@ -107,31 +125,38 @@ def select_roi(image_data: np.ndarray) -> Optional[Dict[str, Any]]:
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.setMouseCallback(window_name, on_mouse)
 
-    while True:
-        canvas = draw_canvas()
-        cv2.imshow(window_name, canvas)
-
-        if polygon_closed:
-            cv2.polylines(
-                canvas, [np.array(points, dtype=np.int32)], True, (0, 255, 0), 2
-            )
+    try:
+        while True:
+            canvas = draw_canvas()
             cv2.imshow(window_name, canvas)
-            cv2.waitKey(300)
-            break
 
-        key = cv2.waitKey(20) & 0xFF
+            if polygon_closed:
+                cv2.polylines(
+                    canvas, [np.array(points, dtype=np.int32)], True, (0, 255, 0), 2
+                )
+                cv2.imshow(window_name, canvas)
+                cv2.waitKey(300)
+                break
 
-        if key == 27:  # ESC: delete last vertex
-            if points:
-                points.pop()
-        elif key == ord("q"):
-            cancelled = True
-            break
+            key = cv2.waitKey(20) & 0xFF
+
+            if key == 27:  # ESC: delete last vertex
+                if points:
+                    points.pop()
+            elif key == ord("q"):
+                cancelled = True
+                break
+    except Exception as exc:  # pragma: no cover - UI safety
+        logger.exception("Unexpected error in ROI selection loop: %s", exc)
+        cv2.destroyWindow(window_name)
+        cv2.waitKey(1)
+        raise
 
     cv2.destroyWindow(window_name)
     cv2.waitKey(1)
 
     if cancelled or len(points) < 3:
+        logger.warning("ROI selection cancelled or insufficient points selected.")
         return None
 
     points_scaled = [
@@ -144,6 +169,11 @@ def select_roi(image_data: np.ndarray) -> Optional[Dict[str, Any]]:
 
     bounding_rect = cv2.boundingRect(polygon)
 
+    logger.info(
+        "ROI selection completed with %d vertices and bounding box %s",
+        len(points_scaled),
+        bounding_rect,
+    )
     return {"mask": mask, "polygon": polygon.tolist(), "bounding_rect": bounding_rect}
 
 
