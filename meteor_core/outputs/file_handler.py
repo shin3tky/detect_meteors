@@ -92,8 +92,18 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
             config.debug_folder,
             config.output_overwrite,
         )
-        os.makedirs(config.output_folder, exist_ok=True)
-        os.makedirs(config.debug_folder, exist_ok=True)
+        try:
+            os.makedirs(config.output_folder, exist_ok=True)
+            os.makedirs(config.debug_folder, exist_ok=True)
+        except Exception as exc:
+            logger.error(
+                "Failed to create output directories %s and %s: %s: %s",
+                config.output_folder,
+                config.debug_folder,
+                type(exc).__name__,
+                exc,
+            )
+            raise
         logger.debug("FileOutputHandler initialized: directories created/verified")
 
     def save_candidate(
@@ -133,12 +143,32 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
             return False
 
         # Copy the RAW file
-        shutil.copy(source_path, output_path)
-        logger.debug("save_candidate: copied %s -> %s", source_path, output_path)
+        try:
+            shutil.copy(source_path, output_path)
+            logger.debug("save_candidate: copied %s -> %s", source_path, output_path)
+        except Exception as exc:
+            logger.error(
+                "Failed to copy candidate %s -> %s: %s: %s",
+                source_path,
+                output_path,
+                type(exc).__name__,
+                exc,
+            )
+            raise
 
         # Save debug image if provided
         if debug_image is not None:
-            self._save_debug_with_roi(debug_image, filename, roi_polygon)
+            try:
+                self._save_debug_with_roi(debug_image, filename, roi_polygon)
+            except Exception as exc:
+                logger.error(
+                    "Failed to save debug image for %s to %s: %s: %s",
+                    filename,
+                    self.config.debug_folder,
+                    type(exc).__name__,
+                    exc,
+                )
+                raise
 
         logger.debug("save_candidate: completed successfully")
         return True
@@ -165,7 +195,17 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
             debug_image.shape,
             roi_polygon is not None,
         )
-        return self._save_debug_with_roi(debug_image, filename, roi_polygon)
+        try:
+            return self._save_debug_with_roi(debug_image, filename, roi_polygon)
+        except Exception as exc:
+            logger.error(
+                "Failed to save debug image for %s to %s: %s: %s",
+                filename,
+                self.config.debug_folder,
+                type(exc).__name__,
+                exc,
+            )
+            raise
 
     def _save_debug_with_roi(
         self,
@@ -188,15 +228,38 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                 "_save_debug_with_roi: drawing ROI polygon with %d points",
                 len(roi_polygon),
             )
-            cv2.polylines(
-                debug_image,
-                [np.array(roi_polygon, dtype=np.int32)],
-                True,
-                (0, 255, 0),
-                2,
-            )
+            try:
+                cv2.polylines(
+                    debug_image,
+                    [np.array(roi_polygon, dtype=np.int32)],
+                    True,
+                    (0, 255, 0),
+                    2,
+                )
+            except Exception as exc:
+                logger.error(
+                    "Failed to draw ROI polygon for %s: %s: %s",
+                    filename,
+                    type(exc).__name__,
+                    exc,
+                )
+                raise
         debug_path = os.path.join(self.config.debug_folder, f"mask_{filename}.png")
-        cv2.imwrite(debug_path, debug_image)
+        try:
+            success = cv2.imwrite(debug_path, debug_image)
+        except Exception as exc:
+            logger.error(
+                "Failed to write debug image %s: %s: %s",
+                debug_path,
+                type(exc).__name__,
+                exc,
+            )
+            raise
+
+        if not success:
+            logger.error("OpenCV failed to write debug image to %s", debug_path)
+            raise IOError(f"Failed to write debug image to {debug_path}")
+
         logger.debug("_save_debug_with_roi: saved debug image to %s", debug_path)
         return debug_path
 
