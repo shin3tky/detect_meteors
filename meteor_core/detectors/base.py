@@ -191,14 +191,30 @@ class DataclassDetector(BaseDetector[ConfigType], Generic[ConfigType]):
         config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not is_dataclass(config_type):
+                logger.error(
+                    "ConfigType %s is not a dataclass for detector %s",
+                    config_type,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     "ConfigType must be a dataclass type for DataclassDetector."
                 )
             if not isinstance(config, config_type):
+                logger.error(
+                    "Config instance %s does not match dataclass %s for detector %s",
+                    type(config).__name__,
+                    config_type.__name__,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     f"config must be an instance of {config_type.__name__}."
                 )
         self.config = config
+        logger.debug(
+            "%s initialized with dataclass config %s",
+            self.__class__.__name__,
+            config,
+        )
 
 
 class PydanticDetector(BaseDetector[ConfigType], Generic[ConfigType]):
@@ -219,6 +235,10 @@ class PydanticDetector(BaseDetector[ConfigType], Generic[ConfigType]):
 
     def __init__(self, config: ConfigType) -> None:
         if BaseModel is None:
+            logger.error(
+                "PydanticDetector requires pydantic but it is not installed (%s)",
+                self.__class__.__name__,
+            )
             raise ImportError(
                 "pydantic is required to use PydanticDetector. Install pydantic first."
             )
@@ -228,14 +248,30 @@ class PydanticDetector(BaseDetector[ConfigType], Generic[ConfigType]):
         config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not issubclass(config_type, BaseModel):
+                logger.error(
+                    "ConfigType %s is not a pydantic BaseModel for detector %s",
+                    config_type,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     "ConfigType must be a pydantic BaseModel for PydanticDetector."
                 )
             if not isinstance(config, config_type):
+                logger.error(
+                    "Config instance %s does not match Pydantic model %s for detector %s",
+                    type(config).__name__,
+                    config_type.__name__,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     f"config must be an instance of {config_type.__name__}."
                 )
         self.config = config
+        logger.debug(
+            "%s initialized with pydantic config %s",
+            self.__class__.__name__,
+            config,
+        )
 
 
 def _is_valid_detector(cls: type) -> bool:
@@ -248,11 +284,28 @@ def _is_valid_detector(cls: type) -> bool:
         True if the class is a valid BaseDetector subclass with plugin_name.
     """
     if not isinstance(cls, type):
+        logger.debug(
+            "_is_valid_detector: %r is not a type",
+            cls,
+        )
         return False
 
     if not issubclass(cls, BaseDetector):
+        logger.debug(
+            "_is_valid_detector: %s does not inherit from BaseDetector",
+            cls.__name__,
+        )
         return False
 
     # Must have a non-empty string plugin_name
     plugin_name = getattr(cls, "plugin_name", None)
-    return isinstance(plugin_name, str) and bool(plugin_name)
+    if not (
+        plugin_name is not None and isinstance(plugin_name, str) and plugin_name != ""
+    ):
+        logger.debug(
+            "_is_valid_detector: %s has invalid plugin_name: %r",
+            cls.__name__,
+            plugin_name,
+        )
+        return False
+    return True
