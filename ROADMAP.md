@@ -99,6 +99,14 @@
 - [x] **v1.5.10** - Migrated plugin interfaces from Protocol to ABC base classes
 - [x] **v1.5.11** - Unified plugin registry behavior and standardized plugin directories
 
+### Stability & Error Handling
+- [x] **v1.5.12** - Custom exception hierarchy and diagnostic reporting
+  - [x] Structured exception classes (`MeteorError`, `MeteorLoadError`, `MeteorValidationError`, `MeteorConfigError`)
+  - [x] Diagnostic information with system details and dependency versions
+  - [x] `--verbose` flag for detailed error info and DEBUG logging
+  - [x] `--save-diagnostic` option for bug reporting
+  - [x] Standard Python logging throughout all modules
+
 ### Development Tooling Modernization
 - [ ] **v1.6.0** - Migration to modern Python tooling
   - [ ] Replace Black + flake8 with `ruff` (unified linter/formatter)
@@ -112,7 +120,6 @@
 - [ ] Per-image adaptive parameter adjustment
 - [ ] Declination support with GPS coordinate extraction
 - [ ] Advanced quality metrics (focus quality, atmospheric transparency)
-- [ ] Enhanced stability and error handling
 
 ## Version 2.x - Architecture and Extensibility
 
@@ -134,5 +141,5 @@
 
 ---
 
-**Current Status**: v1.5.11 (Plugin registry consistency and metadata)
-**Next Focus**: Enhanced stability, plugin ecosystem hardening, and error handling
+**Current Status**: v1.5.12 (Stability & error handling)
+**Next Focus**: Development tooling modernization (ruff, uv), camera model database

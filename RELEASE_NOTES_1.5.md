@@ -1,5 +1,201 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.12 (2025-12-18)
+
+### 🛡️ Stability & Error Handling
+
+Version 1.5.12 focuses on code stability, introducing a comprehensive exception hierarchy and structured diagnostic reporting to improve troubleshooting and bug reporting workflows.
+
+### Highlights
+
+- **Custom exception hierarchy**: Structured error classes for different failure scenarios
+- **Diagnostic reporting**: GitHub issue-ready diagnostic reports with system information
+- **New CLI options**: `--verbose` for detailed logging, `--save-diagnostic` for error reports
+- **Structured logging**: Standard Python logging throughout all modules
+
+### Exception Hierarchy
+
+```
+MeteorError (base)
+├── MeteorLoadError (image loading failures)
+│   └── MeteorUnsupportedFormatError (unsupported file formats)
+├── MeteorValidationError (parameter/input validation)
+└── MeteorConfigError (configuration errors)
+```
+
+Each exception includes:
+- Human-readable error message
+- File path (if applicable)
+- Original exception (for chained errors)
+- Additional context information
+- Full diagnostic info for bug reporting
+
+### New CLI Options
+
+#### `--verbose`
+
+Enable detailed diagnostic information on errors and DEBUG-level logging:
+
+```bash
+python detect_meteors_cli.py --auto-params --sensor-type MFT --verbose
+```
+
+When `--verbose` is enabled:
+- DEBUG-level logs from input handling modules are displayed
+- Full diagnostic information is shown on errors
+- Stack traces are included for unexpected errors
+
+#### `--save-diagnostic [FILE]`
+
+Save a diagnostic report file on error:
+
+```bash
+python detect_meteors_cli.py --auto-params --sensor-type MFT --save-diagnostic
+# Creates: meteor_diagnostic_20251218_123456.md
+
+python detect_meteors_cli.py --auto-params --sensor-type MFT --save-diagnostic my_report.md
+# Creates: my_report.md
+```
+
+The diagnostic report includes:
+- meteor_core version
+- Python version and platform
+- Dependency versions (numpy, opencv-python, rawpy, etc.)
+- File information (if applicable)
+- Error details and context
+- Formatted for easy GitHub issue submission
+
+### Diagnostic Report Example
+
+```markdown
+## Diagnostic Information
+
+```
+meteor_core version: 1.5.12
+Python version: 3.12.0 (main, Oct  2 2024, 00:00:00) [Clang 16.0.0]
+Platform: Darwin 23.0.0 (arm64)
+Timestamp: 2025-12-18T12:34:56+00:00
+```
+
+### File Information
+
+```
+Path: /path/to/corrupted.CR2
+Exists: True
+Size: 25,432,100 bytes
+```
+
+### Error Details
+
+```
+Type: MeteorLoadError
+Message: Failed to load RAW file
+Original Error Type: LibRawIOError
+Original Error Message: Cannot open file
+```
+
+### Dependencies
+
+```
+numpy: 2.2.6
+opencv-python: 4.12.0
+rawpy: 0.25.1
+pillow: 12.0.0
+psutil: 7.1.3
+pydantic: 2.10.0
+```
+```
+
+### Structured Logging
+
+All `meteor_core` modules now use Python's standard `logging` module:
+
+```python
+import logging
+
+# Enable debug logging for troubleshooting
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('meteor_core')
+logger.setLevel(logging.DEBUG)
+```
+
+Modules with logging support:
+- `meteor_core.inputs` (loader discovery, configuration)
+- `meteor_core.detectors` (detector discovery, detection process)
+- `meteor_core.outputs` (output handling, file writing)
+- `meteor_core.pipeline` (processing orchestration)
+- `meteor_core.image_io` (RAW file loading, EXIF extraction)
+
+### Exception Usage Examples
+
+**Catching specific exceptions**:
+
+```python
+from meteor_core.exceptions import (
+    MeteorError,
+    MeteorLoadError,
+    MeteorValidationError,
+)
+
+try:
+    result = process_images(target_folder)
+except MeteorLoadError as e:
+    # Handle image loading failures
+    print(f"Failed to load: {e.filepath}")
+    print(e.format_for_issue())  # Get diagnostic report
+except MeteorValidationError as e:
+    # Handle validation errors
+    print(f"Invalid parameter: {e.parameter_name}")
+except MeteorError as e:
+    # Catch-all for meteor_core errors
+    print(f"Error: {e.message}")
+```
+
+**Creating custom exceptions with context**:
+
+```python
+from meteor_core.exceptions import MeteorLoadError
+
+raise MeteorLoadError(
+    "Failed to load RAW file",
+    filepath="/path/to/image.CR2",
+    original_error=original_exception,
+    context={
+        "loader": "raw",
+        "binning": 2,
+        "normalize": True,
+    },
+)
+```
+
+### Test Coverage
+
+New test files added:
+- `test_exceptions_v1x.py`: Exception hierarchy and diagnostic info tests
+- `test_inputs_logging_v1x.py`: Logging configuration tests
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `meteor_core/exceptions.py` | New exception module with hierarchy and diagnostics |
+| `meteor_core/__init__.py` | Logging configuration and exception exports |
+| `meteor_core/inputs/*.py` | Added logging throughout |
+| `meteor_core/detectors/*.py` | Added logging throughout |
+| `meteor_core/outputs/*.py` | Added logging throughout |
+| `meteor_core/pipeline.py` | Added logging, exception handling |
+| `meteor_core/image_io.py` | Added logging, exception wrapping |
+| `detect_meteors_cli.py` | Added `--verbose`, `--save-diagnostic`, error handling |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.5.11 and earlier:
+- CLI interface unchanged except for new options
+- All existing commands work without modification
+- Exception handling is opt-in for library users
+
+---
+
 ## Version 1.5.11 (2025-12-15)
 
 ### 🔧 Cross-Package Consistency & Plugin Metadata
@@ -1291,7 +1487,16 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 
 ## Version Information
 
-- **Latest Version**: 1.5.11
+- **Latest Version**: 1.5.12
+- **Release Date**: 2025-12-18
+- **Major Changes**:
+  - Custom exception hierarchy (`MeteorError`, `MeteorLoadError`, `MeteorValidationError`, `MeteorConfigError`)
+  - Diagnostic reporting with `DiagnosticInfo` dataclass
+  - `--verbose` flag for detailed error info and DEBUG logging
+  - `--save-diagnostic` option for bug reporting
+  - Standard Python logging throughout all modules
+
+- **Version**: 1.5.11
 - **Release Date**: 2025-12-15
 - **Major Changes**:
   - Cross-package consistency for plugin registries
@@ -1382,6 +1587,8 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 | Full auto (MFT) | `--auto-params --sensor-type MFT` | `python detect_meteors_cli.py --auto-params --sensor-type MFT` |
 | Medium Format | `--auto-params --sensor-type MF44X33` | `python detect_meteors_cli.py --auto-params --sensor-type MF44X33` |
 | Fisheye lens | `--auto-params --fisheye` | `python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye` |
+| Verbose mode | `--verbose` | `python detect_meteors_cli.py --auto-params --sensor-type MFT --verbose` |
+| Save diagnostic | `--save-diagnostic [FILE]` | `python detect_meteors_cli.py --auto-params --save-diagnostic my_report.md` |
 | NPF check | `--show-npf --sensor-type TYPE` | `python detect_meteors_cli.py --show-npf --sensor-type APS-C` |
 | NPF + Fisheye | `--show-npf --fisheye` | `python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye` |
 
@@ -1389,15 +1596,24 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 
 | File | Changes |
 |------|---------|
+| `meteor_core/exceptions.py` | New exception hierarchy and diagnostic reporting (v1.5.12) |
+| `meteor_core/__init__.py` | Logging configuration and exception exports (v1.5.12) |
+| `meteor_core/inputs/*.py` | Added logging throughout (v1.5.12) |
+| `meteor_core/detectors/*.py` | Added logging throughout (v1.5.12) |
+| `meteor_core/outputs/*.py` | Added logging throughout (v1.5.12) |
+| `meteor_core/pipeline.py` | Added logging and exception handling (v1.5.12) |
+| `meteor_core/image_io.py` | Added logging and exception wrapping (v1.5.12) |
+| `detect_meteors_cli.py` | CLI interface, `--verbose`, `--save-diagnostic` (v1.5.12) |
 | `pyproject.toml` | PEP 621 metadata, tool configs (v1.5.9) |
 | `.flake8` | Removed, migrated to pyproject.toml (v1.5.9) |
 | `.pre-commit-config.yaml` | Added Flake8-pyproject (v1.5.9) |
-| `detect_meteors_cli.py` | CLI interface (v1.5.5: reduced to CLI only) |
 | `meteor_core/` | New package with modular components (v1.5.5) |
 | `detect_meteors_cli_completion.bash` | Shell completions |
 | `_detect_meteors_cli` (zsh) | Shell completions |
 | `COMMAND_OPTIONS.md` | CLI options reference |
 | `NPF_RULE.md` | NPF Rule documentation |
+| `test_exceptions_v1x.py` | Exception hierarchy tests (v1.5.12) |
+| `test_inputs_logging_v1x.py` | Logging configuration tests (v1.5.12) |
 | `test_fisheye_v1x.py` | Fisheye tests (27 tests) |
 | `test_sensor_validation_v1x.py` | Validation tests (23 tests) |
 
