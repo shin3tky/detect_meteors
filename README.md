@@ -126,6 +126,12 @@ See [CHANGELOG.md](CHANGELOG.md) for complete release history.
 
 See [ROADMAP.md](ROADMAP.md) for upcoming features.
 
+## Authors
+
+Detect Meteors CLI was created by Shinichi Morita (shin3tky).
+
+The NPF Rule implementation is based on the formula developed by Frédéric Michaud of the Société Astronomique du Havre (SAH). See [NOTICE](NOTICE) for full attribution.
+
 ## Contributing
 
 Issues and pull requests are welcome. Please open an issue to discuss substantial changes before submitting a PR.
