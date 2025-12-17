@@ -9,16 +9,19 @@ Processing pipeline for meteor detection.
 Handles batch processing, multiprocessing, and orchestration.
 """
 
-import os
 import glob
-import time
+import logging
+import os
 import signal
+import time
 import warnings
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Type, Union, overload
+
 import cv2
 import numpy as np
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import List, Tuple, Dict, Optional, Any, Protocol, Type, Union, overload
 
+from .exceptions import MeteorConfigError, MeteorError, MeteorLoadError
 from .schema import (
     EXTENSIONS,
     DEFAULT_DIFF_THRESHOLD,
@@ -43,6 +46,9 @@ from .utils import (
     compute_params_hash,
     format_polygon_string,
 )
+
+# Module-level logger
+logger = logging.getLogger(__name__)
 
 
 # Lazy initialization to avoid circular imports
@@ -91,7 +97,7 @@ def _resolve_detector(
         BaseDetector instance ready for use.
 
     Raises:
-        KeyError: If detector_name is not found in available detectors.
+        MeteorConfigError: If detector_name is not found in available detectors.
 
     Example:
         >>> det = _resolve_detector()  # Returns default HoughDetector
@@ -99,11 +105,29 @@ def _resolve_detector(
         >>> det = _resolve_detector(detector=my_detector)  # Returns my_detector
     """
     if detector is not None:
+        logger.debug("Using provided detector instance: %s", type(detector).__name__)
         return detector
 
     if detector_name:
-        return DetectorRegistry.create(detector_name, detector_config)
+        logger.debug("Resolving detector by name: %s", detector_name)
+        try:
+            return DetectorRegistry.create(detector_name, detector_config)
+        except KeyError as e:
+            available = DetectorRegistry.list_available()
+            logger.error(
+                "Detector '%s' not found. Available: %s",
+                detector_name,
+                available,
+            )
+            raise MeteorConfigError(
+                f"Unknown detector: '{detector_name}'",
+                config_key="detector_name",
+                plugin_name=detector_name,
+                original_error=e,
+                context={"available_detectors": available},
+            ) from e
 
+    logger.debug("Using default detector")
     return _get_default_detector()
 
 
@@ -128,14 +152,32 @@ def _resolve_input_loader(
         BaseInputLoader instance ready for use.
 
     Raises:
-        KeyError: If loader_name is not found in available loaders.
+        MeteorConfigError: If loader_name is not found in available loaders.
     """
     if input_loader is not None:
+        logger.debug("Using provided loader instance: %s", type(input_loader).__name__)
         return input_loader
 
     if loader_name:
-        return LoaderRegistry.create(loader_name, loader_config)
+        logger.debug("Resolving loader by name: %s", loader_name)
+        try:
+            return LoaderRegistry.create(loader_name, loader_config)
+        except KeyError as e:
+            available = list(LoaderRegistry.list_loaders().keys())
+            logger.error(
+                "Loader '%s' not found. Available: %s",
+                loader_name,
+                available,
+            )
+            raise MeteorConfigError(
+                f"Unknown input loader: '{loader_name}'",
+                config_key="loader_name",
+                plugin_name=loader_name,
+                original_error=e,
+                context={"available_loaders": available},
+            ) from e
 
+    logger.debug("Using default input loader")
     return _get_default_input_loader()
 
 
@@ -168,11 +210,11 @@ def _resolve_output_handler(
         BaseOutputHandler instance ready for use.
 
     Raises:
-        KeyError: If handler_name is not found in available handlers.
-        ValueError: If default handler is needed but fallback folders not provided.
+        MeteorConfigError: If handler_name is not found in available handlers,
+            or if default handler is needed but fallback folders not provided.
 
     Example:
-        >>> handler = _resolve_output_handler()  # Raises ValueError (no fallback)
+        >>> handler = _resolve_output_handler()  # Raises MeteorConfigError (no fallback)
         >>> handler = _resolve_output_handler(handler_name="file", handler_config={...})
         >>> handler = _resolve_output_handler(output_handler=my_handler)
         >>> handler = _resolve_output_handler(
@@ -181,22 +223,54 @@ def _resolve_output_handler(
         ... )
     """
     if output_handler is not None:
+        logger.debug(
+            "Using provided output handler instance: %s",
+            type(output_handler).__name__,
+        )
         return output_handler
 
     if handler_name:
-        return OutputHandlerRegistry.create(handler_name, handler_config)
+        logger.debug("Resolving output handler by name: %s", handler_name)
+        try:
+            return OutputHandlerRegistry.create(handler_name, handler_config)
+        except KeyError as e:
+            available = OutputHandlerRegistry.list_available()
+            logger.error(
+                "Output handler '%s' not found. Available: %s",
+                handler_name,
+                available,
+            )
+            raise MeteorConfigError(
+                f"Unknown output handler: '{handler_name}'",
+                config_key="handler_name",
+                plugin_name=handler_name,
+                original_error=e,
+                context={"available_handlers": available},
+            ) from e
 
     # Create default handler with fallback config
     if fallback_output_folder and fallback_debug_folder:
+        logger.debug(
+            "Creating default output handler: output=%s, debug=%s",
+            fallback_output_folder,
+            fallback_debug_folder,
+        )
         return OutputHandlerRegistry.create_default(
             output_folder=fallback_output_folder,
             debug_folder=fallback_debug_folder,
             output_overwrite=fallback_output_overwrite,
         )
 
-    raise ValueError(
+    logger.error(
+        "Cannot resolve output handler: no handler or fallback config provided"
+    )
+    raise MeteorConfigError(
         "Cannot resolve output handler: provide output_handler, handler_name, "
-        "or fallback folder configuration (fallback_output_folder, fallback_debug_folder)."
+        "or fallback folder configuration (fallback_output_folder, fallback_debug_folder).",
+        context={
+            "fallback_output_folder": fallback_output_folder,
+            "fallback_debug_folder": fallback_debug_folder,
+        },
     )
 
 
@@ -298,16 +372,28 @@ def collect_files(target_folder: str) -> List[str]:
         Sorted list of RAW file paths
 
     Raises:
-        FileNotFoundError: If the directory doesn't exist or no RAW files found
-        NotADirectoryError: If the path is not a directory
+        MeteorLoadError: If the directory doesn't exist, is not a directory,
+            or no RAW files are found.
     """
+    logger.info("Collecting RAW files from: %s", target_folder)
+
     # Check if the directory exists
     if not os.path.exists(target_folder):
-        raise FileNotFoundError(f"Directory does not exist: {target_folder}")
+        logger.error("Directory does not exist: %s", target_folder)
+        raise MeteorLoadError(
+            "Directory does not exist",
+            filepath=target_folder,
+            context={"error_category": "directory_not_found"},
+        )
 
     # Check if the path is a directory
     if not os.path.isdir(target_folder):
-        raise NotADirectoryError(f"Path is not a directory: {target_folder}")
+        logger.error("Path is not a directory: %s", target_folder)
+        raise MeteorLoadError(
+            "Path is not a directory",
+            filepath=target_folder,
+            context={"error_category": "not_a_directory"},
+        )
 
     # Collect RAW files
     files = []
@@ -316,12 +402,22 @@ def collect_files(target_folder: str) -> List[str]:
 
     # Check if any RAW files were found
     if not files:
-        raise FileNotFoundError(
-            f"No RAW image files found in directory: {target_folder}\n"
-            f"Supported formats: {', '.join(EXTENSIONS)}"
+        logger.warning(
+            "No RAW files found in directory: %s (supported: %s)",
+            target_folder,
+            ", ".join(EXTENSIONS),
+        )
+        raise MeteorLoadError(
+            "No RAW image files found in directory",
+            filepath=target_folder,
+            context={
+                "error_category": "no_files_found",
+                "supported_formats": ", ".join(EXTENSIONS),
+            },
         )
 
     files.sort()
+    logger.info("Found %d RAW files in %s", len(files), target_folder)
     return files
 
 
@@ -334,17 +430,45 @@ def validate_raw_file(
     Args:
         index: File index for reference
         raw_file: Path to RAW file
+        input_loader: Optional input loader instance
 
     Returns:
-        Tuple of (index, filepath, error or None)
+        Tuple of (index, filepath, error or None).
+        If successful, error is None. If failed, error is a MeteorError subclass.
     """
     loader = _resolve_input_loader(input_loader)
 
+    logger.debug("Validating RAW file [%d]: %s", index, raw_file)
+
     try:
         loader.load(raw_file)
+        logger.debug("Validation successful [%d]: %s", index, raw_file)
         return index, raw_file, None
-    except Exception as exc:
+    except MeteorError as exc:
+        # Already a MeteorError, pass through
+        logger.warning(
+            "Validation failed [%d]: %s - %s",
+            index,
+            raw_file,
+            exc.message,
+        )
         return index, raw_file, exc
+    except Exception as exc:
+        # Wrap unexpected exceptions
+        logger.warning(
+            "Validation failed [%d]: %s - %s: %s",
+            index,
+            raw_file,
+            type(exc).__name__,
+            exc,
+        )
+        wrapped = MeteorLoadError(
+            f"Validation failed: {type(exc).__name__}",
+            filepath=raw_file,
+            original_error=exc,
+            context={"error_category": "validation_failed", "index": index},
+        )
+        return index, raw_file, wrapped
 
 
 def process_image_batch(
@@ -367,11 +491,17 @@ def process_image_batch(
     Returns:
         List of processing results for each image:
         [(is_candidate, filename, filepath, line_score, debug_img, aspect_ratio, num_lines), ...]
+
+    Note:
+        Errors during processing are logged but do not stop batch processing.
+        Failed images are returned with is_candidate=False.
     """
     results = []
 
     loader = _resolve_input_loader(input_loader)
     det = _resolve_detector(detector=detector)
+
+    logger.debug("Processing batch of %d image pairs", len(batch_data))
 
     for curr_file, prev_file in batch_data:
         filename = os.path.basename(curr_file)
@@ -398,8 +528,36 @@ def process_image_batch(
                 )
             )
 
+            if is_candidate:
+                logger.debug(
+                    "Candidate detected: %s (score=%.2f, lines=%d)",
+                    filename,
+                    line_score,
+                    len(hough_lines),
+                )
+
+        except MeteorError as e:
+            logger.error(
+                "Error processing %s: %s",
+                filename,
+                e.message,
+                extra={
+                    "filepath": curr_file,
+                    "error_type": type(e).__name__,
+                    "error_category": e.context.get("error_category"),
+                },
+            )
+            results.append((False, filename, curr_file, 0.0, None, 0.0, 0))
+
         except Exception as e:
-            print(f"\nError processing {filename}: {e}")
+            logger.error(
+                "Unexpected error processing %s: %s: %s",
+                filename,
+                type(e).__name__,
+                e,
+                exc_info=True,
+                extra={"filepath": curr_file, "error_type": type(e).__name__},
+            )
             results.append((False, filename, curr_file, 0.0, None, 0.0, 0))
 
     return results
@@ -791,17 +949,35 @@ class MeteorDetectionPipeline:
             input_loader_config: Configuration for the loader
             output_handler: Custom BaseOutputHandler implementation
             detector: Custom BaseDetector implementation (defaults to HoughDetector)
+
+        Raises:
+            MeteorConfigError: If configuration is invalid or required parameters
+                are missing.
         """
+        logger.debug(
+            "Initializing MeteorDetectionPipeline with %s",
+            type(config_or_target).__name__,
+        )
+
         # Determine which API is being used
         if isinstance(config_or_target, PipelineConfig):
             # New API: PipelineConfig provided
             self._config = config_or_target
+            logger.debug("Using PipelineConfig API")
         elif isinstance(config_or_target, str):
             # Legacy API: individual arguments
             if output_folder is None or debug_folder is None or params is None:
-                raise TypeError(
+                logger.error(
+                    "Legacy API requires output_folder, debug_folder, and params"
+                )
+                raise MeteorConfigError(
                     "When using legacy API, output_folder, debug_folder, and params "
-                    "are required. Consider using PipelineConfig instead."
+                    "are required. Consider using PipelineConfig instead.",
+                    context={
+                        "output_folder": output_folder,
+                        "debug_folder": debug_folder,
+                        "params_provided": params is not None,
+                    },
                 )
 
             # Issue deprecation warning for legacy API
@@ -812,6 +988,7 @@ class MeteorDetectionPipeline:
                 DeprecationWarning,
                 stacklevel=2,
             )
+            logger.debug("Using legacy API (deprecated)")
 
             self._config = PipelineConfig(
                 target_folder=config_or_target,
@@ -826,9 +1003,13 @@ class MeteorDetectionPipeline:
                 output_overwrite=output_overwrite,
             )
         else:
-            raise TypeError(
+            logger.error(
+                "Invalid first argument type: %s", type(config_or_target).__name__
+            )
+            raise MeteorConfigError(
                 f"First argument must be PipelineConfig or str (target_folder), "
-                f"got {type(config_or_target).__name__}"
+                f"got {type(config_or_target).__name__}",
+                context={"provided_type": type(config_or_target).__name__},
             )
 
         # Store loader configuration
@@ -854,6 +1035,13 @@ class MeteorDetectionPipeline:
             fallback_output_overwrite=self._config.output_overwrite,
         )
         self.progress_manager = ProgressManager(self._config.progress_file)
+
+        logger.info(
+            "Pipeline initialized: target=%s, workers=%d, batch_size=%d",
+            self._config.target_folder,
+            self._config.num_workers,
+            self._config.batch_size,
+        )
 
     @property
     def config(self) -> PipelineConfig:

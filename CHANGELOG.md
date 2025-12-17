@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.5.12 - 2025-12-18
+- **Custom exception hierarchy**: Introduced structured exception classes for better error handling and diagnostics.
+  - `MeteorError`: Base exception class with diagnostic information support.
+  - `MeteorLoadError`: Image loading failures (file corruption, I/O errors).
+  - `MeteorUnsupportedFormatError`: Unsupported file format detection.
+  - `MeteorValidationError`: Parameter and input validation errors.
+  - `MeteorConfigError`: Configuration and plugin setup errors.
+- **Diagnostic reporting**: Added `DiagnosticInfo` dataclass for structured error information including system details, dependency versions, and context for GitHub issue reporting.
+- **New CLI options for troubleshooting**:
+  - `--verbose`: Display detailed diagnostic information on errors, enable DEBUG-level logging for input handling modules.
+  - `--save-diagnostic [FILE]`: Save diagnostic report to file on error for bug reporting.
+- **Structured logging**: Added standard Python logging throughout `meteor_core` modules (`inputs`, `detectors`, `outputs`, `pipeline`, etc.) with configurable log levels via `--verbose` flag.
+- **User-friendly error messages**: `format_error_for_user()` provides clear, actionable error messages with optional verbose diagnostics.
+- **Test coverage**: Added `test_exceptions_v1x.py` and `test_inputs_logging_v1x.py` for comprehensive exception and logging coverage.
+
 ## v1.5.11 - 2025-12-15
 - **Cross-package consistency**: Unified plugin registry behaviors between `inputs` and `detectors` packages for consistent developer experience.
   - Case-insensitive lookup: Both `LoaderRegistry` and `DetectorRegistry` now support case-insensitive name lookup (`get("raw")`, `get("RAW")`, `get("Raw")` all return the same class).

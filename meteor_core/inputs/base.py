@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
 import importlib.util
+import logging
 from typing import Any, Dict, Generic, Type, TypeVar
 
 from meteor_core.plugin_contract import (
@@ -18,6 +19,9 @@ if _PYDANTIC_SPEC:
     from pydantic import BaseModel
 else:
     BaseModel = None
+
+# Module-level logger for diagnostics shared by input loaders
+logger = logging.getLogger(__name__)
 
 
 # Exported helper for compatibility with existing imports
@@ -150,14 +154,29 @@ def _is_valid_input_loader(cls: Type[Any]) -> bool:
         True if the class is a valid BaseInputLoader subclass.
     """
     if not isinstance(cls, type):
+        logger.debug(
+            "_is_valid_input_loader: %r is not a type",
+            cls,
+        )
         return False
     if not issubclass(cls, BaseInputLoader):
+        logger.debug(
+            "_is_valid_input_loader: %s does not inherit from BaseInputLoader",
+            cls.__name__,
+        )
         return False
     # Check that plugin_name is defined and non-empty
     plugin_name = getattr(cls, "plugin_name", None)
-    return (
+    if not (
         plugin_name is not None and isinstance(plugin_name, str) and plugin_name != ""
-    )
+    ):
+        logger.debug(
+            "_is_valid_input_loader: %s has invalid plugin_name: %r",
+            cls.__name__,
+            plugin_name,
+        )
+        return False
+    return True
 
 
 class DataclassInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
@@ -200,14 +219,30 @@ class DataclassInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
         config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not is_dataclass(config_type):
+                logger.error(
+                    "ConfigType %s is not a dataclass for loader %s",
+                    config_type,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     "ConfigType must be a dataclass type for DataclassInputLoader."
                 )
             if not isinstance(config, config_type):
+                logger.error(
+                    "Config instance %s does not match dataclass %s for loader %s",
+                    type(config).__name__,
+                    config_type.__name__,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     f"config must be an instance of {config_type.__name__}."
                 )
         self.config = config
+        logger.debug(
+            "%s initialized with dataclass config %s",
+            self.__class__.__name__,
+            config,
+        )
 
 
 class PydanticInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
@@ -239,15 +274,35 @@ class PydanticInputLoader(BaseInputLoader[ConfigType], Generic[ConfigType]):
         """
         require_plugin_name(self.__class__, kind="input loader")
         if BaseModel is None:
+            logger.error(
+                "PydanticInputLoader requires pydantic but it is not installed (%s)",
+                self.__class__.__name__,
+            )
             raise ImportError("pydantic must be installed to use PydanticInputLoader.")
         config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not issubclass(config_type, BaseModel):
+                logger.error(
+                    "ConfigType %s is not a pydantic BaseModel for loader %s",
+                    config_type,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     "ConfigType must inherit from pydantic.BaseModel for PydanticInputLoader."
                 )
             if not isinstance(config, config_type):
+                logger.error(
+                    "Config instance %s does not match Pydantic model %s for loader %s",
+                    type(config).__name__,
+                    config_type.__name__,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     f"config must be an instance of {config_type.__name__}."
                 )
         self.config = config
+        logger.debug(
+            "%s initialized with pydantic config %s",
+            self.__class__.__name__,
+            config,
+        )

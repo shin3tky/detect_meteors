@@ -62,6 +62,8 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 
 ## Utility Options
 - **`--profile`**: Print timing breakdowns after the run.
+- **`--verbose`**: Show detailed diagnostic information on errors. Includes system info, dependency versions, and full error context for troubleshooting.
+- **`--save-diagnostic FILE`**: Save diagnostic report to specified file on error. If FILE is omitted, generates a timestamped filename. The report is formatted as Markdown suitable for GitHub issue attachments.
 - **`--validate-raw`**: Pre-validate RAW files to catch corruption before processing.
 - **`--progress-file`** (default: `progress.json`): Path to the JSON file that tracks processed frames.
 - **`--no-resume`**: Ignore and remove any existing progress file before processing.
@@ -69,19 +71,4 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--output-overwrite`**: Force overwrite existing files in output folder (default: skip existing files).
 
 ## Fisheye Correction Options
-- **`--fisheye`**: Enable fisheye lens correction using equisolid angle projection.
-  - Compensates for varying effective focal length across the fisheye image
-  - Center of image uses nominal focal length
-  - Edge of image uses reduced effective focal length (~0.707× for 180° diagonal FOV)
-  - NPF calculation uses edge focal length (worst case) for conservative recommendations
-  - Star trail estimation accounts for longer trails at image edges (~1.414× at corners)
-  - Projection model: Equisolid angle (r = 2f × sin(θ/2))
-  
-  Example usage:
-  ```bash
-  # 8mm fisheye on Full Frame
-  python detect_meteors_cli.py --auto-params --sensor-type FF --focal-length 8 --fisheye
-  
-  # Show NPF analysis with fisheye correction
-  python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 8 --fisheye
-  ```
+- **`--fisheye`**: Enable fisheye lens correction for equisolid angle projection lenses. Adjusts NPF calculations to use edge focal length (worst case) and accounts for longer star trails at image edges. Recommended for ultra-wide fisheye lenses (e.g., 8mm on Full Frame or MFT).

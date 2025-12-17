@@ -104,12 +104,12 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.5.11
+## What's New in v1.5.12
 
-- **Case-insensitive registry lookup**: Plugin names like `raw`, `RAW`, `Raw` all work
-- **BaseInputLoader enhancement**: Added `name`, `version` attributes and `get_info()` method
-- **Early config validation**: Registry raises explicit errors instead of silent failures
-- **Plugin directory standardization**: `~/.detect_meteors/input_plugins/` for input loaders
+- **Custom exception hierarchy**: Structured error handling with `MeteorError`, `MeteorLoadError`, `MeteorValidationError`, and more
+- **Diagnostic reporting**: Generate GitHub issue-ready diagnostic reports with `--save-diagnostic`
+- **Verbose mode**: Use `--verbose` for detailed error info and DEBUG-level logging
+- **Structured logging**: Standard Python logging throughout all modules
 
 ### Previous Releases
 

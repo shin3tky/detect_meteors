@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import inspect
+import logging
 import warnings
 from pathlib import Path
 from typing import Dict, Iterable, Type
@@ -23,6 +24,9 @@ except ImportError:  # pragma: no cover
 from .base import BaseDetector, _is_valid_detector
 from .hough_default import HoughDetector
 from .simple_threshold import SimpleThresholdDetector
+
+# Module-level logger for discovery diagnostics
+logger = logging.getLogger(__name__)
 
 PLUGIN_GROUP = "detect_meteors.detector"
 PLUGIN_DIR = Path.home() / ".detect_meteors" / "detector_plugins"
@@ -67,6 +71,11 @@ def _add_detector(
 
     # Skip base classes
     if detector_cls.__name__ in _SKIP_CLASSES:
+        logger.debug(
+            "Skipping base class %s from %s",
+            detector_cls.__name__,
+            origin,
+        )
         return
 
     # Validate detector class
@@ -74,6 +83,13 @@ def _add_detector(
         # Only warn for classes that look like they might be intended detectors
         class_name_lower = detector_cls.__name__.lower()
         if "detector" in class_name_lower:
+            logger.warning(
+                "Skipping detector from %s: %s.%s does not inherit from "
+                "BaseDetector (or missing plugin_name)",
+                origin,
+                detector_cls.__module__,
+                detector_cls.__name__,
+            )
             warnings.warn(
                 f"Skipping detector from {origin}: {detector_cls.__module__}.{detector_cls.__name__} "
                 "does not inherit from BaseDetector (or missing plugin_name).",
@@ -84,6 +100,11 @@ def _add_detector(
     # Get plugin_name from the class
     plugin_name = getattr(detector_cls, "plugin_name", "")
     if not plugin_name:
+        logger.warning(
+            "Skipping detector from %s: %s has empty plugin_name",
+            origin,
+            detector_cls.__name__,
+        )
         warnings.warn(
             f"Skipping detector from {origin}: {detector_cls.__name__} has empty plugin_name",
             stacklevel=3,
@@ -96,6 +117,13 @@ def _add_detector(
     # Check for duplicates
     if plugin_name_lower in registry:
         existing = registry[plugin_name_lower]
+        logger.warning(
+            "Duplicate detector name '%s' from %s; keeping %s.%s",
+            plugin_name,
+            origin,
+            existing.__module__,
+            existing.__name__,
+        )
         warnings.warn(
             f"Duplicate detector name '{plugin_name}' from {origin}; "
             f"keeping {existing.__module__}.{existing.__name__}",
@@ -103,6 +131,13 @@ def _add_detector(
         )
         return
 
+    logger.debug(
+        "Registered detector '%s' from %s (%s.%s)",
+        plugin_name,
+        origin,
+        detector_cls.__module__,
+        detector_cls.__name__,
+    )
     registry[plugin_name_lower] = detector_cls
 
 
@@ -193,9 +228,13 @@ def _discover_handlers_internal(
     """
     directory = plugin_dir if plugin_dir is not None else PLUGIN_DIR
 
+    logger.info("Starting detector discovery")
+    logger.debug("Plugin directory: %s", directory)
+
     registry: Dict[str, Type[BaseDetector]] = {}
 
     # 1. Register built-in detectors first
+    logger.debug("Phase 1: Registering built-in detectors")
     _add_detector(registry, HoughDetector, "built-in HoughDetector")
     _add_detector(
         registry,
@@ -204,10 +243,23 @@ def _discover_handlers_internal(
     )
 
     # 2. Register detectors from entry points (sorted for determinism)
+    logger.debug(
+        "Phase 2: Discovering detectors from entry points (group=%s)", PLUGIN_GROUP
+    )
+    entry_point_count = 0
     for ep in sorted(_iter_entry_points(), key=lambda e: e.name):
+        entry_point_count += 1
+        logger.debug("Loading entry point: %s from %s", ep.name, ep.value)
         try:
             detector_cls = ep.load()
         except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "Failed to load detector entry point '%s' from %s: %s: %s",
+                ep.name,
+                ep.value,
+                type(exc).__name__,
+                exc,
+            )
             warnings.warn(
                 f"Failed to load detector entry point '{ep.name}' "
                 f"from {ep.value}: {exc}",
@@ -216,12 +268,28 @@ def _discover_handlers_internal(
             continue
         _add_detector(registry, detector_cls, f"entry point {ep.name}")
 
+    if entry_point_count == 0:
+        logger.debug("No entry points found for group %s", PLUGIN_GROUP)
+    else:
+        logger.debug("Processed %d entry points", entry_point_count)
+
     # 3. Register detectors from plugin directory
+    logger.debug("Phase 3: Discovering detectors from plugin directory")
     if directory.exists() and directory.is_dir():
-        for path in sorted(directory.glob("*.py")):
+        plugin_files = sorted(directory.glob("*.py"))
+        logger.debug("Found %d plugin files in %s", len(plugin_files), directory)
+
+        for path in plugin_files:
+            logger.debug("Loading plugin module: %s", path)
             try:
                 module = _load_module_from_file(path)
             except Exception as exc:  # pragma: no cover
+                logger.warning(
+                    "Failed to load detector plugin module %s: %s: %s",
+                    path,
+                    type(exc).__name__,
+                    exc,
+                )
                 warnings.warn(
                     f"Failed to load detector plugin module {path}: {exc}",
                     stacklevel=2,
@@ -233,6 +301,16 @@ def _discover_handlers_internal(
                 # Only consider classes defined in this module (not imports)
                 if obj.__module__ == module.__name__:
                     _add_detector(registry, obj, f"plugin file {path}")
+    else:
+        logger.debug(
+            "Plugin directory does not exist or is not a directory: %s", directory
+        )
+
+    logger.info(
+        "Detector discovery completed: %d detectors registered (%s)",
+        len(registry),
+        ", ".join(sorted(registry.keys())),
+    )
 
     return registry
 

@@ -1,5 +1,6 @@
 """Lightweight configurable detector example for validation and tests."""
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -7,6 +8,9 @@ import cv2
 import numpy as np
 
 from .base import DataclassDetector
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -47,6 +51,7 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
 
     def __init__(self, config: SimpleThresholdConfig) -> None:
         super().__init__(config)
+        logger.debug("SimpleThresholdDetector initialized with config: %s", self.config)
 
     def detect(
         self,
@@ -57,6 +62,18 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
     ) -> Tuple[
         bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]
     ]:
+        if current_image.shape != previous_image.shape:
+            logger.error("Current and previous images must share the same shape.")
+            raise ValueError("current_image and previous_image must be the same size")
+
+        if roi_mask.shape != current_image.shape:
+            logger.error(
+                "ROI mask shape %s does not match image shape %s.",
+                roi_mask.shape,
+                current_image.shape,
+            )
+            raise ValueError("roi_mask must match the shape of the input images")
+
         # Frame inputs are expected to be single-channel uint8 images. Mixed
         # channel types will still work because OpenCV handles per-channel
         # subtraction, but tests keep images grayscale so the summed pixel
@@ -70,29 +87,39 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
         _, binary = cv2.threshold(
             masked, self.config.diff_threshold, 255, cv2.THRESH_BINARY
         )
+        try:
+            contours, _ = cv2.findContours(
+                binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+            segments: List[Tuple[int, int, int, int]] = []
+            max_aspect_ratio = 0.0
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if area < self.config.min_area:
+                    # Skip speckle noise and tiny flashes to reduce false positives
+                    # when validating the detector with small test frames.
+                    continue
+                x, y, w, h = cv2.boundingRect(contour)
+                segments.append((x, y, x + w, y + h))
+                aspect_ratio = max(w, h) / max(min(w, h), 1)
+                max_aspect_ratio = max(max_aspect_ratio, aspect_ratio)
 
-        contours, _ = cv2.findContours(
-            binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
-        segments: List[Tuple[int, int, int, int]] = []
-        max_aspect_ratio = 0.0
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if area < self.config.min_area:
-                # Skip speckle noise and tiny flashes to reduce false positives
-                # when validating the detector with small test frames.
-                continue
-            x, y, w, h = cv2.boundingRect(contour)
-            segments.append((x, y, x + w, y + h))
-            aspect_ratio = max(w, h) / max(min(w, h), 1)
-            max_aspect_ratio = max(max_aspect_ratio, aspect_ratio)
+            is_candidate = len(segments) > 0
+            # Use the raw sum to keep scoring monotonic with respect to pixel count
+            # rather than contour count; this mirrors a naive energy estimate and
+            # remains stable even if contour extraction changes slightly.
+            line_score = float(np.sum(binary))
 
-        is_candidate = len(segments) > 0
-        # Use the raw sum to keep scoring monotonic with respect to pixel count
-        # rather than contour count; this mirrors a naive energy estimate and
-        # remains stable even if contour extraction changes slightly.
-        line_score = float(np.sum(binary))
-        return is_candidate, line_score, segments, max_aspect_ratio, None
+            logger.debug(
+                "SimpleThreshold detection finished: candidate=%s, line_score=%.2f, max_aspect_ratio=%.2f",
+                is_candidate,
+                line_score,
+                max_aspect_ratio,
+            )
+            return is_candidate, line_score, segments, max_aspect_ratio, None
+        except Exception as exc:  # pragma: no cover - guard against OpenCV errors
+            logger.exception("Error during SimpleThreshold detection: %s", exc)
+            raise
 
     def compute_line_score(
         self, mask: np.ndarray, hough_params: Dict[str, int]

@@ -15,6 +15,7 @@ detection pipeline.
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
 import importlib.util
+import logging
 from typing import Dict, Generic, List, Optional, Type, TypeVar
 
 import numpy as np
@@ -24,6 +25,9 @@ from meteor_core.plugin_contract import (
     require_config_type,
     require_plugin_name,
 )
+
+# Module-level logger for diagnostics shared by output handlers
+logger = logging.getLogger(__name__)
 
 ConfigType = TypeVar("ConfigType")
 
@@ -232,14 +236,30 @@ class DataclassOutputHandler(BaseOutputHandler, Generic[ConfigType]):
         config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not is_dataclass(config_type):
+                logger.error(
+                    "ConfigType %s is not a dataclass for handler %s",
+                    config_type,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     "ConfigType must be a dataclass type for DataclassOutputHandler."
                 )
             if not isinstance(config, config_type):
+                logger.error(
+                    "Config instance %s does not match dataclass %s for handler %s",
+                    type(config).__name__,
+                    config_type.__name__,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     f"config must be an instance of {config_type.__name__}."
                 )
         self.config = config
+        logger.debug(
+            "%s initialized with dataclass config %s",
+            self.__class__.__name__,
+            config,
+        )
 
 
 class PydanticOutputHandler(BaseOutputHandler, Generic[ConfigType]):
@@ -272,6 +292,10 @@ class PydanticOutputHandler(BaseOutputHandler, Generic[ConfigType]):
         """
 
         if BaseModel is None:
+            logger.error(
+                "PydanticOutputHandler requires pydantic but it is not installed (%s)",
+                self.__class__.__name__,
+            )
             raise ImportError(
                 "pydantic must be installed to use PydanticOutputHandler."
             )
@@ -281,14 +305,30 @@ class PydanticOutputHandler(BaseOutputHandler, Generic[ConfigType]):
         config_type = require_config_type(self.__class__)
         if config_type is not None:
             if not issubclass(config_type, BaseModel):
+                logger.error(
+                    "ConfigType %s is not a pydantic BaseModel for handler %s",
+                    config_type,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     "ConfigType must inherit from pydantic.BaseModel for PydanticOutputHandler."
                 )
             if not isinstance(config, config_type):
+                logger.error(
+                    "Config instance %s does not match Pydantic model %s for handler %s",
+                    type(config).__name__,
+                    config_type.__name__,
+                    self.__class__.__name__,
+                )
                 raise TypeError(
                     f"config must be an instance of {config_type.__name__}."
                 )
         self.config = config
+        logger.debug(
+            "%s initialized with pydantic config %s",
+            self.__class__.__name__,
+            config,
+        )
 
 
 def _is_valid_output_handler(cls: type) -> bool:
@@ -301,14 +341,31 @@ def _is_valid_output_handler(cls: type) -> bool:
         True if the class is a valid BaseOutputHandler subclass with plugin_name.
     """
     if not isinstance(cls, type):
+        logger.debug(
+            "_is_valid_output_handler: %r is not a type",
+            cls,
+        )
         return False
 
     if not issubclass(cls, BaseOutputHandler):
+        logger.debug(
+            "_is_valid_output_handler: %s does not inherit from BaseOutputHandler",
+            cls.__name__,
+        )
         return False
 
     # Must have a non-empty string plugin_name
     plugin_name = getattr(cls, "plugin_name", None)
-    return isinstance(plugin_name, str) and bool(plugin_name)
+    if not (
+        plugin_name is not None and isinstance(plugin_name, str) and plugin_name != ""
+    ):
+        logger.debug(
+            "_is_valid_output_handler: %s has invalid plugin_name: %r",
+            cls.__name__,
+            plugin_name,
+        )
+        return False
+    return True
 
 
 __all__ = [

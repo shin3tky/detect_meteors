@@ -11,12 +11,16 @@ This module provides the ProgressManager class for tracking processing
 progress, enabling resumption of interrupted detection runs.
 """
 
-import os
 import json
+import logging
+import os
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any, Set
+from typing import Any, Dict, Optional, Set
 
 from ..schema import VERSION
+
+# Module-level logger for progress tracking diagnostics
+logger = logging.getLogger(__name__)
 
 
 class ProgressManager:
@@ -64,6 +68,10 @@ class ProgressManager:
         self.processed_set: Set[str] = set()
         self.detected_set: Set[str] = set()
         self._detected_details_map: Dict[str, Dict[str, Any]] = {}
+        logger.debug(
+            "ProgressManager initialized with progress file: %s",
+            self.progress_file,
+        )
 
     def load(self) -> bool:
         """
@@ -73,8 +81,13 @@ class ProgressManager:
             True if progress was loaded successfully, False otherwise.
         """
         if not os.path.exists(self.progress_file):
+            logger.debug(
+                "Progress file does not exist: %s",
+                self.progress_file,
+            )
             return False
 
+        logger.debug("Loading progress from %s", self.progress_file)
         try:
             with open(self.progress_file, encoding="utf-8") as fp:
                 loaded = json.load(fp)
@@ -82,9 +95,20 @@ class ProgressManager:
                 self.processed_set = set(self.progress_data.get("processed_files", []))
                 self.detected_set = set(self.progress_data.get("detected_files", []))
                 self._sync_detected_details_map()
+                logger.info(
+                    "Loaded progress: %d processed, %d detected from %s",
+                    len(self.processed_set),
+                    len(self.detected_set),
+                    self.progress_file,
+                )
                 return True
         except Exception as exc:
-            print(f"Failed to read progress file {self.progress_file}: {exc}")
+            logger.warning(
+                "Failed to read progress file %s: %s: %s",
+                self.progress_file,
+                type(exc).__name__,
+                exc,
+            )
             return False
 
     def save(self) -> None:
@@ -93,12 +117,24 @@ class ProgressManager:
         self.progress_data.setdefault("created_at", now_iso)
         self.progress_data["last_updated"] = now_iso
 
+        logger.debug(
+            "Saving progress to %s (%d processed, %d detected)",
+            self.progress_file,
+            len(self.processed_set),
+            len(self.detected_set),
+        )
         try:
             os.makedirs(os.path.dirname(self.progress_file) or ".", exist_ok=True)
             with open(self.progress_file, "w", encoding="utf-8") as fp:
                 json.dump(self.progress_data, fp, ensure_ascii=False, indent=2)
+            logger.debug("Progress saved successfully to %s", self.progress_file)
         except Exception as exc:
-            print(f"Failed to write progress file {self.progress_file}: {exc}")
+            logger.warning(
+                "Failed to write progress file %s: %s: %s",
+                self.progress_file,
+                type(exc).__name__,
+                exc,
+            )
 
     def set_params_hash(self, params_hash: str) -> None:
         """Set the parameters hash for this session.
@@ -187,6 +223,15 @@ class ProgressManager:
 
             entry.update(score=score, lines=lines, ratio=ratio)
             self._sync_detected_details_list()
+            logger.debug(
+                "Recorded candidate: %s (score=%.2f, lines=%d, ratio=%.2f)",
+                filename,
+                score,
+                lines,
+                ratio,
+            )
+        else:
+            logger.debug("Recorded non-candidate: %s", filename)
 
         self.progress_data["total_processed"] = len(self.processed_set)
         self.progress_data["total_detected"] = len(self.detected_set)
@@ -200,6 +245,9 @@ class ProgressManager:
         Args:
             existing_basenames: Set of filenames that currently exist.
         """
+        original_processed = len(self.progress_data.get("processed_files", []))
+        original_detected = len(self.progress_data.get("detected_files", []))
+
         self.progress_data["processed_files"] = [
             name
             for name in self.progress_data.get("processed_files", [])
@@ -228,6 +276,18 @@ class ProgressManager:
         self.progress_data["total_processed"] = len(self.processed_set)
         self.progress_data["total_detected"] = len(self.detected_set)
 
+        removed_processed = original_processed - len(self.processed_set)
+        removed_detected = original_detected - len(self.detected_set)
+        if removed_processed > 0 or removed_detected > 0:
+            logger.info(
+                "Filtered progress: removed %d processed, %d detected "
+                "(now %d processed, %d detected)",
+                removed_processed,
+                removed_detected,
+                len(self.processed_set),
+                len(self.detected_set),
+            )
+
     def get_total_processed(self) -> int:
         """Get the total number of processed files.
 
@@ -246,6 +306,11 @@ class ProgressManager:
 
     def reset(self) -> None:
         """Reset progress data while preserving configuration."""
+        logger.info(
+            "Resetting progress (was %d processed, %d detected)",
+            len(self.processed_set),
+            len(self.detected_set),
+        )
         self.progress_data = {
             "version": VERSION,
             "params_hash": self.progress_data.get("params_hash", ""),
@@ -261,6 +326,7 @@ class ProgressManager:
         self.processed_set = set()
         self.detected_set = set()
         self._detected_details_map = {}
+        logger.debug("Progress reset completed")
 
     def _sync_detected_details_map(self) -> None:
         """Synchronize the detected details map from the list representation."""
@@ -288,13 +354,26 @@ def load_progress(progress_path: str) -> Optional[Dict]:
         Progress data dictionary, or None if file doesn't exist or is invalid.
     """
     if not os.path.exists(progress_path):
+        logger.debug("Progress file does not exist: %s", progress_path)
         return None
 
+    logger.debug("Loading progress from %s", progress_path)
     try:
         with open(progress_path, encoding="utf-8") as fp:
-            return json.load(fp)
+            data = json.load(fp)
+            logger.debug(
+                "Loaded progress data with %d processed, %d detected",
+                len(data.get("processed_files", [])),
+                len(data.get("detected_files", [])),
+            )
+            return data
     except Exception as exc:
-        print(f"Failed to read progress file {progress_path}: {exc}")
+        logger.warning(
+            "Failed to read progress file %s: %s: %s",
+            progress_path,
+            type(exc).__name__,
+            exc,
+        )
         return None
 
 
@@ -309,12 +388,24 @@ def save_progress(progress_path: str, progress_data: Dict) -> None:
     progress_data.setdefault("created_at", now_iso)
     progress_data["last_updated"] = now_iso
 
+    logger.debug(
+        "Saving progress to %s (%d processed, %d detected)",
+        progress_path,
+        len(progress_data.get("processed_files", [])),
+        len(progress_data.get("detected_files", [])),
+    )
     try:
         os.makedirs(os.path.dirname(progress_path) or ".", exist_ok=True)
         with open(progress_path, "w", encoding="utf-8") as fp:
             json.dump(progress_data, fp, ensure_ascii=False, indent=2)
+        logger.debug("Progress saved successfully to %s", progress_path)
     except Exception as exc:
-        print(f"Failed to write progress file {progress_path}: {exc}")
+        logger.warning(
+            "Failed to write progress file %s: %s: %s",
+            progress_path,
+            type(exc).__name__,
+            exc,
+        )
 
 
 __all__ = [
