@@ -125,8 +125,8 @@ coverage html
 
 | File | Tests | Description |
 |------|-------|-------------|
+| `test_exceptions_v1x.py` | 66 | Exception hierarchy and diagnostic info |
 | `test_calculations_v1x.py` | 54 | NPF Rule, pixel pitch, star/meteor trail estimation |
-| `test_exceptions_v1x.py` | 53 | Exception hierarchy and diagnostic info |
 | `test_output_handler_registry_v1x.py` | 51 | Output handler registry |
 | `test_integration_v1x.py` | 44 | End-to-end meteor detection |
 | `test_sensor_presets_v1x.py` | 38 | Sensor type presets |
@@ -142,10 +142,11 @@ coverage html
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch sizing |
 | `test_plugin_registry_base.py` | 4 | Plugin registry base class |
 | `test_plugin_contract_validation_v1x.py` | 3 | Plugin contract validation |
+| `test_cli_options_v1x.py` | 2 | CLI option parsing |
 | `test_discovery_parity.py` | 2 | Plugin discovery parity |
 | `test_registry_default_contracts_v1x.py` | 2 | Registry default contracts |
 
-**Total: 454 tests**
+**Total: 469 tests**
 
 ## Code Style
 
@@ -196,6 +197,7 @@ detect_meteors/
 ├── detect_meteors_cli.py          # CLI interface
 ├── meteor_core/                   # Core logic modules
 │   ├── schema.py                  # Type definitions, constants
+│   ├── exceptions.py              # Custom exception hierarchy
 │   ├── pipeline.py                # Pipeline orchestration
 │   ├── image_io.py                # Image IO, EXIF utilities
 │   ├── roi_selector.py            # ROI selection

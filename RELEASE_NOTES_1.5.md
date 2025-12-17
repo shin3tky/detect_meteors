@@ -8,7 +8,7 @@ Version 1.5.12 focuses on code stability, introducing a comprehensive exception 
 
 ### Highlights
 
-- **Custom exception hierarchy**: Structured error classes for different failure scenarios
+- **Custom exception hierarchy**: Structured error classes for inputs (`MeteorLoadError`, `MeteorUnsupportedFormatError`), outputs (`MeteorOutputError`, `MeteorWriteError`, `MeteorProgressError`), and configuration (`MeteorValidationError`, `MeteorConfigError`)
 - **Diagnostic reporting**: GitHub issue-ready diagnostic reports with system information
 - **New CLI options**: `--verbose` for detailed logging, `--save-diagnostic` for error reports
 - **Structured logging**: Standard Python logging throughout all modules
@@ -19,6 +19,9 @@ Version 1.5.12 focuses on code stability, introducing a comprehensive exception 
 MeteorError (base)
 ├── MeteorLoadError (image loading failures)
 │   └── MeteorUnsupportedFormatError (unsupported file formats)
+├── MeteorOutputError (output operation failures)
+│   ├── MeteorWriteError (file write failures)
+│   └── MeteorProgressError (progress tracking errors)
 ├── MeteorValidationError (parameter/input validation)
 └── MeteorConfigError (configuration errors)
 ```
@@ -134,6 +137,9 @@ Modules with logging support:
 from meteor_core.exceptions import (
     MeteorError,
     MeteorLoadError,
+    MeteorOutputError,
+    MeteorWriteError,
+    MeteorProgressError,
     MeteorValidationError,
 )
 
@@ -143,6 +149,16 @@ except MeteorLoadError as e:
     # Handle image loading failures
     print(f"Failed to load: {e.filepath}")
     print(e.format_for_issue())  # Get diagnostic report
+except MeteorWriteError as e:
+    # Handle file write failures
+    print(f"Failed to write: {e.destination_path}")
+    print(f"Operation: {e.operation}")
+except MeteorProgressError as e:
+    # Handle progress tracking errors
+    print(f"Progress file error: {e.filepath}")
+except MeteorOutputError as e:
+    # Catch-all for output errors
+    print(f"Output error: {e.message}")
 except MeteorValidationError as e:
     # Handle validation errors
     print(f"Invalid parameter: {e.parameter_name}")
@@ -154,8 +170,9 @@ except MeteorError as e:
 **Creating custom exceptions with context**:
 
 ```python
-from meteor_core.exceptions import MeteorLoadError
+from meteor_core.exceptions import MeteorLoadError, MeteorWriteError, MeteorProgressError
 
+# Input loading error
 raise MeteorLoadError(
     "Failed to load RAW file",
     filepath="/path/to/image.CR2",
@@ -165,6 +182,25 @@ raise MeteorLoadError(
         "binning": 2,
         "normalize": True,
     },
+)
+
+# File write error
+raise MeteorWriteError(
+    "Failed to copy candidate file",
+    filepath="/source/image.CR2",
+    destination_path="/output/image.CR2",
+    operation="copy",
+    original_error=os_error,
+    context={"error_category": "copy_failed"},
+)
+
+# Progress tracking error
+raise MeteorProgressError(
+    "Failed to parse progress file",
+    filepath="progress.json",
+    operation="parse",
+    original_error=json_error,
+    context={"error_category": "parse_failed"},
 )
 ```
 
@@ -1490,7 +1526,7 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 - **Latest Version**: 1.5.12
 - **Release Date**: 2025-12-18
 - **Major Changes**:
-  - Custom exception hierarchy (`MeteorError`, `MeteorLoadError`, `MeteorValidationError`, `MeteorConfigError`)
+  - Custom exception hierarchy for inputs (`MeteorLoadError`, `MeteorUnsupportedFormatError`), outputs (`MeteorOutputError`, `MeteorWriteError`, `MeteorProgressError`), and config (`MeteorValidationError`, `MeteorConfigError`)
   - Diagnostic reporting with `DiagnosticInfo` dataclass
   - `--verbose` flag for detailed error info and DEBUG logging
   - `--save-diagnostic` option for bug reporting

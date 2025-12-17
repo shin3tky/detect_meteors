@@ -101,7 +101,9 @@
 
 ### Stability & Error Handling
 - [x] **v1.5.12** - Custom exception hierarchy and diagnostic reporting
-  - [x] Structured exception classes (`MeteorError`, `MeteorLoadError`, `MeteorValidationError`, `MeteorConfigError`)
+  - [x] Structured exception classes for inputs (`MeteorLoadError`, `MeteorUnsupportedFormatError`)
+  - [x] Structured exception classes for outputs (`MeteorOutputError`, `MeteorWriteError`, `MeteorProgressError`)
+  - [x] Structured exception classes for config (`MeteorValidationError`, `MeteorConfigError`)
   - [x] Diagnostic information with system details and dependency versions
   - [x] `--verbose` flag for detailed error info and DEBUG logging
   - [x] `--save-diagnostic` option for bug reporting
