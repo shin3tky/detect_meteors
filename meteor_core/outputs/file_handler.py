@@ -104,7 +104,16 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                 type(exc).__name__,
                 exc,
             )
-            raise
+            raise MeteorWriteError(
+                "Failed to create output directories",
+                original_error=exc,
+                destination_path=config.output_folder,
+                operation="mkdir",
+                context={
+                    "error_category": "directory_creation_failed",
+                    "debug_folder": config.debug_folder,
+                },
+            ) from exc
         logger.debug("FileOutputHandler initialized: directories created/verified")
 
     def save_candidate(

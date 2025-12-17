@@ -6,7 +6,11 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
-from ..exceptions import MeteorValidationError
+from ..exceptions import (
+    MeteorLoadError,
+    MeteorUnsupportedFormatError,
+    MeteorValidationError,
+)
 from ..image_io import extract_exif_metadata, load_and_bin_raw_fast
 from .base import BaseMetadataExtractor, DataclassInputLoader
 
@@ -106,6 +110,14 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
         # MeteorLoadError/MeteorUnsupportedFormatError raised by load_and_bin_raw_fast
         try:
             image = load_and_bin_raw_fast(filepath)
+        except (MeteorLoadError, MeteorUnsupportedFormatError):
+            logger.error(
+                "Failed to load RAW image %s (binning=%d, normalize=%s)",
+                filepath,
+                self.config.binning,
+                self.config.normalize,
+            )
+            raise
         except Exception as exc:
             logger.error(
                 "Failed to load RAW image %s (binning=%d, normalize=%s): %s: %s",
