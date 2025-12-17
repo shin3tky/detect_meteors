@@ -31,6 +31,8 @@ _detect_meteors_cli_completion() {
           --auto-batch-size
           --no-parallel
           --profile
+          --verbose
+          --save-diagnostic
           --validate-raw
           --progress-file
           --no-resume
@@ -57,6 +59,11 @@ _detect_meteors_cli_completion() {
         --progress-file)
             # Complete with .json files
             COMPREPLY=( $(compgen -f -X '!*.json' -- "${cur}") )
+            return 0
+            ;;
+        --save-diagnostic)
+            # Complete with files for diagnostic output
+            COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
             ;;
         --focal-factor)

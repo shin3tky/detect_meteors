@@ -44,6 +44,8 @@ _detect_meteors_cli() {
         
         # Progress and debugging
         '--profile[Display timing profile]'
+        '--verbose[Show detailed diagnostic information on errors]'
+        '--save-diagnostic[Save diagnostic report to file on error]:file:_files'
         '--validate-raw[Validate RAW files before processing]'
         '--progress-file[Progress JSON file path]:file:_files -g "*.json"'
         '--no-resume[Ignore existing progress and start fresh]'
