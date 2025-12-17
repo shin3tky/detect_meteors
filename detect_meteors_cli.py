@@ -1414,20 +1414,20 @@ def main():
 
     _configure_logging(args.verbose)
 
-    if args.remove_progress:
-        if os.path.exists(args.progress_file):
-            os.remove(args.progress_file)
-            print(f"Removed progress file: {args.progress_file}")
-        else:
-            print(f"Progress file not found: {args.progress_file}")
-        return
-
-    # --list-sensor-types: Display available sensor types and exit
-    if args.list_sensor_types:
-        list_sensor_types()
-        return
-
     try:
+        if args.remove_progress:
+            if os.path.exists(args.progress_file):
+                os.remove(args.progress_file)
+                print(f"Removed progress file: {args.progress_file}")
+            else:
+                print(f"Progress file not found: {args.progress_file}")
+            return
+
+        # --list-sensor-types: Display available sensor types and exit
+        if args.list_sensor_types:
+            list_sensor_types()
+            return
+
         # --show-exif or --show-npf: Display EXIF info and NPF analysis then exit
         if args.show_exif or args.show_npf:
             handle_show_exif(args)
