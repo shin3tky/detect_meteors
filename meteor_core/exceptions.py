@@ -15,6 +15,9 @@ Exception Hierarchy:
     MeteorError (base)
     ├── MeteorLoadError (image loading failures)
     │   └── MeteorUnsupportedFormatError (unsupported file formats)
+    ├── MeteorOutputError (output operation failures)
+    │   ├── MeteorWriteError (file write failures)
+    │   └── MeteorProgressError (progress tracking errors)
     ├── MeteorValidationError (parameter/input validation)
     └── MeteorConfigError (configuration errors)
 
