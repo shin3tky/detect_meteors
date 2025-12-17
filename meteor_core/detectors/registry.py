@@ -22,12 +22,16 @@ method raises when that contract is not met.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Optional, Type, Union
 
 from ..plugin_registry import _PLUGIN_KIND_DETECTOR
 from ..plugin_registry_base import PluginRegistryBase
 from ..schema import DEFAULT_DETECTOR_NAME
 from .base import BaseDetector, _is_valid_detector
+
+# Module-level logger for registry operations
+logger = logging.getLogger(__name__)
 
 
 class DetectorRegistry(PluginRegistryBase[BaseDetector]):
@@ -105,9 +109,38 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
             >>> detector = DetectorRegistry.create("hough")
             >>> detector = DetectorRegistry.create("hough", {"some_option": True})
         """
+        logger.debug("Creating detector '%s' with config %r", name, config)
         detector_cls = cls.get(name)
-        coerced_config = cls._coerce_config(detector_cls, config)
-        return detector_cls(coerced_config)
+        try:
+            coerced_config = cls._coerce_config(detector_cls, config)
+        except Exception as exc:
+            logger.error(
+                "Failed to coerce config for detector '%s': %s: %s",
+                name,
+                type(exc).__name__,
+                exc,
+            )
+            raise
+
+        try:
+            instance = detector_cls(coerced_config)
+        except Exception as exc:
+            logger.error(
+                "Failed to instantiate detector '%s' (%s): %s: %s",
+                name,
+                detector_cls.__name__,
+                type(exc).__name__,
+                exc,
+            )
+            raise
+
+        logger.debug(
+            "Created detector '%s' (%s) with config type %s",
+            name,
+            detector_cls.__name__,
+            type(coerced_config).__name__ if coerced_config is not None else None,
+        )
+        return instance
 
     @classmethod
     def create_default(
@@ -130,14 +163,52 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
         """
         # Detectors rely solely on their ConfigType defaults; unlike output handlers
         # there are no registry-level path overrides to apply here.
+        logger.debug(
+            "Creating default detector '%s' with override config %r",
+            DEFAULT_DETECTOR_NAME,
+            config,
+        )
+
         detector_cls = cls.get(DEFAULT_DETECTOR_NAME)
-        coerced_config = cls._coerce_config(detector_cls, config)
+        try:
+            coerced_config = cls._coerce_config(detector_cls, config)
+        except Exception as exc:
+            logger.error(
+                "Failed to coerce config for default detector '%s': %s: %s",
+                DEFAULT_DETECTOR_NAME,
+                type(exc).__name__,
+                exc,
+            )
+            raise
+
         if coerced_config is None:
+            logger.error(
+                "Default detector '%s' does not define ConfigType; cannot create default instance",
+                DEFAULT_DETECTOR_NAME,
+            )
             raise TypeError(
                 "Default detector does not define ConfigType; cannot create default."
             )
 
-        return detector_cls(coerced_config)
+        try:
+            instance = detector_cls(coerced_config)
+        except Exception as exc:
+            logger.error(
+                "Failed to instantiate default detector '%s' (%s): %s: %s",
+                DEFAULT_DETECTOR_NAME,
+                detector_cls.__name__,
+                type(exc).__name__,
+                exc,
+            )
+            raise
+
+        logger.debug(
+            "Created default detector '%s' (%s) with config type %s",
+            DEFAULT_DETECTOR_NAME,
+            detector_cls.__name__,
+            type(coerced_config).__name__,
+        )
+        return instance
 
 
 __all__ = ["DetectorRegistry"]
