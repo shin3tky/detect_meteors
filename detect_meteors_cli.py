@@ -1427,12 +1427,12 @@ def main():
         list_sensor_types()
         return
 
-    # --show-exif or --show-npf: Display EXIF info and NPF analysis then exit
-    if args.show_exif or args.show_npf:
-        handle_show_exif(args)
-        return
-
     try:
+        # --show-exif or --show-npf: Display EXIF info and NPF analysis then exit
+        if args.show_exif or args.show_npf:
+            handle_show_exif(args)
+            return
+
         _run_main(args, cli_param_string)
     except MeteorError as e:
         # Handle meteor_core exceptions with user-friendly output
