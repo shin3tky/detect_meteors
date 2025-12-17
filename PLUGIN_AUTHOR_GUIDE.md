@@ -670,7 +670,7 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 DetectorRegistry.register(ThresholdDetector)
 ```
 
-### 4.3 Output Handler with Lifecycle Hooks (Complete Example)
+### 4.3 Output Handler with Lifecycle Hooks (Secondary Handler Example)
 
 ```python
 """Slack notification handler with full lifecycle support, logging, and exceptions."""
@@ -741,7 +741,9 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
     ) -> bool:
         """Save a meteor candidate file.
 
-        This method should NOT raise exceptions - return False on failure.
+        NOTE: This is a secondary (non-critical) handler example.
+        It returns False on failure instead of raising exceptions.
+        For primary handlers like FileOutputHandler, raise MeteorWriteError instead.
 
         Args:
             source_path: Path to source RAW file.
@@ -1146,8 +1148,23 @@ Each plugin type has different expectations for when to raise exceptions vs. con
 | **Input Loader** | `load()` | **Raise exceptions** - Pipeline cannot continue without image |
 | **Input Loader** | `extract_metadata()` | **Return empty dict** - Metadata is optional |
 | **Detector** | `detect()` | **Return tuple** - Never raise for detection failures |
-| **Output Handler** | `save_candidate()` | **Return False** - Log errors, don't fail pipeline |
+| **Output Handler** | `save_candidate()` | **Depends on criticality** - See below |
 | **Output Handler** | Lifecycle hooks | **Never raise** - Log errors, continue processing |
+
+**Output Handler Exception Policy (Critical vs. Non-Critical)**:
+
+Output handlers fall into two categories based on their role:
+
+| Category | Examples | Policy |
+|----------|----------|--------|
+| **Primary (Critical)** | FileOutputHandler, S3Handler | **Raise exceptions** - Disk/storage errors are critical |
+| **Secondary (Non-Critical)** | SlackHandler, WebhookHandler | **Return False** - Notification failures are non-critical |
+
+- **Primary handlers** persist the detection results (RAW files, debug images). If these fail, it usually indicates a systemic issue (disk full, permission denied, network storage unavailable) that will affect all subsequent writes. Raising an exception allows users to address the issue immediately rather than discovering hours later that no files were saved.
+
+- **Secondary handlers** provide notifications or auxiliary outputs. Their failure should not stop the pipeline since the core detection work can still proceed.
+
+The built-in `FileOutputHandler` follows the **primary handler** pattern and raises `MeteorWriteError` on write failures. The Slack example in this guide demonstrates the **secondary handler** pattern.
 
 **Input Loader exceptions**:
 
@@ -1207,29 +1224,44 @@ class MyDetector(DataclassDetector[MyConfig]):
 
 **Output Handler error handling**:
 
-For file operations, use `MeteorWriteError` to provide detailed context:
+For **primary handlers** (critical file/storage operations), raise exceptions:
 
 ```python
 from meteor_core.exceptions import MeteorWriteError
 
-class MyHandler(DataclassOutputHandler[MyConfig]):
+class MyFileHandler(DataclassOutputHandler[MyConfig]):
+    """Primary handler - raises exceptions on critical failures."""
+
     def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> bool:
         dest_path = os.path.join(self.config.output_folder, filename)
         try:
             shutil.copy2(source_path, dest_path)
             return True
         except OSError as e:
-            # Create structured error with context for diagnostics
-            error = MeteorWriteError(
+            # Primary handlers raise to stop pipeline on critical errors
+            raise MeteorWriteError(
                 f"Failed to copy candidate file: {e}",
                 filepath=source_path,
                 destination_path=dest_path,
                 operation="copy",
                 original_error=e,
                 context={"error_category": "copy_failed"},
-            )
-            # Log but don't fail the pipeline
-            logger.error(str(error))
+            ) from e
+```
+
+For **secondary handlers** (notifications, webhooks), log and return False:
+
+```python
+class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
+    """Secondary handler - logs errors and continues."""
+
+    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> bool:
+        try:
+            self._upload_to_cloud(source_path)
+            return True
+        except Exception as e:
+            # Secondary handlers log but don't fail the pipeline
+            logger.warning(f"Cloud upload failed (non-critical): {e}")
             return False
 
     def on_candidate_detected(self, filename, saved, score, aspect_ratio):
