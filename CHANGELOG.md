@@ -5,6 +5,9 @@
   - `MeteorError`: Base exception class with diagnostic information support.
   - `MeteorLoadError`: Image loading failures (file corruption, I/O errors).
   - `MeteorUnsupportedFormatError`: Unsupported file format detection.
+  - `MeteorOutputError`: Base exception for output operation failures.
+  - `MeteorWriteError`: File write failures (copy, save image, directory creation).
+  - `MeteorProgressError`: Progress tracking errors (read, write, parse, serialize).
   - `MeteorValidationError`: Parameter and input validation errors.
   - `MeteorConfigError`: Configuration and plugin setup errors.
 - **Diagnostic reporting**: Added `DiagnosticInfo` dataclass for structured error information including system details, dependency versions, and context for GitHub issue reporting.

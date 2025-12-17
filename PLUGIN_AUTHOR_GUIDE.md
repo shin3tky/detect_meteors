@@ -673,7 +673,7 @@ DetectorRegistry.register(ThresholdDetector)
 ### 4.3 Output Handler with Lifecycle Hooks (Complete Example)
 
 ```python
-"""Slack notification handler with full lifecycle support and logging."""
+"""Slack notification handler with full lifecycle support, logging, and exceptions."""
 import json
 import logging
 import os
@@ -686,6 +686,7 @@ import cv2
 import numpy as np
 
 from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
+from meteor_core.exceptions import MeteorWriteError
 
 # Set up logger for this plugin
 logger = logging.getLogger("meteor_core.outputs.slack_handler")
@@ -773,8 +774,17 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             return True
 
         except OSError as e:
+            # Create structured error with context for diagnostics
+            error = MeteorWriteError(
+                f"Failed to copy candidate file: {e}",
+                filepath=source_path,
+                destination_path=dest_path,
+                operation="copy",
+                original_error=e,
+                context={"error_category": "copy_failed"},
+            )
             # Log error but don't fail the pipeline
-            logger.error(f"Failed to save candidate {filename}: {e}")
+            logger.error(str(error))
             return False
         except Exception as e:
             logger.exception(f"Unexpected error saving candidate {filename}")
@@ -800,6 +810,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             return ""
 
         logger.debug(f"Saving debug image: {filename}")
+        path = os.path.join(self.config.debug_folder, filename)
 
         try:
             # Draw ROI if provided
@@ -807,11 +818,20 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 pts = np.array(roi_polygon, dtype=np.int32)
                 cv2.polylines(debug_image, [pts], True, (255, 0, 0), 2)
 
-            path = os.path.join(self.config.debug_folder, filename)
             cv2.imwrite(path, debug_image)
             logger.debug(f"Saved debug image: {path}")
             return path
 
+        except OSError as e:
+            error = MeteorWriteError(
+                f"Failed to save debug image: {e}",
+                destination_path=path,
+                operation="save_image",
+                original_error=e,
+                context={"error_category": "image_write_failed"},
+            )
+            logger.warning(str(error))
+            return ""
         except Exception as e:
             logger.warning(f"Failed to save debug image {filename}: {e}")
             return ""
@@ -1037,6 +1057,9 @@ class MyConfig(BaseModel):
 MeteorError (base)
 ├── MeteorLoadError (image loading failures)
 │   └── MeteorUnsupportedFormatError (unsupported file formats)
+├── MeteorOutputError (output operation failures)
+│   ├── MeteorWriteError (file write failures)
+│   └── MeteorProgressError (progress tracking errors)
 ├── MeteorValidationError (parameter/input validation)
 └── MeteorConfigError (configuration errors)
 ```
@@ -1047,6 +1070,9 @@ from meteor_core.exceptions import (
     MeteorError,
     MeteorLoadError,
     MeteorUnsupportedFormatError,
+    MeteorOutputError,
+    MeteorWriteError,
+    MeteorProgressError,
     MeteorValidationError,
     MeteorConfigError,
 )
@@ -1078,6 +1104,38 @@ raise MeteorLoadError(
     },
 )
 ```
+
+**Output-specific exceptions**:
+
+For output operations, use `MeteorWriteError` and `MeteorProgressError`:
+
+```python
+from meteor_core.exceptions import MeteorWriteError, MeteorProgressError
+
+# File write error with destination path
+error = MeteorWriteError(
+    "Failed to copy candidate file",
+    filepath="/source/image.CR2",           # Source path
+    destination_path="/output/image.CR2",   # Destination path
+    operation="copy",                       # Operation type
+    original_error=os_error,
+    context={"error_category": "copy_failed"},
+)
+
+# Progress tracking error
+error = MeteorProgressError(
+    "Failed to parse progress file",
+    filepath="progress.json",
+    operation="parse",                      # "load", "save", "parse", "serialize"
+    original_error=json_error,
+    context={"error_category": "parse_failed"},
+)
+```
+
+| Exception | Use Case | Key Attributes |
+|-----------|----------|----------------|
+| `MeteorWriteError` | File copy, debug image save, directory creation | `destination_path`, `operation` |
+| `MeteorProgressError` | Progress file read/write, JSON parse errors | `operation` (load/save/parse/serialize) |
 
 #### Exception Policy by Plugin Type
 
@@ -1149,15 +1207,29 @@ class MyDetector(DataclassDetector[MyConfig]):
 
 **Output Handler error handling**:
 
+For file operations, use `MeteorWriteError` to provide detailed context:
+
 ```python
+from meteor_core.exceptions import MeteorWriteError
+
 class MyHandler(DataclassOutputHandler[MyConfig]):
     def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> bool:
+        dest_path = os.path.join(self.config.output_folder, filename)
         try:
-            # Save logic here
+            shutil.copy2(source_path, dest_path)
             return True
-        except Exception as e:
-            # Log error but don't fail the pipeline
-            logger.error(f"Failed to save {filename}: {e}")
+        except OSError as e:
+            # Create structured error with context for diagnostics
+            error = MeteorWriteError(
+                f"Failed to copy candidate file: {e}",
+                filepath=source_path,
+                destination_path=dest_path,
+                operation="copy",
+                original_error=e,
+                context={"error_category": "copy_failed"},
+            )
+            # Log but don't fail the pipeline
+            logger.error(str(error))
             return False
 
     def on_candidate_detected(self, filename, saved, score, aspect_ratio):

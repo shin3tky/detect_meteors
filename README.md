@@ -106,7 +106,7 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
 
 ## What's New in v1.5.12
 
-- **Custom exception hierarchy**: Structured error handling with `MeteorError`, `MeteorLoadError`, `MeteorValidationError`, and more
+- **Custom exception hierarchy**: Structured error handling with `MeteorError` base class and specialized exceptions for inputs (`MeteorLoadError`, `MeteorUnsupportedFormatError`), outputs (`MeteorOutputError`, `MeteorWriteError`, `MeteorProgressError`), and configuration (`MeteorValidationError`, `MeteorConfigError`)
 - **Diagnostic reporting**: Generate GitHub issue-ready diagnostic reports with `--save-diagnostic`
 - **Verbose mode**: Use `--verbose` for detailed error info and DEBUG-level logging
 - **Structured logging**: Standard Python logging throughout all modules
