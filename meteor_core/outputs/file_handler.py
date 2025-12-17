@@ -11,6 +11,7 @@ This module provides the default file-based output handler that saves
 meteor candidate RAW files and debug visualization images to disk.
 """
 
+import logging
 import os
 import shutil
 from dataclasses import dataclass
@@ -21,6 +22,9 @@ import numpy as np
 
 from .base import DataclassOutputHandler
 from ..schema import DEFAULT_DEBUG_FOLDER, DEFAULT_OUTPUT_FOLDER
+
+# Module-level logger
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -81,8 +85,16 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
             config: Configuration instance.
         """
         super().__init__(config)
+        logger.debug(
+            "FileOutputHandler initializing: output_folder=%s, debug_folder=%s, "
+            "output_overwrite=%s",
+            config.output_folder,
+            config.debug_folder,
+            config.output_overwrite,
+        )
         os.makedirs(config.output_folder, exist_ok=True)
         os.makedirs(config.debug_folder, exist_ok=True)
+        logger.debug("FileOutputHandler initialized: directories created/verified")
 
     def save_candidate(
         self,
@@ -102,19 +114,33 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
         Returns:
             True if file was saved, False if skipped (already exists).
         """
+        logger.debug(
+            "save_candidate: source_path=%s, filename=%s, has_debug_image=%s, "
+            "has_roi_polygon=%s",
+            source_path,
+            filename,
+            debug_image is not None,
+            roi_polygon is not None,
+        )
         output_path = os.path.join(self.config.output_folder, filename)
 
         # Check if file exists
         if os.path.exists(output_path) and not self.config.output_overwrite:
+            logger.debug(
+                "save_candidate: skipped (file exists and overwrite disabled): %s",
+                output_path,
+            )
             return False
 
         # Copy the RAW file
         shutil.copy(source_path, output_path)
+        logger.debug("save_candidate: copied %s -> %s", source_path, output_path)
 
         # Save debug image if provided
         if debug_image is not None:
             self._save_debug_with_roi(debug_image, filename, roi_polygon)
 
+        logger.debug("save_candidate: completed successfully")
         return True
 
     def save_debug_image(
@@ -133,6 +159,12 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
         Returns:
             Path to saved debug image.
         """
+        logger.debug(
+            "save_debug_image: filename=%s, image_shape=%s, has_roi_polygon=%s",
+            filename,
+            debug_image.shape,
+            roi_polygon is not None,
+        )
         return self._save_debug_with_roi(debug_image, filename, roi_polygon)
 
     def _save_debug_with_roi(
@@ -152,6 +184,10 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
             Path to saved debug image.
         """
         if roi_polygon:
+            logger.debug(
+                "_save_debug_with_roi: drawing ROI polygon with %d points",
+                len(roi_polygon),
+            )
             cv2.polylines(
                 debug_image,
                 [np.array(roi_polygon, dtype=np.int32)],
@@ -161,6 +197,7 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
             )
         debug_path = os.path.join(self.config.debug_folder, f"mask_{filename}.png")
         cv2.imwrite(debug_path, debug_image)
+        logger.debug("_save_debug_with_roi: saved debug image to %s", debug_path)
         return debug_path
 
 
@@ -183,6 +220,12 @@ def create_file_handler(
         >>> handler = create_file_handler("./candidates", "./debug")
         >>> handler = create_file_handler("./candidates", "./debug", output_overwrite=True)
     """
+    logger.debug(
+        "create_file_handler: output_folder=%s, debug_folder=%s, output_overwrite=%s",
+        output_folder,
+        debug_folder,
+        output_overwrite,
+    )
     config = FileOutputConfig(
         output_folder=output_folder,
         debug_folder=debug_folder,

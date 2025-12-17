@@ -18,10 +18,14 @@ For new code, use:
     OutputWriter is deprecated. Use FileOutputHandler via OutputHandlerRegistry instead.
 """
 
+import logging
 import warnings
 
 from .file_handler import FileOutputHandler, FileOutputConfig
 from .progress import ProgressManager, load_progress, save_progress
+
+# Module-level logger
+logger = logging.getLogger(__name__)
 
 
 class OutputWriter(FileOutputHandler):
@@ -61,6 +65,14 @@ class OutputWriter(FileOutputHandler):
                 but ProgressManager should be used separately).
             output_overwrite: Whether to overwrite existing files.
         """
+        logger.debug(
+            "OutputWriter.__init__: output_folder=%s, debug_folder=%s, "
+            "progress_file=%s, output_overwrite=%s (deprecated)",
+            output_folder,
+            debug_folder,
+            progress_file,
+            output_overwrite,
+        )
         warnings.warn(
             "OutputWriter is deprecated. Use OutputHandlerRegistry.create('file', ...) "
             "or FileOutputHandler directly instead.",
@@ -77,6 +89,7 @@ class OutputWriter(FileOutputHandler):
 
         # Store progress_file for compatibility (not used internally)
         self.progress_file = progress_file
+        logger.debug("OutputWriter initialized (deprecated wrapper)")
 
     # Legacy property accessors for backward compatibility
     @property

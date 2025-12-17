@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import inspect
+import logging
 import warnings
 from pathlib import Path
 from typing import Dict, Iterable, Type
@@ -22,6 +23,9 @@ except ImportError:  # pragma: no cover
 
 from .base import BaseOutputHandler, _is_valid_output_handler
 from .file_handler import FileOutputHandler
+
+# Module-level logger for discovery diagnostics
+logger = logging.getLogger(__name__)
 
 PLUGIN_GROUP = "detect_meteors.output"
 PLUGIN_DIR = Path.home() / ".detect_meteors" / "output_plugins"
@@ -65,6 +69,11 @@ def _add_handler(
 
     # Skip base classes
     if handler_cls.__name__ in _SKIP_CLASSES:
+        logger.debug(
+            "Skipping base class %s from %s",
+            handler_cls.__name__,
+            origin,
+        )
         return
 
     # Validate handler class
@@ -72,6 +81,13 @@ def _add_handler(
         # Only warn for classes that look like they might be intended handlers
         class_name_lower = handler_cls.__name__.lower()
         if "handler" in class_name_lower or "output" in class_name_lower:
+            logger.warning(
+                "Skipping handler from %s: %s.%s does not inherit from "
+                "BaseOutputHandler (or missing plugin_name)",
+                origin,
+                handler_cls.__module__,
+                handler_cls.__name__,
+            )
             warnings.warn(
                 f"Skipping handler from {origin}: {handler_cls.__module__}.{handler_cls.__name__} "
                 "does not inherit from BaseOutputHandler (or missing plugin_name).",
@@ -82,6 +98,11 @@ def _add_handler(
     # Get plugin_name from the class
     plugin_name = getattr(handler_cls, "plugin_name", "")
     if not plugin_name:
+        logger.warning(
+            "Skipping handler from %s: %s has empty plugin_name",
+            origin,
+            handler_cls.__name__,
+        )
         warnings.warn(
             f"Skipping handler from {origin}: {handler_cls.__name__} has empty plugin_name",
             stacklevel=3,
@@ -94,6 +115,13 @@ def _add_handler(
     # Check for duplicates
     if plugin_name_lower in registry:
         existing = registry[plugin_name_lower]
+        logger.warning(
+            "Duplicate handler name '%s' from %s; keeping %s.%s",
+            plugin_name,
+            origin,
+            existing.__module__,
+            existing.__name__,
+        )
         warnings.warn(
             f"Duplicate handler name '{plugin_name}' from {origin}; "
             f"keeping {existing.__module__}.{existing.__name__}",
@@ -101,6 +129,13 @@ def _add_handler(
         )
         return
 
+    logger.debug(
+        "Registered output handler '%s' from %s (%s.%s)",
+        plugin_name,
+        origin,
+        handler_cls.__module__,
+        handler_cls.__name__,
+    )
     registry[plugin_name_lower] = handler_cls
 
 
@@ -201,16 +236,33 @@ def _discover_handlers_internal(
     """
     directory = plugin_dir if plugin_dir is not None else PLUGIN_DIR
 
+    logger.info("Starting output handler discovery")
+    logger.debug("Plugin directory: %s", directory)
+
     registry: Dict[str, Type[BaseOutputHandler]] = {}
 
     # 1. Register built-in handlers first
+    logger.debug("Phase 1: Registering built-in handlers")
     _add_handler(registry, FileOutputHandler, "built-in FileOutputHandler")
 
     # 2. Register handlers from entry points (sorted for determinism)
+    logger.debug(
+        "Phase 2: Discovering handlers from entry points (group=%s)", PLUGIN_GROUP
+    )
+    entry_point_count = 0
     for ep in sorted(_iter_entry_points(), key=lambda e: e.name):
+        entry_point_count += 1
+        logger.debug("Loading entry point: %s from %s", ep.name, ep.value)
         try:
             handler_cls = ep.load()
         except Exception as exc:  # pragma: no cover
+            logger.warning(
+                "Failed to load output handler entry point '%s' from %s: %s: %s",
+                ep.name,
+                ep.value,
+                type(exc).__name__,
+                exc,
+            )
             warnings.warn(
                 f"Failed to load output handler entry point '{ep.name}' "
                 f"from {ep.value}: {exc}",
@@ -219,12 +271,28 @@ def _discover_handlers_internal(
             continue
         _add_handler(registry, handler_cls, f"entry point {ep.name}")
 
+    if entry_point_count == 0:
+        logger.debug("No entry points found for group %s", PLUGIN_GROUP)
+    else:
+        logger.debug("Processed %d entry points", entry_point_count)
+
     # 3. Register handlers from plugin directory
+    logger.debug("Phase 3: Discovering handlers from plugin directory")
     if directory.exists() and directory.is_dir():
-        for path in sorted(directory.glob("*.py")):
+        plugin_files = sorted(directory.glob("*.py"))
+        logger.debug("Found %d plugin files in %s", len(plugin_files), directory)
+
+        for path in plugin_files:
+            logger.debug("Loading plugin module: %s", path)
             try:
                 module = _load_module_from_file(path)
             except Exception as exc:  # pragma: no cover
+                logger.warning(
+                    "Failed to load output handler plugin module %s: %s: %s",
+                    path,
+                    type(exc).__name__,
+                    exc,
+                )
                 warnings.warn(
                     f"Failed to load output handler plugin module {path}: {exc}",
                     stacklevel=2,
@@ -236,6 +304,16 @@ def _discover_handlers_internal(
                 # Only consider classes defined in this module (not imports)
                 if obj.__module__ == module.__name__:
                     _add_handler(registry, obj, f"plugin file {path}")
+    else:
+        logger.debug(
+            "Plugin directory does not exist or is not a directory: %s", directory
+        )
+
+    logger.info(
+        "Output handler discovery completed: %d handlers registered (%s)",
+        len(registry),
+        ", ".join(sorted(registry.keys())) or "none",
+    )
 
     return registry
 
