@@ -12,6 +12,7 @@ import sys
 import shlex
 import argparse
 import logging
+from typing import Any, Dict, Optional, Tuple
 
 from meteor_core import (
     VERSION,
@@ -287,7 +288,13 @@ def _configure_logging(verbose: bool) -> None:
         logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
 
-def validate_and_apply_sensor_preset(args, verbose: bool = False):
+def validate_and_apply_sensor_preset(args, verbose: bool = False) -> Tuple[
+    Optional[float],
+    Optional[float],
+    Optional[float],
+    Optional[float],
+    Optional[Dict[str, Any]],
+]:
     """
     Validate and apply sensor preset settings.
 
@@ -299,19 +306,18 @@ def validate_and_apply_sensor_preset(args, verbose: bool = False):
         verbose: If True, print which values are being used
 
     Returns:
-        Tuple of (focal_factor, sensor_width, focal_length, pixel_pitch, preset, error_message)
-        If error_message is not None, the caller should handle the error and return early.
+        Tuple of (focal_factor, sensor_width, focal_length, pixel_pitch, preset)
+
+    Raises:
+        MeteorValidationError: If sensor validation fails.
     """
     # Validate --sensor-type
     if args.sensor_type and get_sensor_preset(args.sensor_type) is None:
-        return (
-            None,
-            None,
-            None,
-            None,
-            None,
+        raise MeteorValidationError(
             f"⚠ Error: Invalid --sensor-type value: '{args.sensor_type}'\n"
             "  Valid types: 1INCH, MFT, APS-C, APS-C_CANON, APS-H, FF, MF44X33, MF54X40",
+            parameter_name="sensor_type",
+            provided_value=args.sensor_type,
         )
 
     # Apply sensor preset
@@ -328,14 +334,11 @@ def validate_and_apply_sensor_preset(args, verbose: bool = False):
 
     # Validate focal_factor
     if args.focal_factor and focal_factor_value is None:
-        return (
-            None,
-            None,
-            None,
-            None,
-            None,
+        raise MeteorValidationError(
             f"⚠ Error: Invalid --focal-factor value: '{args.focal_factor}'\n"
             "  Valid values: MFT, APS-C, APS-H, FF, or numeric (e.g., 2.0)",
+            parameter_name="focal_factor",
+            provided_value=args.focal_factor,
         )
 
     return (
@@ -344,7 +347,6 @@ def validate_and_apply_sensor_preset(args, verbose: bool = False):
         focal_length_value,
         pixel_pitch_value,
         preset,
-        None,
     )
 
 
@@ -500,15 +502,7 @@ def handle_show_exif(args) -> None:
         focal_length_value,
         pixel_pitch_value,
         preset,
-        error_message,
     ) = validate_and_apply_sensor_preset(args, verbose=True)
-
-    if error_message:
-        raise MeteorValidationError(
-            error_message,
-            parameter_name="sensor_type",
-            provided_value=args.sensor_type,
-        )
 
     # Collect files (raises MeteorLoadError if directory doesn't exist)
     files = collect_files(args.target)
@@ -1504,15 +1498,7 @@ def _run_main(args, cli_param_string: str):
         focal_length_value,
         pixel_pitch_value,
         preset,
-        error_message,
     ) = validate_and_apply_sensor_preset(args, verbose=False)
-
-    if error_message:
-        raise MeteorValidationError(
-            error_message,
-            parameter_name="sensor_type",
-            provided_value=args.sensor_type,
-        )
 
     detect_meteors_advanced(
         target_folder=args.target,
