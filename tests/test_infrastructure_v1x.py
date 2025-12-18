@@ -14,6 +14,7 @@ import sys
 import os
 import tempfile
 import shutil
+import json
 import numpy as np
 import cv2
 from unittest.mock import patch
@@ -28,6 +29,7 @@ from meteor_core import (  # noqa: E402
     compute_params_hash,
     save_progress,
     load_progress,
+    ProgressManager,
     collect_files,
     DEFAULT_DIFF_THRESHOLD,
     DEFAULT_MIN_AREA,
@@ -139,6 +141,67 @@ class TestProgressPersistence(unittest.TestCase):
         nested_path = os.path.join(self.test_dir, "subdir", "progress.json")
         save_progress(nested_path, {"test": 1})
         self.assertTrue(os.path.exists(nested_path))
+
+    def test_progress_manager_load_invalid_structure(self):
+        """ProgressManager.load should not raise on non-dict JSON."""
+
+        with open(self.progress_path, "w", encoding="utf-8") as fp:
+            fp.write('["not", "a", "dict"]')
+
+        manager = ProgressManager(self.progress_path)
+
+        loaded = manager.load()
+
+        self.assertFalse(loaded)
+        self.assertEqual(manager.get_total_processed(), 0)
+        self.assertEqual(manager.get_total_detected(), 0)
+
+    def test_progress_manager_load_sanitizes_invalid_fields(self):
+        """ProgressManager.load should sanitize unexpected field types."""
+
+        invalid_payload = {
+            "processed_files": 123,
+            "detected_files": ["kept.ORF", {"unexpected": "dict"}],
+            "detected_details": [
+                {"filename": "kept.ORF", "score": "50"},
+                "skip-me",
+                {"filename": ""},
+            ],
+            "processing_params": "not-a-dict",
+            "roi": 42,
+            "params_hash": 9876,
+        }
+        with open(self.progress_path, "w", encoding="utf-8") as fp:
+            json.dump(invalid_payload, fp)
+
+        manager = ProgressManager(self.progress_path)
+        loaded = manager.load()
+
+        self.assertTrue(loaded)
+        self.assertEqual(manager.progress_data["processed_files"], [])
+        self.assertEqual(
+            manager.progress_data["detected_files"],
+            ["kept.ORF", "{'unexpected': 'dict'}"],
+        )
+        self.assertEqual(
+            manager.progress_data["detected_details"],
+            [{"filename": "kept.ORF", "score": "50"}],
+        )
+        self.assertEqual(manager.progress_data["processing_params"], {})
+        self.assertEqual(manager.progress_data["roi"], "full_image")
+        self.assertEqual(manager.progress_data["params_hash"], "9876")
+        self.assertEqual(manager.get_total_processed(), 0)
+        self.assertEqual(manager.get_total_detected(), 2)
+
+    def test_load_progress_returns_none_on_non_mapping(self):
+        """Standalone load_progress should return None for invalid shapes."""
+
+        with open(self.progress_path, "w", encoding="utf-8") as fp:
+            fp.write("42")
+
+        result = load_progress(self.progress_path)
+
+        self.assertIsNone(result)
 
 
 class TestFileCollection(unittest.TestCase):
