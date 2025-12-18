@@ -14,6 +14,7 @@ _detect_meteors_cli_completion() {
 
     # All command-line options
     opts="--version -h --help
+          --locale
           -t --target
           -o --output
           --debug-dir
@@ -76,6 +77,12 @@ _detect_meteors_cli_completion() {
             # Suggest available sensor type presets (ordered by sensor size)
             local sensor_types="1INCH MFT APS-C APS-C_CANON APS-H FF FULLFRAME MF44X33 MF54X40"
             COMPREPLY=( $(compgen -W "${sensor_types}" -- "${cur}") )
+            return 0
+            ;;
+        --locale)
+            # Suggest available locales
+            local locales="en ja"
+            COMPREPLY=( $(compgen -W "${locales}" -- "${cur}") )
             return 0
             ;;
         --diff-threshold|--min-area|--hough-threshold|--hough-min-line-length|--hough-max-line-gap|--workers|--batch-size)

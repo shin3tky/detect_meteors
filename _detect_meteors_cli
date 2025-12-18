@@ -15,6 +15,7 @@ _detect_meteors_cli() {
     args=(
         '(- *)'{-h,--help}'[Show help message and exit]'
         '(- *)--version[Show version and exit]'
+        '--locale[Locale code for CLI messages]:locale:(en ja)'
         
         # Input/Output options
         '(-t --target)'{-t,--target}'[Input RAW image folder]:directory:_directories'
