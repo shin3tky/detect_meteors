@@ -8,6 +8,7 @@ substitution when formatting keys are missing.
 
 from __future__ import annotations
 
+from logging import Logger
 from string import Template
 from typing import Dict
 
@@ -51,6 +52,11 @@ MESSAGE_CATALOG: Dict[str, Dict[str, str]] = {
         "interrupt.progress": "Interrupted by user. Progress saved to {progress_file}.",
         "progress.removed": "Removed progress file: {path}",
         "progress.not_found": "Progress file not found: {path}",
+        "progress.invalid_field": "Progress file {path}: field '{field}' expected {expected}, resetting.",
+        "progress.unconvertible_entry": "Progress file {path}: field '{field}' contains unconvertible entry {entry!r}.",
+        "progress.detected_details.non_dict": "Progress file {path}: skipping non-dict detected detail: {entry!r}",
+        "progress.detected_details.missing_filename": "Progress file {path}: detected detail missing filename: {entry!r}",
+        "progress.unexpected_type": "Progress file {path}: field '{field}' has unexpected type {actual_type}, resetting to {fallback}.",
     },
     "ja": {
         "error.header": "エラー: {message}",
@@ -88,6 +94,11 @@ MESSAGE_CATALOG: Dict[str, Dict[str, str]] = {
         "interrupt.progress": "処理が中断されました。進捗は {progress_file} に保存済みです。",
         "progress.removed": "進捗ファイルを削除しました: {path}",
         "progress.not_found": "進捗ファイルが見つかりません: {path}",
+        "progress.invalid_field": "進捗ファイル {path}: フィールド「{field}」は{expected}である必要があるためリセットします。",
+        "progress.unconvertible_entry": "進捗ファイル {path}: フィールド「{field}」に変換できない要素 {entry!r} が含まれています。",
+        "progress.detected_details.non_dict": "進捗ファイル {path}: dict ではない検出詳細をスキップします: {entry!r}",
+        "progress.detected_details.missing_filename": "進捗ファイル {path}: 検出詳細にファイル名がありません: {entry!r}",
+        "progress.unexpected_type": "進捗ファイル {path}: フィールド「{field}」の型が想定外です（{actual_type}）。{fallback} にリセットします。",
     },
 }
 
@@ -141,4 +152,20 @@ def get_message(key: str, locale: str = DEFAULT_LOCALE, **kwargs) -> str:
         return Template(template).safe_substitute(**kwargs)
 
 
-__all__ = ["get_message", "MESSAGE_CATALOG", "DEFAULT_LOCALE"]
+def log_warning(
+    logger: Logger, key: str, locale: str = DEFAULT_LOCALE, **kwargs
+) -> None:
+    """Log a localized warning message.
+
+    Args:
+        logger: Logger instance to emit the warning.
+        key: Message key from the catalog.
+        locale: Preferred locale code. Defaults to ``DEFAULT_LOCALE``.
+        **kwargs: Values for template placeholders.
+    """
+
+    message = get_message(key, locale=locale, **kwargs)
+    logger.warning(message)
+
+
+__all__ = ["get_message", "log_warning", "MESSAGE_CATALOG", "DEFAULT_LOCALE"]

@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from ..exceptions import MeteorProgressError
 from ..schema import VERSION
+from ..messages import log_warning
 
 # Module-level logger for progress tracking diagnostics
 logger = logging.getLogger(__name__)
@@ -37,10 +38,12 @@ def _coerce_string_list(value: Any, *, field_name: str, filepath: str) -> List[s
     """
 
     if not isinstance(value, list):
-        logger.warning(
-            "Progress file %s: field '%s' expected list, resetting.",
-            filepath,
-            field_name,
+        log_warning(
+            logger,
+            "progress.invalid_field",
+            path=filepath,
+            field=field_name,
+            expected="list",
         )
         return []
 
@@ -49,11 +52,12 @@ def _coerce_string_list(value: Any, *, field_name: str, filepath: str) -> List[s
         try:
             safe_list.append(str(entry))
         except Exception:  # pragma: no cover - extremely defensive
-            logger.warning(
-                "Progress file %s: field '%s' contains unconvertible entry %r.",
-                filepath,
-                field_name,
-                entry,
+            log_warning(
+                logger,
+                "progress.unconvertible_entry",
+                path=filepath,
+                field=field_name,
+                entry=entry,
             )
     return safe_list
 
@@ -62,28 +66,33 @@ def _normalize_detected_details(value: Any, *, filepath: str) -> List[Dict[str, 
     """Normalize detected_details to a safe list of dictionaries."""
 
     if not isinstance(value, list):
-        logger.warning(
-            "Progress file %s: field 'detected_details' expected list, resetting.",
-            filepath,
+        log_warning(
+            logger,
+            "progress.invalid_field",
+            path=filepath,
+            field="detected_details",
+            expected="list",
         )
         return []
 
     normalized: List[Dict[str, Any]] = []
     for entry in value:
         if not isinstance(entry, dict):
-            logger.warning(
-                "Progress file %s: skipping non-dict detected detail: %r",
-                filepath,
-                entry,
+            log_warning(
+                logger,
+                "progress.detected_details.non_dict",
+                path=filepath,
+                entry=entry,
             )
             continue
 
         filename = entry.get("filename")
         if not filename:
-            logger.warning(
-                "Progress file %s: detected detail missing filename: %r",
-                filepath,
-                entry,
+            log_warning(
+                logger,
+                "progress.detected_details.missing_filename",
+                path=filepath,
+                entry=entry,
             )
             continue
 
@@ -135,19 +144,25 @@ def _normalize_progress_data(
 
     processing_params = raw_data.get("processing_params", {})
     if not isinstance(processing_params, dict):
-        logger.warning(
-            "Progress file %s: field 'processing_params' expected dict, resetting.",
-            filepath,
+        log_warning(
+            logger,
+            "progress.invalid_field",
+            path=filepath,
+            field="processing_params",
+            expected="dict",
         )
         processing_params = {}
     normalized["processing_params"] = processing_params
 
     roi_value = raw_data.get("roi", "full_image")
     if not isinstance(roi_value, (str, list, dict)):
-        logger.warning(
-            "Progress file %s: field 'roi' has unexpected type %s, resetting.",
-            filepath,
-            type(roi_value).__name__,
+        log_warning(
+            logger,
+            "progress.unexpected_type",
+            path=filepath,
+            field="roi",
+            actual_type=type(roi_value).__name__,
+            fallback="full_image",
         )
         roi_value = "full_image"
     normalized["roi"] = roi_value

@@ -190,6 +190,11 @@ def estimate_star_trail_length(
     ...
 ```
 
+## Localization and logging
+
+- The default locale is English (`en`). Locale codes are normalized (e.g., `en_US` → `en-us`), and lookups fall back to the base language and then to English. If no translation exists, the message key itself is emitted so untranslated strings remain discoverable.
+- Message formatting is performed before records reach the logger via helpers such as `get_message` and `log_warning`, ensuring log records contain final strings without `%` placeholders.
+
 ## Project Structure
 
 ```
