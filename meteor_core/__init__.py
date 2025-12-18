@@ -90,7 +90,7 @@ from .exceptions import (
     save_diagnostic_report,
     create_diagnostic_from_exception,
 )
-from .messages import get_message
+from .i18n import get_message
 
 from .image_io import (
     load_and_bin_raw_fast,

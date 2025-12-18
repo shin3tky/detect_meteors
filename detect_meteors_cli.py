@@ -1391,7 +1391,7 @@ def detect_meteors_advanced(
         print(
             "\n"
             + get_message(
-                "interrupt.progress",
+                "ui.interrupt.progress",
                 locale=locale,
                 progress_file=progress_file,
             )
@@ -1412,7 +1412,8 @@ def detect_meteors_advanced(
         if image_pairs:
             print(f"Average per image: {timing['processing'] / len(image_pairs):.3f}s")
 
-    print(f"\nComplete! {detected_count} candidates extracted")
+    summary_message = get_message("ui.run.summary", locale=locale, count=detected_count)
+    print(f"\n{summary_message}")
     return detected_count
 
 
@@ -1433,7 +1434,7 @@ def main():
                 os.remove(args.progress_file)
                 print(
                     get_message(
-                        "progress.removed",
+                        "ui.progress.removed",
                         locale=locale,
                         path=args.progress_file,
                     )
@@ -1441,7 +1442,7 @@ def main():
             else:
                 print(
                     get_message(
-                        "progress.not_found",
+                        "ui.progress.not_found",
                         locale=locale,
                         path=args.progress_file,
                     )
@@ -1472,20 +1473,22 @@ def main():
             diag_path = args.save_diagnostic if args.save_diagnostic else None
             saved_path = save_diagnostic_report(e, diag_path, locale=locale)
             print(
-                get_message("diagnostic.report.saved", locale=locale, path=saved_path),
+                get_message(
+                    "ui.diagnostic.report.saved", locale=locale, path=saved_path
+                ),
                 file=sys.stderr,
             )
         elif not args.verbose:
             # Hint about diagnostic options
             print(
-                get_message("diagnostic.hint.save", locale=locale),
+                get_message("ui.diagnostic.hint.save", locale=locale),
                 file=sys.stderr,
             )
 
         sys.exit(1)
     except KeyboardInterrupt:
         print(
-            "\n" + get_message("interrupt.generic", locale=locale),
+            "\n" + get_message("ui.interrupt.generic", locale=locale),
             file=sys.stderr,
         )
         sys.exit(130)
@@ -1499,7 +1502,7 @@ def main():
             print(
                 "\n"
                 + get_message(
-                    "error.unexpected",
+                    "ui.error.unexpected",
                     locale=locale,
                     error_type=type(e).__name__,
                     error_message=e,
@@ -1507,7 +1510,7 @@ def main():
                 file=sys.stderr,
             )
             print(
-                get_message("error.unexpected.hint", locale=locale),
+                get_message("ui.error.unexpected.hint", locale=locale),
                 file=sys.stderr,
             )
         sys.exit(1)

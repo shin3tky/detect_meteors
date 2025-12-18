@@ -1,0 +1,69 @@
+{
+  "ui": {
+    "error": {
+      "header": "ERROR: {message}",
+      "filepath": "File: {filepath}",
+      "cause": "Cause: {error_type}: {error_message}",
+      "unexpected": "Unexpected error: {error_type}: {error_message}",
+      "unexpected.hint": "Run with --verbose for full traceback, or report this issue."
+    },
+    "diagnostic": {
+      "info": "For bug reports, please include the following diagnostic information:",
+      "hint": {
+        "verbose": "Run with --verbose flag for detailed diagnostic information.",
+        "save_option": "Or use --save-diagnostic to save a diagnostic report file.",
+        "save": "Tip: Use --save-diagnostic to save a report for bug reporting."
+      },
+      "report": {
+        "saved": "Diagnostic report saved to: {path}",
+        "title": "# Meteor Detection - Diagnostic Report",
+        "description": "This file contains diagnostic information for troubleshooting.",
+        "instructions": "Please attach this file when reporting issues on GitHub.",
+        "issue_link": "GitHub Issues: {issue_url}"
+      },
+      "section": {
+        "heading": "## Diagnostic Information",
+        "file": "### File Information",
+        "error": "### Error Details",
+        "context": "### Additional Context",
+        "dependencies": "### Dependencies"
+      },
+      "label": {
+        "version": "meteor_core version",
+        "python_version": "Python version",
+        "platform": "Platform",
+        "timestamp": "Timestamp",
+        "filepath": "Path",
+        "file_exists": "Exists",
+        "file_size": "Size",
+        "bytes": "bytes",
+        "error_type": "Type",
+        "error_message": "Message",
+        "original_error_type": "Original Error Type",
+        "original_error_message": "Original Error Message"
+      }
+    },
+    "interrupt": {
+      "generic": "Interrupted by user.",
+      "progress": "Interrupted by user. Progress saved to {progress_file}."
+    },
+    "progress": {
+      "removed": "Removed progress file: {path}",
+      "not_found": "Progress file not found: {path}"
+    },
+    "run": {
+      "summary": "{count, plural, =0 {Complete! No candidates extracted} one {Complete! # candidate extracted} other {Complete! # candidates extracted}}"
+    }
+  },
+  "log": {
+    "progress": {
+      "invalid_field": "Progress file {path}: field '{field}' expected {expected}, resetting.",
+      "unconvertible_entry": "Progress file {path}: field '{field}' contains unconvertible entry {entry!r}.",
+      "detected_details": {
+        "non_dict": "Progress file {path}: skipping non-dict detected detail: {entry!r}",
+        "missing_filename": "Progress file {path}: detected detail missing filename: {entry!r}"
+      },
+      "unexpected_type": "Progress file {path}: field '{field}' has unexpected type {actual_type}, resetting to {fallback}."
+    }
+  }
+}

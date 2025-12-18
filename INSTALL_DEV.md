@@ -195,6 +195,14 @@ def estimate_star_trail_length(
 - The default locale is English (`en`). Locale codes are normalized (e.g., `en_US` → `en-us`), and lookups fall back to the base language and then to English. If no translation exists, the message key itself is emitted so untranslated strings remain discoverable.
 - Message formatting is performed before records reach the logger via helpers such as `get_message` and `log_warning`, ensuring log records contain final strings without `%` placeholders.
 
+## Internationalization (i18n)
+
+- User-facing strings are keyed under `ui.*` (e.g., `ui.error.header`, `ui.run.summary`). Technical logs stay under `log.*` and are kept in English even when a locale is set.
+- Translations live in JSON-compatible YAML at `meteor_core/locales/<locale>/messages.yaml`. Keep placeholder names consistent across locales and prefer dot-delimited nesting.
+- Use ICU-style placeholders such as `{path}` or plural templates like `{count, plural, =0 {Complete! No candidates extracted} one {Complete! # candidate extracted} other {Complete! # candidates extracted}}`. The `#` token is replaced with the numeric value.
+- Fetch messages with `meteor_core.i18n.get_message(key, locale=..., params={...})` (also re-exported as `meteor_core.get_message`). Missing locales or keys fall back to English, and unknown placeholders remain visible for easier debugging.
+- When adding new strings: update `locales/en/messages.yaml`, mirror the key in other locales (even with an English placeholder), and add a unit test if the message uses parameters or plural rules.
+
 ## Project Structure
 
 ```

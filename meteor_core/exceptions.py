@@ -40,7 +40,7 @@ from importlib import resources
 from string import Template
 from typing import Any, Dict, List, Optional
 
-from .messages import DEFAULT_LOCALE, get_message
+from .i18n import DEFAULT_LOCALE, get_message
 from .schema import VERSION
 
 # Key dependencies to include in diagnostic reports
@@ -98,12 +98,12 @@ def _format_section(title: str, lines: List[str]) -> str:
 def _build_report_header(locale: str) -> str:
     """Build the report header text from localized messages."""
     header_lines = [
-        get_message("diagnostic.report.title", locale=locale),
+        get_message("ui.diagnostic.report.title", locale=locale),
         "",
-        get_message("diagnostic.report.description", locale=locale),
-        get_message("diagnostic.report.instructions", locale=locale),
+        get_message("ui.diagnostic.report.description", locale=locale),
+        get_message("ui.diagnostic.report.instructions", locale=locale),
         get_message(
-            "diagnostic.report.issue_link",
+            "ui.diagnostic.report.issue_link",
             locale=locale,
             issue_url=_ISSUE_URL,
         ),
@@ -118,13 +118,13 @@ def _render_diagnostic_report(
     diagnostic: "DiagnosticInfo", *, locale: str, include_header: bool
 ) -> str:
     """Render a diagnostic report using the template and localized messages."""
-    label_version = get_message("diagnostic.label.version", locale=locale)
-    label_python = get_message("diagnostic.label.python_version", locale=locale)
-    label_platform = get_message("diagnostic.label.platform", locale=locale)
-    label_timestamp = get_message("diagnostic.label.timestamp", locale=locale)
+    label_version = get_message("ui.diagnostic.label.version", locale=locale)
+    label_python = get_message("ui.diagnostic.label.python_version", locale=locale)
+    label_platform = get_message("ui.diagnostic.label.platform", locale=locale)
+    label_timestamp = get_message("ui.diagnostic.label.timestamp", locale=locale)
 
     general_section = _format_section(
-        get_message("diagnostic.section.heading", locale=locale),
+        get_message("ui.diagnostic.section.heading", locale=locale),
         [
             f"{label_version}: {diagnostic.version}",
             f"{label_python}: {diagnostic.python_version}",
@@ -135,24 +135,26 @@ def _render_diagnostic_report(
 
     file_section = ""
     if diagnostic.filepath:
-        label_file = get_message("diagnostic.label.filepath", locale=locale)
-        label_exists = get_message("diagnostic.label.file_exists", locale=locale)
+        label_file = get_message("ui.diagnostic.label.filepath", locale=locale)
+        label_exists = get_message("ui.diagnostic.label.file_exists", locale=locale)
         file_lines = [
             f"{label_file}: {diagnostic.filepath}",
             f"{label_exists}: {diagnostic.file_exists}",
         ]
         if diagnostic.file_size is not None:
-            label_size = get_message("diagnostic.label.file_size", locale=locale)
-            bytes_label = get_message("diagnostic.label.bytes", locale=locale)
+            label_size = get_message("ui.diagnostic.label.file_size", locale=locale)
+            bytes_label = get_message("ui.diagnostic.label.bytes", locale=locale)
             file_lines.append(f"{label_size}: {diagnostic.file_size:,} {bytes_label}")
 
         file_section = _format_section(
-            get_message("diagnostic.section.file", locale=locale),
+            get_message("ui.diagnostic.section.file", locale=locale),
             file_lines,
         )
 
-    label_error_type = get_message("diagnostic.label.error_type", locale=locale)
-    label_error_message = get_message("diagnostic.label.error_message", locale=locale)
+    label_error_type = get_message("ui.diagnostic.label.error_type", locale=locale)
+    label_error_message = get_message(
+        "ui.diagnostic.label.error_message", locale=locale
+    )
     error_lines = [
         f"{label_error_type}: {diagnostic.error_type}",
         f"{label_error_message}: {diagnostic.error_message}",
@@ -160,19 +162,19 @@ def _render_diagnostic_report(
 
     if diagnostic.original_error_type:
         label_original_type = get_message(
-            "diagnostic.label.original_error_type", locale=locale
+            "ui.diagnostic.label.original_error_type", locale=locale
         )
         error_lines.append(f"{label_original_type}: {diagnostic.original_error_type}")
     if diagnostic.original_error_message:
         label_original_message = get_message(
-            "diagnostic.label.original_error_message", locale=locale
+            "ui.diagnostic.label.original_error_message", locale=locale
         )
         error_lines.append(
             f"{label_original_message}: {diagnostic.original_error_message}"
         )
 
     error_section = _format_section(
-        get_message("diagnostic.section.error", locale=locale),
+        get_message("ui.diagnostic.section.error", locale=locale),
         error_lines,
     )
 
@@ -180,7 +182,7 @@ def _render_diagnostic_report(
     if diagnostic.context:
         context_lines = [f"{key}: {value}" for key, value in diagnostic.context.items()]
         context_section = _format_section(
-            get_message("diagnostic.section.context", locale=locale),
+            get_message("ui.diagnostic.section.context", locale=locale),
             context_lines,
         )
 
@@ -190,7 +192,7 @@ def _render_diagnostic_report(
             f"{pkg}: {ver}" for pkg, ver in sorted(diagnostic.dependencies.items())
         ]
         dependencies_section = _format_section(
-            get_message("diagnostic.section.dependencies", locale=locale),
+            get_message("ui.diagnostic.section.dependencies", locale=locale),
             dependency_lines,
         )
 
@@ -812,19 +814,19 @@ def format_error_for_user(
     lines: List[str] = [
         "",
         "=" * 60,
-        get_message("error.header", locale=locale, message=error.message),
+        get_message("ui.error.header", locale=locale, message=error.message),
         "=" * 60,
     ]
 
     if error.filepath:
         lines.append(
-            get_message("error.filepath", locale=locale, filepath=error.filepath)
+            get_message("ui.error.filepath", locale=locale, filepath=error.filepath)
         )
 
     if error.original_error:
         lines.append(
             get_message(
-                "error.cause",
+                "ui.error.cause",
                 locale=locale,
                 error_type=type(error.original_error).__name__,
                 error_message=error.original_error,
@@ -835,7 +837,7 @@ def format_error_for_user(
         lines.extend(
             [
                 "",
-                get_message("diagnostic.info", locale=locale),
+                get_message("ui.diagnostic.info", locale=locale),
                 "-" * 60,
                 error.format_for_issue(locale=locale),
             ]
@@ -844,8 +846,8 @@ def format_error_for_user(
         lines.extend(
             [
                 "",
-                get_message("diagnostic.hint.verbose", locale=locale),
-                get_message("diagnostic.hint.save_option", locale=locale),
+                get_message("ui.diagnostic.hint.verbose", locale=locale),
+                get_message("ui.diagnostic.hint.save_option", locale=locale),
             ]
         )
 

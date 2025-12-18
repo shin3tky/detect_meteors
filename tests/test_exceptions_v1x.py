@@ -451,9 +451,9 @@ class TestDiagnosticInfo(unittest.TestCase):
             error_message="Error",
         )
         output = info.format_for_issue(locale="ja", include_header=True)
-        self.assertIn(get_message("diagnostic.report.title", locale="ja"), output)
-        self.assertIn(get_message("diagnostic.section.heading", locale="ja"), output)
-        self.assertIn(get_message("diagnostic.label.version", locale="ja"), output)
+        self.assertIn(get_message("ui.diagnostic.report.title", locale="ja"), output)
+        self.assertIn(get_message("ui.diagnostic.section.heading", locale="ja"), output)
+        self.assertIn(get_message("ui.diagnostic.label.version", locale="ja"), output)
 
 
 class TestMeteorErrorDiagnosticInfo(unittest.TestCase):
@@ -814,11 +814,13 @@ class TestSaveDiagnosticReport(unittest.TestCase):
             with open(output_path, encoding="utf-8") as f:
                 content = f.read()
 
-        self.assertIn(get_message("diagnostic.report.title", locale="ja"), content)
+        self.assertIn(get_message("ui.diagnostic.report.title", locale="ja"), content)
         self.assertIn(
-            get_message("diagnostic.report.instructions", locale="ja"), content
+            get_message("ui.diagnostic.report.instructions", locale="ja"), content
         )
-        self.assertIn(get_message("diagnostic.section.heading", locale="ja"), content)
+        self.assertIn(
+            get_message("ui.diagnostic.section.heading", locale="ja"), content
+        )
 
 
 class TestCreateDiagnosticFromException(unittest.TestCase):
@@ -868,7 +870,7 @@ class TestMessageCatalog(unittest.TestCase):
         """Nonexistent locale should fall back to English messages."""
         from meteor_core.messages import get_message
 
-        message = get_message("diagnostic.hint.save", locale="fr")
+        message = get_message("ui.diagnostic.hint.save", locale="fr")
 
         self.assertIn("--save-diagnostic", message)
 

@@ -163,4 +163,4 @@ exclude_lines = [
 show_missing = true
 
 [tool.setuptools.package-data]
-"meteor_core" = ["templates/*.md.j2"]
+"meteor_core" = ["templates/*.md.j2", "locales/**/*.yaml"]

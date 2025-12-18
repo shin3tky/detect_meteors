@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from ..exceptions import MeteorProgressError
 from ..schema import VERSION
-from ..messages import log_warning
+from ..i18n import log_warning
 
 # Module-level logger for progress tracking diagnostics
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ def _coerce_string_list(value: Any, *, field_name: str, filepath: str) -> List[s
     if not isinstance(value, list):
         log_warning(
             logger,
-            "progress.invalid_field",
+            "log.progress.invalid_field",
             path=filepath,
             field=field_name,
             expected="list",
@@ -54,7 +54,7 @@ def _coerce_string_list(value: Any, *, field_name: str, filepath: str) -> List[s
         except Exception:  # pragma: no cover - extremely defensive
             log_warning(
                 logger,
-                "progress.unconvertible_entry",
+                "log.progress.unconvertible_entry",
                 path=filepath,
                 field=field_name,
                 entry=entry,
@@ -68,7 +68,7 @@ def _normalize_detected_details(value: Any, *, filepath: str) -> List[Dict[str, 
     if not isinstance(value, list):
         log_warning(
             logger,
-            "progress.invalid_field",
+            "log.progress.invalid_field",
             path=filepath,
             field="detected_details",
             expected="list",
@@ -80,7 +80,7 @@ def _normalize_detected_details(value: Any, *, filepath: str) -> List[Dict[str, 
         if not isinstance(entry, dict):
             log_warning(
                 logger,
-                "progress.detected_details.non_dict",
+                "log.progress.detected_details.non_dict",
                 path=filepath,
                 entry=entry,
             )
@@ -90,7 +90,7 @@ def _normalize_detected_details(value: Any, *, filepath: str) -> List[Dict[str, 
         if not filename:
             log_warning(
                 logger,
-                "progress.detected_details.missing_filename",
+                "log.progress.detected_details.missing_filename",
                 path=filepath,
                 entry=entry,
             )
@@ -146,7 +146,7 @@ def _normalize_progress_data(
     if not isinstance(processing_params, dict):
         log_warning(
             logger,
-            "progress.invalid_field",
+            "log.progress.invalid_field",
             path=filepath,
             field="processing_params",
             expected="dict",
@@ -158,7 +158,7 @@ def _normalize_progress_data(
     if not isinstance(roi_value, (str, list, dict)):
         log_warning(
             logger,
-            "progress.unexpected_type",
+            "log.progress.unexpected_type",
             path=filepath,
             field="roi",
             actual_type=type(roi_value).__name__,
