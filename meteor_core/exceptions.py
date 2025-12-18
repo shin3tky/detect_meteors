@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from .messages import get_message
 from .schema import VERSION
 
 # Key dependencies to include in diagnostic reports
@@ -688,7 +689,9 @@ class MeteorProgressError(MeteorOutputError):
 # =============================================================================
 
 
-def format_error_for_user(error: MeteorError, *, verbose: bool = False) -> str:
+def format_error_for_user(
+    error: MeteorError, *, verbose: bool = False, locale: str = "en"
+) -> str:
     """Format an error message for CLI display.
 
     Provides a user-friendly error message with optional verbose diagnostics.
@@ -696,6 +699,7 @@ def format_error_for_user(error: MeteorError, *, verbose: bool = False) -> str:
     Args:
         error: The MeteorError to format.
         verbose: If True, include full diagnostic information.
+        locale: Locale code for message localization.
 
     Returns:
         Formatted error message string.
@@ -709,23 +713,30 @@ def format_error_for_user(error: MeteorError, *, verbose: bool = False) -> str:
     lines: List[str] = [
         "",
         "=" * 60,
-        f"ERROR: {error.message}",
+        get_message("error.header", locale=locale, message=error.message),
         "=" * 60,
     ]
 
     if error.filepath:
-        lines.append(f"File: {error.filepath}")
+        lines.append(
+            get_message("error.filepath", locale=locale, filepath=error.filepath)
+        )
 
     if error.original_error:
         lines.append(
-            f"Cause: {type(error.original_error).__name__}: {error.original_error}"
+            get_message(
+                "error.cause",
+                locale=locale,
+                error_type=type(error.original_error).__name__,
+                error_message=error.original_error,
+            )
         )
 
     if verbose:
         lines.extend(
             [
                 "",
-                "For bug reports, please include the following diagnostic information:",
+                get_message("diagnostic.info", locale=locale),
                 "-" * 60,
                 error.format_for_issue(),
             ]
@@ -734,8 +745,8 @@ def format_error_for_user(error: MeteorError, *, verbose: bool = False) -> str:
         lines.extend(
             [
                 "",
-                "Run with --verbose flag for detailed diagnostic information.",
-                "Or use --save-diagnostic to save a diagnostic report file.",
+                get_message("diagnostic.hint.verbose", locale=locale),
+                get_message("diagnostic.hint.save_option", locale=locale),
             ]
         )
 

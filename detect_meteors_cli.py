@@ -22,6 +22,7 @@ from meteor_core import (
     MeteorValidationError,
     format_error_for_user,
     save_diagnostic_report,
+    get_message,
     DEFAULT_TARGET_FOLDER,
     DEFAULT_OUTPUT_FOLDER,
     DEFAULT_DEBUG_FOLDER,
@@ -63,6 +64,7 @@ from meteor_core import (
 
 def build_arg_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the CLI."""
+    default_locale = os.environ.get("DETECT_METEORS_LOCALE", "en")
     parser = argparse.ArgumentParser(
         description="Meteor detection tool with comprehensive auto-parameter estimation"
     )
@@ -71,6 +73,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--version",
         action="version",
         version=f"Detect Meteors CLI (https://github.com/shin3tky/detect_meteors) {VERSION}",
+    )
+
+    parser.add_argument(
+        "--locale",
+        default=default_locale,
+        help=("Locale code for CLI messages (default: DETECT_METEORS_LOCALE or 'en')."),
     )
 
     parser.add_argument(
@@ -1212,6 +1220,7 @@ def detect_meteors_advanced(
     output_overwrite: bool,
     fisheye: bool,
     cli_param_string: str,
+    locale: str = "en",
 ) -> int:
     """
     Main processing: detect meteor candidates from consecutive RAW images.
@@ -1379,7 +1388,14 @@ def detect_meteors_advanced(
                 record_result_callback=record_result,
             )
     except KeyboardInterrupt:
-        print(f"\nInterrupted by user. Progress saved to {progress_file}.")
+        print(
+            "\n"
+            + get_message(
+                "interrupt.progress",
+                locale=locale,
+                progress_file=progress_file,
+            )
+        )
         progress_manager.save()
         return detected_count
 
@@ -1406,15 +1422,30 @@ def main():
     args = parser.parse_args()
     cli_param_string = shlex.join(sys.argv[1:])
 
+    args.locale = args.locale or os.environ.get("DETECT_METEORS_LOCALE", "en")
+    locale = args.locale
+
     _configure_logging(args.verbose)
 
     try:
         if args.remove_progress:
             if os.path.exists(args.progress_file):
                 os.remove(args.progress_file)
-                print(f"Removed progress file: {args.progress_file}")
+                print(
+                    get_message(
+                        "progress.removed",
+                        locale=locale,
+                        path=args.progress_file,
+                    )
+                )
             else:
-                print(f"Progress file not found: {args.progress_file}")
+                print(
+                    get_message(
+                        "progress.not_found",
+                        locale=locale,
+                        path=args.progress_file,
+                    )
+                )
             return
 
         # --list-sensor-types: Display available sensor types and exit
@@ -1430,24 +1461,33 @@ def main():
         _run_main(args, cli_param_string)
     except MeteorError as e:
         # Handle meteor_core exceptions with user-friendly output
-        print(format_error_for_user(e, verbose=args.verbose), file=sys.stderr)
+        print(
+            format_error_for_user(e, verbose=args.verbose, locale=locale),
+            file=sys.stderr,
+        )
 
         # Save diagnostic report if requested
         if args.save_diagnostic is not None:
             # Use provided path or auto-generate
             diag_path = args.save_diagnostic if args.save_diagnostic else None
             saved_path = save_diagnostic_report(e, diag_path)
-            print(f"Diagnostic report saved to: {saved_path}", file=sys.stderr)
+            print(
+                get_message("diagnostic.report.saved", locale=locale, path=saved_path),
+                file=sys.stderr,
+            )
         elif not args.verbose:
             # Hint about diagnostic options
             print(
-                "Tip: Use --save-diagnostic to save a report for bug reporting.",
+                get_message("diagnostic.hint.save", locale=locale),
                 file=sys.stderr,
             )
 
         sys.exit(1)
     except KeyboardInterrupt:
-        print("\nInterrupted by user.", file=sys.stderr)
+        print(
+            "\n" + get_message("interrupt.generic", locale=locale),
+            file=sys.stderr,
+        )
         sys.exit(130)
     except Exception as e:
         # Unexpected errors - show traceback in verbose mode
@@ -1456,9 +1496,18 @@ def main():
 
             traceback.print_exc()
         else:
-            print(f"\nUnexpected error: {type(e).__name__}: {e}", file=sys.stderr)
             print(
-                "Run with --verbose for full traceback, or report this issue.",
+                "\n"
+                + get_message(
+                    "error.unexpected",
+                    locale=locale,
+                    error_type=type(e).__name__,
+                    error_message=e,
+                ),
+                file=sys.stderr,
+            )
+            print(
+                get_message("error.unexpected.hint", locale=locale),
                 file=sys.stderr,
             )
         sys.exit(1)
@@ -1477,6 +1526,7 @@ def _run_main(args, cli_param_string: str):
     Raises:
         MeteorError: On any meteor_core related errors.
     """
+    locale = getattr(args, "locale", "en")
     roi_polygon_cli = None
     enable_roi_selection = DEFAULT_ENABLE_ROI_SELECTION
 
@@ -1532,6 +1582,7 @@ def _run_main(args, cli_param_string: str):
         output_overwrite=args.output_overwrite,
         fisheye=args.fisheye,
         cli_param_string=cli_param_string,
+        locale=locale,
     )
 
 

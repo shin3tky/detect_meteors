@@ -731,6 +731,16 @@ class TestFormatErrorForUser(unittest.TestCase):
         self.assertIn("Cause:", output)
         self.assertIn("ValueError", output)
 
+    def test_locale_specific_format(self):
+        """Test that locale parameter affects the rendered message."""
+        from meteor_core.exceptions import format_error_for_user
+
+        err = MeteorLoadError("ファイルが壊れています", filepath="/test/image.CR2")
+        output = format_error_for_user(err, locale="ja")
+
+        self.assertIn("エラー", output)
+        self.assertIn("ファイル", output)
+
 
 class TestSaveDiagnosticReport(unittest.TestCase):
     """Test cases for save_diagnostic_report helper function."""
@@ -813,6 +823,18 @@ class TestCreateDiagnosticFromException(unittest.TestCase):
 
         self.assertIn("## Diagnostic Information", output)
         self.assertIn("RuntimeError", output)
+
+
+class TestMessageCatalog(unittest.TestCase):
+    """Test cases for localized message lookups."""
+
+    def test_fallback_to_english(self):
+        """Nonexistent locale should fall back to English messages."""
+        from meteor_core.messages import get_message
+
+        message = get_message("diagnostic.hint.save", locale="fr")
+
+        self.assertIn("--save-diagnostic", message)
 
 
 class TestImportFromPackage(unittest.TestCase):
