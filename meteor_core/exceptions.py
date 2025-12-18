@@ -34,10 +34,13 @@ import os
 import platform
 import sys
 from dataclasses import dataclass, field
+from functools import lru_cache
 from datetime import datetime, timezone
+from importlib import resources
+from string import Template
 from typing import Any, Dict, List, Optional
 
-from .messages import get_message
+from .messages import DEFAULT_LOCALE, get_message
 from .schema import VERSION
 
 # Key dependencies to include in diagnostic reports
@@ -49,6 +52,8 @@ _KEY_DEPENDENCIES = [
     "psutil",
     "pydantic",
 ]
+
+_ISSUE_URL = "https://github.com/shin3tky/detect_meteors/issues/new"
 
 
 def _get_package_versions() -> Dict[str, str]:
@@ -67,6 +72,139 @@ def _get_package_versions() -> Dict[str, str]:
         except PackageNotFoundError:
             versions[pkg] = "not installed"
     return versions
+
+
+@lru_cache(maxsize=1)
+def _load_diagnostic_template() -> Template:
+    """Load the diagnostic report template."""
+    template_path = resources.files(__package__).joinpath(
+        "templates", "diagnostic_report.md.j2"
+    )
+    content = template_path.read_text(encoding="utf-8")
+    return Template(content)
+
+
+def _format_section(title: str, lines: List[str]) -> str:
+    """Format a section with a title and a code block."""
+    if not lines:
+        return ""
+
+    section_lines = [title, "", "```"]
+    section_lines.extend(lines)
+    section_lines.extend(["```", ""])
+    return "\n".join(section_lines)
+
+
+def _build_report_header(locale: str) -> str:
+    """Build the report header text from localized messages."""
+    header_lines = [
+        get_message("diagnostic.report.title", locale=locale),
+        "",
+        get_message("diagnostic.report.description", locale=locale),
+        get_message("diagnostic.report.instructions", locale=locale),
+        get_message(
+            "diagnostic.report.issue_link",
+            locale=locale,
+            issue_url=_ISSUE_URL,
+        ),
+        "",
+        "---",
+        "",
+    ]
+    return "\n".join(header_lines)
+
+
+def _render_diagnostic_report(
+    diagnostic: "DiagnosticInfo", *, locale: str, include_header: bool
+) -> str:
+    """Render a diagnostic report using the template and localized messages."""
+    label_version = get_message("diagnostic.label.version", locale=locale)
+    label_python = get_message("diagnostic.label.python_version", locale=locale)
+    label_platform = get_message("diagnostic.label.platform", locale=locale)
+    label_timestamp = get_message("diagnostic.label.timestamp", locale=locale)
+
+    general_section = _format_section(
+        get_message("diagnostic.section.heading", locale=locale),
+        [
+            f"{label_version}: {diagnostic.version}",
+            f"{label_python}: {diagnostic.python_version}",
+            f"{label_platform}: {diagnostic.platform}",
+            f"{label_timestamp}: {diagnostic.timestamp}",
+        ],
+    )
+
+    file_section = ""
+    if diagnostic.filepath:
+        label_file = get_message("diagnostic.label.filepath", locale=locale)
+        label_exists = get_message("diagnostic.label.file_exists", locale=locale)
+        file_lines = [
+            f"{label_file}: {diagnostic.filepath}",
+            f"{label_exists}: {diagnostic.file_exists}",
+        ]
+        if diagnostic.file_size is not None:
+            label_size = get_message("diagnostic.label.file_size", locale=locale)
+            bytes_label = get_message("diagnostic.label.bytes", locale=locale)
+            file_lines.append(f"{label_size}: {diagnostic.file_size:,} {bytes_label}")
+
+        file_section = _format_section(
+            get_message("diagnostic.section.file", locale=locale),
+            file_lines,
+        )
+
+    label_error_type = get_message("diagnostic.label.error_type", locale=locale)
+    label_error_message = get_message("diagnostic.label.error_message", locale=locale)
+    error_lines = [
+        f"{label_error_type}: {diagnostic.error_type}",
+        f"{label_error_message}: {diagnostic.error_message}",
+    ]
+
+    if diagnostic.original_error_type:
+        label_original_type = get_message(
+            "diagnostic.label.original_error_type", locale=locale
+        )
+        error_lines.append(f"{label_original_type}: {diagnostic.original_error_type}")
+    if diagnostic.original_error_message:
+        label_original_message = get_message(
+            "diagnostic.label.original_error_message", locale=locale
+        )
+        error_lines.append(
+            f"{label_original_message}: {diagnostic.original_error_message}"
+        )
+
+    error_section = _format_section(
+        get_message("diagnostic.section.error", locale=locale),
+        error_lines,
+    )
+
+    context_section = ""
+    if diagnostic.context:
+        context_lines = [f"{key}: {value}" for key, value in diagnostic.context.items()]
+        context_section = _format_section(
+            get_message("diagnostic.section.context", locale=locale),
+            context_lines,
+        )
+
+    dependencies_section = ""
+    if diagnostic.dependencies:
+        dependency_lines = [
+            f"{pkg}: {ver}" for pkg, ver in sorted(diagnostic.dependencies.items())
+        ]
+        dependencies_section = _format_section(
+            get_message("diagnostic.section.dependencies", locale=locale),
+            dependency_lines,
+        )
+
+    report_header = _build_report_header(locale) if include_header else ""
+
+    template = _load_diagnostic_template()
+    return template.safe_substitute(
+        report_header=report_header,
+        diagnostic_section=general_section,
+        file_section=file_section,
+        error_section=error_section,
+        context_section=context_section,
+        dependencies_section=dependencies_section,
+    )
 
 
 @dataclass
@@ -127,68 +265,21 @@ class DiagnosticInfo:
             "dependencies": self.dependencies,
         }
 
-    def format_for_issue(self) -> str:
-        """Format diagnostic info as a GitHub issue-ready report.
+    def format_for_issue(
+        self, *, locale: str = DEFAULT_LOCALE, include_header: bool = False
+    ) -> str:
+        """Format diagnostic info using the report template.
+
+        Args:
+            locale: Locale code for localized messages.
+            include_header: Whether to include the report header section.
 
         Returns:
             Markdown-formatted string suitable for pasting into GitHub issues.
         """
-        lines: List[str] = [
-            "## Diagnostic Information",
-            "",
-            "```",
-            f"meteor_core version: {self.version}",
-            f"Python version: {self.python_version}",
-            f"Platform: {self.platform}",
-            f"Timestamp: {self.timestamp}",
-            "```",
-            "",
-        ]
-
-        if self.filepath:
-            lines.extend(
-                [
-                    "### File Information",
-                    "",
-                    "```",
-                    f"Path: {self.filepath}",
-                    f"Exists: {self.file_exists}",
-                ]
-            )
-            if self.file_size is not None:
-                lines.append(f"Size: {self.file_size:,} bytes")
-            lines.extend(["```", ""])
-
-        lines.extend(
-            [
-                "### Error Details",
-                "",
-                "```",
-                f"Type: {self.error_type}",
-                f"Message: {self.error_message}",
-            ]
+        return _render_diagnostic_report(
+            self, locale=locale, include_header=include_header
         )
-
-        if self.original_error_type:
-            lines.append(f"Original Error Type: {self.original_error_type}")
-        if self.original_error_message:
-            lines.append(f"Original Error Message: {self.original_error_message}")
-
-        lines.extend(["```", ""])
-
-        if self.context:
-            lines.extend(["### Additional Context", "", "```"])
-            for key, value in self.context.items():
-                lines.append(f"{key}: {value}")
-            lines.extend(["```", ""])
-
-        if self.dependencies:
-            lines.extend(["### Dependencies", "", "```"])
-            for pkg, ver in sorted(self.dependencies.items()):
-                lines.append(f"{pkg}: {ver}")
-            lines.extend(["```", ""])
-
-        return "\n".join(lines)
 
 
 def _collect_file_info(filepath: Optional[str]) -> tuple[Optional[bool], Optional[int]]:
@@ -291,13 +382,21 @@ class MeteorError(Exception):
             dependencies=_get_package_versions(),
         )
 
-    def format_for_issue(self) -> str:
+    def format_for_issue(
+        self, *, locale: str = DEFAULT_LOCALE, include_header: bool = False
+    ) -> str:
         """Format this error as a GitHub issue-ready report.
+
+        Args:
+            locale: Locale code for localized messages.
+            include_header: Whether to include the report header section.
 
         Returns:
             Markdown-formatted string suitable for pasting into GitHub issues.
         """
-        return self.get_diagnostic_info().format_for_issue()
+        return self.get_diagnostic_info().format_for_issue(
+            locale=locale, include_header=include_header
+        )
 
 
 class MeteorLoadError(MeteorError):
@@ -690,7 +789,7 @@ class MeteorProgressError(MeteorOutputError):
 
 
 def format_error_for_user(
-    error: MeteorError, *, verbose: bool = False, locale: str = "en"
+    error: MeteorError, *, verbose: bool = False, locale: str = DEFAULT_LOCALE
 ) -> str:
     """Format an error message for CLI display.
 
@@ -738,7 +837,7 @@ def format_error_for_user(
                 "",
                 get_message("diagnostic.info", locale=locale),
                 "-" * 60,
-                error.format_for_issue(),
+                error.format_for_issue(locale=locale),
             ]
         )
     else:
@@ -757,6 +856,8 @@ def format_error_for_user(
 def save_diagnostic_report(
     error: MeteorError,
     output_path: Optional[str] = None,
+    *,
+    locale: str = DEFAULT_LOCALE,
 ) -> str:
     """Save diagnostic information to a file.
 
@@ -767,6 +868,7 @@ def save_diagnostic_report(
         error: The MeteorError to generate diagnostics for.
         output_path: Path for the output file. If None, generates a
             timestamped filename in the current directory.
+        locale: Locale code for localized messages.
 
     Returns:
         Path to the saved diagnostic file.
@@ -783,21 +885,10 @@ def save_diagnostic_report(
         output_path = f"meteor_diagnostic_{timestamp}.md"
 
     diagnostic = error.get_diagnostic_info()
-    content = diagnostic.format_for_issue()
-
-    # Add header with instructions
-    header = [
-        "# Meteor Detection - Diagnostic Report",
-        "",
-        "This file contains diagnostic information for troubleshooting.",
-        "Please attach this file when reporting issues on GitHub:",
-        "https://github.com/shin3tky/detect_meteors/issues/new",
-        "",
-        "---",
-        "",
-    ]
-
-    full_content = "\n".join(header) + content
+    full_content = diagnostic.format_for_issue(
+        locale=locale,
+        include_header=True,
+    )
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(full_content)

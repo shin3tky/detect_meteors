@@ -1470,7 +1470,7 @@ def main():
         if args.save_diagnostic is not None:
             # Use provided path or auto-generate
             diag_path = args.save_diagnostic if args.save_diagnostic else None
-            saved_path = save_diagnostic_report(e, diag_path)
+            saved_path = save_diagnostic_report(e, diag_path, locale=locale)
             print(
                 get_message("diagnostic.report.saved", locale=locale, path=saved_path),
                 file=sys.stderr,
