@@ -108,15 +108,15 @@ ui:
           user: "→ Using user-specified min_line_score: {value}"
     processing_params:
       header: "Processing Parameters:"
-      line: "  {label}: {value}"
+      line: "  {label} {value}"
       label:
-        diff_threshold: "diff_threshold"
-        min_area: "min_area"
-        min_aspect_ratio: "min_aspect_ratio"
-        hough_threshold: "hough_threshold"
-        hough_min_line_length: "hough_min_line_length"
-        hough_max_line_gap: "hough_max_line_gap"
-        min_line_score: "min_line_score"
+        diff_threshold: "diff_threshold:"
+        min_area: "min_area:"
+        min_aspect_ratio: "min_aspect_ratio:"
+        hough_threshold: "hough_threshold:"
+        hough_min_line_length: "hough_min_line_length:"
+        hough_max_line_gap: "hough_max_line_gap:"
+        min_line_score: "min_line_score:"
     progress:
       resuming: "Resuming from progress file: {path} (processed={processed}, detected={detected})"
       param_mismatch: "Progress file exists but parameters differ. Starting with fresh progress."

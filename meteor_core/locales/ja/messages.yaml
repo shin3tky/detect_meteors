@@ -108,15 +108,15 @@ ui:
           user: "→ ユーザー指定の min_line_score を使用: {value}"
     processing_params:
       header: "処理パラメータ:"
-      line: "  {label}: {value}"
+      line: "  {label} {value}"
       label:
-        diff_threshold: "diff_threshold"
-        min_area: "min_area"
-        min_aspect_ratio: "min_aspect_ratio"
-        hough_threshold: "hough_threshold"
-        hough_min_line_length: "hough_min_line_length"
-        hough_max_line_gap: "hough_max_line_gap"
-        min_line_score: "min_line_score"
+        diff_threshold: "diff_threshold:"
+        min_area: "min_area:"
+        min_aspect_ratio: "min_aspect_ratio:"
+        hough_threshold: "hough_threshold:"
+        hough_min_line_length: "hough_min_line_length:"
+        hough_max_line_gap: "hough_max_line_gap:"
+        min_line_score: "min_line_score:"
     progress:
       resuming: "進捗ファイルから再開: {path} (処理済み={processed}, 検出={detected})"
       param_mismatch: "進捗ファイルは存在しますがパラメータが異なります。進捗をリセットします。"
