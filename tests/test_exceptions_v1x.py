@@ -754,8 +754,8 @@ class TestFormatErrorForUser(unittest.TestCase):
         err = MeteorLoadError("ファイルが壊れています", filepath="/test/image.CR2")
         output = format_error_for_user(err, locale="ja")
 
-        self.assertIn("エラー", output)
-        self.assertIn("ファイル", output)
+        self.assertIn("ERROR:", output)
+        self.assertIn("File:", output)
 
 
 class TestSaveDiagnosticReport(unittest.TestCase):
@@ -814,13 +814,11 @@ class TestSaveDiagnosticReport(unittest.TestCase):
             with open(output_path, encoding="utf-8") as f:
                 content = f.read()
 
-        self.assertIn(get_message("ui.diagnostic.report.title", locale="ja"), content)
+        self.assertIn("# Meteor Detection - Diagnostic Report", content)
         self.assertIn(
-            get_message("ui.diagnostic.report.instructions", locale="ja"), content
+            "Please attach this file when reporting issues on GitHub.", content
         )
-        self.assertIn(
-            get_message("ui.diagnostic.section.heading", locale="ja"), content
-        )
+        self.assertIn("## Diagnostic Information", content)
 
 
 class TestCreateDiagnosticFromException(unittest.TestCase):

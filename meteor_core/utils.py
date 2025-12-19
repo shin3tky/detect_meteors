@@ -36,11 +36,29 @@ def _resolve_locale(locale: Optional[str]) -> str:
     return os.environ.get("DETECT_METEORS_LOCALE", DEFAULT_LOCALE)
 
 
+def _use_wide_ambiguous_chars() -> bool:
+    locale_hint = os.environ.get("DETECT_METEORS_LOCALE")
+    if not locale_hint:
+        locale_hint = os.environ.get("LC_ALL") or os.environ.get("LC_CTYPE")
+    if not locale_hint:
+        locale_hint = os.environ.get("LANG", "")
+    locale_hint = locale_hint.lower()
+    return locale_hint.startswith(("ja", "zh", "ko"))
+
+
 def _display_width(text: str) -> int:
     """Return display width accounting for wide unicode characters."""
     width = 0
+    wide_ambiguous = _use_wide_ambiguous_chars()
     for char in text:
-        width += 2 if unicodedata.east_asian_width(char) in {"W", "F"} else 1
+        east_asian_width = unicodedata.east_asian_width(char)
+        if east_asian_width in {"W", "F"}:
+            width += 2
+            continue
+        if wide_ambiguous and east_asian_width == "A":
+            width += 2
+            continue
+        width += 1
     return width
 
 

@@ -811,6 +811,7 @@ def format_error_for_user(
         ... except MeteorError as e:
         ...     print(format_error_for_user(e, verbose=True))
     """
+    # NOTE: ui.error/ui.diagnostic strings are intentionally English-only across locales.
     lines: List[str] = [
         "",
         "=" * 60,

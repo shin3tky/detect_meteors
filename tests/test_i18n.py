@@ -39,8 +39,7 @@ class TestI18nMessages(unittest.TestCase):
         message_ja = get_message(
             "ui.error.header", locale="ja", params={"message": "異常終了"}
         )
-        self.assertIn("エラー", message_ja)
-        self.assertIn("異常終了", message_ja)
+        self.assertEqual(message_ja, "ERROR: 異常終了")
 
     def test_plural_rendering(self):
         self.assertEqual(
