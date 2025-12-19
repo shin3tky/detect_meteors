@@ -182,6 +182,14 @@ ui:
         analyzing: "ROI 内のフレーム差分を解析中... "
         stats:
           header: "ROI 差分統計 (対象ピクセル {pixel_count:,}):"
+          label:
+            mean: "平均:"
+            std_dev: "標準偏差:"
+            median: "中央値:"
+            p90: "90 パーセンタイル:"
+            p95: "95 パーセンタイル:"
+            p98: "98 パーセンタイル:"
+            p99: "99 パーセンタイル:"
           mean: "  平均:         {value:.2f}"
           std_dev: "  標準偏差:     {value:.2f}"
           median: "  中央値:       {value:.2f}"
@@ -191,6 +199,10 @@ ui:
           p99: "  99 パーセンタイル: {value:.2f}"
         methods:
           header: "推定方法:"
+          label:
+            p98: "[1] 98 パーセンタイル:"
+            mean_sigma: "[2] 平均 + 1.5σ:"
+            median: "[3] 中央値 × 3:"
           p98: "  [1] 98 パーセンタイル: {value}"
           mean_sigma: "  [2] 平均 + 1.5σ:        {value}"
           median: "  [3] 中央値 × 3:         {value}"
@@ -204,6 +216,13 @@ ui:
         too_few_stars: "⚠ 星の検出数が不足しています。デフォルトを使用します"
         stats:
           header: "星サイズ統計 (星 {count} 個):"
+          label:
+            median: "中央値:"
+            mean: "平均:"
+            p75: "75 パーセンタイル:"
+            p90: "90 パーセンタイル:"
+          value:
+            pixels: "{value:.1f} px²"
           median: "  中央値:       {value:.1f} px²"
           mean: "  平均:         {value:.1f} px²"
           p75: "  75 パーセンタイル: {value:.1f} px²"
@@ -214,6 +233,20 @@ ui:
         header: "画像ジオメトリから min_line_score を自動推定"
         geometry:
           header: "画像ジオメトリ:"
+          label:
+            dimensions: "寸法:"
+            diagonal: "対角:"
+            focal_length: "焦点距離:"
+            focal_factor: "焦点係数:"
+            base_score: "基本スコア:"
+            adjusted_score: "調整後:"
+          value:
+            dimensions: "{width}×{height} ピクセル"
+            diagonal: "{value:.0f} ピクセル"
+            focal_length: "{value}mm"
+            focal_factor: "{value:.2f}×"
+            base_score: "{value:.1f}"
+            adjusted_score: "{value:.1f}"
           dimensions: "  寸法:   {width}×{height} ピクセル"
           diagonal: "  対角:   {value:.0f} ピクセル"
           focal_length: "  焦点距離: {value}mm"
@@ -251,6 +284,17 @@ ui:
         mf44x33: "  --sensor-type MF44X33                # Fujifilm GFX / Pentax 645Z"
     fisheye:
       header: "魚眼補正"
+      label:
+        projection_model: "投影モデル:"
+        nominal_focal: "公称焦点距離:"
+        effective_focal: "有効焦点距離:"
+        trail_ratio: "軌跡倍率:"
+        npf_basis: "NPF 計算:"
+      value:
+        nominal_focal: "{focal_length:.1f}mm (中心)"
+        effective_focal: "{focal_length:.1f}mm (周辺)"
+        trail_ratio: "{ratio:.2f}× (周辺 vs 中心)"
+        npf_basis: "周辺 (最悪条件) を基準"
       projection_model: "  投影モデル:   {model}"
       nominal_focal: "  公称焦点距離: {focal_length:.1f}mm (中心)"
       effective_focal: "  有効焦点距離: {focal_length:.1f}mm (周辺)"

@@ -522,35 +522,61 @@ def display_fisheye_info(
     print(f"\n{'='*60}")
     print(get_message("ui.utils.fisheye.header", locale=locale))
     print(f"{'='*60}")
+    labels = {
+        "projection_model": get_message(
+            "ui.utils.fisheye.label.projection_model", locale=locale
+        ),
+        "nominal_focal": get_message(
+            "ui.utils.fisheye.label.nominal_focal", locale=locale
+        ),
+        "effective_focal": get_message(
+            "ui.utils.fisheye.label.effective_focal", locale=locale
+        ),
+        "trail_ratio": get_message("ui.utils.fisheye.label.trail_ratio", locale=locale),
+        "npf_basis": get_message("ui.utils.fisheye.label.npf_basis", locale=locale),
+    }
+    label_width = max(_display_width(label) for label in labels.values())
+
+    def format_line(label_key: str, value: str) -> str:
+        return f"  {_pad_label(labels[label_key], label_width)} {value}"
+
+    print(format_line("projection_model", model_info["name"]))
     print(
-        get_message(
-            "ui.utils.fisheye.projection_model",
-            locale=locale,
-            model=model_info["name"],
+        format_line(
+            "nominal_focal",
+            get_message(
+                "ui.utils.fisheye.value.nominal_focal",
+                locale=locale,
+                focal_length=nominal_focal_length_mm,
+            ),
         )
     )
     print(
-        get_message(
-            "ui.utils.fisheye.nominal_focal",
-            locale=locale,
-            focal_length=nominal_focal_length_mm,
+        format_line(
+            "effective_focal",
+            get_message(
+                "ui.utils.fisheye.value.effective_focal",
+                locale=locale,
+                focal_length=edge_focal,
+            ),
         )
     )
     print(
-        get_message(
-            "ui.utils.fisheye.effective_focal",
-            locale=locale,
-            focal_length=edge_focal,
+        format_line(
+            "trail_ratio",
+            get_message(
+                "ui.utils.fisheye.value.trail_ratio",
+                locale=locale,
+                ratio=max_ratio,
+            ),
         )
     )
     print(
-        get_message(
-            "ui.utils.fisheye.trail_ratio",
-            locale=locale,
-            ratio=max_ratio,
+        format_line(
+            "npf_basis",
+            get_message("ui.utils.fisheye.value.npf_basis", locale=locale),
         )
     )
-    print(get_message("ui.utils.fisheye.npf_basis", locale=locale))
     print(f"{'='*60}")
 
 
@@ -1108,12 +1134,17 @@ def optimize_params_with_npf(
     )
     optimization_info["quality_score"] = quality_score
     optimization_info["quality_level"] = quality_level
+    label_width = max(
+        _display_width(label)
+        for label in ("diff_threshold:", "min_area:", "min_line_score:")
+    )
 
     # diff_threshold Optimization
     if not user_specified_diff_threshold:
         diff_threshold = optimize_diff_threshold_npf(exif_data, npf_metrics)
         optimization_info["adjustments"].append(
-            f"diff_threshold: {current_diff_threshold} → {diff_threshold} (ISO/NPF-based)"
+            f"{_pad_label('diff_threshold:', label_width)} "
+            f"{current_diff_threshold} → {diff_threshold} (ISO/NPF-based)"
         )
     else:
         diff_threshold = current_diff_threshold
@@ -1122,7 +1153,8 @@ def optimize_params_with_npf(
     if not user_specified_min_area:
         min_area = optimize_min_area_npf(exif_data, npf_metrics)
         optimization_info["adjustments"].append(
-            f"min_area: {current_min_area} → {min_area} (star trail-based)"
+            f"{_pad_label('min_area:', label_width)} "
+            f"{current_min_area} → {min_area} (star trail-based)"
         )
     else:
         min_area = current_min_area
@@ -1131,7 +1163,8 @@ def optimize_params_with_npf(
     if not user_specified_min_line_score:
         min_line_score = optimize_min_line_score_npf(exif_data, npf_metrics)
         optimization_info["adjustments"].append(
-            f"min_line_score: {current_min_line_score:.1f} → {min_line_score:.1f} (meteor trail-based)"
+            f"{_pad_label('min_line_score:', label_width)} "
+            f"{current_min_line_score:.1f} → {min_line_score:.1f} (meteor trail-based)"
         )
     else:
         min_line_score = current_min_line_score

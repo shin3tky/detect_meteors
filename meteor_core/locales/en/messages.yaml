@@ -182,6 +182,14 @@ ui:
         analyzing: "Analyzing frame-to-frame differences in ROI... "
         stats:
           header: "ROI Difference Statistics (from {pixel_count:,} pixels):"
+          label:
+            mean: "Mean:"
+            std_dev: "Std Dev:"
+            median: "Median:"
+            p90: "90th %ile:"
+            p95: "95th %ile:"
+            p98: "98th %ile:"
+            p99: "99th %ile:"
           mean: "  Mean:         {value:.2f}"
           std_dev: "  Std Dev:      {value:.2f}"
           median: "  Median:       {value:.2f}"
@@ -191,6 +199,10 @@ ui:
           p99: "  99th %ile:    {value:.2f}"
         methods:
           header: "Estimation methods:"
+          label:
+            p98: "[1] 98th percentile:"
+            mean_sigma: "[2] Mean + 1.5σ:"
+            median: "[3] Median × 3:"
           p98: "  [1] 98th percentile:      {value}"
           mean_sigma: "  [2] Mean + 1.5σ:          {value}"
           median: "  [3] Median × 3:           {value}"
@@ -204,6 +216,13 @@ ui:
         too_few_stars: "⚠ Not enough stars detected, using default"
         stats:
           header: "Star Size Statistics (from {count} stars):"
+          label:
+            median: "Median:"
+            mean: "Mean:"
+            p75: "75th %ile:"
+            p90: "90th %ile:"
+          value:
+            pixels: "{value:.1f} pixels²"
           median: "  Median:       {value:.1f} pixels²"
           mean: "  Mean:         {value:.1f} pixels²"
           p75: "  75th %ile:    {value:.1f} pixels²"
@@ -214,6 +233,20 @@ ui:
         header: "Auto-estimating min_line_score from image geometry"
         geometry:
           header: "Image Geometry:"
+          label:
+            dimensions: "Dimensions:"
+            diagonal: "Diagonal:"
+            focal_length: "Focal length:"
+            focal_factor: "Focal factor:"
+            base_score: "Base score:"
+            adjusted_score: "Adjusted:"
+          value:
+            dimensions: "{width}×{height} pixels"
+            diagonal: "{value:.0f} pixels"
+            focal_length: "{value}mm"
+            focal_factor: "{value:.2f}×"
+            base_score: "{value:.1f}"
+            adjusted_score: "{value:.1f}"
           dimensions: "  Dimensions:   {width}×{height} pixels"
           diagonal: "  Diagonal:     {value:.0f} pixels"
           focal_length: "  Focal length: {value}mm"
@@ -251,6 +284,17 @@ ui:
         mf44x33: "  --sensor-type MF44X33                # Fujifilm GFX / Pentax 645Z"
     fisheye:
       header: "Fisheye Correction"
+      label:
+        projection_model: "Projection model:"
+        nominal_focal: "Nominal focal:"
+        effective_focal: "Effective focal:"
+        trail_ratio: "Trail length ratio:"
+        npf_basis: "NPF calculation:"
+      value:
+        nominal_focal: "{focal_length:.1f}mm (center)"
+        effective_focal: "{focal_length:.1f}mm (edge)"
+        trail_ratio: "{ratio:.2f}× (edge vs center)"
+        npf_basis: "Based on edge (worst case)"
       projection_model: "  Projection model:   {model}"
       nominal_focal: "  Nominal focal:      {focal_length:.1f}mm (center)"
       effective_focal: "  Effective focal:    {focal_length:.1f}mm (edge)"

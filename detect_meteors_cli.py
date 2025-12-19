@@ -60,6 +60,7 @@ from meteor_core import (
     compute_params_hash,
     ProgressManager,
 )
+from meteor_core.utils import _display_width, _pad_label
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -1106,74 +1107,56 @@ def _print_processing_params(processing_params, locale: Optional[str] = None):
     print(f"\n{'='*50}")
     print(get_message("ui.cli.processing_params.header", locale=locale))
     print(f"{'='*50}")
-    print(
-        get_message(
+    labels = {
+        "diff_threshold": get_message(
+            "ui.cli.processing_params.label.diff_threshold", locale=locale
+        ),
+        "min_area": get_message(
+            "ui.cli.processing_params.label.min_area", locale=locale
+        ),
+        "min_aspect_ratio": get_message(
+            "ui.cli.processing_params.label.min_aspect_ratio", locale=locale
+        ),
+        "hough_threshold": get_message(
+            "ui.cli.processing_params.label.hough_threshold", locale=locale
+        ),
+        "hough_min_line_length": get_message(
+            "ui.cli.processing_params.label.hough_min_line_length", locale=locale
+        ),
+        "hough_max_line_gap": get_message(
+            "ui.cli.processing_params.label.hough_max_line_gap", locale=locale
+        ),
+        "min_line_score": get_message(
+            "ui.cli.processing_params.label.min_line_score", locale=locale
+        ),
+    }
+    label_width = max(_display_width(label) for label in labels.values())
+
+    def format_line(label_key: str, value: str) -> str:
+        return get_message(
             "ui.cli.processing_params.line",
             locale=locale,
-            label=get_message(
-                "ui.cli.processing_params.label.diff_threshold", locale=locale
-            ),
-            value=processing_params["diff_threshold"],
+            label=_pad_label(labels[label_key], label_width),
+            value=value,
+        )
+
+    print(format_line("diff_threshold", str(processing_params["diff_threshold"])))
+    print(format_line("min_area", str(processing_params["min_area"])))
+    print(format_line("min_aspect_ratio", str(processing_params["min_aspect_ratio"])))
+    print(format_line("hough_threshold", str(processing_params["hough_threshold"])))
+    print(
+        format_line(
+            "hough_min_line_length",
+            str(processing_params["hough_min_line_length"]),
         )
     )
     print(
-        get_message(
-            "ui.cli.processing_params.line",
-            locale=locale,
-            label=get_message("ui.cli.processing_params.label.min_area", locale=locale),
-            value=processing_params["min_area"],
+        format_line(
+            "hough_max_line_gap",
+            str(processing_params["hough_max_line_gap"]),
         )
     )
-    print(
-        get_message(
-            "ui.cli.processing_params.line",
-            locale=locale,
-            label=get_message(
-                "ui.cli.processing_params.label.min_aspect_ratio", locale=locale
-            ),
-            value=processing_params["min_aspect_ratio"],
-        )
-    )
-    print(
-        get_message(
-            "ui.cli.processing_params.line",
-            locale=locale,
-            label=get_message(
-                "ui.cli.processing_params.label.hough_threshold", locale=locale
-            ),
-            value=processing_params["hough_threshold"],
-        )
-    )
-    print(
-        get_message(
-            "ui.cli.processing_params.line",
-            locale=locale,
-            label=get_message(
-                "ui.cli.processing_params.label.hough_min_line_length", locale=locale
-            ),
-            value=processing_params["hough_min_line_length"],
-        )
-    )
-    print(
-        get_message(
-            "ui.cli.processing_params.line",
-            locale=locale,
-            label=get_message(
-                "ui.cli.processing_params.label.hough_max_line_gap", locale=locale
-            ),
-            value=processing_params["hough_max_line_gap"],
-        )
-    )
-    print(
-        get_message(
-            "ui.cli.processing_params.line",
-            locale=locale,
-            label=get_message(
-                "ui.cli.processing_params.label.min_line_score", locale=locale
-            ),
-            value=f"{processing_params['min_line_score']:.1f}",
-        )
-    )
+    print(format_line("min_line_score", f"{processing_params['min_line_score']:.1f}"))
     print(f"{'='*50}\n")
 
 

@@ -38,6 +38,7 @@ from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, DetectorRegistry
+from .utils import _display_width, _pad_label
 from .outputs import (
     BaseOutputHandler,
     OutputHandlerRegistry,
@@ -699,80 +700,65 @@ def estimate_diff_threshold_from_samples(
         )
     )
     print(f"{'─'*50}")
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.stats.mean",
-            locale=locale,
-            value=mean_diff,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.stats.std_dev",
-            locale=locale,
-            value=std_diff,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.stats.median",
-            locale=locale,
-            value=median_diff,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.stats.p90",
-            locale=locale,
-            value=p90,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.stats.p95",
-            locale=locale,
-            value=p95,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.stats.p98",
-            locale=locale,
-            value=p98,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.stats.p99",
-            locale=locale,
-            value=p99,
-        )
-    )
+    stats_labels = {
+        "mean": get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.label.mean", locale=locale
+        ),
+        "std_dev": get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.label.std_dev", locale=locale
+        ),
+        "median": get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.label.median", locale=locale
+        ),
+        "p90": get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.label.p90", locale=locale
+        ),
+        "p95": get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.label.p95", locale=locale
+        ),
+        "p98": get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.label.p98", locale=locale
+        ),
+        "p99": get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.label.p99", locale=locale
+        ),
+    }
+    stats_width = max(_display_width(label) for label in stats_labels.values())
+
+    def format_stat(label_key: str, value: float) -> str:
+        return f"  {_pad_label(stats_labels[label_key], stats_width)} {value:.2f}"
+
+    print(format_stat("mean", mean_diff))
+    print(format_stat("std_dev", std_diff))
+    print(format_stat("median", median_diff))
+    print(format_stat("p90", p90))
+    print(format_stat("p95", p95))
+    print(format_stat("p98", p98))
+    print(format_stat("p99", p99))
     print(f"{'─'*50}")
     print(
         get_message("ui.pipeline.estimate.diff_threshold.methods.header", locale=locale)
     )
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.methods.p98",
+    method_labels = {
+        "p98": get_message(
+            "ui.pipeline.estimate.diff_threshold.methods.label.p98", locale=locale
+        ),
+        "mean_sigma": get_message(
+            "ui.pipeline.estimate.diff_threshold.methods.label.mean_sigma",
             locale=locale,
-            value=method_1,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.methods.mean_sigma",
-            locale=locale,
-            value=method_2,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.diff_threshold.methods.median",
-            locale=locale,
-            value=method_3,
-        )
-    )
+        ),
+        "median": get_message(
+            "ui.pipeline.estimate.diff_threshold.methods.label.median", locale=locale
+        ),
+    }
+    method_width = max(_display_width(label) for label in method_labels.values())
+
+    def format_method(label_key: str, value: int) -> str:
+        return f"  {_pad_label(method_labels[label_key], method_width)} {value}"
+
+    print(format_method("p98", method_1))
+    print(format_method("mean_sigma", method_2))
+    print(format_method("median", method_3))
     print(f"{'─'*50}")
     print(
         get_message(
@@ -924,34 +910,32 @@ def estimate_min_area_from_samples(
         )
     )
     print(f"{'─'*50}")
-    print(
-        get_message(
-            "ui.pipeline.estimate.min_area.stats.median",
-            locale=locale,
-            value=median_star,
+    stats_labels = {
+        "median": get_message(
+            "ui.pipeline.estimate.min_area.stats.label.median", locale=locale
+        ),
+        "mean": get_message(
+            "ui.pipeline.estimate.min_area.stats.label.mean", locale=locale
+        ),
+        "p75": get_message(
+            "ui.pipeline.estimate.min_area.stats.label.p75", locale=locale
+        ),
+        "p90": get_message(
+            "ui.pipeline.estimate.min_area.stats.label.p90", locale=locale
+        ),
+    }
+    stats_width = max(_display_width(label) for label in stats_labels.values())
+
+    def format_stat(label_key: str, value: float) -> str:
+        return (
+            f"  {_pad_label(stats_labels[label_key], stats_width)} "
+            f"{get_message('ui.pipeline.estimate.min_area.stats.value.pixels', locale=locale, value=value)}"
         )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.min_area.stats.mean",
-            locale=locale,
-            value=mean_star,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.min_area.stats.p75",
-            locale=locale,
-            value=p75_star,
-        )
-    )
-    print(
-        get_message(
-            "ui.pipeline.estimate.min_area.stats.p90",
-            locale=locale,
-            value=p90_star,
-        )
-    )
+
+    print(format_stat("median", median_star))
+    print(format_stat("mean", mean_star))
+    print(format_stat("p75", p75_star))
+    print(format_stat("p90", p90_star))
     print(f"{'─'*50}")
     print(
         get_message(
@@ -1003,47 +987,98 @@ def estimate_min_line_score_from_image(
             )
         )
         print(f"{'─'*50}")
-        print(
-            get_message(
-                "ui.pipeline.estimate.min_line_score.geometry.dimensions",
+        geometry_labels = {
+            "dimensions": get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.label.dimensions",
                 locale=locale,
-                width=width,
-                height=height,
+            ),
+            "diagonal": get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.label.diagonal",
+                locale=locale,
+            ),
+            "focal_length": get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.label.focal_length",
+                locale=locale,
+            ),
+            "focal_factor": get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.label.focal_factor",
+                locale=locale,
+            ),
+            "base_score": get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.label.base_score",
+                locale=locale,
+            ),
+            "adjusted_score": get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.label.adjusted_score",
+                locale=locale,
+            ),
+        }
+        geometry_width = max(
+            _display_width(label) for label in geometry_labels.values()
+        )
+
+        def format_geometry(label_key: str, value: str) -> str:
+            return f"  {_pad_label(geometry_labels[label_key], geometry_width)} {value}"
+
+        print(
+            format_geometry(
+                "dimensions",
+                get_message(
+                    "ui.pipeline.estimate.min_line_score.geometry.value.dimensions",
+                    locale=locale,
+                    width=width,
+                    height=height,
+                ),
             )
         )
         print(
-            get_message(
-                "ui.pipeline.estimate.min_line_score.geometry.diagonal",
-                locale=locale,
-                value=diagonal,
+            format_geometry(
+                "diagonal",
+                get_message(
+                    "ui.pipeline.estimate.min_line_score.geometry.value.diagonal",
+                    locale=locale,
+                    value=diagonal,
+                ),
             )
         )
         print(
-            get_message(
-                "ui.pipeline.estimate.min_line_score.geometry.focal_length",
-                locale=locale,
-                value=focal_length_mm,
+            format_geometry(
+                "focal_length",
+                get_message(
+                    "ui.pipeline.estimate.min_line_score.geometry.value.focal_length",
+                    locale=locale,
+                    value=focal_length_mm,
+                ),
             )
         )
         print(
-            get_message(
-                "ui.pipeline.estimate.min_line_score.geometry.focal_factor",
-                locale=locale,
-                value=focal_factor,
+            format_geometry(
+                "focal_factor",
+                get_message(
+                    "ui.pipeline.estimate.min_line_score.geometry.value.focal_factor",
+                    locale=locale,
+                    value=focal_factor,
+                ),
             )
         )
         print(
-            get_message(
-                "ui.pipeline.estimate.min_line_score.geometry.base_score",
-                locale=locale,
-                value=base_score,
+            format_geometry(
+                "base_score",
+                get_message(
+                    "ui.pipeline.estimate.min_line_score.geometry.value.base_score",
+                    locale=locale,
+                    value=base_score,
+                ),
             )
         )
         print(
-            get_message(
-                "ui.pipeline.estimate.min_line_score.geometry.adjusted_score",
-                locale=locale,
-                value=adjusted_score,
+            format_geometry(
+                "adjusted_score",
+                get_message(
+                    "ui.pipeline.estimate.min_line_score.geometry.value.adjusted_score",
+                    locale=locale,
+                    value=adjusted_score,
+                ),
             )
         )
     else:
@@ -1055,26 +1090,56 @@ def estimate_min_line_score_from_image(
             )
         )
         print(f"{'─'*50}")
-        print(
-            get_message(
-                "ui.pipeline.estimate.min_line_score.geometry.dimensions",
+        geometry_labels = {
+            "dimensions": get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.label.dimensions",
                 locale=locale,
-                width=width,
-                height=height,
+            ),
+            "diagonal": get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.label.diagonal",
+                locale=locale,
+            ),
+            "base_score": get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.label.base_score",
+                locale=locale,
+            ),
+        }
+        geometry_width = max(
+            _display_width(label) for label in geometry_labels.values()
+        )
+
+        def format_geometry(label_key: str, value: str) -> str:
+            return f"  {_pad_label(geometry_labels[label_key], geometry_width)} {value}"
+
+        print(
+            format_geometry(
+                "dimensions",
+                get_message(
+                    "ui.pipeline.estimate.min_line_score.geometry.value.dimensions",
+                    locale=locale,
+                    width=width,
+                    height=height,
+                ),
             )
         )
         print(
-            get_message(
-                "ui.pipeline.estimate.min_line_score.geometry.diagonal",
-                locale=locale,
-                value=diagonal,
+            format_geometry(
+                "diagonal",
+                get_message(
+                    "ui.pipeline.estimate.min_line_score.geometry.value.diagonal",
+                    locale=locale,
+                    value=diagonal,
+                ),
             )
         )
         print(
-            get_message(
-                "ui.pipeline.estimate.min_line_score.geometry.base_score",
-                locale=locale,
-                value=base_score,
+            format_geometry(
+                "base_score",
+                get_message(
+                    "ui.pipeline.estimate.min_line_score.geometry.value.base_score",
+                    locale=locale,
+                    value=base_score,
+                ),
             )
         )
         print(
