@@ -12,6 +12,7 @@ Includes sensor presets, NPF calculations, fisheye corrections, memory estimatio
 import math
 import json
 import hashlib
+import os
 import numpy as np
 from typing import Dict, Optional, Tuple, List, Any
 
@@ -25,6 +26,13 @@ from .schema import (
     DEFAULT_MIN_LINE_SCORE,
     AUTO_BATCH_MEMORY_FRACTION,
 )
+from .i18n import DEFAULT_LOCALE, get_message
+
+
+def _resolve_locale(locale: Optional[str]) -> str:
+    if locale:
+        return locale
+    return os.environ.get("DETECT_METEORS_LOCALE", DEFAULT_LOCALE)
 
 
 # ==========================================
@@ -94,7 +102,11 @@ def get_sensor_preset(sensor_type: str) -> Optional[Dict[str, Any]]:
     return SENSOR_PRESETS.get(key)
 
 
-def apply_sensor_preset(args, verbose: bool = False) -> Tuple[
+def apply_sensor_preset(
+    args,
+    verbose: bool = False,
+    locale: Optional[str] = None,
+) -> Tuple[
     Optional[float],
     Optional[float],
     Optional[float],
@@ -156,6 +168,8 @@ def apply_sensor_preset(args, verbose: bool = False) -> Tuple[
                 None,
             )
 
+    locale = _resolve_locale(locale)
+
     # Apply preset values where CLI arguments are not specified
     if preset:
         preset_applied = []
@@ -181,7 +195,14 @@ def apply_sensor_preset(args, verbose: bool = False) -> Tuple[
         # focal_length is not in preset (it depends on actual lens used)
 
         if verbose and preset_applied:
-            print(f"  Sensor preset [{args.sensor_type}]: {', '.join(preset_applied)}")
+            print(
+                get_message(
+                    "ui.utils.sensor_preset.applied",
+                    locale=locale,
+                    sensor_type=args.sensor_type,
+                    values=", ".join(preset_applied),
+                )
+            )
 
     return (
         focal_factor_value,
@@ -197,6 +218,7 @@ def validate_sensor_overrides(
     preset: Optional[Dict[str, Any]],
     sensor_width_value: Optional[float],
     pixel_pitch_value: Optional[float],
+    locale: Optional[str] = None,
 ) -> None:
     """
     Validate that overridden --sensor-width and --pixel-pitch values
@@ -217,6 +239,7 @@ def validate_sensor_overrides(
     if not preset or not args.sensor_type:
         return
 
+    locale = _resolve_locale(locale)
     warnings = []
 
     # Check sensor_width deviation
@@ -226,9 +249,14 @@ def validate_sensor_overrides(
             deviation_pct = abs(sensor_width_value - preset_width) / preset_width * 100
             if deviation_pct > 30.0:  # 30% threshold
                 warnings.append(
-                    f"⚠ Warning: --sensor-width {sensor_width_value}mm deviates "
-                    f"{deviation_pct:.1f}% from --sensor-type {args.sensor_type} "
-                    f"preset ({preset_width}mm)"
+                    get_message(
+                        "ui.utils.sensor_override.warning.sensor_width",
+                        locale=locale,
+                        sensor_width=sensor_width_value,
+                        deviation=deviation_pct,
+                        sensor_type=args.sensor_type,
+                        preset_width=preset_width,
+                    )
                 )
 
     # Check pixel_pitch deviation
@@ -238,9 +266,14 @@ def validate_sensor_overrides(
             deviation_pct = abs(pixel_pitch_value - preset_pitch) / preset_pitch * 100
             if deviation_pct > 50.0:  # 50% threshold
                 warnings.append(
-                    f"⚠ Warning: --pixel-pitch {pixel_pitch_value}μm deviates "
-                    f"{deviation_pct:.1f}% from --sensor-type {args.sensor_type} "
-                    f"preset ({preset_pitch}μm)"
+                    get_message(
+                        "ui.utils.sensor_override.warning.pixel_pitch",
+                        locale=locale,
+                        pixel_pitch=pixel_pitch_value,
+                        deviation=deviation_pct,
+                        sensor_type=args.sensor_type,
+                        preset_pitch=preset_pitch,
+                    )
                 )
 
     # Print warnings if any
@@ -251,13 +284,14 @@ def validate_sensor_overrides(
         print(f"{'='*70}\n")
 
 
-def list_sensor_types() -> None:
+def list_sensor_types(locale: Optional[str] = None) -> None:
     """
     Display available sensor type presets and their configurations.
     Ordered by sensor size (smallest to largest).
     """
+    locale = _resolve_locale(locale)
     print(f"\n{'='*70}")
-    print("Available Sensor Types (--sensor-type)")
+    print(get_message("ui.utils.sensor_types.header", locale=locale))
     print(f"{'='*70}\n")
 
     # Group by primary types (exclude aliases), ordered by sensor size
@@ -275,29 +309,40 @@ def list_sensor_types() -> None:
     for sensor_type in primary_types:
         preset = SENSOR_PRESETS.get(sensor_type)
         if preset:
-            print(f"  {sensor_type:12}  {preset['description']}")
             print(
-                f"                  focal_factor={preset['focal_factor']}, "
-                f"sensor_width={preset['sensor_width']}mm, "
-                f"pixel_pitch={preset['pixel_pitch']}μm"
+                get_message(
+                    "ui.utils.sensor_types.entry",
+                    locale=locale,
+                    sensor_type=f"{sensor_type:12}",
+                    description=preset["description"],
+                )
+            )
+            print(
+                get_message(
+                    "ui.utils.sensor_types.details",
+                    locale=locale,
+                    focal_factor=preset["focal_factor"],
+                    sensor_width=preset["sensor_width"],
+                    pixel_pitch=preset["pixel_pitch"],
+                )
             )
             print()
 
     print(f"{'='*70}")
-    print("Aliases:")
-    print("  1-INCH, 1_INCH      → 1INCH")
-    print("  APS-C, APS_C        → APSC")
-    print("  APS-C_CANON         → APSC_CANON")
-    print("  APS-H, APS_H        → APSH")
-    print("  FULLFRAME           → FF")
-    print("  MF44-33, MF44_33    → MF44X33")
-    print("  MF54-40, MF54_40    → MF54X40")
+    print(get_message("ui.utils.sensor_types.aliases.header", locale=locale))
+    print(get_message("ui.utils.sensor_types.aliases.1inch", locale=locale))
+    print(get_message("ui.utils.sensor_types.aliases.apsc", locale=locale))
+    print(get_message("ui.utils.sensor_types.aliases.apsc_canon", locale=locale))
+    print(get_message("ui.utils.sensor_types.aliases.apsh", locale=locale))
+    print(get_message("ui.utils.sensor_types.aliases.ff", locale=locale))
+    print(get_message("ui.utils.sensor_types.aliases.mf44x33", locale=locale))
+    print(get_message("ui.utils.sensor_types.aliases.mf54x40", locale=locale))
     print(f"{'='*70}")
-    print("\nUsage Examples:")
-    print("  --sensor-type MFT")
-    print("  --sensor-type APS-C")
-    print("  --sensor-type FF --pixel-pitch 5.9   # Override pixel pitch")
-    print("  --sensor-type MF44X33                # Fujifilm GFX / Pentax 645Z")
+    print(get_message("ui.utils.sensor_types.examples.header", locale=locale))
+    print(get_message("ui.utils.sensor_types.examples.mft", locale=locale))
+    print(get_message("ui.utils.sensor_types.examples.apsc", locale=locale))
+    print(get_message("ui.utils.sensor_types.examples.ff", locale=locale))
+    print(get_message("ui.utils.sensor_types.examples.mf44x33", locale=locale))
     print(f"{'='*70}\n")
 
 
@@ -440,6 +485,7 @@ def get_fisheye_max_trail_ratio(projection_model: str = "EQUISOLID") -> float:
 def display_fisheye_info(
     nominal_focal_length_mm: float,
     projection_model: str = "EQUISOLID",
+    locale: Optional[str] = None,
 ) -> None:
     """
     Display fisheye correction information.
@@ -448,6 +494,7 @@ def display_fisheye_info(
         nominal_focal_length_mm: Nominal focal length in mm
         projection_model: Fisheye projection model
     """
+    locale = _resolve_locale(locale)
     edge_focal = calculate_fisheye_edge_focal_length(
         nominal_focal_length_mm, projection_model
     )
@@ -458,13 +505,37 @@ def display_fisheye_info(
     )
 
     print(f"\n{'='*60}")
-    print("Fisheye Correction")
+    print(get_message("ui.utils.fisheye.header", locale=locale))
     print(f"{'='*60}")
-    print(f"  Projection model:   {model_info['name']}")
-    print(f"  Nominal focal:      {nominal_focal_length_mm:.1f}mm (center)")
-    print(f"  Effective focal:    {edge_focal:.1f}mm (edge)")
-    print(f"  Trail length ratio: {max_ratio:.2f}× (edge vs center)")
-    print("  NPF calculation:    Based on edge (worst case)")
+    print(
+        get_message(
+            "ui.utils.fisheye.projection_model",
+            locale=locale,
+            model=model_info["name"],
+        )
+    )
+    print(
+        get_message(
+            "ui.utils.fisheye.nominal_focal",
+            locale=locale,
+            focal_length=nominal_focal_length_mm,
+        )
+    )
+    print(
+        get_message(
+            "ui.utils.fisheye.effective_focal",
+            locale=locale,
+            focal_length=edge_focal,
+        )
+    )
+    print(
+        get_message(
+            "ui.utils.fisheye.trail_ratio",
+            locale=locale,
+            ratio=max_ratio,
+        )
+    )
+    print(get_message("ui.utils.fisheye.npf_basis", locale=locale))
     print(f"{'='*60}")
 
 
@@ -1193,6 +1264,7 @@ def display_exif_info(
     focal_length_source: str = "EXIF",
     focal_factor: Optional[float] = None,
     npf_metrics: Optional[Dict[str, Any]] = None,
+    locale: Optional[str] = None,
 ) -> None:
     """
     Display EXIF Information and NPF Rule Analysis (Formatted)
@@ -1203,63 +1275,116 @@ def display_exif_info(
         focal_factor: Focal Length Equivalent Factor (if specified)
         npf_metrics: calculate_npf_metrics() return value (Options)
     """
+    locale = _resolve_locale(locale)
     print(f"\n{'='*60}")
-    print("Camera Settings (EXIF Metadata)")
+    print(get_message("ui.utils.exif.header", locale=locale))
     print(f"{'='*60}")
 
     if exif_data.get("camera_make") or exif_data.get("camera_model"):
         camera_str = f"{exif_data.get('camera_make', '')} {exif_data.get('camera_model', '')}".strip()
         if camera_str:
-            print(f"  Camera:           {camera_str}")
+            print(
+                get_message(
+                    "ui.utils.exif.line.camera", locale=locale, value=camera_str
+                )
+            )
 
     if exif_data.get("lens_model"):
-        print(f"  Lens:             {exif_data['lens_model']}")
+        print(
+            get_message(
+                "ui.utils.exif.line.lens",
+                locale=locale,
+                value=exif_data["lens_model"],
+            )
+        )
 
     # Focal length
     if exif_data.get("focal_length_35mm"):
         print(
-            f"  Focal length:     {exif_data['focal_length_35mm']:.1f}mm (35mm equiv.) [{focal_length_source}]"
+            get_message(
+                "ui.utils.exif.focal_length.equiv",
+                locale=locale,
+                value=exif_data["focal_length_35mm"],
+                source=focal_length_source,
+            )
         )
     elif exif_data.get("focal_length"):
         print(
-            f"  Focal length:     {exif_data['focal_length']:.1f}mm (actual) [{focal_length_source}]"
+            get_message(
+                "ui.utils.exif.focal_length.actual",
+                locale=locale,
+                value=exif_data["focal_length"],
+                source=focal_length_source,
+            )
         )
         if focal_factor:
             equiv = exif_data["focal_length"] * focal_factor
             print(
-                f"                    ~ {equiv:.1f}mm (35mm equiv., calculated with factor {focal_factor})"
+                get_message(
+                    "ui.utils.exif.focal_length.calculated",
+                    locale=locale,
+                    value=equiv,
+                    factor=focal_factor,
+                )
             )
         else:
-            print("                    ⚠ No 35mm equivalent found")
+            print(get_message("ui.utils.exif.focal_length.no_equiv", locale=locale))
     else:
-        print("  Focal length:     Not available")
+        print(get_message("ui.utils.exif.focal_length.unavailable", locale=locale))
 
     # ISO sensitivity
     if exif_data.get("iso"):
-        print(f"  ISO:              {exif_data['iso']}")
+        print(
+            get_message("ui.utils.exif.line.iso", locale=locale, value=exif_data["iso"])
+        )
     else:
-        print("  ISO:              Not available")
+        print(get_message("ui.utils.exif.line.iso_unavailable", locale=locale))
 
     # Exposure time
     if exif_data.get("exposure_time"):
         exp = exif_data["exposure_time"]
         if exp >= 1:
-            print(f"  Exposure:         {exp:.1f}s")
+            print(
+                get_message(
+                    "ui.utils.exif.exposure.seconds_long", locale=locale, value=exp
+                )
+            )
         elif exp >= 0.1:
-            print(f"  Exposure:         {exp:.2f}s")
+            print(
+                get_message(
+                    "ui.utils.exif.exposure.seconds_short", locale=locale, value=exp
+                )
+            )
         else:
-            print(f"  Exposure:         1/{int(1/exp)}s")
+            print(
+                get_message(
+                    "ui.utils.exif.exposure.fraction",
+                    locale=locale,
+                    denominator=int(1 / exp),
+                )
+            )
     else:
-        print("  Exposure:         Not available")
+        print(get_message("ui.utils.exif.exposure.unavailable", locale=locale))
 
     # F-number (aperture)
     if exif_data.get("f_number"):
-        print(f"  Aperture:         f/{exif_data['f_number']:.1f}")
+        print(
+            get_message(
+                "ui.utils.exif.line.aperture",
+                locale=locale,
+                value=exif_data["f_number"],
+            )
+        )
 
     # Image resolution
     if exif_data.get("image_width") and exif_data.get("image_height"):
         print(
-            f"  Resolution:       {exif_data['image_width']}x{exif_data['image_height']} px"
+            get_message(
+                "ui.utils.exif.line.resolution",
+                locale=locale,
+                width=exif_data["image_width"],
+                height=exif_data["image_height"],
+            )
         )
 
     print(f"{'='*60}\n")
@@ -1267,58 +1392,120 @@ def display_exif_info(
     # NPF Rule Analysis
     if npf_metrics and npf_metrics.get("npf_recommended_sec"):
         print(f"{'='*60}")
-        print("NPF Rule Analysis")
+        print(get_message("ui.utils.npf.header", locale=locale))
         print(f"{'='*60}")
 
         # Pixel Pitch
         if npf_metrics.get("pixel_pitch_um"):
             pp = npf_metrics["pixel_pitch_um"]
-            print(f"  Pixel pitch:      {pp:.2f}μm", end="")
+            print(
+                get_message(
+                    "ui.utils.npf.pixel_pitch",
+                    locale=locale,
+                    value=pp,
+                ),
+                end="",
+            )
             if npf_metrics.get("sensor_width_mm"):
-                print(f" (sensor: {npf_metrics['sensor_width_mm']:.1f}mm)")
+                print(
+                    get_message(
+                        "ui.utils.npf.pixel_pitch_sensor",
+                        locale=locale,
+                        sensor_width=npf_metrics["sensor_width_mm"],
+                    )
+                )
             else:
-                print(" (default)")
+                print(get_message("ui.utils.npf.pixel_pitch_default", locale=locale))
 
         # NPF recommended value
         npf_rec = npf_metrics["npf_recommended_sec"]
-        print(f"  NPF recommended:  {npf_rec:.1f}s")
+        print(
+            get_message(
+                "ui.utils.npf.recommended",
+                locale=locale,
+                value=npf_rec,
+            )
+        )
 
         # Actual exposure
         if exif_data.get("exposure_time"):
             actual_exp = exif_data["exposure_time"]
-            print(f"  Actual exposure:  {actual_exp:.1f}s", end="")
+            print(
+                get_message(
+                    "ui.utils.npf.actual_exposure",
+                    locale=locale,
+                    value=actual_exp,
+                ),
+                end="",
+            )
 
             # Compliance evaluation
             level = npf_metrics.get("compliance_level", "UNKNOWN")
             factor = npf_metrics.get("overshoot_factor", 0.0)
 
             if level == "OK":
-                print(" ✓ OK")
+                print(get_message("ui.utils.npf.compliance.ok", locale=locale))
             elif level == "WARNING":
-                print(f" ⚠  EXCEEDED ({factor:.2f}x)")
+                print(
+                    get_message(
+                        "ui.utils.npf.compliance.exceeded",
+                        locale=locale,
+                        factor=factor,
+                    )
+                )
             elif level == "CRITICAL":
-                print(f" ✗ CRITICAL ({factor:.2f}x)")
+                print(
+                    get_message(
+                        "ui.utils.npf.compliance.critical",
+                        locale=locale,
+                        factor=factor,
+                    )
+                )
             else:
                 print()
 
         # Star trail estimation
         if npf_metrics.get("star_trail_px"):
             trail = npf_metrics["star_trail_px"]
-            print(f"  Star trail est.:  ~{trail:.1f} pixels")
+            print(
+                get_message(
+                    "ui.utils.npf.star_trail",
+                    locale=locale,
+                    value=trail,
+                )
+            )
 
             # Impact determination
             if trail < 1.0:
-                impact = "MINIMAL"
+                impact = get_message(
+                    "ui.utils.npf.impact.minimal",
+                    locale=locale,
+                )
             elif trail < 2.0:
-                impact = "LOW"
+                impact = get_message(
+                    "ui.utils.npf.impact.low",
+                    locale=locale,
+                )
             elif trail < 5.0:
-                impact = "MODERATE"
+                impact = get_message(
+                    "ui.utils.npf.impact.moderate",
+                    locale=locale,
+                )
             else:
-                impact = "HIGH"
-            print(f"  Impact:           {impact}")
+                impact = get_message(
+                    "ui.utils.npf.impact.high",
+                    locale=locale,
+                )
+            print(get_message("ui.utils.npf.impact.line", locale=locale, value=impact))
 
         # Data Completeness
         if not npf_metrics.get("has_complete_data"):
-            print("\n  ⚠ Note: Incomplete data - using default/estimated values")
+            print(
+                "\n"
+                + get_message(
+                    "ui.utils.npf.incomplete_note",
+                    locale=locale,
+                )
+            )
 
         print(f"{'='*60}\n")

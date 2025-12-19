@@ -296,7 +296,9 @@ def _configure_logging(verbose: bool) -> None:
         logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
 
-def validate_and_apply_sensor_preset(args, verbose: bool = False) -> Tuple[
+def validate_and_apply_sensor_preset(
+    args, verbose: bool = False, locale: Optional[str] = None
+) -> Tuple[
     Optional[float],
     Optional[float],
     Optional[float],
@@ -335,10 +337,12 @@ def validate_and_apply_sensor_preset(args, verbose: bool = False) -> Tuple[
         focal_length_value,
         pixel_pitch_value,
         preset,
-    ) = apply_sensor_preset(args, verbose=verbose)
+    ) = apply_sensor_preset(args, verbose=verbose, locale=locale)
 
     # Validate sensor overrides
-    validate_sensor_overrides(args, preset, sensor_width_value, pixel_pitch_value)
+    validate_sensor_overrides(
+        args, preset, sensor_width_value, pixel_pitch_value, locale=locale
+    )
 
     # Validate focal_factor
     if args.focal_factor and focal_factor_value is None:
@@ -368,6 +372,7 @@ def prepare_exif_and_npf_analysis(
     args_focal_factor,
     fisheye: bool = False,
     fisheye_model: str = DEFAULT_FISHEYE_MODEL,
+    locale: Optional[str] = None,
 ):
     """
     Extract EXIF metadata and calculate NPF metrics.
@@ -392,20 +397,37 @@ def prepare_exif_and_npf_analysis(
     exif_data = extract_exif_metadata(filepath)
 
     # Focal length priority
-    focal_length_source = "Unknown"
+    focal_length_source = get_message("ui.cli.exif.focal_source.unknown", locale=locale)
     if focal_length_value:
-        focal_length_source = "CLI (--focal-length)"
+        focal_length_source = get_message(
+            "ui.cli.exif.focal_source.cli",
+            locale=locale,
+        )
         exif_data["focal_length_35mm"] = focal_length_value
     elif exif_data.get("focal_length_35mm"):
-        focal_length_source = "EXIF"
+        focal_length_source = get_message(
+            "ui.cli.exif.focal_source.exif",
+            locale=locale,
+        )
     elif exif_data.get("focal_length") and focal_factor_value:
         if args_focal_factor:
-            focal_length_source = f"Calculated (--focal-factor {args_focal_factor})"
+            focal_length_source = get_message(
+                "ui.cli.exif.focal_source.calculated_factor",
+                locale=locale,
+                factor=args_focal_factor,
+            )
         else:
-            focal_length_source = f"Calculated (--sensor-type {args_sensor_type})"
+            focal_length_source = get_message(
+                "ui.cli.exif.focal_source.calculated_sensor",
+                locale=locale,
+                sensor_type=args_sensor_type,
+            )
         exif_data["focal_length_35mm"] = exif_data["focal_length"] * focal_factor_value
     elif exif_data.get("focal_length"):
-        focal_length_source = "EXIF (actual, no 35mm equiv.)"
+        focal_length_source = get_message(
+            "ui.cli.exif.focal_source.exif_actual",
+            locale=locale,
+        )
 
     # NPF metrics calculation
     npf_metrics = None
@@ -429,6 +451,7 @@ def collect_exif_warnings(
     pixel_pitch_value,
     npf_metrics,
     check_npf: bool = True,
+    locale: Optional[str] = None,
 ):
     """
     Collect warnings related to EXIF data and NPF calculation.
@@ -452,38 +475,49 @@ def collect_exif_warnings(
         and not exif_data.get("focal_length_35mm")
         and not focal_length_value
     ):
-        warnings.append("Focal length not available")
+        warnings.append(
+            get_message("ui.cli.exif.warning.focal_length_unavailable", locale=locale)
+        )
     elif (
         not exif_data.get("focal_length_35mm")
         and not focal_factor_value
         and not focal_length_value
     ):
         warnings.append(
-            "35mm equivalent not found. Consider using --sensor-type or --focal-factor"
+            get_message(
+                "ui.cli.exif.warning.no_equiv",
+                locale=locale,
+            )
         )
 
     if not exif_data.get("iso"):
-        warnings.append("ISO value not available")
+        warnings.append(
+            get_message("ui.cli.exif.warning.iso_unavailable", locale=locale)
+        )
     if not exif_data.get("exposure_time"):
-        warnings.append("Exposure time not available")
+        warnings.append(
+            get_message("ui.cli.exif.warning.exposure_unavailable", locale=locale)
+        )
 
     # NPF-related warnings
     if check_npf and npf_metrics:
         if not sensor_width_value and not exif_data.get("image_width"):
             warnings.append(
-                "Sensor width not specified. Use --sensor-type or --sensor-width for accurate NPF calculation"
+                get_message("ui.cli.exif.warning.sensor_width_missing", locale=locale)
             )
         if not npf_metrics.get("has_complete_data"):
-            warnings.append("NPF calculation using default/estimated values")
+            warnings.append(
+                get_message("ui.cli.exif.warning.npf_incomplete", locale=locale)
+            )
 
     return warnings
 
 
-def print_warnings(warnings):
+def print_warnings(warnings, locale: Optional[str] = None):
     """Print warnings in a formatted box."""
     if warnings:
         print(f"{'='*60}")
-        print("⚠ Warnings:")
+        print(get_message("ui.cli.warnings.header", locale=locale))
         for warning in warnings:
             print(f"  • {warning}")
         print(f"{'='*60}\n")
@@ -497,11 +531,13 @@ def handle_show_exif(args) -> None:
     """
     print(f"\n{'='*60}")
     if args.show_npf:
-        print("EXIF Metadata & NPF Rule Analysis")
+        print(get_message("ui.cli.exif.header_npf", locale=args.locale))
     else:
-        print("EXIF Metadata Viewer")
+        print(get_message("ui.cli.exif.header", locale=args.locale))
     print(f"{'='*60}\n")
-    print(f"Target folder: {args.target}")
+    print(
+        get_message("ui.cli.exif.target_folder", locale=args.locale, path=args.target)
+    )
 
     # Validate and apply sensor preset
     (
@@ -510,7 +546,7 @@ def handle_show_exif(args) -> None:
         focal_length_value,
         pixel_pitch_value,
         preset,
-    ) = validate_and_apply_sensor_preset(args, verbose=True)
+    ) = validate_and_apply_sensor_preset(args, verbose=True, locale=args.locale)
 
     # Collect files (raises MeteorLoadError if directory doesn't exist)
     files = collect_files(args.target)
@@ -521,8 +557,21 @@ def handle_show_exif(args) -> None:
             context={"error_category": "no_files"},
         )
 
-    print(f"Found {len(files)} RAW files")
-    print(f"Reading EXIF from first file: {os.path.basename(files[0])}\n")
+    print(
+        get_message(
+            "ui.cli.exif.found_raw_files",
+            locale=args.locale,
+            count=len(files),
+        )
+    )
+    print(
+        get_message(
+            "ui.cli.exif.reading_first_file",
+            locale=args.locale,
+            filename=os.path.basename(files[0]),
+        )
+        + "\n"
+    )
 
     # Extract EXIF and calculate NPF metrics
     exif_data, focal_length_source, npf_metrics = prepare_exif_and_npf_analysis(
@@ -535,6 +584,7 @@ def handle_show_exif(args) -> None:
         args_focal_factor=args.focal_factor,
         fisheye=args.fisheye,
         fisheye_model=DEFAULT_FISHEYE_MODEL,
+        locale=args.locale,
     )
 
     # For --show-npf, force NPF calculation even if data is incomplete
@@ -549,9 +599,17 @@ def handle_show_exif(args) -> None:
 
     # Display fisheye info
     if args.fisheye and exif_data.get("focal_length_35mm"):
-        display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
+        display_fisheye_info(
+            exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL, locale=args.locale
+        )
 
-    display_exif_info(exif_data, focal_length_source, focal_factor_value, npf_metrics)
+    display_exif_info(
+        exif_data,
+        focal_length_source,
+        focal_factor_value,
+        npf_metrics,
+        locale=args.locale,
+    )
 
     # Collect and print warnings
     warnings = collect_exif_warnings(
@@ -562,8 +620,9 @@ def handle_show_exif(args) -> None:
         pixel_pitch_value=pixel_pitch_value,
         npf_metrics=npf_metrics,
         check_npf=(args.show_npf or npf_metrics is not None),
+        locale=args.locale,
     )
-    print_warnings(warnings)
+    print_warnings(warnings, locale=args.locale)
 
 
 def _init_worker_ignore_interrupt() -> None:
@@ -623,6 +682,7 @@ def _setup_roi(
     prev_img,
     roi_polygon_cli,
     enable_roi_selection: bool,
+    locale: Optional[str] = None,
 ):
     """
     Set up ROI (Region of Interest) mask.
@@ -644,21 +704,31 @@ def _setup_roi(
 
     if roi_polygon_cli:
         print(
-            f"ROI specified via command line: polygon={format_polygon_string(roi_polygon_cli)}"
+            get_message(
+                "ui.cli.roi.cli_specified",
+                locale=locale,
+                polygon=format_polygon_string(roi_polygon_cli),
+            )
         )
         roi_mask = np.zeros((height, width), dtype=np.uint8)
         cv2.fillPoly(roi_mask, [np.array(roi_polygon_cli, dtype=np.int32)], 255)
         roi_polygon = roi_polygon_cli
     elif enable_roi_selection:
-        roi_selection = select_roi(prev_img)
+        roi_selection = select_roi(prev_img, locale=locale)
         if roi_selection:
             roi_mask = roi_selection["mask"]
             roi_polygon = roi_selection["polygon"]
-            print(f"ROI setup complete: polygon={format_polygon_string(roi_polygon)}")
+            print(
+                get_message(
+                    "ui.cli.roi.setup_complete",
+                    locale=locale,
+                    polygon=format_polygon_string(roi_polygon),
+                )
+            )
         else:
-            print("No ROI selected. Processing entire image.")
+            print(get_message("ui.cli.roi.none_selected", locale=locale))
     else:
-        print("Skipping ROI selection. Processing entire image.")
+        print(get_message("ui.cli.roi.skipped", locale=locale))
 
     return roi_mask, roi_polygon
 
@@ -678,6 +748,7 @@ def _run_auto_params(
     sensor_width_mm,
     pixel_pitch_um,
     fisheye: bool,
+    locale: Optional[str] = None,
 ):
     """
     Run automatic parameter estimation based on EXIF and NPF Rule.
@@ -700,27 +771,41 @@ def _run_auto_params(
         Tuple of (diff_threshold, min_area, min_line_score, focal_length_mm)
     """
     print(f"\n{'='*60}")
-    print("Auto-params: NPF Rule-based Optimization")
+    print(get_message("ui.cli.auto_params.header", locale=locale))
     print(f"{'='*60}\n")
 
     # Step 1: EXIF Information Extraction
     exif_data = extract_exif_metadata(files[0])
 
     # Focal length acquisition (priority)
-    focal_length_source = "Unknown"
+    focal_length_source = get_message("ui.cli.exif.focal_source.unknown", locale=locale)
     if focal_length_mm:
-        focal_length_source = "CLI (--focal-length)"
+        focal_length_source = get_message(
+            "ui.cli.exif.focal_source.cli",
+            locale=locale,
+        )
         exif_data["focal_length_35mm"] = focal_length_mm
     elif exif_data.get("focal_length_35mm"):
         focal_length_mm = exif_data["focal_length_35mm"]
-        focal_length_source = "EXIF"
+        focal_length_source = get_message(
+            "ui.cli.exif.focal_source.exif",
+            locale=locale,
+        )
     elif exif_data.get("focal_length") and focal_factor:
         focal_length_mm = exif_data["focal_length"] * focal_factor
         exif_data["focal_length_35mm"] = focal_length_mm
-        focal_length_source = f"Calculated (EXIF {exif_data['focal_length']:.1f}mm × factor {focal_factor})"
+        focal_length_source = get_message(
+            "ui.cli.exif.focal_source.calculated_exif",
+            locale=locale,
+            focal_length=exif_data["focal_length"],
+            factor=focal_factor,
+        )
     elif exif_data.get("focal_length"):
         focal_length_mm = exif_data["focal_length"]
-        focal_length_source = "EXIF (actual, no 35mm equiv.)"
+        focal_length_source = get_message(
+            "ui.cli.exif.focal_source.exif_actual",
+            locale=locale,
+        )
 
     # Step 2: NPF Rule Analysis
     npf_metrics = calculate_npf_metrics(
@@ -733,10 +818,20 @@ def _run_auto_params(
 
     # Display fisheye info if enabled
     if fisheye and exif_data.get("focal_length_35mm"):
-        display_fisheye_info(exif_data["focal_length_35mm"], DEFAULT_FISHEYE_MODEL)
+        display_fisheye_info(
+            exif_data["focal_length_35mm"],
+            DEFAULT_FISHEYE_MODEL,
+            locale=locale,
+        )
 
     # Display EXIF Information and NPF Analysis
-    display_exif_info(exif_data, focal_length_source, focal_factor, npf_metrics)
+    display_exif_info(
+        exif_data,
+        focal_length_source,
+        focal_factor,
+        npf_metrics,
+        locale=locale,
+    )
 
     # Step 3: Display warnings
     _display_auto_params_warnings(
@@ -746,6 +841,7 @@ def _run_auto_params(
         sensor_width_mm,
         pixel_pitch_um,
         npf_metrics,
+        locale=locale,
     )
 
     # Step 4: NPF-based parameter optimization
@@ -772,6 +868,7 @@ def _run_auto_params(
             user_specified_min_area,
             user_specified_min_line_score,
             focal_length_mm,
+            locale=locale,
         )
 
     return diff_threshold, min_area, min_line_score, focal_length_mm
@@ -784,35 +881,73 @@ def _display_auto_params_warnings(
     sensor_width_mm,
     pixel_pitch_um,
     npf_metrics,
+    locale: Optional[str] = None,
 ):
     """Display warnings for auto-params mode."""
     warnings = []
 
     if not focal_length_mm:
-        warnings.append("Focal length not available from EXIF")
-        warnings.append("  → Consider using --focal-length option")
+        warnings.append(
+            get_message(
+                "ui.cli.auto_params.warning.focal_length_missing",
+                locale=locale,
+            )
+        )
+        warnings.append(
+            get_message(
+                "ui.cli.auto_params.warning.focal_length_hint",
+                locale=locale,
+            )
+        )
     elif not exif_data.get("focal_length_35mm") and not focal_factor:
         warnings.append(
-            f"35mm equivalent not found in EXIF (using actual: {focal_length_mm:.1f}mm)"
+            get_message(
+                "ui.cli.auto_params.warning.no_equiv",
+                locale=locale,
+                focal_length=focal_length_mm,
+            )
         )
-        warnings.append("  → For crop sensor cameras, use --focal-factor")
+        warnings.append(
+            get_message(
+                "ui.cli.auto_params.warning.no_equiv_hint",
+                locale=locale,
+            )
+        )
 
     if not exif_data.get("iso"):
-        warnings.append("ISO value not available from EXIF")
+        warnings.append(
+            get_message(
+                "ui.cli.auto_params.warning.iso_missing",
+                locale=locale,
+            )
+        )
 
     if not exif_data.get("exposure_time"):
-        warnings.append("Exposure time not available from EXIF")
+        warnings.append(
+            get_message(
+                "ui.cli.auto_params.warning.exposure_missing",
+                locale=locale,
+            )
+        )
 
     if npf_metrics and not npf_metrics.get("has_complete_data"):
         if not sensor_width_mm and not pixel_pitch_um:
-            warnings.append("Using default pixel pitch for NPF calculation")
             warnings.append(
-                "  → For better accuracy, use --sensor-width or --pixel-pitch"
+                get_message(
+                    "ui.cli.auto_params.warning.default_pixel_pitch",
+                    locale=locale,
+                )
+            )
+            warnings.append(
+                get_message(
+                    "ui.cli.auto_params.warning.pixel_pitch_hint",
+                    locale=locale,
+                )
             )
 
     if warnings:
         print(f"{'='*60}")
-        print("⚠ Warnings:")
+        print(get_message("ui.cli.warnings.header", locale=locale))
         for warning in warnings:
             if warning.startswith("  →"):
                 print(f"  {warning}")
@@ -830,10 +965,11 @@ def _optimize_with_npf(
     user_specified_diff_threshold,
     user_specified_min_area,
     user_specified_min_line_score,
+    locale: Optional[str] = None,
 ):
     """Optimize parameters using NPF Rule."""
     print(f"{'='*60}")
-    print("Parameter Optimization (NPF Rule-based)")
+    print(get_message("ui.cli.auto_params.optimize.header", locale=locale))
     print(f"{'='*60}\n")
 
     diff_threshold, min_area, min_line_score, opt_info = optimize_params_with_npf(
@@ -848,15 +984,37 @@ def _optimize_with_npf(
     )
 
     print(
-        f"Shooting Quality Score: {opt_info['quality_score']:.2f} ({opt_info['quality_level']})"
+        get_message(
+            "ui.cli.auto_params.optimize.quality_score",
+            locale=locale,
+            score=opt_info["quality_score"],
+            level=opt_info["quality_level"],
+        )
     )
 
     if opt_info["adjustments"]:
-        print("\nParameter Adjustments:")
+        print(
+            "\n"
+            + get_message(
+                "ui.cli.auto_params.optimize.adjustments.header", locale=locale
+            )
+        )
         for adjustment in opt_info["adjustments"]:
-            print(f"  • {adjustment}")
+            print(
+                get_message(
+                    "ui.cli.auto_params.optimize.adjustments.item",
+                    locale=locale,
+                    text=adjustment,
+                )
+            )
     else:
-        print("\nNo automatic adjustments (all parameters user-specified)")
+        print(
+            "\n"
+            + get_message(
+                "ui.cli.auto_params.optimize.adjustments.none",
+                locale=locale,
+            )
+        )
 
     print(f"\n{'='*60}\n")
 
@@ -874,50 +1032,148 @@ def _optimize_with_legacy(
     user_specified_min_area,
     user_specified_min_line_score,
     focal_length_mm,
+    locale: Optional[str] = None,
 ):
     """Fallback to legacy parameter estimation method."""
-    print("⚠ Insufficient data for NPF-based optimization")
-    print("  Falling back to legacy auto-params method\n")
+    print(get_message("ui.cli.auto_params.legacy.insufficient", locale=locale))
+    print(get_message("ui.cli.auto_params.legacy.fallback", locale=locale) + "\n")
 
     if not user_specified_diff_threshold:
         diff_threshold = estimate_diff_threshold_from_samples(
-            files, roi_mask, sample_size=5
+            files, roi_mask, sample_size=5, locale=locale
         )
-        print(f"→ Using sample-based diff_threshold: {diff_threshold}")
+        print(
+            get_message(
+                "ui.cli.auto_params.legacy.diff_threshold.sample",
+                locale=locale,
+                value=diff_threshold,
+            )
+        )
     else:
-        print(f"→ Using user-specified diff_threshold: {diff_threshold}")
+        print(
+            get_message(
+                "ui.cli.auto_params.legacy.diff_threshold.user",
+                locale=locale,
+                value=diff_threshold,
+            )
+        )
 
     if not user_specified_min_area:
         min_area = estimate_min_area_from_samples(
-            files, roi_mask, diff_threshold, sample_size=3
+            files, roi_mask, diff_threshold, sample_size=3, locale=locale
         )
-        print(f"→ Using sample-based min_area: {min_area}")
+        print(
+            get_message(
+                "ui.cli.auto_params.legacy.min_area.sample",
+                locale=locale,
+                value=min_area,
+            )
+        )
     else:
-        print(f"→ Using user-specified min_area: {min_area}")
+        print(
+            get_message(
+                "ui.cli.auto_params.legacy.min_area.user",
+                locale=locale,
+                value=min_area,
+            )
+        )
 
     if not user_specified_min_line_score:
         min_line_score = estimate_min_line_score_from_image(
-            prev_img.shape, focal_length_mm
+            prev_img.shape, focal_length_mm, locale=locale
         )
-        print(f"→ Using image-based min_line_score: {min_line_score:.1f}")
+        print(
+            get_message(
+                "ui.cli.auto_params.legacy.min_line_score.image",
+                locale=locale,
+                value=min_line_score,
+            )
+        )
     else:
-        print(f"→ Using user-specified min_line_score: {min_line_score}")
+        print(
+            get_message(
+                "ui.cli.auto_params.legacy.min_line_score.user",
+                locale=locale,
+                value=min_line_score,
+            )
+        )
 
     return diff_threshold, min_area, min_line_score
 
 
-def _print_processing_params(processing_params):
+def _print_processing_params(processing_params, locale: Optional[str] = None):
     """Print processing parameters in a formatted box."""
     print(f"\n{'='*50}")
-    print("Processing Parameters:")
+    print(get_message("ui.cli.processing_params.header", locale=locale))
     print(f"{'='*50}")
-    print(f"  diff_threshold:        {processing_params['diff_threshold']}")
-    print(f"  min_area:              {processing_params['min_area']}")
-    print(f"  min_aspect_ratio:      {processing_params['min_aspect_ratio']}")
-    print(f"  hough_threshold:       {processing_params['hough_threshold']}")
-    print(f"  hough_min_line_length: {processing_params['hough_min_line_length']}")
-    print(f"  hough_max_line_gap:    {processing_params['hough_max_line_gap']}")
-    print(f"  min_line_score:        {processing_params['min_line_score']:.1f}")
+    print(
+        get_message(
+            "ui.cli.processing_params.line",
+            locale=locale,
+            label=get_message(
+                "ui.cli.processing_params.label.diff_threshold", locale=locale
+            ),
+            value=processing_params["diff_threshold"],
+        )
+    )
+    print(
+        get_message(
+            "ui.cli.processing_params.line",
+            locale=locale,
+            label=get_message("ui.cli.processing_params.label.min_area", locale=locale),
+            value=processing_params["min_area"],
+        )
+    )
+    print(
+        get_message(
+            "ui.cli.processing_params.line",
+            locale=locale,
+            label=get_message(
+                "ui.cli.processing_params.label.min_aspect_ratio", locale=locale
+            ),
+            value=processing_params["min_aspect_ratio"],
+        )
+    )
+    print(
+        get_message(
+            "ui.cli.processing_params.line",
+            locale=locale,
+            label=get_message(
+                "ui.cli.processing_params.label.hough_threshold", locale=locale
+            ),
+            value=processing_params["hough_threshold"],
+        )
+    )
+    print(
+        get_message(
+            "ui.cli.processing_params.line",
+            locale=locale,
+            label=get_message(
+                "ui.cli.processing_params.label.hough_min_line_length", locale=locale
+            ),
+            value=processing_params["hough_min_line_length"],
+        )
+    )
+    print(
+        get_message(
+            "ui.cli.processing_params.line",
+            locale=locale,
+            label=get_message(
+                "ui.cli.processing_params.label.hough_max_line_gap", locale=locale
+            ),
+            value=processing_params["hough_max_line_gap"],
+        )
+    )
+    print(
+        get_message(
+            "ui.cli.processing_params.line",
+            locale=locale,
+            label=get_message(
+                "ui.cli.processing_params.label.min_line_score", locale=locale
+            ),
+            value=f"{processing_params['min_line_score']:.1f}",
+        )
+    )
     print(f"{'='*50}\n")
 
 
@@ -987,6 +1243,7 @@ def _run_parallel_detection(
     resume_offset,
     overall_total,
     record_result_callback,
+    locale: Optional[str] = None,
 ):
     """
     Run detection in parallel using ProcessPoolExecutor.
@@ -1013,7 +1270,13 @@ def _run_parallel_detection(
     batches = [
         image_pairs[i : i + batch_size] for i in range(0, len(image_pairs), batch_size)
     ]
-    print(f"Number of batches: {len(batches)}")
+    print(
+        get_message(
+            "ui.cli.processing.batches",
+            locale=locale,
+            count=len(batches),
+        )
+    )
 
     executor = ProcessPoolExecutor(
         max_workers=num_workers, initializer=_init_worker_ignore_interrupt
@@ -1047,7 +1310,13 @@ def _run_parallel_detection(
 
                     if line_score > 0:
                         print(
-                            f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
+                            get_message(
+                                "ui.cli.processing.line",
+                                locale=locale,
+                                filename=filename,
+                                score=line_score,
+                                lines=num_lines,
+                            )
                         )
 
                     if is_candidate:
@@ -1061,14 +1330,30 @@ def _run_parallel_detection(
                             output_overwrite,
                         )
                         if saved:
-                            print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                            print(
+                                get_message(
+                                    "ui.cli.processing.hit",
+                                    locale=locale,
+                                    filename=filename,
+                                    ratio=aspect_ratio,
+                                )
+                            )
                         else:
                             print(
-                                f"  [SKIP] {filename}: Already exists in output folder"
+                                get_message(
+                                    "ui.cli.processing.skip",
+                                    locale=locale,
+                                    filename=filename,
+                                )
                             )
                     else:
                         print(
-                            f"\rChecking... {resume_offset + processed}/{overall_total}",
+                            get_message(
+                                "ui.cli.processing.checking",
+                                locale=locale,
+                                current=resume_offset + processed,
+                                total=overall_total,
+                            ),
                             end="",
                             flush=True,
                         )
@@ -1078,9 +1363,16 @@ def _run_parallel_detection(
                     )
 
             except Exception as e:
-                print(f"\nBatch processing error: {e}")
+                print(
+                    "\n"
+                    + get_message(
+                        "ui.cli.processing.batch_error",
+                        locale=locale,
+                        error=e,
+                    )
+                )
     except KeyboardInterrupt:
-        print("\nInterrupted by user. Cancelling worker processes...")
+        print("\n" + get_message("ui.cli.processing.interrupt_cancel", locale=locale))
         wait_for_tasks = False
         for future in futures:
             future.cancel()
@@ -1102,6 +1394,7 @@ def _run_sequential_detection(
     resume_offset,
     overall_total,
     record_result_callback,
+    locale: Optional[str] = None,
 ):
     """
     Run detection sequentially (single-threaded).
@@ -1129,7 +1422,13 @@ def _run_sequential_detection(
         progress_line_active = True
 
         print(
-            f"\rProcessing {current_index}/{overall_total}: {current_file}",
+            get_message(
+                "ui.cli.processing.processing_file",
+                locale=locale,
+                current=current_index,
+                total=overall_total,
+                filename=current_file,
+            ),
             end="",
             flush=True,
         )
@@ -1151,7 +1450,15 @@ def _run_sequential_detection(
                 if progress_line_active:
                     print()
                     progress_line_active = False
-                print(f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}")
+                print(
+                    get_message(
+                        "ui.cli.processing.line",
+                        locale=locale,
+                        filename=filename,
+                        score=line_score,
+                        lines=num_lines,
+                    )
+                )
 
             if is_candidate:
                 if progress_line_active:
@@ -1168,14 +1475,30 @@ def _run_sequential_detection(
                     output_overwrite,
                 )
                 if saved:
-                    print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                    print(
+                        get_message(
+                            "ui.cli.processing.hit",
+                            locale=locale,
+                            filename=filename,
+                            ratio=aspect_ratio,
+                        )
+                    )
                 else:
                     print(
-                        f"  [SKIP] {filename}: Already exists in output folder (use --output-overwrite to overwrite)"
+                        get_message(
+                            "ui.cli.processing.skip_with_overwrite",
+                            locale=locale,
+                            filename=filename,
+                        )
                     )
             else:
                 print(
-                    f"\rChecking... {current_index}/{overall_total}",
+                    get_message(
+                        "ui.cli.processing.checking",
+                        locale=locale,
+                        current=current_index,
+                        total=overall_total,
+                    ),
                     end="",
                     flush=True,
                 )
@@ -1236,7 +1559,13 @@ def detect_meteors_advanced(
     _validate_directories(target_folder, output_folder, debug_folder)
 
     # Collect files (raises MeteorLoadError if directory doesn't exist or is empty)
-    print(f"Collecting RAW files from: {target_folder}")
+    print(
+        get_message(
+            "ui.cli.collecting",
+            locale=locale,
+            path=target_folder,
+        )
+    )
     files = collect_files(target_folder)
 
     if len(files) < 2:
@@ -1248,21 +1577,30 @@ def detect_meteors_advanced(
             context={"files_found": len(files)},
         )
 
-    print(f"Found {len(files)} files")
+    print(get_message("ui.cli.found_files", locale=locale, count=len(files)))
 
     # Load first image
     t_load = time.time()
     try:
         prev_img = load_and_bin_raw_fast(files[0])
     except Exception as exc:
-        print(f"Failed to load first RAW file: {os.path.basename(files[0])} ({exc})")
+        print(
+            get_message(
+                "ui.cli.load_first_failed",
+                locale=locale,
+                filename=os.path.basename(files[0]),
+                error=exc,
+            )
+        )
         return 0
 
     if profile:
         timing["first_load"] = time.time() - t_load
 
     # ROI setup
-    roi_mask, roi_polygon = _setup_roi(prev_img, roi_polygon_cli, enable_roi_selection)
+    roi_mask, roi_polygon = _setup_roi(
+        prev_img, roi_polygon_cli, enable_roi_selection, locale=locale
+    )
 
     # Auto-parameter estimation
     if auto_params:
@@ -1281,6 +1619,7 @@ def detect_meteors_advanced(
             sensor_width_mm=sensor_width_mm,
             pixel_pitch_um=pixel_pitch_um,
             fisheye=fisheye,
+            locale=locale,
         )
 
     # Build processing parameters
@@ -1294,7 +1633,7 @@ def detect_meteors_advanced(
         "min_line_score": min_line_score,
     }
 
-    _print_processing_params(processing_params)
+    _print_processing_params(processing_params, locale=locale)
 
     # Progress tracking setup
     params_for_hash = processing_params.copy()
@@ -1307,15 +1646,17 @@ def detect_meteors_advanced(
     params_hash = compute_params_hash(params_for_hash)
     if loaded_progress and progress_manager.get_params_hash() == params_hash:
         print(
-            f"Resuming from progress file: {progress_file} "
-            f"(processed={progress_manager.get_total_processed()}, "
-            f"detected={progress_manager.get_total_detected()})"
+            get_message(
+                "ui.cli.progress.resuming",
+                locale=locale,
+                path=progress_file,
+                processed=progress_manager.get_total_processed(),
+                detected=progress_manager.get_total_detected(),
+            )
         )
     else:
         if loaded_progress:
-            print(
-                "Progress file exists but parameters differ. Starting with fresh progress."
-            )
+            print(get_message("ui.cli.progress.param_mismatch", locale=locale))
         progress_manager.reset()
 
     progress_manager.set_params_hash(params_hash)
@@ -1351,9 +1692,22 @@ def detect_meteors_advanced(
     resume_offset = len(processed_set)
     overall_total = resume_offset + len(image_pairs)
 
-    print(f"Starting processing: {len(image_pairs)} image pairs")
+    print(
+        get_message(
+            "ui.cli.processing.start",
+            locale=locale,
+            count=len(image_pairs),
+        )
+    )
     if enable_parallel:
-        print(f"Parallel processing: {num_workers} workers, batch size: {batch_size}")
+        print(
+            get_message(
+                "ui.cli.processing.parallel",
+                locale=locale,
+                workers=num_workers,
+                batch_size=batch_size,
+            )
+        )
 
     detected_count = len(detected_set)
     t_process = time.time()
@@ -1373,6 +1727,7 @@ def detect_meteors_advanced(
                 resume_offset=resume_offset,
                 overall_total=overall_total,
                 record_result_callback=record_result,
+                locale=locale,
             )
         else:
             detected_count = _run_sequential_detection(
@@ -1386,6 +1741,7 @@ def detect_meteors_advanced(
                 resume_offset=resume_offset,
                 overall_total=overall_total,
                 record_result_callback=record_result,
+                locale=locale,
             )
     except KeyboardInterrupt:
         print(
@@ -1404,13 +1760,43 @@ def detect_meteors_advanced(
         timing["processing"] = time.time() - t_process
         timing["total"] = time.time() - t_total
 
-        print("\n\n=== Performance Profile ===")
-        print(f"First image load: {timing['first_load']:.3f}s")
-        print(f"Processing time: {timing['processing']:.3f}s")
-        print(f"Total time: {timing['total']:.3f}s")
-        print(f"Images processed: {len(image_pairs)}")
+        print("\n\n" + get_message("ui.profile.header", locale=locale))
+        print(
+            get_message(
+                "ui.profile.first_load",
+                locale=locale,
+                value=timing["first_load"],
+            )
+        )
+        print(
+            get_message(
+                "ui.profile.processing_time",
+                locale=locale,
+                value=timing["processing"],
+            )
+        )
+        print(
+            get_message(
+                "ui.profile.total_time",
+                locale=locale,
+                value=timing["total"],
+            )
+        )
+        print(
+            get_message(
+                "ui.profile.images_processed",
+                locale=locale,
+                count=len(image_pairs),
+            )
+        )
         if image_pairs:
-            print(f"Average per image: {timing['processing'] / len(image_pairs):.3f}s")
+            print(
+                get_message(
+                    "ui.profile.average_per_image",
+                    locale=locale,
+                    value=timing["processing"] / len(image_pairs),
+                )
+            )
 
     summary_message = get_message("ui.run.summary", locale=locale, count=detected_count)
     print(f"\n{summary_message}")
@@ -1451,7 +1837,7 @@ def main():
 
         # --list-sensor-types: Display available sensor types and exit
         if args.list_sensor_types:
-            list_sensor_types()
+            list_sensor_types(locale=locale)
             return
 
         # --show-exif or --show-npf: Display EXIF info and NPF analysis then exit
@@ -1551,7 +1937,7 @@ def _run_main(args, cli_param_string: str):
         focal_length_value,
         pixel_pitch_value,
         preset,
-    ) = validate_and_apply_sensor_preset(args, verbose=False)
+    ) = validate_and_apply_sensor_preset(args, verbose=False, locale=locale)
 
     detect_meteors_advanced(
         target_folder=args.target,

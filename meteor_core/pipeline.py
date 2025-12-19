@@ -22,6 +22,7 @@ import cv2
 import numpy as np
 
 from .exceptions import MeteorConfigError, MeteorError, MeteorLoadError
+from .i18n import DEFAULT_LOCALE, get_message
 from .schema import (
     EXTENSIONS,
     DEFAULT_DIFF_THRESHOLD,
@@ -53,6 +54,12 @@ logger = logging.getLogger(__name__)
 
 # Lazy initialization to avoid circular imports
 _DEFAULT_INPUT_LOADER: Optional[BaseInputLoader] = None
+
+
+def _resolve_locale(locale: Optional[str]) -> str:
+    if locale:
+        return locale
+    return os.environ.get("DETECT_METEORS_LOCALE", DEFAULT_LOCALE)
 
 
 def _get_default_input_loader() -> BaseInputLoader:
@@ -568,6 +575,7 @@ def estimate_diff_threshold_from_samples(
     roi_mask: np.ndarray,
     sample_size: int = 5,
     input_loader: Optional[BaseInputLoader] = None,
+    locale: Optional[str] = None,
 ) -> int:
     """
     Estimation using percentile-based approach.
@@ -583,18 +591,33 @@ def estimate_diff_threshold_from_samples(
     Returns:
         Estimated diff_threshold value
     """
+    locale = _resolve_locale(locale)
     print(f"\n{'='*50}")
-    print(f"Auto-estimating diff_threshold from {sample_size} samples")
-    print("Percentile-based approach")
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.header",
+            locale=locale,
+            sample_size=sample_size,
+        )
+    )
+    print(get_message("ui.pipeline.estimate.diff_threshold.subtitle", locale=locale))
     print(f"{'='*50}")
 
     sample_size = min(sample_size, len(files))
     if sample_size < 2:
-        print("⚠ Not enough samples, using default")
+        print(
+            get_message(
+                "ui.pipeline.estimate.diff_threshold.too_few_samples", locale=locale
+            )
+        )
         return DEFAULT_DIFF_THRESHOLD
 
     samples = []
-    print("Loading samples... ", end="", flush=True)
+    print(
+        get_message("ui.pipeline.estimate.loading_samples", locale=locale),
+        end="",
+        flush=True,
+    )
     loader = _resolve_input_loader(input_loader)
 
     for i in range(sample_size):
@@ -602,22 +625,41 @@ def estimate_diff_threshold_from_samples(
             img = loader.load(files[i])
             samples.append(img)
         except Exception as exc:
-            print(f"\n⚠ Warning: Failed to load sample {i}: {exc}")
+            print(
+                get_message(
+                    "ui.pipeline.estimate.sample_load_failed",
+                    locale=locale,
+                    index=i,
+                    error=exc,
+                )
+            )
             continue
-    print(f"✓ Loaded {len(samples)} images")
+    print(
+        get_message(
+            "ui.pipeline.estimate.samples_loaded",
+            locale=locale,
+            count=len(samples),
+        )
+    )
 
     if len(samples) < 2:
-        print("⚠ Not enough valid samples, using default")
+        print(
+            get_message("ui.pipeline.estimate.not_enough_valid_samples", locale=locale)
+        )
         return DEFAULT_DIFF_THRESHOLD
 
     # Calculate frame-to-frame differences in ROI
-    print("Analyzing frame-to-frame differences in ROI... ", end="", flush=True)
+    print(
+        get_message("ui.pipeline.estimate.diff_threshold.analyzing", locale=locale),
+        end="",
+        flush=True,
+    )
     diff_values = []
     for i in range(1, len(samples)):
         diff = cv2.absdiff(samples[i], samples[i - 1])
         roi_diff = diff[roi_mask == 255]
         diff_values.extend(roi_diff.flatten())
-    print("✓")
+    print(get_message("ui.pipeline.estimate.done", locale=locale))
 
     diff_array = np.array(diff_values, dtype=np.float32)
 
@@ -649,22 +691,96 @@ def estimate_diff_threshold_from_samples(
     estimated_threshold = np.clip(estimated_threshold, 3, 18)
 
     print(f"\n{'─'*50}")
-    print(f"ROI Difference Statistics (from {len(diff_values):,} pixels):")
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.header",
+            locale=locale,
+            pixel_count=len(diff_values),
+        )
+    )
     print(f"{'─'*50}")
-    print(f"  Mean:         {mean_diff:.2f}")
-    print(f"  Std Dev:      {std_diff:.2f}")
-    print(f"  Median:       {median_diff:.2f}")
-    print(f"  90th %ile:    {p90:.2f}")
-    print(f"  95th %ile:    {p95:.2f}")
-    print(f"  98th %ile:    {p98:.2f}")
-    print(f"  99th %ile:    {p99:.2f}")
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.mean",
+            locale=locale,
+            value=mean_diff,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.std_dev",
+            locale=locale,
+            value=std_diff,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.median",
+            locale=locale,
+            value=median_diff,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.p90",
+            locale=locale,
+            value=p90,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.p95",
+            locale=locale,
+            value=p95,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.p98",
+            locale=locale,
+            value=p98,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.stats.p99",
+            locale=locale,
+            value=p99,
+        )
+    )
     print(f"{'─'*50}")
-    print("Estimation methods:")
-    print(f"  [1] 98th percentile:      {method_1}")
-    print(f"  [2] Mean + 1.5σ:          {method_2}")
-    print(f"  [3] Median × 3:           {method_3}")
+    print(
+        get_message("ui.pipeline.estimate.diff_threshold.methods.header", locale=locale)
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.methods.p98",
+            locale=locale,
+            value=method_1,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.methods.mean_sigma",
+            locale=locale,
+            value=method_2,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.methods.median",
+            locale=locale,
+            value=method_3,
+        )
+    )
     print(f"{'─'*50}")
-    print(f"✓ Selected threshold: {estimated_threshold} (minimum)")
+    print(
+        get_message(
+            "ui.pipeline.estimate.diff_threshold.selected",
+            locale=locale,
+            value=estimated_threshold,
+        )
+    )
     print(f"{'='*50}\n")
 
     return estimated_threshold
@@ -676,6 +792,7 @@ def estimate_min_area_from_samples(
     diff_threshold: int,
     sample_size: int = 3,
     input_loader: Optional[BaseInputLoader] = None,
+    locale: Optional[str] = None,
 ) -> int:
     """
     Improved min_area estimation with better star detection.
@@ -689,18 +806,31 @@ def estimate_min_area_from_samples(
     Returns:
         Estimated min_area value
     """
+    locale = _resolve_locale(locale)
     print(f"\n{'='*50}")
-    print(f"Auto-estimating min_area from {sample_size} samples")
-    print("Star size distribution analysis")
+    print(
+        get_message(
+            "ui.pipeline.estimate.min_area.header",
+            locale=locale,
+            sample_size=sample_size,
+        )
+    )
+    print(get_message("ui.pipeline.estimate.min_area.subtitle", locale=locale))
     print(f"{'='*50}")
 
     sample_size = min(sample_size, len(files))
     if sample_size < 1:
-        print("⚠ Not enough samples, using default")
+        print(
+            get_message("ui.pipeline.estimate.min_area.too_few_samples", locale=locale)
+        )
         return DEFAULT_MIN_AREA
 
     samples = []
-    print("Loading samples... ", end="", flush=True)
+    print(
+        get_message("ui.pipeline.estimate.loading_samples", locale=locale),
+        end="",
+        flush=True,
+    )
     loader = _resolve_input_loader(input_loader)
 
     for i in range(sample_size):
@@ -708,15 +838,32 @@ def estimate_min_area_from_samples(
             img = loader.load(files[i])
             samples.append(img)
         except Exception as exc:
-            print(f"\n⚠ Warning: Failed to load sample {i}: {exc}")
+            print(
+                get_message(
+                    "ui.pipeline.estimate.sample_load_failed",
+                    locale=locale,
+                    index=i,
+                    error=exc,
+                )
+            )
             continue
-    print(f"✓ Loaded {len(samples)} images")
+    print(
+        get_message(
+            "ui.pipeline.estimate.samples_loaded",
+            locale=locale,
+            count=len(samples),
+        )
+    )
 
     if not samples:
-        print("⚠ No valid samples, using default")
+        print(get_message("ui.pipeline.estimate.no_valid_samples", locale=locale))
         return DEFAULT_MIN_AREA
 
-    print("Detecting stars in ROI... ", end="", flush=True)
+    print(
+        get_message("ui.pipeline.estimate.min_area.detecting_stars", locale=locale),
+        end="",
+        flush=True,
+    )
     all_star_areas = []
 
     for img in samples:
@@ -741,10 +888,16 @@ def estimate_min_area_from_samples(
             if 2.0 <= area <= 100.0:  # Exclude tiny noise and large artifacts
                 all_star_areas.append(area)
 
-    print(f"✓ Detected {len(all_star_areas)} stars")
+    print(
+        get_message(
+            "ui.pipeline.estimate.min_area.detected_stars",
+            locale=locale,
+            count=len(all_star_areas),
+        )
+    )
 
     if len(all_star_areas) < 10:
-        print("⚠ Not enough stars detected, using default")
+        print(get_message("ui.pipeline.estimate.min_area.too_few_stars", locale=locale))
         return DEFAULT_MIN_AREA
 
     star_areas = np.array(all_star_areas)
@@ -763,22 +916,60 @@ def estimate_min_area_from_samples(
     estimated_min_area = np.clip(estimated_min_area, 8, 50)
 
     print(f"\n{'─'*50}")
-    print(f"Star Size Statistics (from {len(all_star_areas)} stars):")
+    print(
+        get_message(
+            "ui.pipeline.estimate.min_area.stats.header",
+            locale=locale,
+            count=len(all_star_areas),
+        )
+    )
     print(f"{'─'*50}")
-    print(f"  Median:       {median_star:.1f} pixels²")
-    print(f"  Mean:         {mean_star:.1f} pixels²")
-    print(f"  75th %ile:    {p75_star:.1f} pixels²")
-    print(f"  90th %ile:    {p90_star:.1f} pixels²")
+    print(
+        get_message(
+            "ui.pipeline.estimate.min_area.stats.median",
+            locale=locale,
+            value=median_star,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.min_area.stats.mean",
+            locale=locale,
+            value=mean_star,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.min_area.stats.p75",
+            locale=locale,
+            value=p75_star,
+        )
+    )
+    print(
+        get_message(
+            "ui.pipeline.estimate.min_area.stats.p90",
+            locale=locale,
+            value=p90_star,
+        )
+    )
     print(f"{'─'*50}")
-    print(f"✓ Estimated min_area: {estimated_min_area}")
-    print("  → 75th percentile × 2.0 (robust to outliers)")
+    print(
+        get_message(
+            "ui.pipeline.estimate.min_area.estimated",
+            locale=locale,
+            value=estimated_min_area,
+        )
+    )
+    print(get_message("ui.pipeline.estimate.min_area.method_note", locale=locale))
     print(f"{'='*50}\n")
 
     return estimated_min_area
 
 
 def estimate_min_line_score_from_image(
-    image_shape: Tuple[int, int], focal_length_mm: Optional[float] = None
+    image_shape: Tuple[int, int],
+    focal_length_mm: Optional[float] = None,
+    locale: Optional[str] = None,
 ) -> float:
     """
     Fixed min_line_score estimation with corrected focal length logic.
@@ -790,8 +981,9 @@ def estimate_min_line_score_from_image(
     Returns:
         Estimated min_line_score value
     """
+    locale = _resolve_locale(locale)
     print(f"\n{'='*50}")
-    print("Auto-estimating min_line_score from image geometry")
+    print(get_message("ui.pipeline.estimate.min_line_score.header", locale=locale))
     print(f"{'='*50}")
 
     height, width = image_shape
@@ -805,30 +997,104 @@ def estimate_min_line_score_from_image(
         adjusted_score = base_score * focal_factor
 
         print(f"\n{'─'*50}")
-        print("Image Geometry:")
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.header", locale=locale
+            )
+        )
         print(f"{'─'*50}")
-        print(f"  Dimensions:   {width}×{height} pixels")
-        print(f"  Diagonal:     {diagonal:.0f} pixels")
-        print(f"  Focal length: {focal_length_mm}mm")
-        print(f"  Focal factor: {focal_factor:.2f}×")
-        print(f"  Base score:   {base_score:.1f}")
-        print(f"  Adjusted:     {adjusted_score:.1f}")
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.dimensions",
+                locale=locale,
+                width=width,
+                height=height,
+            )
+        )
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.diagonal",
+                locale=locale,
+                value=diagonal,
+            )
+        )
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.focal_length",
+                locale=locale,
+                value=focal_length_mm,
+            )
+        )
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.focal_factor",
+                locale=locale,
+                value=focal_factor,
+            )
+        )
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.base_score",
+                locale=locale,
+                value=base_score,
+            )
+        )
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.adjusted_score",
+                locale=locale,
+                value=adjusted_score,
+            )
+        )
     else:
         adjusted_score = base_score
         print(f"\n{'─'*50}")
-        print("Image Geometry:")
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.header", locale=locale
+            )
+        )
         print(f"{'─'*50}")
-        print(f"  Dimensions:   {width}×{height} pixels")
-        print(f"  Diagonal:     {diagonal:.0f} pixels")
-        print(f"  Base score:   {base_score:.1f}")
-        print("  (No focal length provided)")
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.dimensions",
+                locale=locale,
+                width=width,
+                height=height,
+            )
+        )
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.diagonal",
+                locale=locale,
+                value=diagonal,
+            )
+        )
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.base_score",
+                locale=locale,
+                value=base_score,
+            )
+        )
+        print(
+            get_message(
+                "ui.pipeline.estimate.min_line_score.geometry.no_focal", locale=locale
+            )
+        )
 
     # Adjusted clamp range based on real meteor data
     estimated_score = np.clip(adjusted_score, 40.0, 150.0)
 
     print(f"{'─'*50}")
-    print(f"✓ Estimated min_line_score: {estimated_score:.1f}")
-    print("  → ~2.5% of image diagonal")
+    print(
+        get_message(
+            "ui.pipeline.estimate.min_line_score.estimated",
+            locale=locale,
+            value=estimated_score,
+        )
+    )
+    print(get_message("ui.pipeline.estimate.min_line_score.method_note", locale=locale))
     print(f"{'='*50}\n")
 
     return estimated_score
@@ -1125,6 +1391,7 @@ class MeteorDetectionPipeline:
         Returns:
             Number of detected candidates
         """
+        locale = _resolve_locale(None)
         timing = {}
         t_total = time.time()
         input_loader = _resolve_input_loader(
@@ -1137,19 +1404,25 @@ class MeteorDetectionPipeline:
 
         if target_fullpath == output_fullpath:
             print(f"\n{'='*60}")
-            print("⚠ ERROR: Target and output directories are the same!")
+            print(get_message("ui.pipeline.error.same_directories", locale=locale))
             print(f"{'='*60}")
             return 0
 
         # Collect files
-        print(f"Collecting RAW files from: {self._config.target_folder}")
+        print(
+            get_message(
+                "ui.pipeline.collecting",
+                locale=locale,
+                path=self._config.target_folder,
+            )
+        )
         files = collect_files(self._config.target_folder)
 
         if len(files) < 2:
-            print("Need at least 2 images. Exiting.")
+            print(get_message("ui.pipeline.need_two_images", locale=locale))
             return 0
 
-        print(f"Found {len(files)} files")
+        print(get_message("ui.pipeline.found_files", locale=locale, count=len(files)))
 
         # Load first image
         t_load = time.time()
@@ -1157,7 +1430,12 @@ class MeteorDetectionPipeline:
             prev_img = input_loader.load(files[0])
         except Exception as exc:
             print(
-                f"Failed to load first RAW file: {os.path.basename(files[0])} ({exc})"
+                get_message(
+                    "ui.pipeline.load_first_failed",
+                    locale=locale,
+                    filename=os.path.basename(files[0]),
+                    error=exc,
+                )
             )
             return 0
 
@@ -1171,22 +1449,30 @@ class MeteorDetectionPipeline:
 
         if roi_polygon_cli:
             print(
-                f"ROI specified via command line: polygon={format_polygon_string(roi_polygon_cli)}"
+                get_message(
+                    "ui.pipeline.roi.cli_specified",
+                    locale=locale,
+                    polygon=format_polygon_string(roi_polygon_cli),
+                )
             )
             roi_mask = create_roi_mask_from_polygon(roi_polygon_cli, (height, width))
             roi_polygon = roi_polygon_cli
         elif enable_roi_selection:
-            roi_selection = select_roi(prev_img)
+            roi_selection = select_roi(prev_img, locale=locale)
             if roi_selection:
                 roi_mask = roi_selection["mask"]
                 roi_polygon = roi_selection["polygon"]
                 print(
-                    f"ROI setup complete: polygon={format_polygon_string(roi_polygon)}"
+                    get_message(
+                        "ui.pipeline.roi.setup_complete",
+                        locale=locale,
+                        polygon=format_polygon_string(roi_polygon),
+                    )
                 )
             else:
-                print("No ROI selected. Processing entire image.")
+                print(get_message("ui.pipeline.roi.none_selected", locale=locale))
         else:
-            print("Skipping ROI selection. Processing entire image.")
+            print(get_message("ui.pipeline.roi.skipped", locale=locale))
 
         # Get params dict
         params = self._config.params.to_dict()
@@ -1206,12 +1492,16 @@ class MeteorDetectionPipeline:
             loaded = self.progress_manager.load()
             if loaded and self.progress_manager.get_params_hash() == params_hash:
                 print(
-                    f"Resuming from progress file: {self._config.progress_file} "
-                    f"(processed={self.progress_manager.get_total_processed()}, "
-                    f"detected={self.progress_manager.get_total_detected()})"
+                    get_message(
+                        "ui.pipeline.progress.resuming",
+                        locale=locale,
+                        path=self._config.progress_file,
+                        processed=self.progress_manager.get_total_processed(),
+                        detected=self.progress_manager.get_total_detected(),
+                    )
                 )
             elif loaded:
-                print("Progress file exists but parameters differ. Starting fresh.")
+                print(get_message("ui.pipeline.progress.param_mismatch", locale=locale))
                 self.progress_manager.reset()
                 self.progress_manager.set_params_hash(params_hash)
 
@@ -1231,11 +1521,21 @@ class MeteorDetectionPipeline:
         resume_offset = self.progress_manager.get_total_processed()
         overall_total = resume_offset + len(image_pairs)
 
-        print(f"Starting processing: {len(image_pairs)} image pairs")
+        print(
+            get_message(
+                "ui.pipeline.processing.start",
+                locale=locale,
+                count=len(image_pairs),
+            )
+        )
         if self._config.enable_parallel:
             print(
-                f"Parallel processing: {self._config.num_workers} workers, "
-                f"batch size: {self._config.batch_size}"
+                get_message(
+                    "ui.pipeline.processing.parallel",
+                    locale=locale,
+                    workers=self._config.num_workers,
+                    batch_size=self._config.batch_size,
+                )
             )
 
         detected_count = self.progress_manager.get_total_detected()
@@ -1252,6 +1552,7 @@ class MeteorDetectionPipeline:
                     overall_total,
                     input_loader,
                     self.detector,
+                    locale=locale,
                 )
             else:
                 detected_count = self._process_sequential(
@@ -1263,10 +1564,16 @@ class MeteorDetectionPipeline:
                     overall_total,
                     input_loader,
                     self.detector,
+                    locale=locale,
                 )
         except KeyboardInterrupt:
             print(
-                f"\nInterrupted by user. Progress saved to {self._config.progress_file}."
+                "\n"
+                + get_message(
+                    "ui.pipeline.interrupt.saved",
+                    locale=locale,
+                    path=self._config.progress_file,
+                )
             )
             self.progress_manager.save()
             return self.progress_manager.get_total_detected()
@@ -1275,17 +1582,52 @@ class MeteorDetectionPipeline:
             timing["processing"] = time.time() - t_process
             timing["total"] = time.time() - t_total
 
-            print("\n\n=== Performance Profile ===")
-            print(f"First image load: {timing['first_load']:.3f}s")
-            print(f"Processing time: {timing['processing']:.3f}s")
-            print(f"Total time: {timing['total']:.3f}s")
-            print(f"Images processed: {len(image_pairs)}")
+            print("\n\n" + get_message("ui.profile.header", locale=locale))
+            print(
+                get_message(
+                    "ui.profile.first_load",
+                    locale=locale,
+                    value=timing["first_load"],
+                )
+            )
+            print(
+                get_message(
+                    "ui.profile.processing_time",
+                    locale=locale,
+                    value=timing["processing"],
+                )
+            )
+            print(
+                get_message(
+                    "ui.profile.total_time",
+                    locale=locale,
+                    value=timing["total"],
+                )
+            )
+            print(
+                get_message(
+                    "ui.profile.images_processed",
+                    locale=locale,
+                    count=len(image_pairs),
+                )
+            )
             if image_pairs:
                 print(
-                    f"Average per image: {timing['processing'] / len(image_pairs):.3f}s"
+                    get_message(
+                        "ui.profile.average_per_image",
+                        locale=locale,
+                        value=timing["processing"] / len(image_pairs),
+                    )
                 )
 
-        print(f"\nComplete! {detected_count} candidates extracted")
+        print(
+            "\n"
+            + get_message(
+                "ui.pipeline.summary",
+                locale=locale,
+                count=detected_count,
+            )
+        )
         return detected_count
 
     def _process_parallel(
@@ -1298,14 +1640,22 @@ class MeteorDetectionPipeline:
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
         detector: Optional[BaseDetector],
+        locale: Optional[str] = None,
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
+        locale = _resolve_locale(locale)
         batches = [
             image_pairs[i : i + self._config.batch_size]
             for i in range(0, len(image_pairs), self._config.batch_size)
         ]
 
-        print(f"Number of batches: {len(batches)}")
+        print(
+            get_message(
+                "ui.pipeline.processing.batches",
+                locale=locale,
+                count=len(batches),
+            )
+        )
 
         executor = ProcessPoolExecutor(
             max_workers=self._config.num_workers,
@@ -1340,7 +1690,13 @@ class MeteorDetectionPipeline:
 
                         if line_score > 0:
                             print(
-                                f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
+                                get_message(
+                                    "ui.pipeline.processing.line",
+                                    locale=locale,
+                                    filename=filename,
+                                    score=line_score,
+                                    lines=num_lines,
+                                )
                             )
 
                         if is_candidate:
@@ -1348,12 +1704,30 @@ class MeteorDetectionPipeline:
                                 filepath, filename, debug_img, roi_polygon
                             )
                             if saved:
-                                print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                                print(
+                                    get_message(
+                                        "ui.pipeline.processing.hit",
+                                        locale=locale,
+                                        filename=filename,
+                                        ratio=aspect_ratio,
+                                    )
+                                )
                             else:
-                                print(f"  [SKIP] {filename}: Already exists")
+                                print(
+                                    get_message(
+                                        "ui.pipeline.processing.skip",
+                                        locale=locale,
+                                        filename=filename,
+                                    )
+                                )
                         else:
                             print(
-                                f"\rChecking... {resume_offset + processed}/{overall_total}",
+                                get_message(
+                                    "ui.pipeline.processing.checking",
+                                    locale=locale,
+                                    current=resume_offset + processed,
+                                    total=overall_total,
+                                ),
                                 end="",
                                 flush=True,
                             )
@@ -1363,9 +1737,22 @@ class MeteorDetectionPipeline:
                         )
 
                 except Exception as e:
-                    print(f"\nBatch processing error: {e}")
+                    print(
+                        "\n"
+                        + get_message(
+                            "ui.pipeline.processing.batch_error",
+                            locale=locale,
+                            error=e,
+                        )
+                    )
         except KeyboardInterrupt:
-            print("\nInterrupted by user. Cancelling worker processes...")
+            print(
+                "\n"
+                + get_message(
+                    "ui.pipeline.processing.interrupt_cancel",
+                    locale=locale,
+                )
+            )
             wait_for_tasks = False
             for future in futures:
                 future.cancel()
@@ -1385,14 +1772,22 @@ class MeteorDetectionPipeline:
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
         detector: Optional[BaseDetector],
+        locale: Optional[str] = None,
     ) -> int:
         """Process images sequentially."""
+        locale = _resolve_locale(locale)
         for idx, pair in enumerate(image_pairs):
             current_index = resume_offset + idx + 1
             current_file = os.path.basename(pair[0])
 
             print(
-                f"\rProcessing {current_index}/{overall_total}: {current_file}",
+                get_message(
+                    "ui.pipeline.processing.processing_file",
+                    locale=locale,
+                    current=current_index,
+                    total=overall_total,
+                    filename=current_file,
+                ),
                 end="",
                 flush=True,
             )
@@ -1415,7 +1810,13 @@ class MeteorDetectionPipeline:
                 if line_score > 0:
                     print()
                     print(
-                        f"  [LINE] {filename}: score={line_score:.1f}, lines={num_lines}"
+                        get_message(
+                            "ui.pipeline.processing.line",
+                            locale=locale,
+                            filename=filename,
+                            score=line_score,
+                            lines=num_lines,
+                        )
                     )
 
                 if is_candidate:
@@ -1424,9 +1825,22 @@ class MeteorDetectionPipeline:
                         filepath, filename, debug_img, roi_polygon
                     )
                     if saved:
-                        print(f"  [HIT] {filename}: Ratio={aspect_ratio:.2f}")
+                        print(
+                            get_message(
+                                "ui.pipeline.processing.hit",
+                                locale=locale,
+                                filename=filename,
+                                ratio=aspect_ratio,
+                            )
+                        )
                     else:
-                        print(f"  [SKIP] {filename}: Already exists")
+                        print(
+                            get_message(
+                                "ui.pipeline.processing.skip",
+                                locale=locale,
+                                filename=filename,
+                            )
+                        )
 
                 self.progress_manager.record_result(
                     filename, is_candidate, line_score, num_lines, aspect_ratio

@@ -44,6 +44,262 @@ ui:
     not_found: "Progress file not found: {path}"
   run:
     summary: "{count, plural, =0 {Complete! No candidates extracted} one {Complete! # candidate extracted} other {Complete! # candidates extracted}}"
+  cli:
+    collecting: "Collecting RAW files from: {path}"
+    found_files: "Found {count} files"
+    load_first_failed: "Failed to load first RAW file: {filename} ({error})"
+    warnings:
+      header: "⚠ Warnings:"
+    exif:
+      header: "EXIF Metadata Viewer"
+      header_npf: "EXIF Metadata & NPF Rule Analysis"
+      target_folder: "Target folder: {path}"
+      found_raw_files: "Found {count} RAW files"
+      reading_first_file: "Reading EXIF from first file: {filename}"
+      focal_source:
+        unknown: "Unknown"
+        cli: "CLI (--focal-length)"
+        exif: "EXIF"
+        calculated_factor: "Calculated (--focal-factor {factor})"
+        calculated_sensor: "Calculated (--sensor-type {sensor_type})"
+        calculated_exif: "Calculated (EXIF {focal_length:.1f}mm × factor {factor})"
+        exif_actual: "EXIF (actual, no 35mm equiv.)"
+      warning:
+        focal_length_unavailable: "Focal length not available"
+        no_equiv: "35mm equivalent not found. Consider using --sensor-type or --focal-factor"
+        iso_unavailable: "ISO value not available"
+        exposure_unavailable: "Exposure time not available"
+        sensor_width_missing: "Sensor width not specified. Use --sensor-type or --sensor-width for accurate NPF calculation"
+        npf_incomplete: "NPF calculation using default/estimated values"
+    roi:
+      cli_specified: "ROI specified via command line: polygon={polygon}"
+      setup_complete: "ROI setup complete: polygon={polygon}"
+      none_selected: "No ROI selected. Processing entire image."
+      skipped: "Skipping ROI selection. Processing entire image."
+    auto_params:
+      header: "Auto-params: NPF Rule-based Optimization"
+      warning:
+        focal_length_missing: "Focal length not available from EXIF"
+        focal_length_hint: "  → Consider using --focal-length option"
+        no_equiv: "35mm equivalent not found in EXIF (using actual: {focal_length:.1f}mm)"
+        no_equiv_hint: "  → For crop sensor cameras, use --focal-factor"
+        iso_missing: "ISO value not available from EXIF"
+        exposure_missing: "Exposure time not available from EXIF"
+        default_pixel_pitch: "Using default pixel pitch for NPF calculation"
+        pixel_pitch_hint: "  → For better accuracy, use --sensor-width or --pixel-pitch"
+      optimize:
+        header: "Parameter Optimization (NPF Rule-based)"
+        quality_score: "Shooting Quality Score: {score:.2f} ({level})"
+        adjustments:
+          header: "Parameter Adjustments:"
+          item: "  • {text}"
+          none: "No automatic adjustments (all parameters user-specified)"
+      legacy:
+        insufficient: "⚠ Insufficient data for NPF-based optimization"
+        fallback: "  Falling back to legacy auto-params method"
+        diff_threshold:
+          sample: "→ Using sample-based diff_threshold: {value}"
+          user: "→ Using user-specified diff_threshold: {value}"
+        min_area:
+          sample: "→ Using sample-based min_area: {value}"
+          user: "→ Using user-specified min_area: {value}"
+        min_line_score:
+          image: "→ Using image-based min_line_score: {value:.1f}"
+          user: "→ Using user-specified min_line_score: {value}"
+    processing_params:
+      header: "Processing Parameters:"
+      line: "  {label}: {value}"
+      label:
+        diff_threshold: "diff_threshold"
+        min_area: "min_area"
+        min_aspect_ratio: "min_aspect_ratio"
+        hough_threshold: "hough_threshold"
+        hough_min_line_length: "hough_min_line_length"
+        hough_max_line_gap: "hough_max_line_gap"
+        min_line_score: "min_line_score"
+    progress:
+      resuming: "Resuming from progress file: {path} (processed={processed}, detected={detected})"
+      param_mismatch: "Progress file exists but parameters differ. Starting with fresh progress."
+    processing:
+      start: "Starting processing: {count} image pairs"
+      parallel: "Parallel processing: {workers} workers, batch size: {batch_size}"
+      batches: "Number of batches: {count}"
+      line: "  [LINE] {filename}: score={score:.1f}, lines={lines}"
+      hit: "  [HIT] {filename}: Ratio={ratio:.2f}"
+      skip: "  [SKIP] {filename}: Already exists in output folder"
+      skip_with_overwrite: "  [SKIP] {filename}: Already exists in output folder (use --output-overwrite to overwrite)"
+      checking: "Checking... {current}/{total}"
+      batch_error: "Batch processing error: {error}"
+      interrupt_cancel: "Interrupted by user. Cancelling worker processes..."
+      processing_file: "Processing {current}/{total}: {filename}"
+  profile:
+    header: "=== Performance Profile ==="
+    first_load: "First image load: {value:.3f}s"
+    processing_time: "Processing time: {value:.3f}s"
+    total_time: "Total time: {value:.3f}s"
+    images_processed: "Images processed: {count}"
+    average_per_image: "Average per image: {value:.3f}s"
+  pipeline:
+    error:
+      same_directories: "⚠ ERROR: Target and output directories are the same!"
+    collecting: "Collecting RAW files from: {path}"
+    need_two_images: "Need at least 2 images. Exiting."
+    found_files: "Found {count} files"
+    load_first_failed: "Failed to load first RAW file: {filename} ({error})"
+    roi:
+      cli_specified: "ROI specified via command line: polygon={polygon}"
+      setup_complete: "ROI setup complete: polygon={polygon}"
+      none_selected: "No ROI selected. Processing entire image."
+      skipped: "Skipping ROI selection. Processing entire image."
+    progress:
+      resuming: "Resuming from progress file: {path} (processed={processed}, detected={detected})"
+      param_mismatch: "Progress file exists but parameters differ. Starting fresh."
+    processing:
+      start: "Starting processing: {count} image pairs"
+      parallel: "Parallel processing: {workers} workers, batch size: {batch_size}"
+      batches: "Number of batches: {count}"
+      line: "  [LINE] {filename}: score={score:.1f}, lines={lines}"
+      hit: "  [HIT] {filename}: Ratio={ratio:.2f}"
+      skip: "  [SKIP] {filename}: Already exists"
+      checking: "Checking... {current}/{total}"
+      batch_error: "Batch processing error: {error}"
+      interrupt_cancel: "Interrupted by user. Cancelling worker processes..."
+      processing_file: "Processing {current}/{total}: {filename}"
+    interrupt:
+      saved: "Interrupted by user. Progress saved to {path}."
+    summary: "{count, plural, =0 {Complete! No candidates extracted} one {Complete! # candidate extracted} other {Complete! # candidates extracted}}"
+    estimate:
+      loading_samples: "Loading samples... "
+      sample_load_failed: "\n⚠ Warning: Failed to load sample {index}: {error}"
+      samples_loaded: "✓ Loaded {count} images"
+      not_enough_valid_samples: "⚠ Not enough valid samples, using default"
+      no_valid_samples: "⚠ No valid samples, using default"
+      done: "✓"
+      diff_threshold:
+        header: "Auto-estimating diff_threshold from {sample_size} samples"
+        subtitle: "Percentile-based approach"
+        too_few_samples: "⚠ Not enough samples, using default"
+        analyzing: "Analyzing frame-to-frame differences in ROI... "
+        stats:
+          header: "ROI Difference Statistics (from {pixel_count:,} pixels):"
+          mean: "  Mean:         {value:.2f}"
+          std_dev: "  Std Dev:      {value:.2f}"
+          median: "  Median:       {value:.2f}"
+          p90: "  90th %ile:    {value:.2f}"
+          p95: "  95th %ile:    {value:.2f}"
+          p98: "  98th %ile:    {value:.2f}"
+          p99: "  99th %ile:    {value:.2f}"
+        methods:
+          header: "Estimation methods:"
+          p98: "  [1] 98th percentile:      {value}"
+          mean_sigma: "  [2] Mean + 1.5σ:          {value}"
+          median: "  [3] Median × 3:           {value}"
+        selected: "✓ Selected threshold: {value} (minimum)"
+      min_area:
+        header: "Auto-estimating min_area from {sample_size} samples"
+        subtitle: "Star size distribution analysis"
+        too_few_samples: "⚠ Not enough samples, using default"
+        detecting_stars: "Detecting stars in ROI... "
+        detected_stars: "✓ Detected {count} stars"
+        too_few_stars: "⚠ Not enough stars detected, using default"
+        stats:
+          header: "Star Size Statistics (from {count} stars):"
+          median: "  Median:       {value:.1f} pixels²"
+          mean: "  Mean:         {value:.1f} pixels²"
+          p75: "  75th %ile:    {value:.1f} pixels²"
+          p90: "  90th %ile:    {value:.1f} pixels²"
+        estimated: "✓ Estimated min_area: {value}"
+        method_note: "  → 75th percentile × 2.0 (robust to outliers)"
+      min_line_score:
+        header: "Auto-estimating min_line_score from image geometry"
+        geometry:
+          header: "Image Geometry:"
+          dimensions: "  Dimensions:   {width}×{height} pixels"
+          diagonal: "  Diagonal:     {value:.0f} pixels"
+          focal_length: "  Focal length: {value}mm"
+          focal_factor: "  Focal factor: {value:.2f}×"
+          base_score: "  Base score:   {value:.1f}"
+          adjusted_score: "  Adjusted:     {value:.1f}"
+          no_focal: "  (No focal length provided)"
+        estimated: "✓ Estimated min_line_score: {value:.1f}"
+        method_note: "  → ~2.5% of image diagonal"
+  utils:
+    sensor_preset:
+      applied: "  Sensor preset [{sensor_type}]: {values}"
+    sensor_override:
+      warning:
+        sensor_width: "⚠ Warning: --sensor-width {sensor_width}mm deviates {deviation:.1f}% from --sensor-type {sensor_type} preset ({preset_width}mm)"
+        pixel_pitch: "⚠ Warning: --pixel-pitch {pixel_pitch}μm deviates {deviation:.1f}% from --sensor-type {sensor_type} preset ({preset_pitch}μm)"
+    sensor_types:
+      header: "Available Sensor Types (--sensor-type)"
+      entry: "  {sensor_type}  {description}"
+      details: "                  focal_factor={focal_factor}, sensor_width={sensor_width}mm, pixel_pitch={pixel_pitch}μm"
+      aliases:
+        header: "Aliases:"
+        1inch: "  1-INCH, 1_INCH      → 1INCH"
+        apsc: "  APS-C, APS_C        → APSC"
+        apsc_canon: "  APS-C_CANON         → APSC_CANON"
+        apsh: "  APS-H, APS_H        → APSH"
+        ff: "  FULLFRAME           → FF"
+        mf44x33: "  MF44-33, MF44_33    → MF44X33"
+        mf54x40: "  MF54-40, MF54_40    → MF54X40"
+      examples:
+        header: "\nUsage Examples:"
+        mft: "  --sensor-type MFT"
+        apsc: "  --sensor-type APS-C"
+        ff: "  --sensor-type FF --pixel-pitch 5.9   # Override pixel pitch"
+        mf44x33: "  --sensor-type MF44X33                # Fujifilm GFX / Pentax 645Z"
+    fisheye:
+      header: "Fisheye Correction"
+      projection_model: "  Projection model:   {model}"
+      nominal_focal: "  Nominal focal:      {focal_length:.1f}mm (center)"
+      effective_focal: "  Effective focal:    {focal_length:.1f}mm (edge)"
+      trail_ratio: "  Trail length ratio: {ratio:.2f}× (edge vs center)"
+      npf_basis: "  NPF calculation:    Based on edge (worst case)"
+    exif:
+      header: "Camera Settings (EXIF Metadata)"
+      line:
+        camera: "  Camera:           {value}"
+        lens: "  Lens:             {value}"
+        iso: "  ISO:              {value}"
+        iso_unavailable: "  ISO:              Not available"
+        aperture: "  Aperture:         f/{value:.1f}"
+        resolution: "  Resolution:       {width}x{height} px"
+      focal_length:
+        equiv: "  Focal length:     {value:.1f}mm (35mm equiv.) [{source}]"
+        actual: "  Focal length:     {value:.1f}mm (actual) [{source}]"
+        calculated: "                    ~ {value:.1f}mm (35mm equiv., calculated with factor {factor})"
+        no_equiv: "                    ⚠ No 35mm equivalent found"
+        unavailable: "  Focal length:     Not available"
+      exposure:
+        seconds_long: "  Exposure:         {value:.1f}s"
+        seconds_short: "  Exposure:         {value:.2f}s"
+        fraction: "  Exposure:         1/{denominator}s"
+        unavailable: "  Exposure:         Not available"
+    npf:
+      header: "NPF Rule Analysis"
+      pixel_pitch: "  Pixel pitch:      {value:.2f}μm"
+      pixel_pitch_sensor: " (sensor: {sensor_width:.1f}mm)"
+      pixel_pitch_default: " (default)"
+      recommended: "  NPF recommended:  {value:.1f}s"
+      actual_exposure: "  Actual exposure:  {value:.1f}s"
+      compliance:
+        ok: " ✓ OK"
+        exceeded: " ⚠  EXCEEDED ({factor:.2f}x)"
+        critical: " ✗ CRITICAL ({factor:.2f}x)"
+      star_trail: "  Star trail est.:  ~{value:.1f} pixels"
+      impact:
+        line: "  Impact:           {value}"
+        minimal: "MINIMAL"
+        low: "LOW"
+        moderate: "MODERATE"
+        high: "HIGH"
+      incomplete_note: "  ⚠ Note: Incomplete data - using default/estimated values"
+  roi:
+    window_title: "Select Sky Area"
+    mode:
+      header: "--- ROI Selection Mode ---"
+      instructions: "Left click: add vertex | Esc: delete last vertex | Close by clicking the start circle"
 log:
   progress:
     invalid_field: "Progress file {path}: field '{field}' expected {expected}, resetting."
