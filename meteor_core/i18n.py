@@ -7,7 +7,6 @@ safe placeholder substitution.
 
 from __future__ import annotations
 
-import json
 import re
 from functools import lru_cache
 from importlib import resources
@@ -15,6 +14,8 @@ from logging import Logger
 from numbers import Number
 from string import Template
 from typing import Any, Dict, Mapping
+
+import yaml
 
 DEFAULT_LOCALE = "en"
 _LOCALES_PACKAGE = "meteor_core.locales"
@@ -56,11 +57,14 @@ def _flatten_messages(node: Mapping[str, Any], prefix: str = "") -> Dict[str, st
 
 
 def _parse_yaml_like(text: str) -> Dict[str, Any]:
-    """Parse YAML that conforms to the JSON subset (no external dependency)."""
+    """Parse YAML locale catalogs."""
     try:
-        return json.loads(text)
-    except json.JSONDecodeError:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError:
         return {}
+    if isinstance(data, dict):
+        return data
+    return {}
 
 
 @lru_cache(maxsize=None)

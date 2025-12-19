@@ -1380,6 +1380,16 @@ except Exception as e:
     raise
 ```
 
+### Internationalization (i18n) Guidance
+
+- **Localize UI/UX only**: user-facing interface text such as CLI prompts, progress summaries, and error headers should use localized messages.
+- **Keep everything else in English**: logs, debug output, and developer-facing diagnostics remain in English to keep troubleshooting consistent.
+
+When you need localized UI/UX strings, use the shared message catalog in
+`meteor_core/locales/<locale>/messages.yaml` via `meteor_core.i18n.get_message`.
+Avoid introducing plugin-specific translation files unless coordinated with the
+core maintainers.
+
 #### Using Diagnostic Reports
 
 For errors that users might report as issues, use `format_for_issue()`:

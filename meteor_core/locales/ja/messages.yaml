@@ -1,58 +1,46 @@
-{
-  "ui": {
-    "error": {
-      "header": "エラー: {message}",
-      "filepath": "ファイル: {filepath}",
-      "cause": "原因: {error_type}: {error_message}",
-      "unexpected": "予期しないエラー: {error_type}: {error_message}",
-      "unexpected.hint": "詳細なトレースは --verbose を付けて実行するか、不具合として報告してください。"
-    },
-    "diagnostic": {
-      "info": "バグ報告には次の診断情報を含めてください:",
-      "hint": {
-        "verbose": "--verbose を付けて実行すると詳細な診断情報を表示します。",
-        "save_option": "--save-diagnostic で診断レポートを保存できます。",
-        "save": "バグ報告用のレポートを保存するには --save-diagnostic を利用してください。"
-      },
-      "report": {
-        "saved": "診断レポートを保存しました: {path}",
-        "title": "# 流星検出 - 診断レポート",
-        "description": "このファイルにはトラブルシューティングのための診断情報が含まれています。",
-        "instructions": "GitHub で問題を報告する際はこのファイルを添付してください。",
-        "issue_link": "GitHub Issues: {issue_url}"
-      },
-      "section": {
-        "heading": "## 診断情報",
-        "file": "### ファイル情報",
-        "error": "### エラーの詳細",
-        "context": "### 追加コンテキスト",
-        "dependencies": "### 依存関係"
-      },
-      "label": {
-        "version": "meteor_core バージョン",
-        "python_version": "Python バージョン",
-        "platform": "プラットフォーム",
-        "timestamp": "タイムスタンプ",
-        "filepath": "パス",
-        "file_exists": "存在",
-        "file_size": "サイズ",
-        "bytes": "バイト",
-        "error_type": "種類",
-        "error_message": "メッセージ",
-        "original_error_type": "元のエラー種類",
-        "original_error_message": "元のエラーメッセージ"
-      }
-    },
-    "interrupt": {
-      "generic": "処理がユーザーにより中断されました。",
-      "progress": "処理が中断されました。進捗は {progress_file} に保存済みです。"
-    },
-    "progress": {
-      "removed": "進捗ファイルを削除しました: {path}",
-      "not_found": "進捗ファイルが見つかりません: {path}"
-    },
-    "run": {
-      "summary": "{count, plural, =0 {完了！抽出された候補はありませんでした} other {完了！候補を # 件抽出しました}}"
-    }
-  }
-}
+ui:
+  error:
+    header: "エラー: {message}"
+    filepath: "ファイル: {filepath}"
+    cause: "原因: {error_type}: {error_message}"
+    unexpected: "予期しないエラー: {error_type}: {error_message}"
+    unexpected.hint: "詳細なトレースは --verbose を付けて実行するか、不具合として報告してください。"
+  diagnostic:
+    info: "バグ報告には次の診断情報を含めてください:"
+    hint:
+      verbose: "--verbose を付けて実行すると詳細な診断情報を表示します。"
+      save_option: "--save-diagnostic で診断レポートを保存できます。"
+      save: "バグ報告用のレポートを保存するには --save-diagnostic を利用してください。"
+    report:
+      saved: "診断レポートを保存しました: {path}"
+      title: "# 流星検出 - 診断レポート"
+      description: "このファイルにはトラブルシューティングのための診断情報が含まれています。"
+      instructions: "GitHub で問題を報告する際はこのファイルを添付してください。"
+      issue_link: "GitHub Issues: {issue_url}"
+    section:
+      heading: "## 診断情報"
+      file: "### ファイル情報"
+      error: "### エラーの詳細"
+      context: "### 追加コンテキスト"
+      dependencies: "### 依存関係"
+    label:
+      version: "meteor_core バージョン"
+      python_version: "Python バージョン"
+      platform: "プラットフォーム"
+      timestamp: "タイムスタンプ"
+      filepath: "パス"
+      file_exists: "存在"
+      file_size: "サイズ"
+      bytes: "バイト"
+      error_type: "種類"
+      error_message: "メッセージ"
+      original_error_type: "元のエラー種類"
+      original_error_message: "元のエラーメッセージ"
+  interrupt:
+    generic: "処理がユーザーにより中断されました。"
+    progress: "処理が中断されました。進捗は {progress_file} に保存済みです。"
+  progress:
+    removed: "進捗ファイルを削除しました: {path}"
+    not_found: "進捗ファイルが見つかりません: {path}"
+  run:
+    summary: "{count, plural, =0 {完了！抽出された候補はありませんでした} other {完了！候補を # 件抽出しました}}"
