@@ -283,18 +283,25 @@ ui:
           unavailable: "Not available"
     npf:
       header: "NPF Rule Analysis"
-      pixel_pitch: "  Pixel pitch:      {value:.2f}μm"
+      label:
+        pixel_pitch: "Pixel pitch:"
+        recommended: "NPF recommended:"
+        actual_exposure: "Actual exposure:"
+        star_trail: "Star trail est.:"
+        impact: "Impact:"
+      value:
+        pixel_pitch: "{value:.2f}μm"
+        recommended: "{value:.1f}s"
+        actual_exposure: "{value:.1f}s"
+        star_trail: "~{value:.1f} pixels"
       pixel_pitch_sensor: " (sensor: {sensor_width:.1f}mm)"
       pixel_pitch_default: " (default)"
-      recommended: "  NPF recommended:  {value:.1f}s"
-      actual_exposure: "  Actual exposure:  {value:.1f}s"
       compliance:
         ok: " ✓ OK"
         exceeded: " ⚠  EXCEEDED ({factor:.2f}x)"
         critical: " ✗ CRITICAL ({factor:.2f}x)"
-      star_trail: "  Star trail est.:  ~{value:.1f} pixels"
       impact:
-        line: "  Impact:           {value}"
+        line: "{value}"
         minimal: "MINIMAL"
         low: "LOW"
         moderate: "MODERATE"

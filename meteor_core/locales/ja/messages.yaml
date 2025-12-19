@@ -283,18 +283,25 @@ ui:
           unavailable: "取得不可"
     npf:
       header: "NPF ルール解析"
-      pixel_pitch: "  画素ピッチ:   {value:.2f}μm"
+      label:
+        pixel_pitch: "画素ピッチ:"
+        recommended: "NPF 推奨:"
+        actual_exposure: "実露出:"
+        star_trail: "星の軌跡推定:"
+        impact: "影響:"
+      value:
+        pixel_pitch: "{value:.2f}μm"
+        recommended: "{value:.1f}s"
+        actual_exposure: "{value:.1f}s"
+        star_trail: "~{value:.1f} ピクセル"
       pixel_pitch_sensor: " (センサー幅: {sensor_width:.1f}mm)"
       pixel_pitch_default: " (デフォルト)"
-      recommended: "  NPF 推奨:      {value:.1f}s"
-      actual_exposure: "  実露出:        {value:.1f}s"
       compliance:
         ok: " ✓ OK"
         exceeded: " ⚠  超過 ({factor:.2f}x)"
         critical: " ✗ 重大 ({factor:.2f}x)"
-      star_trail: "  星の軌跡推定: ~{value:.1f} ピクセル"
       impact:
-        line: "  影響:           {value}"
+        line: "{value}"
         minimal: "最小"
         low: "低"
         moderate: "中"

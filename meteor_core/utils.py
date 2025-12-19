@@ -1462,14 +1462,31 @@ def display_exif_info(
         print(get_message("ui.utils.npf.header", locale=locale))
         print(f"{'='*60}")
 
+        labels = {
+            "pixel_pitch": get_message("ui.utils.npf.label.pixel_pitch", locale=locale),
+            "recommended": get_message("ui.utils.npf.label.recommended", locale=locale),
+            "actual_exposure": get_message(
+                "ui.utils.npf.label.actual_exposure", locale=locale
+            ),
+            "star_trail": get_message("ui.utils.npf.label.star_trail", locale=locale),
+            "impact": get_message("ui.utils.npf.label.impact", locale=locale),
+        }
+        label_width = max(_display_width(label) for label in labels.values())
+
+        def format_line(label_key: str, value: str) -> str:
+            return f"  {_pad_label(labels[label_key], label_width)} {value}"
+
         # Pixel Pitch
         if npf_metrics.get("pixel_pitch_um"):
             pp = npf_metrics["pixel_pitch_um"]
             print(
-                get_message(
-                    "ui.utils.npf.pixel_pitch",
-                    locale=locale,
-                    value=pp,
+                format_line(
+                    "pixel_pitch",
+                    get_message(
+                        "ui.utils.npf.value.pixel_pitch",
+                        locale=locale,
+                        value=pp,
+                    ),
                 ),
                 end="",
             )
@@ -1487,10 +1504,13 @@ def display_exif_info(
         # NPF recommended value
         npf_rec = npf_metrics["npf_recommended_sec"]
         print(
-            get_message(
-                "ui.utils.npf.recommended",
-                locale=locale,
-                value=npf_rec,
+            format_line(
+                "recommended",
+                get_message(
+                    "ui.utils.npf.value.recommended",
+                    locale=locale,
+                    value=npf_rec,
+                ),
             )
         )
 
@@ -1498,10 +1518,13 @@ def display_exif_info(
         if exif_data.get("exposure_time"):
             actual_exp = exif_data["exposure_time"]
             print(
-                get_message(
-                    "ui.utils.npf.actual_exposure",
-                    locale=locale,
-                    value=actual_exp,
+                format_line(
+                    "actual_exposure",
+                    get_message(
+                        "ui.utils.npf.value.actual_exposure",
+                        locale=locale,
+                        value=actual_exp,
+                    ),
                 ),
                 end="",
             )
@@ -1535,10 +1558,13 @@ def display_exif_info(
         if npf_metrics.get("star_trail_px"):
             trail = npf_metrics["star_trail_px"]
             print(
-                get_message(
-                    "ui.utils.npf.star_trail",
-                    locale=locale,
-                    value=trail,
+                format_line(
+                    "star_trail",
+                    get_message(
+                        "ui.utils.npf.value.star_trail",
+                        locale=locale,
+                        value=trail,
+                    ),
                 )
             )
 
@@ -1563,7 +1589,14 @@ def display_exif_info(
                     "ui.utils.npf.impact.high",
                     locale=locale,
                 )
-            print(get_message("ui.utils.npf.impact.line", locale=locale, value=impact))
+            print(
+                format_line(
+                    "impact",
+                    get_message(
+                        "ui.utils.npf.impact.line", locale=locale, value=impact
+                    ),
+                )
+            )
 
         # Data Completeness
         if not npf_metrics.get("has_complete_data"):
