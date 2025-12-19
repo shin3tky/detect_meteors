@@ -14,11 +14,14 @@ import cv2
 import numpy as np
 from typing import List, Optional, Tuple, Dict, Any
 
+from .i18n import DEFAULT_LOCALE, get_message
 
 logger = logging.getLogger(__name__)
 
 
-def select_roi(image_data: np.ndarray) -> Optional[Dict[str, Any]]:
+def select_roi(
+    image_data: np.ndarray, locale: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
     """
     Polygon ROI selection with vertex editing.
 
@@ -69,13 +72,12 @@ def select_roi(image_data: np.ndarray) -> Optional[Dict[str, Any]]:
         disp_img_resized = disp_img
 
     display_img = cv2.cvtColor(disp_img_resized, cv2.COLOR_GRAY2BGR)
-    window_name = "Select Sky Area"
+    resolved_locale = locale or DEFAULT_LOCALE
+    window_name = get_message("ui.roi.window_title", locale=resolved_locale)
 
     logger.info("Starting ROI selection UI with image size (h=%d, w=%d)", h, w)
-    print("\n--- ROI Selection Mode ---")
-    print(
-        "Left click: add vertex | Esc: delete last vertex | Close by clicking the start circle"
-    )
+    print("\n" + get_message("ui.roi.mode.header", locale=resolved_locale))
+    print(get_message("ui.roi.mode.instructions", locale=resolved_locale))
 
     points: List[Tuple[int, int]] = []
     mouse_pos: Optional[Tuple[int, int]] = None

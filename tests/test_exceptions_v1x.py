@@ -24,6 +24,7 @@ from meteor_core.exceptions import (
     MeteorValidationError,
     MeteorWriteError,
 )
+from meteor_core.messages import get_message
 from meteor_core.schema import VERSION
 
 
@@ -439,6 +440,21 @@ class TestDiagnosticInfo(unittest.TestCase):
         self.assertIn("step: detection", output)
         self.assertIn("image_index: 42", output)
 
+    def test_format_for_issue_with_header_and_locale(self):
+        """Test DiagnosticInfo.format_for_issue() with header and locale support."""
+        info = DiagnosticInfo(
+            version="1.5.11",
+            python_version="3.12.0",
+            platform="Darwin",
+            timestamp="2025-01-01T12:00:00+00:00",
+            error_type="MeteorError",
+            error_message="Error",
+        )
+        output = info.format_for_issue(locale="ja", include_header=True)
+        self.assertIn(get_message("ui.diagnostic.report.title", locale="ja"), output)
+        self.assertIn(get_message("ui.diagnostic.section.heading", locale="ja"), output)
+        self.assertIn(get_message("ui.diagnostic.label.version", locale="ja"), output)
+
 
 class TestMeteorErrorDiagnosticInfo(unittest.TestCase):
     """Test cases for MeteorError.get_diagnostic_info() method."""
@@ -731,6 +747,16 @@ class TestFormatErrorForUser(unittest.TestCase):
         self.assertIn("Cause:", output)
         self.assertIn("ValueError", output)
 
+    def test_locale_specific_format(self):
+        """Test that locale parameter affects the rendered message."""
+        from meteor_core.exceptions import format_error_for_user
+
+        err = MeteorLoadError("ファイルが壊れています", filepath="/test/image.CR2")
+        output = format_error_for_user(err, locale="ja")
+
+        self.assertIn("ERROR:", output)
+        self.assertIn("File:", output)
+
 
 class TestSaveDiagnosticReport(unittest.TestCase):
     """Test cases for save_diagnostic_report helper function."""
@@ -774,6 +800,26 @@ class TestSaveDiagnosticReport(unittest.TestCase):
             finally:
                 os.chdir(original_dir)
 
+    def test_save_to_file_respects_locale(self):
+        """Test that diagnostic report rendering honors locale selection."""
+        from meteor_core.exceptions import save_diagnostic_report
+
+        err = MeteorLoadError("テストエラー", filepath="/test/file.CR2")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = os.path.join(tmpdir, "diagnostic_ja.md")
+            result_path = save_diagnostic_report(err, output_path, locale="ja")
+
+            self.assertEqual(result_path, output_path)
+            with open(output_path, encoding="utf-8") as f:
+                content = f.read()
+
+        self.assertIn("# Meteor Detection - Diagnostic Report", content)
+        self.assertIn(
+            "Please attach this file when reporting issues on GitHub.", content
+        )
+        self.assertIn("## Diagnostic Information", content)
+
 
 class TestCreateDiagnosticFromException(unittest.TestCase):
     """Test cases for create_diagnostic_from_exception helper function."""
@@ -813,6 +859,18 @@ class TestCreateDiagnosticFromException(unittest.TestCase):
 
         self.assertIn("## Diagnostic Information", output)
         self.assertIn("RuntimeError", output)
+
+
+class TestMessageCatalog(unittest.TestCase):
+    """Test cases for localized message lookups."""
+
+    def test_fallback_to_english(self):
+        """Nonexistent locale should fall back to English messages."""
+        from meteor_core.messages import get_message
+
+        message = get_message("ui.diagnostic.hint.save", locale="fr")
+
+        self.assertIn("--save-diagnostic", message)
 
 
 class TestImportFromPackage(unittest.TestCase):

@@ -34,16 +34,16 @@ Understanding the detection pipeline lifecycle is essential for effective plugin
 │                      Detection Pipeline                             │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐  │
-│  │ 1. Initialize│───▶│ 2. Collect   │───▶│ 3. ROI Selection     │  │
-│  │    Pipeline  │    │    Files     │    │    (if enabled)      │  │
-│  └──────────────┘    └──────────────┘    └──────────────────────┘  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
+│  │ 1. Initialize│───▶│ 2. Collect   │───▶│ 3. ROI Selection     │   │
+│  │    Pipeline  │    │    Files     │    │    (if enabled)      │   │
+│  └──────────────┘    └──────────────┘    └──────────────────────┘   │
 │                                                      │              │
 │                                                      ▼              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐  │
-│  │ 6. Finalize  │◀───│ 5. Save      │◀───│ 4. Process Batches   │  │
-│  │    & Report  │    │    Results   │    │    (parallel/seq)    │  │
-│  └──────────────┘    └──────────────┘    └──────────────────────┘  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
+│  │ 6. Finalize  │◀───│ 5. Save      │◀───│ 4. Process Batches   │   │
+│  │    & Report  │    │    Results   │    │    (parallel/seq)    │   │
+│  └──────────────┘    └──────────────┘    └──────────────────────┘   │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -685,6 +685,7 @@ from typing import List, Optional
 import cv2
 import numpy as np
 
+from meteor_core.i18n import DEFAULT_LOCALE, get_message
 from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
 from meteor_core.exceptions import MeteorWriteError
 
@@ -701,6 +702,7 @@ class SlackOutputConfig:
     notify_on_detection: bool = True
     notify_on_complete: bool = True
     channel: str = "#meteor-alerts"
+    locale: str = DEFAULT_LOCALE
 
 
 class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
@@ -867,12 +869,14 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             )
 
             if self.config.notify_on_detection and self.config.webhook_url and saved:
-                self._send_slack(
-                    f"🌠 *Meteor Detected!*\n"
-                    f"• File: `{filename}`\n"
-                    f"• Score: {score:.1f}\n"
-                    f"• Aspect Ratio: {aspect_ratio:.2f}"
+                message = get_message(
+                    "ui.notification.meteor_detected",
+                    locale=self.config.locale,
+                    filename=filename,
+                    score=f"{score:.1f}",
+                    aspect_ratio=f"{aspect_ratio:.2f}",
                 )
+                self._send_slack(message)
 
         except Exception as e:
             # NEVER raise in lifecycle hooks
@@ -931,13 +935,15 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             )
 
             if self.config.notify_on_complete and self.config.webhook_url:
-                self._send_slack(
-                    f"✅ *Detection Complete*\n"
-                    f"• Processed: {total_processed} images\n"
-                    f"• Detected: {total_detected} candidates\n"
-                    f"• Time: {minutes:.1f} minutes\n"
-                    f"• Rate: {rate:.2f} images/sec"
+                message = get_message(
+                    "ui.notification.detection_complete",
+                    locale=self.config.locale,
+                    processed=total_processed,
+                    detected=total_detected,
+                    minutes=f"{minutes:.1f}",
+                    rate=f"{rate:.2f}",
                 )
+                self._send_slack(message)
 
         except Exception as e:
             # NEVER raise in lifecycle hooks
@@ -1379,6 +1385,28 @@ except Exception as e:
     logger.exception(f"Processing failed")  # Includes traceback
     raise
 ```
+
+### Internationalization (i18n) Guidance
+
+- **Localize UI/UX only**: user-facing interface text such as CLI prompts, progress summaries, and error headers should use localized messages.
+- **Keep everything else in English**: logs, debug output, and developer-facing diagnostics remain in English to keep troubleshooting consistent.
+
+When you need localized UI/UX strings, use the shared message catalog in
+`meteor_core/locales/<locale>/messages.yaml` via `meteor_core.i18n.get_message`.
+Avoid introducing plugin-specific translation files unless coordinated with the
+core maintainers.
+
+Example entries (matching the Slack output handler sample):
+
+```yaml
+ui:
+  notification:
+    meteor_detected: "🌠 *Meteor Detected!*\n• File: `{filename}`\n• Score: {score}\n• Aspect Ratio: {aspect_ratio}"
+    detection_complete: "✅ *Detection Complete*\n• Processed: {processed} images\n• Detected: {detected} candidates\n• Time: {minutes} minutes\n• Rate: {rate} images/sec"
+```
+
+Add corresponding translations in other locale files (for example,
+`meteor_core/locales/ja/messages.yaml`).
 
 #### Using Diagnostic Reports
 

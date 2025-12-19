@@ -75,6 +75,7 @@ This will install:
 - `psutil` - System utilities
 - `pillow` - Image handling and EXIF extraction
 - `pydantic` - Configuration and data validation
+- `pyyaml` - Locale message parsing
 
 ### Step 8: Verification
 
@@ -163,6 +164,7 @@ This will install:
 - `psutil` - System utilities
 - `pillow` - Image handling and EXIF extraction
 - `pydantic` - Configuration and data validation
+- `pyyaml` - Locale message parsing
 
 ### Step 7: Verification
 

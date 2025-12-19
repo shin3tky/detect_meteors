@@ -28,7 +28,7 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 - Python 3.12+
 - macOS, Windows, or Linux
-- Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`, `psutil`, `pillow`, `pydantic`
+- Dependencies: `numpy`, `matplotlib`, `opencv-python`, `rawpy`, `psutil`, `pillow`, `pydantic`, `pyyaml`
 
 ## Installation
 
@@ -104,12 +104,12 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.5.12
+## What's New in v1.5.13
 
-- **Custom exception hierarchy**: Structured error handling with `MeteorError` base class and specialized exceptions for inputs (`MeteorLoadError`, `MeteorUnsupportedFormatError`), outputs (`MeteorOutputError`, `MeteorWriteError`, `MeteorProgressError`), and configuration (`MeteorValidationError`, `MeteorConfigError`)
-- **Diagnostic reporting**: Generate GitHub issue-ready diagnostic reports with `--save-diagnostic`
-- **Verbose mode**: Use `--verbose` for detailed error info and DEBUG-level logging
-- **Structured logging**: Standard Python logging throughout all modules
+- **Internationalization (i18n)**: Multi-language support for CLI messages with `--locale` option
+- **Supported languages**: English (`en`), Japanese (`ja`)
+- **Environment variable**: Set default locale with `DETECT_METEORS_LOCALE`
+- **Policy**: UI/UX messages are localized; system/debug output remains in English
 
 ### Previous Releases
 

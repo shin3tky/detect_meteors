@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import sys
 import types
+import unittest
 
 # Stub cv2 to avoid optional GUI dependency during import.
 sys.modules.setdefault("cv2", types.SimpleNamespace())
@@ -72,58 +73,63 @@ class ValidDetector(BaseDetector):
         return 0.0, []
 
 
-def test_validators_accept_valid_plugins() -> None:
-    """All validator helpers accept well-formed plugin classes."""
+class TestPluginContractValidation(unittest.TestCase):
+    """unittest-compatible validation tests for plugin helpers."""
 
-    assert _is_valid_input_loader(ValidInputLoader)
-    assert _is_valid_output_handler(ValidOutputHandler)
-    assert _is_valid_detector(ValidDetector)
+    def test_validators_accept_valid_plugins(self) -> None:
+        """All validator helpers accept well-formed plugin classes."""
 
+        self.assertTrue(_is_valid_input_loader(ValidInputLoader))
+        self.assertTrue(_is_valid_output_handler(ValidOutputHandler))
+        self.assertTrue(_is_valid_detector(ValidDetector))
 
-def test_validators_reject_missing_or_nonstring_plugin_name() -> None:
-    """Validators require a non-empty string plugin_name for all plugin kinds."""
+    def test_validators_reject_missing_or_nonstring_plugin_name(self) -> None:
+        """Validators require a non-empty string plugin_name for all plugin kinds."""
 
-    class MissingInputName(BaseInputLoader[str]):
-        plugin_name: Any = None
+        class MissingInputName(BaseInputLoader[str]):
+            plugin_name: Any = None
 
-        def load(self, filepath: str) -> str:
-            return filepath
+            def load(self, filepath: str) -> str:
+                return filepath
 
-    class MissingOutputName(BaseOutputHandler):
-        plugin_name: Any = True
+        class MissingOutputName(BaseOutputHandler):
+            plugin_name: Any = True
 
-        def save_candidate(
-            self, source_path: str, filename: str, debug_image=None, roi_polygon=None
-        ):
-            return True
+            def save_candidate(
+                self,
+                source_path: str,
+                filename: str,
+                debug_image=None,
+                roi_polygon=None,
+            ):
+                return True
 
-        def save_debug_image(self, debug_image, filename, roi_polygon=None):
-            return filename
+            def save_debug_image(self, debug_image, filename, roi_polygon=None):
+                return filename
 
-    class MissingDetectorName(BaseDetector):
-        plugin_name: Any = 0
+        class MissingDetectorName(BaseDetector):
+            plugin_name: Any = 0
 
-        def detect(self, current_image, previous_image, roi_mask, params):
-            return False, 0.0, [], 0.0, None
+            def detect(self, current_image, previous_image, roi_mask, params):
+                return False, 0.0, [], 0.0, None
 
-        def compute_line_score(self, mask, hough_params):
-            return 0.0, []
+            def compute_line_score(self, mask, hough_params):
+                return 0.0, []
 
-    assert not _is_valid_input_loader(MissingInputName)
-    assert not _is_valid_output_handler(MissingOutputName)
-    assert not _is_valid_detector(MissingDetectorName)
+        self.assertFalse(_is_valid_input_loader(MissingInputName))
+        self.assertFalse(_is_valid_output_handler(MissingOutputName))
+        self.assertFalse(_is_valid_detector(MissingDetectorName))
 
+    def test_validators_reject_non_types_and_non_subclasses(self) -> None:
+        """Validators reject non-type objects and unrelated types consistently."""
 
-def test_validators_reject_non_types_and_non_subclasses() -> None:
-    """Validators reject non-type objects and unrelated types consistently."""
+        class NotAPlugin:
+            plugin_name = "something"
 
-    class NotAPlugin:
-        plugin_name = "something"
+        self.assertFalse(_is_valid_input_loader("not a type"))
+        self.assertFalse(_is_valid_output_handler(123))
+        self.assertFalse(_is_valid_detector(None))
 
-    assert not _is_valid_input_loader("not a type")
-    assert not _is_valid_output_handler(123)
-    assert not _is_valid_detector(None)
-
-    assert not _is_valid_input_loader(NotAPlugin)
-    assert not _is_valid_output_handler(NotAPlugin)
-    assert not _is_valid_detector(NotAPlugin)
+        self.assertFalse(_is_valid_input_loader(NotAPlugin))
+        self.assertFalse(_is_valid_output_handler(NotAPlugin))
+        self.assertFalse(_is_valid_detector(NotAPlugin))

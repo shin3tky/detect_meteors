@@ -66,6 +66,7 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--save-diagnostic FILE`**: Save diagnostic report to specified file on error. If FILE is omitted, generates a timestamped filename. The report is formatted as Markdown suitable for GitHub issue attachments.
 - **`--validate-raw`**: Pre-validate RAW files to catch corruption before processing.
 - **`--progress-file`** (default: `progress.json`): Path to the JSON file that tracks processed frames.
+- **`--locale`** (default: environment variable `DETECT_METEORS_LOCALE` or `en`): Locale code for CLI messages. Currently supports `en` (English) and `ja` (Japanese).
 - **`--no-resume`**: Ignore and remove any existing progress file before processing.
 - **`--remove-progress`**: Delete the progress file and exit immediately.
 - **`--output-overwrite`**: Force overwrite existing files in output folder (default: skip existing files).

@@ -15,13 +15,166 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from ..exceptions import MeteorProgressError
 from ..schema import VERSION
+from ..i18n import log_warning
 
 # Module-level logger for progress tracking diagnostics
 logger = logging.getLogger(__name__)
+
+
+def _coerce_string_list(value: Any, *, field_name: str, filepath: str) -> List[str]:
+    """Ensure list values are safe lists of strings.
+
+    Args:
+        value: Raw value from the progress file.
+        field_name: Name of the field being coerced.
+        filepath: Path to the progress file (for logging).
+
+    Returns:
+        A list of stringified entries. Non-list inputs are reset to an empty list.
+    """
+
+    if not isinstance(value, list):
+        log_warning(
+            logger,
+            "log.progress.invalid_field",
+            path=filepath,
+            field=field_name,
+            expected="list",
+        )
+        return []
+
+    safe_list: List[str] = []
+    for entry in value:
+        try:
+            safe_list.append(str(entry))
+        except Exception:  # pragma: no cover - extremely defensive
+            log_warning(
+                logger,
+                "log.progress.unconvertible_entry",
+                path=filepath,
+                field=field_name,
+                entry=entry,
+            )
+    return safe_list
+
+
+def _normalize_detected_details(value: Any, *, filepath: str) -> List[Dict[str, Any]]:
+    """Normalize detected_details to a safe list of dictionaries."""
+
+    if not isinstance(value, list):
+        log_warning(
+            logger,
+            "log.progress.invalid_field",
+            path=filepath,
+            field="detected_details",
+            expected="list",
+        )
+        return []
+
+    normalized: List[Dict[str, Any]] = []
+    for entry in value:
+        if not isinstance(entry, dict):
+            log_warning(
+                logger,
+                "log.progress.detected_details.non_dict",
+                path=filepath,
+                entry=entry,
+            )
+            continue
+
+        filename = entry.get("filename")
+        if not filename:
+            log_warning(
+                logger,
+                "log.progress.detected_details.missing_filename",
+                path=filepath,
+                entry=entry,
+            )
+            continue
+
+        normalized_entry = dict(entry)
+        normalized_entry["filename"] = str(filename)
+        normalized.append(normalized_entry)
+
+    return normalized
+
+
+def _normalize_progress_data(
+    raw_data: Any, *, filepath: str
+) -> Optional[Dict[str, Any]]:
+    """Validate and sanitize loaded progress JSON data.
+
+    Args:
+        raw_data: Data loaded from JSON.
+        filepath: Path to the progress file (for logging).
+
+    Returns:
+        Sanitized progress data dictionary, or None if data is unusable.
+    """
+
+    if not isinstance(raw_data, dict):
+        error = MeteorProgressError(
+            "Progress file format is invalid (expected JSON object)",
+            filepath=filepath,
+            operation="load",
+            context={"error_category": "invalid_format"},
+        )
+        logger.warning("%s", error)
+        return None
+
+    normalized = dict(raw_data)
+
+    normalized["processed_files"] = _coerce_string_list(
+        raw_data.get("processed_files", []),
+        field_name="processed_files",
+        filepath=filepath,
+    )
+    normalized["detected_files"] = _coerce_string_list(
+        raw_data.get("detected_files", []),
+        field_name="detected_files",
+        filepath=filepath,
+    )
+    normalized["detected_details"] = _normalize_detected_details(
+        raw_data.get("detected_details", []), filepath=filepath
+    )
+
+    processing_params = raw_data.get("processing_params", {})
+    if not isinstance(processing_params, dict):
+        log_warning(
+            logger,
+            "log.progress.invalid_field",
+            path=filepath,
+            field="processing_params",
+            expected="dict",
+        )
+        processing_params = {}
+    normalized["processing_params"] = processing_params
+
+    roi_value = raw_data.get("roi", "full_image")
+    if not isinstance(roi_value, (str, list, dict)):
+        log_warning(
+            logger,
+            "log.progress.unexpected_type",
+            path=filepath,
+            field="roi",
+            actual_type=type(roi_value).__name__,
+            fallback="full_image",
+        )
+        roi_value = "full_image"
+    normalized["roi"] = roi_value
+
+    params_hash = raw_data.get("params_hash", "")
+    normalized["params_hash"] = str(params_hash) if params_hash is not None else ""
+
+    # Recompute totals from the sanitized lists
+    normalized["total_processed"] = len(normalized["processed_files"])
+    normalized["total_detected"] = len(normalized["detected_files"])
+
+    return normalized
 
 
 class ProgressManager:
@@ -92,10 +245,18 @@ class ProgressManager:
         try:
             with open(self.progress_file, encoding="utf-8") as fp:
                 loaded = json.load(fp)
-                self.progress_data.update(loaded)
+                normalized = _normalize_progress_data(
+                    loaded, filepath=self.progress_file
+                )
+                if normalized is None:
+                    return False
+
+                self.progress_data.update(normalized)
                 self.processed_set = set(self.progress_data.get("processed_files", []))
                 self.detected_set = set(self.progress_data.get("detected_files", []))
                 self._sync_detected_details_map()
+                self.progress_data["total_processed"] = len(self.processed_set)
+                self.progress_data["total_detected"] = len(self.detected_set)
                 logger.info(
                     "Loaded progress: %d processed, %d detected from %s",
                     len(self.processed_set),
@@ -385,7 +546,10 @@ def load_progress(progress_path: str) -> Optional[Dict]:
     logger.debug("Loading progress from %s", progress_path)
     try:
         with open(progress_path, encoding="utf-8") as fp:
-            data = json.load(fp)
+            loaded = json.load(fp)
+            data = _normalize_progress_data(loaded, filepath=progress_path)
+            if data is None:
+                return None
             logger.debug(
                 "Loaded progress data with %d processed, %d detected",
                 len(data.get("processed_files", [])),

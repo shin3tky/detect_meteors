@@ -1,5 +1,159 @@
 # Version 1.5 Release Notes
 
+## Version 1.5.13 (2025-12-19)
+
+### 🌐 Internationalization (i18n)
+
+Version 1.5.13 adds multi-language support for CLI user-facing messages. The localization follows a clear policy: UI/UX messages (error descriptions, progress indicators, completion summaries) are translated, while system-level output and debug information remain in English for consistency and easier troubleshooting.
+
+### Highlights
+
+- **New `--locale` option**: Specify the display language for CLI messages
+- **Environment variable support**: Set default locale via `DETECT_METEORS_LOCALE`
+- **ICU-style message templates**: Full support for plural rules and parameter substitution
+- **YAML-based catalogs**: Easy-to-edit locale files under `meteor_core/locales/`
+- **Supported languages**: English (`en`), Japanese (`ja`)
+
+### Localization Policy
+
+| Category | Language | Examples |
+|----------|----------|----------|
+| **UI/UX messages** | Localized | Error headers, progress messages, completion summaries |
+| **System output** | English only | Stack traces, debug logs, diagnostic reports |
+| **Technical terms** | English only | Exception class names, parameter names |
+
+### Usage
+
+#### Setting the Locale via CLI
+
+```bash
+# Use Japanese for user messages
+python detect_meteors_cli.py --auto-params --sensor-type MFT --locale ja
+
+# Use English (default)
+python detect_meteors_cli.py --auto-params --sensor-type MFT --locale en
+```
+
+#### Setting the Default Locale via Environment Variable
+
+```bash
+# Set default locale for all runs
+export DETECT_METEORS_LOCALE=ja
+
+# Now runs use Japanese by default
+python detect_meteors_cli.py --auto-params --sensor-type MFT
+```
+
+### Example Output
+
+**English (`--locale en`):**
+```
+Complete! 3 candidates extracted
+```
+
+**Japanese (`--locale ja`):**
+```
+完了！候補を 3 件抽出しました
+```
+
+### Message Catalog Structure
+
+Locale catalogs use YAML format with nested keys:
+
+```yaml
+# meteor_core/locales/ja/messages.yaml
+ui:
+  error:
+    header: "エラー: {message}"
+    filepath: "ファイル: {filepath}"
+  run:
+    summary: "{count, plural, =0 {完了！抽出された候補はありませんでした} other {完了！候補を # 件抽出しました}}"
+```
+
+### ICU Plural Rules
+
+The i18n system supports ICU-style plural rules:
+
+```yaml
+# English (has singular/plural distinction)
+ui:
+  run:
+    summary: "{count, plural, =0 {No candidates} one {# candidate} other {# candidates}}"
+
+# Japanese (no grammatical number)
+ui:
+  run:
+    summary: "{count, plural, =0 {候補なし} other {# 件}}"
+```
+
+### Adding a New Language
+
+1. Create a new directory: `meteor_core/locales/<lang>/`
+2. Add `__init__.py` (empty file)
+3. Add `messages.yaml` with translated messages
+4. Test with `--locale <lang>`
+
+### Technical Details
+
+#### New Module: `meteor_core/i18n.py`
+
+Key functions:
+- `get_message(key, locale, **params)`: Retrieve and format a localized message
+- `log_warning(logger, key, locale, **params)`: Log a localized warning message
+
+#### Locale Resolution
+
+The system tries locales in order:
+1. Exact match (e.g., `ja-JP`)
+2. Language code (e.g., `ja`)
+3. Default locale (`en`)
+
+### Progress File Normalization
+
+Version 1.5.13 also adds `normalize_progress_data()` helper that:
+- Sanitizes `progress.json` contents
+- Recomputes totals from actual file lists
+- Handles malformed entries gracefully
+- Logs warnings for invalid data (in English, following the localization policy)
+
+### Validation Improvement
+
+`validate_and_apply_sensor_preset()` now raises `MeteorValidationError` directly instead of returning error tuples, providing cleaner error handling and better integration with the exception hierarchy.
+
+### New Dependency
+
+- **PyYAML**: Required for parsing YAML-based locale catalogs
+
+### Test Coverage
+
+New test files:
+- `test_i18n.py`: i18n module functionality tests
+- `test_infrastructure_v1x.py`: Progress normalization tests
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `meteor_core/i18n.py` | New i18n module with ICU-style formatting |
+| `meteor_core/locales/en/messages.yaml` | English message catalog |
+| `meteor_core/locales/ja/messages.yaml` | Japanese message catalog |
+| `meteor_core/outputs/progress.py` | Progress normalization helpers |
+| `meteor_core/exceptions.py` | Updated for localized error formatting |
+| `detect_meteors_cli.py` | Added `--locale` option, integrated i18n |
+| `detect_meteors_cli_completion.bash` | Added `--locale` completion |
+| `_detect_meteors_cli` (zsh) | Added `--locale` completion |
+| `pyproject.toml` | Added PyYAML dependency |
+| `requirements.txt` | Added PyYAML dependency |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.5.12 and earlier:
+- Default locale is English (`en`)
+- All existing commands work without modification
+- No changes to output file formats
+
+---
+
 ## Version 1.5.12 (2025-12-18)
 
 ### 🛡️ Stability & Error Handling
@@ -1523,7 +1677,16 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 
 ## Version Information
 
-- **Latest Version**: 1.5.12
+- **Latest Version**: 1.5.13
+- **Release Date**: 2025-12-19
+- **Major Changes**:
+  - Internationalization (i18n) with `--locale` option
+  - English and Japanese message catalogs
+  - ICU-style plural rule support
+  - Progress file normalization helpers
+  - UI/UX messages localized; system/debug in English
+
+- **Version**: 1.5.12
 - **Release Date**: 2025-12-18
 - **Major Changes**:
   - Custom exception hierarchy for inputs (`MeteorLoadError`, `MeteorUnsupportedFormatError`), outputs (`MeteorOutputError`, `MeteorWriteError`, `MeteorProgressError`), and config (`MeteorValidationError`, `MeteorConfigError`)
@@ -1627,11 +1790,17 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 | Save diagnostic | `--save-diagnostic [FILE]` | `python detect_meteors_cli.py --auto-params --save-diagnostic my_report.md` |
 | NPF check | `--show-npf --sensor-type TYPE` | `python detect_meteors_cli.py --show-npf --sensor-type APS-C` |
 | NPF + Fisheye | `--show-npf --fisheye` | `python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye` |
+| Set locale | `--locale LANG` | `python detect_meteors_cli.py --auto-params --sensor-type MFT --locale ja` |
+| Locale (env) | `DETECT_METEORS_LOCALE` | `export DETECT_METEORS_LOCALE=ja` |
 
 ## Files Updated (v1.5.x Summary)
 
 | File | Changes |
 |------|---------|
+| `meteor_core/i18n.py` | New i18n module with ICU-style formatting (v1.5.13) |
+| `meteor_core/locales/en/messages.yaml` | English message catalog (v1.5.13) |
+| `meteor_core/locales/ja/messages.yaml` | Japanese message catalog (v1.5.13) |
+| `meteor_core/outputs/progress.py` | Progress normalization helpers (v1.5.13) |
 | `meteor_core/exceptions.py` | New exception hierarchy and diagnostic reporting (v1.5.12) |
 | `meteor_core/__init__.py` | Logging configuration and exception exports (v1.5.12) |
 | `meteor_core/inputs/*.py` | Added logging throughout (v1.5.12) |
@@ -1657,6 +1826,6 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 
 **Status**: Production Ready  
 **Compatibility**: Fully backward compatible with v1.4.x  
-**Recommendation**: Use `--sensor-type` for simplified configuration; add `--fisheye` for fisheye lenses
+**Recommendation**: Use `--sensor-type` for simplified configuration; add `--fisheye` for fisheye lenses; use `--locale ja` for Japanese messages
 
 Happy meteor hunting! 🌠
