@@ -125,7 +125,7 @@ coverage html
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `test_exceptions_v1x.py` | 66 | Exception hierarchy and diagnostic info |
+| `test_exceptions_v1x.py` | 70 | Exception hierarchy and diagnostic info |
 | `test_calculations_v1x.py` | 54 | NPF Rule, pixel pitch, star/meteor trail estimation |
 | `test_output_handler_registry_v1x.py` | 51 | Output handler registry |
 | `test_integration_v1x.py` | 44 | End-to-end meteor detection |
@@ -137,16 +137,17 @@ coverage html
 | `test_detector_plugin_v1x.py` | 24 | Detector plugin architecture |
 | `test_raw_loader_v1x.py` | 19 | RAW image loader |
 | `test_sensor_npf_integration_v1x.py` | 16 | Sensor/NPF integration |
-| `test_infrastructure_v1x.py` | 16 | ROI, progress, file collection |
+| `test_infrastructure_v1x.py` | 19 | ROI, progress, file collection |
 | `test_inputs_logging_v1x.py` | 8 | Logging configuration |
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch sizing |
+| `test_i18n.py` | 5 | Localization lookup and pluralization |
 | `test_plugin_registry_base.py` | 4 | Plugin registry base class |
 | `test_plugin_contract_validation_v1x.py` | 3 | Plugin contract validation |
 | `test_cli_options_v1x.py` | 2 | CLI option parsing |
 | `test_discovery_parity.py` | 2 | Plugin discovery parity |
 | `test_registry_default_contracts_v1x.py` | 2 | Registry default contracts |
 
-**Total: 469 tests**
+**Total: 481 tests**
 
 ## Code Style
 
@@ -207,23 +208,33 @@ def estimate_star_trail_length(
 
 ```
 detect_meteors/
+├── _detect_meteors_cli           # Generated completion output (for install)
 ├── detect_meteors_cli.py          # CLI interface
+├── detect_meteors_cli_completion.bash  # Bash completion script
 ├── meteor_core/                   # Core logic modules
+│   ├── i18n.py                    # Locale resolution and message formatting
 │   ├── schema.py                  # Type definitions, constants
 │   ├── exceptions.py              # Custom exception hierarchy
 │   ├── pipeline.py                # Pipeline orchestration
 │   ├── image_io.py                # Image IO, EXIF utilities
 │   ├── roi_selector.py            # ROI selection
 │   ├── utils.py                   # Utility functions
+│   ├── messages.py                # User-facing message helpers
 │   ├── plugin_registry_base.py    # Base class for plugin registries
 │   ├── plugin_registry.py         # Unified plugin registry
 │   ├── plugin_contract.py         # Plugin contract definitions
 │   ├── inputs/                    # Input loader plugins
 │   ├── outputs/                   # Output handler plugins
-│   └── detectors/                 # Detection algorithm plugins
+│   ├── detectors/                 # Detection algorithm plugins
+│   ├── locales/                   # Translations
+│   └── templates/                 # Report templates and assets
+├── candidates/                    # Default output folder for detections
+├── debug_masks/                   # Debug output masks
+├── rawfiles/                      # Sample/raw image inputs
 ├── tests/                         # Test suite
 ├── pyproject.toml                 # Project configuration
 ├── requirements.txt               # Dependencies
+├── run_tests.py                   # Test runner helper
 └── PLUGIN_AUTHOR_GUIDE.md         # Plugin development guide
 ```
 
