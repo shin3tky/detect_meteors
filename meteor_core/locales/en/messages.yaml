@@ -258,24 +258,29 @@ ui:
       npf_basis: "  NPF calculation:    Based on edge (worst case)"
     exif:
       header: "Camera Settings (EXIF Metadata)"
-      line:
-        camera: "  Camera:           {value}"
-        lens: "  Lens:             {value}"
-        iso: "  ISO:              {value}"
-        iso_unavailable: "  ISO:              Not available"
-        aperture: "  Aperture:         f/{value:.1f}"
-        resolution: "  Resolution:       {width}x{height} px"
-      focal_length:
-        equiv: "  Focal length:     {value:.1f}mm (35mm equiv.) [{source}]"
-        actual: "  Focal length:     {value:.1f}mm (actual) [{source}]"
-        calculated: "                    ~ {value:.1f}mm (35mm equiv., calculated with factor {factor})"
-        no_equiv: "                    ⚠ No 35mm equivalent found"
-        unavailable: "  Focal length:     Not available"
-      exposure:
-        seconds_long: "  Exposure:         {value:.1f}s"
-        seconds_short: "  Exposure:         {value:.2f}s"
-        fraction: "  Exposure:         1/{denominator}s"
-        unavailable: "  Exposure:         Not available"
+      label:
+        camera: "Camera:"
+        lens: "Lens:"
+        focal_length: "Focal length:"
+        iso: "ISO:"
+        exposure: "Exposure:"
+        aperture: "Aperture:"
+        resolution: "Resolution:"
+      value:
+        iso_unavailable: "Not available"
+        aperture: "f/{value:.1f}"
+        resolution: "{width}x{height} px"
+        focal_length:
+          equiv: "{value:.1f}mm (35mm equiv.) [{source}]"
+          actual: "{value:.1f}mm (actual) [{source}]"
+          calculated: "~ {value:.1f}mm (35mm equiv., calculated with factor {factor})"
+          no_equiv: "⚠ No 35mm equivalent found"
+          unavailable: "Not available"
+        exposure:
+          seconds_long: "{value:.1f}s"
+          seconds_short: "{value:.2f}s"
+          fraction: "1/{denominator}s"
+          unavailable: "Not available"
     npf:
       header: "NPF Rule Analysis"
       pixel_pitch: "  Pixel pitch:      {value:.2f}μm"

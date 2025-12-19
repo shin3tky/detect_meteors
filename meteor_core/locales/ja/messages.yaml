@@ -258,24 +258,29 @@ ui:
       npf_basis: "  NPF 計算:    周辺 (最悪条件) を基準"
     exif:
       header: "カメラ設定 (EXIF メタデータ)"
-      line:
-        camera: "  カメラ:           {value}"
-        lens: "  レンズ:           {value}"
-        iso: "  ISO:              {value}"
-        iso_unavailable: "  ISO:              取得不可"
-        aperture: "  絞り:             f/{value:.1f}"
-        resolution: "  解像度:           {width}x{height} px"
-      focal_length:
-        equiv: "  焦点距離:     {value:.1f}mm (35mm 換算) [{source}]"
-        actual: "  焦点距離:     {value:.1f}mm (実焦点距離) [{source}]"
-        calculated: "                    ~ {value:.1f}mm (35mm 換算、係数 {factor} で計算)"
-        no_equiv: "                    ⚠ 35mm 換算が見つかりません"
-        unavailable: "  焦点距離:     取得不可"
-      exposure:
-        seconds_long: "  露出:         {value:.1f}s"
-        seconds_short: "  露出:         {value:.2f}s"
-        fraction: "  露出:         1/{denominator}s"
-        unavailable: "  露出:         取得不可"
+      label:
+        camera: "カメラ:"
+        lens: "レンズ:"
+        focal_length: "焦点距離:"
+        iso: "ISO:"
+        exposure: "露出:"
+        aperture: "絞り:"
+        resolution: "解像度:"
+      value:
+        iso_unavailable: "取得不可"
+        aperture: "f/{value:.1f}"
+        resolution: "{width}x{height} px"
+        focal_length:
+          equiv: "{value:.1f}mm (35mm 換算) [{source}]"
+          actual: "{value:.1f}mm (実焦点距離) [{source}]"
+          calculated: "~ {value:.1f}mm (35mm 換算、係数 {factor} で計算)"
+          no_equiv: "⚠ 35mm 換算が見つかりません"
+          unavailable: "取得不可"
+        exposure:
+          seconds_long: "{value:.1f}s"
+          seconds_short: "{value:.2f}s"
+          fraction: "1/{denominator}s"
+          unavailable: "取得不可"
     npf:
       header: "NPF ルール解析"
       pixel_pitch: "  画素ピッチ:   {value:.2f}μm"

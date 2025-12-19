@@ -13,6 +13,7 @@ import math
 import json
 import hashlib
 import os
+import unicodedata
 import numpy as np
 from typing import Dict, Optional, Tuple, List, Any
 
@@ -33,6 +34,20 @@ def _resolve_locale(locale: Optional[str]) -> str:
     if locale:
         return locale
     return os.environ.get("DETECT_METEORS_LOCALE", DEFAULT_LOCALE)
+
+
+def _display_width(text: str) -> int:
+    """Return display width accounting for wide unicode characters."""
+    width = 0
+    for char in text:
+        width += 2 if unicodedata.east_asian_width(char) in {"W", "F"} else 1
+    return width
+
+
+def _pad_label(label: str, width: int) -> str:
+    """Pad label with spaces to match display width."""
+    padding = max(0, width - _display_width(label))
+    return f"{label}{' ' * padding}"
 
 
 # ==========================================
@@ -1280,110 +1295,162 @@ def display_exif_info(
     print(get_message("ui.utils.exif.header", locale=locale))
     print(f"{'='*60}")
 
+    labels = {
+        "camera": get_message("ui.utils.exif.label.camera", locale=locale),
+        "lens": get_message("ui.utils.exif.label.lens", locale=locale),
+        "focal_length": get_message("ui.utils.exif.label.focal_length", locale=locale),
+        "iso": get_message("ui.utils.exif.label.iso", locale=locale),
+        "exposure": get_message("ui.utils.exif.label.exposure", locale=locale),
+        "aperture": get_message("ui.utils.exif.label.aperture", locale=locale),
+        "resolution": get_message("ui.utils.exif.label.resolution", locale=locale),
+    }
+    label_width = max(_display_width(label) for label in labels.values())
+
+    def format_line(label_key: str, value: str) -> str:
+        return f"  {_pad_label(labels[label_key], label_width)} {value}"
+
+    continuation_prefix = f"  {' ' * (label_width + 1)}"
+
     if exif_data.get("camera_make") or exif_data.get("camera_model"):
         camera_str = f"{exif_data.get('camera_make', '')} {exif_data.get('camera_model', '')}".strip()
         if camera_str:
-            print(
-                get_message(
-                    "ui.utils.exif.line.camera", locale=locale, value=camera_str
-                )
-            )
+            print(format_line("camera", camera_str))
 
     if exif_data.get("lens_model"):
-        print(
-            get_message(
-                "ui.utils.exif.line.lens",
-                locale=locale,
-                value=exif_data["lens_model"],
-            )
-        )
+        print(format_line("lens", exif_data["lens_model"]))
 
     # Focal length
     if exif_data.get("focal_length_35mm"):
         print(
-            get_message(
-                "ui.utils.exif.focal_length.equiv",
-                locale=locale,
-                value=exif_data["focal_length_35mm"],
-                source=focal_length_source,
+            format_line(
+                "focal_length",
+                get_message(
+                    "ui.utils.exif.value.focal_length.equiv",
+                    locale=locale,
+                    value=exif_data["focal_length_35mm"],
+                    source=focal_length_source,
+                ),
             )
         )
     elif exif_data.get("focal_length"):
         print(
-            get_message(
-                "ui.utils.exif.focal_length.actual",
-                locale=locale,
-                value=exif_data["focal_length"],
-                source=focal_length_source,
+            format_line(
+                "focal_length",
+                get_message(
+                    "ui.utils.exif.value.focal_length.actual",
+                    locale=locale,
+                    value=exif_data["focal_length"],
+                    source=focal_length_source,
+                ),
             )
         )
         if focal_factor:
             equiv = exif_data["focal_length"] * focal_factor
             print(
-                get_message(
-                    "ui.utils.exif.focal_length.calculated",
+                continuation_prefix
+                + get_message(
+                    "ui.utils.exif.value.focal_length.calculated",
                     locale=locale,
                     value=equiv,
                     factor=focal_factor,
                 )
             )
         else:
-            print(get_message("ui.utils.exif.focal_length.no_equiv", locale=locale))
+            print(
+                continuation_prefix
+                + get_message(
+                    "ui.utils.exif.value.focal_length.no_equiv", locale=locale
+                )
+            )
     else:
-        print(get_message("ui.utils.exif.focal_length.unavailable", locale=locale))
+        print(
+            format_line(
+                "focal_length",
+                get_message(
+                    "ui.utils.exif.value.focal_length.unavailable", locale=locale
+                ),
+            )
+        )
 
     # ISO sensitivity
     if exif_data.get("iso"):
-        print(
-            get_message("ui.utils.exif.line.iso", locale=locale, value=exif_data["iso"])
-        )
+        print(format_line("iso", str(exif_data["iso"])))
     else:
-        print(get_message("ui.utils.exif.line.iso_unavailable", locale=locale))
+        print(
+            format_line(
+                "iso",
+                get_message("ui.utils.exif.value.iso_unavailable", locale=locale),
+            )
+        )
 
     # Exposure time
     if exif_data.get("exposure_time"):
         exp = exif_data["exposure_time"]
         if exp >= 1:
             print(
-                get_message(
-                    "ui.utils.exif.exposure.seconds_long", locale=locale, value=exp
+                format_line(
+                    "exposure",
+                    get_message(
+                        "ui.utils.exif.value.exposure.seconds_long",
+                        locale=locale,
+                        value=exp,
+                    ),
                 )
             )
         elif exp >= 0.1:
             print(
-                get_message(
-                    "ui.utils.exif.exposure.seconds_short", locale=locale, value=exp
+                format_line(
+                    "exposure",
+                    get_message(
+                        "ui.utils.exif.value.exposure.seconds_short",
+                        locale=locale,
+                        value=exp,
+                    ),
                 )
             )
         else:
             print(
-                get_message(
-                    "ui.utils.exif.exposure.fraction",
-                    locale=locale,
-                    denominator=int(1 / exp),
+                format_line(
+                    "exposure",
+                    get_message(
+                        "ui.utils.exif.value.exposure.fraction",
+                        locale=locale,
+                        denominator=int(1 / exp),
+                    ),
                 )
             )
     else:
-        print(get_message("ui.utils.exif.exposure.unavailable", locale=locale))
+        print(
+            format_line(
+                "exposure",
+                get_message("ui.utils.exif.value.exposure.unavailable", locale=locale),
+            )
+        )
 
     # F-number (aperture)
     if exif_data.get("f_number"):
         print(
-            get_message(
-                "ui.utils.exif.line.aperture",
-                locale=locale,
-                value=exif_data["f_number"],
+            format_line(
+                "aperture",
+                get_message(
+                    "ui.utils.exif.value.aperture",
+                    locale=locale,
+                    value=exif_data["f_number"],
+                ),
             )
         )
 
     # Image resolution
     if exif_data.get("image_width") and exif_data.get("image_height"):
         print(
-            get_message(
-                "ui.utils.exif.line.resolution",
-                locale=locale,
-                width=exif_data["image_width"],
-                height=exif_data["image_height"],
+            format_line(
+                "resolution",
+                get_message(
+                    "ui.utils.exif.value.resolution",
+                    locale=locale,
+                    width=exif_data["image_width"],
+                    height=exif_data["image_height"],
+                ),
             )
         )
 
