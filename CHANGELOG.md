@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.5.13 - 2025-12-19
+- **Internationalization (i18n)**: Added multi-language support for CLI user-facing messages.
+  - New `--locale` option to specify the display language (default: `en`).
+  - Environment variable `DETECT_METEORS_LOCALE` can set the default locale.
+  - ICU-style message templates with plural rule support.
+  - YAML-based locale catalogs under `meteor_core/locales/`.
+  - Supported languages: English (`en`), Japanese (`ja`).
+  - UI/UX messages are localized; system/debug messages remain in English.
+- **Progress file normalization**: Added `normalize_progress_data()` helper to sanitize `progress.json` contents and recompute totals before applying loaded data.
+- **Improved validation**: `validate_and_apply_sensor_preset()` now raises `MeteorValidationError` directly instead of returning error messages.
+- **New dependency**: Added `PyYAML` for locale catalog parsing.
+- **Test coverage**: Added `test_i18n.py` and `test_infrastructure_v1x.py` for i18n and progress normalization coverage.
+- **Updated shell completions**: Both bash and zsh completion scripts updated with `--locale` support.
+
 ## v1.5.12 - 2025-12-18
 - **Custom exception hierarchy**: Introduced structured exception classes for better error handling and diagnostics.
   - `MeteorError`: Base exception class with diagnostic information support.

@@ -109,6 +109,16 @@
   - [x] `--save-diagnostic` option for bug reporting
   - [x] Standard Python logging throughout all modules
 
+### Internationalization
+- [x] **v1.5.13** - Multi-language support for CLI messages
+  - [x] `--locale` option for display language selection
+  - [x] `DETECT_METEORS_LOCALE` environment variable for default locale
+  - [x] ICU-style message templates with plural rule support
+  - [x] YAML-based locale catalogs under `meteor_core/locales/`
+  - [x] English (`en`) and Japanese (`ja`) translations
+  - [x] UI/UX messages localized; system/debug output in English
+  - [x] Progress file normalization helpers
+
 ### Development Tooling Modernization
 - [ ] **v1.6.0** - Migration to modern Python tooling
   - [ ] Replace Black + flake8 with `ruff` (unified linter/formatter)
@@ -143,5 +153,5 @@
 
 ---
 
-**Current Status**: v1.5.12 (Stability & error handling)
+**Current Status**: v1.5.13 (Internationalization)
 **Next Focus**: Development tooling modernization (ruff, uv), camera model database
