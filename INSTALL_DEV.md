@@ -208,7 +208,7 @@ def estimate_star_trail_length(
 
 ```
 detect_meteors/
-├── _detect_meteors_cli           # Generated completion output (for install)
+├── _detect_meteors_cli            # Generated completion output (for install)
 ├── detect_meteors_cli.py          # CLI interface
 ├── detect_meteors_cli_completion.bash  # Bash completion script
 ├── meteor_core/                   # Core logic modules
