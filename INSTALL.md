@@ -69,7 +69,6 @@ pip install -r requirements.txt
 
 This will install:
 - `numpy` - Numerical computing
-- `matplotlib` - Plotting and visualization
 - `opencv-python` - Image processing
 - `rawpy` - RAW image reading
 - `psutil` - System utilities
@@ -158,7 +157,6 @@ pip install -r requirements.txt
 
 This will install:
 - `numpy` - Numerical computing
-- `matplotlib` - Plotting and visualization
 - `opencv-python` - Image processing
 - `rawpy` - RAW image reading
 - `psutil` - System utilities
