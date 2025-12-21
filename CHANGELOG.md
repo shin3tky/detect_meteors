@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.6.0 - 2025-12-21
+- **Development toolchain modernization**: Migrated from pip/black/flake8 to uv/ruff for faster, unified development workflow.
+  - **uv**: Rust-based Python package manager (10-100× faster than pip).
+  - **Ruff**: Rust-based linter and formatter replacing both black and flake8.
+  - Unified configuration in `pyproject.toml` (removed `.flake8`).
+  - Updated `.pre-commit-config.yaml` to use local Ruff hooks.
+  - Simplified developer setup: `uv sync --all-extras` installs everything.
+- **Updated developer documentation**: Revised `INSTALL_DEV.md` with uv/Ruff workflow.
+- **Backward compatibility**: No changes to CLI, runtime behavior, or detection algorithms.
+
+
 ## v1.5.13 - 2025-12-19
 - **Internationalization (i18n)**: Added multi-language support for CLI user-facing messages.
   - New `--locale` option to specify the display language (default: `en`).
