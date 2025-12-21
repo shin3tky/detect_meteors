@@ -148,8 +148,10 @@ uv run coverage html
 | `test_plugin_contract_helpers_v1x.py` | 5 | Plugin contract helpers |
 | `test_roi_selector_helpers_v1x.py` | 2 | ROI selector helpers |
 | `test_utils_display_width_v1x.py` | 3 | Unicode display width helpers |
+| `test_inputs_base_v1x.py` | 7 | Input loader base class |
+| `test_roi_selector_ui_v1x.py` | 2 | ROI selector UI flow |
 
-**Total: 508 tests**
+**Total: 517 tests**
 
 ## Code Style
 
