@@ -144,8 +144,11 @@ uv run coverage html
 | `test_cli_options_v1x.py` | 2 | CLI option parsing |
 | `test_discovery_parity.py` | 2 | Plugin discovery parity |
 | `test_registry_default_contracts_v1x.py` | 2 | Registry default contracts |
+| `test_image_io_helpers_v1x.py` | 3 | Image I/O helpers |
+| `test_plugin_contract_helpers_v1x.py` | 5 | Plugin contract helpers |
+| `test_roi_selector_helpers_v1x.py` | 2 | ROI selector helpers |
 
-**Total: 495 tests**
+**Total: 505 tests**
 
 ## Code Style
 
