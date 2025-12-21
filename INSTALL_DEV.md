@@ -150,8 +150,9 @@ uv run coverage html
 | `test_utils_display_width_v1x.py` | 3 | Unicode display width helpers |
 | `test_inputs_base_v1x.py` | 7 | Input loader base class |
 | `test_roi_selector_ui_v1x.py` | 2 | ROI selector UI flow |
+| `test_pipeline_helpers_v1x.py` | 12 | Pipeline helpers |
 
-**Total: 517 tests**
+**Total: 529 tests**
 
 ## Code Style
 
