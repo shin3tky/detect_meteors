@@ -125,17 +125,17 @@ uv run coverage html
 |------|-------|-------------|
 | `test_exceptions_v1x.py` | 70 | Exception hierarchy and diagnostic info |
 | `test_calculations_v1x.py` | 54 | NPF Rule, pixel pitch, star/meteor trail estimation |
-| `test_output_handler_registry_v1x.py` | 51 | Output handler registry |
+| `test_output_handler_registry_v1x.py` | 53 | Output handler registry |
 | `test_integration_v1x.py` | 44 | End-to-end meteor detection |
 | `test_sensor_presets_v1x.py` | 38 | Sensor type presets |
 | `test_loader_registry_v1x.py` | 30 | Input loader registry |
 | `test_detector_registry_v1x.py` | 30 | Detector registry |
 | `test_sensor_validation_v1x.py` | 27 | Sensor override validation |
 | `test_fisheye_v1x.py` | 27 | Fisheye lens correction |
-| `test_detector_plugin_v1x.py` | 24 | Detector plugin architecture |
-| `test_raw_loader_v1x.py` | 19 | RAW image loader |
+| `test_detector_plugin_v1x.py` | 26 | Detector plugin architecture |
+| `test_raw_loader_v1x.py` | 23 | RAW image loader |
 | `test_sensor_npf_integration_v1x.py` | 16 | Sensor/NPF integration |
-| `test_infrastructure_v1x.py` | 19 | ROI, progress, file collection |
+| `test_infrastructure_v1x.py` | 25 | ROI, progress, file collection |
 | `test_inputs_logging_v1x.py` | 8 | Logging configuration |
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch sizing |
 | `test_i18n.py` | 5 | Localization lookup and pluralization |
@@ -144,8 +144,15 @@ uv run coverage html
 | `test_cli_options_v1x.py` | 2 | CLI option parsing |
 | `test_discovery_parity.py` | 2 | Plugin discovery parity |
 | `test_registry_default_contracts_v1x.py` | 2 | Registry default contracts |
+| `test_image_io_helpers_v1x.py` | 3 | Image I/O helpers |
+| `test_plugin_contract_helpers_v1x.py` | 5 | Plugin contract helpers |
+| `test_roi_selector_helpers_v1x.py` | 2 | ROI selector helpers |
+| `test_utils_display_width_v1x.py` | 3 | Unicode display width helpers |
+| `test_inputs_base_v1x.py` | 7 | Input loader base class |
+| `test_roi_selector_ui_v1x.py` | 2 | ROI selector UI flow |
+| `test_pipeline_helpers_v1x.py` | 12 | Pipeline helpers |
 
-**Total: 481 tests**
+**Total: 529 tests**
 
 ## Code Style
 

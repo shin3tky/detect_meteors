@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from meteor_core import (  # noqa: E402
     MeteorLoadError,
+    MeteorConfigError,
     parse_roi_polygon_string,
     format_polygon_string,
     compute_params_hash,
@@ -38,6 +39,15 @@ from meteor_core import (  # noqa: E402
 from meteor_core.pipeline import (  # noqa: E402
     estimate_diff_threshold_from_samples,
     estimate_min_area_from_samples,
+    _extract_metadata_from_loader,
+    _resolve_input_loader,
+    _resolve_locale,
+    _resolve_output_handler,
+)
+from meteor_core.roi_selector import (  # noqa: E402
+    create_full_roi_mask,
+    create_roi_mask_from_polygon,
+    select_roi,
 )
 
 
@@ -76,6 +86,30 @@ class TestROIStringParsing(unittest.TestCase):
         expected = "100,100;200,100;200,200"
         result = format_polygon_string(polygon)
         self.assertEqual(result, expected)
+
+
+class TestRoiSelectorUtilities(unittest.TestCase):
+    """Tests for ROI selector helper functions."""
+
+    def test_select_roi_validations(self):
+        with self.assertRaises(ValueError):
+            select_roi(None)
+
+        with self.assertRaises(ValueError):
+            select_roi(np.array([], dtype=np.uint16))
+
+        with self.assertRaises(ValueError):
+            select_roi(np.zeros((4, 4), dtype=np.uint16))
+
+    def test_create_roi_masks(self):
+        polygon = [[1, 1], [3, 1], [3, 3], [1, 3]]
+        mask = create_roi_mask_from_polygon(polygon, (5, 5))
+        self.assertEqual(mask.dtype, np.uint8)
+        self.assertEqual(mask[2, 2], 255)
+        self.assertEqual(mask[0, 0], 0)
+
+        full = create_full_roi_mask((3, 4))
+        self.assertTrue(np.all(full == 255))
 
 
 class TestParameterHashing(unittest.TestCase):
@@ -322,6 +356,40 @@ class TestAutoEstimationLogic(unittest.TestCase):
             files, self.roi_mask, 10, input_loader=loader
         )
         self.assertEqual(area, DEFAULT_MIN_AREA)
+
+
+class TestPipelineResolvers(unittest.TestCase):
+    """Tests for pipeline resolver helpers."""
+
+    def test_resolve_locale_env_fallback(self):
+        with patch.dict(os.environ, {"DETECT_METEORS_LOCALE": "ja"}):
+            self.assertEqual(_resolve_locale(None), "ja")
+        self.assertEqual(_resolve_locale("en"), "en")
+
+    def test_resolve_input_loader_uses_instance(self):
+        dummy_loader = object()
+        self.assertIs(_resolve_input_loader(input_loader=dummy_loader), dummy_loader)
+
+    def test_resolve_output_handler_errors_without_fallback(self):
+        dummy_handler = object()
+        self.assertIs(
+            _resolve_output_handler(output_handler=dummy_handler), dummy_handler
+        )
+
+        with self.assertRaises(MeteorConfigError):
+            _resolve_output_handler()
+
+    def test_extract_metadata_from_loader(self):
+        class LoaderWithMetadata:
+            def extract_metadata(self, filepath):
+                return {"path": filepath}
+
+        loader = LoaderWithMetadata()
+        with patch(
+            "meteor_core.pipeline.supports_metadata_extraction", return_value=True
+        ):
+            metadata = _extract_metadata_from_loader(loader, "file.raw")
+        self.assertEqual(metadata, {"path": "file.raw"})
 
 
 class _IteratorLoader:

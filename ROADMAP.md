@@ -120,14 +120,15 @@
   - [x] Progress file normalization helpers
 
 ### Development Tooling Modernization
-- [ ] **v1.6.0** - Migration to modern Python tooling
-  - [ ] Replace Black + flake8 with `ruff` (unified linter/formatter)
-  - [ ] Adopt `uv` for faster dependency management and virtual environment handling
-  - [ ] Update `pyproject.toml` for ruff configuration
-  - [ ] Update pre-commit hooks for ruff integration
-  - [ ] Update CI/CD workflows for uv + ruff
+- [x] **v1.6.0** - Migration to modern Python tooling
+  - [x] Replace Black + flake8 with `ruff` (unified linter/formatter)
+  - [x] Adopt `uv` for faster dependency management and virtual environment handling
+  - [x] Update `pyproject.toml` for ruff configuration
+  - [x] Update pre-commit hooks for ruff integration
 
-### Remaining Goals for v1.x (-2025 4Q)
+### Pending (Deferred from v1.x)
+The following features were originally planned for v1.x but have been deferred:
+
 - [ ] Camera model database for automatic sensor detection from EXIF
 - [ ] Per-image adaptive parameter adjustment
 - [ ] Declination support with GPS coordinate extraction
@@ -153,5 +154,5 @@
 
 ---
 
-**Current Status**: v1.5.13 (Internationalization)
-**Next Focus**: Development tooling modernization (ruff, uv), camera model database
+**Current Status**: v1.6.0 (Development Tooling Modernization)
+**Next Focus**: v2.0 Architecture and Extensibility - Plugin architecture implementation

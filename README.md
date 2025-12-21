@@ -104,17 +104,20 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.5.13
+## What's New in v1.6.0
 
-- **Internationalization (i18n)**: Multi-language support for CLI messages with `--locale` option
-- **Supported languages**: English (`en`), Japanese (`ja`)
-- **Environment variable**: Set default locale with `DETECT_METEORS_LOCALE`
-- **Policy**: UI/UX messages are localized; system/debug output remains in English
+- **Development toolchain modernization**: Migrated from pip/black/flake8 to uv/ruff
+- **Faster development**: uv is 10-100× faster than pip for dependency management
+- **Unified tooling**: Ruff replaces both black (formatter) and flake8 (linter)
+- **Simpler setup**: `uv sync --all-extras` installs everything in seconds
+
+For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
 
 ### Previous Releases
 
 | Version | Highlights | Details |
 |---------|------------|---------|
+| v1.6.x | uv/Ruff toolchain modernization | [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md) |
 | v1.5.x | Plugin architecture, sensor presets, fisheye support | [RELEASE_NOTES_1.5.md](RELEASE_NOTES_1.5.md) |
 | v1.4.x | NPF Rule optimization, EXIF extraction | [RELEASE_NOTES_1.4.md](RELEASE_NOTES_1.4.md) |
 | v1.3.x | Auto-parameter estimation | [RELEASE_NOTES_1.3.md](RELEASE_NOTES_1.3.md) |

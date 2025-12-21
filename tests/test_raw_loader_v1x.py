@@ -11,12 +11,20 @@ Unit tests for RawImageLoader and RawLoaderConfig with exception handling.
 import os
 import tempfile
 import unittest
+from unittest import mock
 from unittest.mock import patch
 
 from meteor_core.exceptions import (
     MeteorLoadError,
     MeteorUnsupportedFormatError,
     MeteorValidationError,
+)
+from meteor_core.image_io import (
+    PILLOW_AVAILABLE,
+    _exif_ratio_to_float,
+    _exif_strategy_pil_direct,
+    _exif_strategy_rawpy_dimensions,
+    _populate_exif_from_dict,
 )
 from meteor_core.inputs.raw import RawImageLoader, RawLoaderConfig, create_raw_loader
 
@@ -243,6 +251,101 @@ class TestRawLoaderConfigDiagnostics(unittest.TestCase):
             output = e.format_for_issue()
             self.assertIn("## Diagnostic Information", output)
             self.assertIn("MeteorValidationError", output)
+
+
+class TestImageIoExif(unittest.TestCase):
+    """Tests for image_io EXIF helper utilities."""
+
+    def test_exif_ratio_to_float(self):
+        self.assertEqual(_exif_ratio_to_float((1, 2)), 0.5)
+        self.assertEqual(_exif_ratio_to_float(3), 3.0)
+        self.assertIsNone(_exif_ratio_to_float((1, 0)))
+        self.assertIsNone(_exif_ratio_to_float("bad"))
+
+    def test_populate_exif_from_dict(self):
+        result = {
+            "focal_length": None,
+            "focal_length_35mm": None,
+            "iso": None,
+            "exposure_time": None,
+            "f_number": None,
+            "camera_make": None,
+            "camera_model": None,
+            "lens_model": None,
+            "image_width": None,
+            "image_height": None,
+        }
+        exif_dict = {
+            "FocalLength": (50, 1),
+            "FocalLengthIn35mmFilm": "75",
+            "ISOSpeedRatings": [800],
+            "ExposureTime": (1, 10),
+            "FNumber": (4, 1),
+            "Make": "Test",
+            "Model": "Camera",
+            "LensModel": "Lens",
+            "ImageWidth": "1024",
+            "ImageLength": "768",
+        }
+        added = _populate_exif_from_dict(result, exif_dict)
+        self.assertGreaterEqual(added, 1)
+        self.assertEqual(result["focal_length"], 50.0)
+        self.assertEqual(result["focal_length_35mm"], 75.0)
+        self.assertEqual(result["iso"], 800)
+        self.assertEqual(result["image_width"], 1024)
+        self.assertEqual(result["image_height"], 768)
+
+    @unittest.skipUnless(PILLOW_AVAILABLE, "Pillow not available")
+    def test_exif_strategy_pil_direct(self):
+        result = {
+            "focal_length": None,
+            "focal_length_35mm": None,
+            "iso": None,
+            "exposure_time": None,
+            "f_number": None,
+            "camera_make": None,
+            "camera_model": None,
+            "lens_model": None,
+            "image_width": None,
+            "image_height": None,
+        }
+        fake_image = mock.Mock()
+        fake_image._getexif.return_value = {37386: (35, 1)}
+        with mock.patch("meteor_core.image_io.Image.open", return_value=fake_image):
+            extracted = _exif_strategy_pil_direct("dummy.raw", result)
+        self.assertTrue(extracted)
+        self.assertEqual(result["focal_length"], 35.0)
+
+    def test_exif_strategy_rawpy_dimensions(self):
+        result = {
+            "focal_length": None,
+            "focal_length_35mm": None,
+            "iso": None,
+            "exposure_time": None,
+            "f_number": None,
+            "camera_make": None,
+            "camera_model": None,
+            "lens_model": None,
+            "image_width": None,
+            "image_height": None,
+        }
+
+        class FakeRaw:
+            def __init__(self):
+                self.sizes = mock.Mock(raw_width=1920, raw_height=1080)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        with mock.patch("meteor_core.image_io.rawpy.imread", return_value=FakeRaw()):
+            extracted = _exif_strategy_rawpy_dimensions("dummy.raw", result)
+
+        self.assertTrue(extracted)
+        self.assertEqual(result["image_width"], 1920)
+        self.assertEqual(result["image_height"], 1080)
 
 
 if __name__ == "__main__":
