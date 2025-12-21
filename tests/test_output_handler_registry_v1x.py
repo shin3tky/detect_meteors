@@ -8,11 +8,15 @@ Unit tests for OutputHandlerRegistry.
 """
 
 import importlib.util
+import os
 import tempfile
 import unittest
 import warnings
 from tempfile import TemporaryDirectory
 from pathlib import Path
+from unittest import mock
+
+import numpy as np
 
 from meteor_core.outputs.registry import OutputHandlerRegistry
 from meteor_core.outputs.base import (
@@ -22,7 +26,7 @@ from meteor_core.outputs.base import (
     forbid_unknown_keys,
 )
 from meteor_core.outputs.file_handler import FileOutputHandler, FileOutputConfig
-from meteor_core.exceptions import MeteorConfigError
+from meteor_core.exceptions import MeteorConfigError, MeteorWriteError
 from meteor_core.schema import (
     DEFAULT_DEBUG_FOLDER,
     DEFAULT_OUTPUT_FOLDER,
@@ -636,6 +640,50 @@ class TestFileOutputHandler(unittest.TestCase):
         self.assertEqual(info["name"], "File Output Handler")
         self.assertIn("version", info)
         self.assertEqual(info["class"], "FileOutputHandler")
+
+    def test_save_candidate_and_debug_image(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = os.path.join(temp_dir, "out")
+            debug_dir = os.path.join(temp_dir, "debug")
+            source_path = os.path.join(temp_dir, "source.raw")
+            with open(source_path, "wb") as handle:
+                handle.write(b"data")
+
+            handler = FileOutputHandler(
+                FileOutputConfig(
+                    output_folder=output_dir,
+                    debug_folder=debug_dir,
+                    output_overwrite=False,
+                )
+            )
+            saved = handler.save_candidate(source_path, "source.raw")
+            self.assertTrue(saved)
+            self.assertTrue(os.path.exists(os.path.join(output_dir, "source.raw")))
+
+            saved_again = handler.save_candidate(source_path, "source.raw")
+            self.assertFalse(saved_again)
+
+            debug_image = np.zeros((10, 10, 3), dtype=np.uint8)
+            roi_polygon = [[1, 1], [8, 1], [8, 8], [1, 8]]
+            debug_path = handler.save_debug_image(
+                debug_image, "source.raw", roi_polygon=roi_polygon
+            )
+            self.assertTrue(os.path.exists(debug_path))
+
+    def test_debug_image_write_failure_raises(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            handler = FileOutputHandler(
+                FileOutputConfig(
+                    output_folder=temp_dir,
+                    debug_folder=temp_dir,
+                    output_overwrite=True,
+                )
+            )
+            debug_image = np.zeros((5, 5, 3), dtype=np.uint8)
+            with mock.patch("meteor_core.outputs.file_handler.cv2.imwrite") as mocked:
+                mocked.return_value = False
+                with self.assertRaises(MeteorWriteError):
+                    handler.save_debug_image(debug_image, "fail.raw")
 
 
 class TestBaseOutputHandlerHooks(unittest.TestCase):

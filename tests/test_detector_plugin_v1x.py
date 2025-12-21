@@ -23,6 +23,10 @@ from meteor_core.detectors import (  # noqa: E402
     HoughDetector,
     DetectorRegistry,
 )
+from meteor_core.detectors.simple_threshold import (  # noqa: E402
+    SimpleThresholdConfig,
+    SimpleThresholdDetector,
+)
 from meteor_core.schema import PipelineConfig, DetectionParams  # noqa: E402
 from meteor_core.pipeline import (  # noqa: E402
     _resolve_detector,
@@ -144,6 +148,46 @@ class TestAvailableDetectors(unittest.TestCase):
 
         with self.assertWarns(DeprecationWarning):
             discover_detectors()
+
+
+class TestSimpleThresholdDetector(unittest.TestCase):
+    """Tests for SimpleThresholdDetector behavior."""
+
+    def test_detect_returns_candidate(self):
+        config = SimpleThresholdConfig(diff_threshold=5, min_area=0)
+        detector = SimpleThresholdDetector(config)
+        current = np.zeros((6, 6), dtype=np.uint8)
+        previous = np.zeros((6, 6), dtype=np.uint8)
+        current[2:4, 2:4] = 20
+        roi_mask = np.full_like(current, 255)
+
+        is_candidate, line_score, segments, aspect_ratio, mask = detector.detect(
+            current,
+            previous,
+            roi_mask,
+            {},
+        )
+
+        self.assertTrue(is_candidate)
+        self.assertGreater(line_score, 0)
+        self.assertEqual(len(segments), 1)
+        self.assertGreaterEqual(aspect_ratio, 1.0)
+        self.assertIsNone(mask)
+
+        score_from_compute, segments_from_compute = detector.compute_line_score(
+            roi_mask, {}
+        )
+        self.assertEqual(score_from_compute, 0.0)
+        self.assertEqual(segments_from_compute, [])
+
+    def test_detect_rejects_mismatched_shapes(self):
+        detector = SimpleThresholdDetector(SimpleThresholdConfig())
+        current = np.zeros((4, 4), dtype=np.uint8)
+        previous = np.zeros((5, 5), dtype=np.uint8)
+        roi_mask = np.full_like(current, 255)
+
+        with self.assertRaises(ValueError):
+            detector.detect(current, previous, roi_mask, {})
 
 
 class TestPipelineConfigDetector(unittest.TestCase):
