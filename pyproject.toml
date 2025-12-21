@@ -14,7 +14,7 @@ name = "detect-meteors"
 version = "1.5.13"
 description = "Automated meteor detection in RAW astrophotography images using frame-to-frame difference analysis"
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 requires-python = ">=3.12"
 authors = [
     { name = "Shinichi Morita", email = "shin3tky@gmail.com" }
@@ -38,7 +38,6 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Science/Research",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
