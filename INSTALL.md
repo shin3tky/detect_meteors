@@ -26,12 +26,12 @@ git clone https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
-### Step 4: Install Python
+### Step 4: Install uv
 
-Install Python 3.12 using Homebrew:
+Install uv, a fast Python package and project manager:
 
 ```bash
-brew install python@3.12
+brew install uv
 ```
 
 ### Step 5: Install System Dependencies
@@ -42,49 +42,38 @@ Install OpenCV and LibRaw:
 brew install opencv libraw
 ```
 
-### Step 6: Create Virtual Environment
+### Step 6: Set Up Python Environment
 
-Create and activate a Python virtual environment:
-
-```bash
-# Create virtual environment
-$(brew --prefix python@3.12)/bin/python3.12 -m venv venv
-
-# Activate virtual environment
-source ./venv/bin/activate
-```
-
-**Note**: This command works on both Intel Macs (`/usr/local`) and Apple Silicon Macs (`/opt/homebrew`). On subsequent uses, you only need to activate the environment:
-```bash
-source ./venv/bin/activate
-```
-
-### Step 7: Install Python Dependencies
-
-Install required Python packages from `requirements.txt`:
+uv manages Python versions and virtual environments automatically:
 
 ```bash
-pip install -r requirements.txt
+# Install the latest Python 3.12.x
+uv python install 3.12
+
+# Create virtual environment and install dependencies
+uv sync
 ```
 
-This will install:
-- `numpy` - Numerical computing
-- `opencv-python` - Image processing
-- `rawpy` - RAW image reading
-- `psutil` - System utilities
-- `pillow` - Image handling and EXIF extraction
-- `pydantic` - Configuration and data validation
-- `pyyaml` - Locale message parsing
+This will:
+- Download and install the latest Python 3.12.x patch release
+- Create a virtual environment in `.venv`
+- Install all dependencies from `pyproject.toml`
 
-### Step 8: Verification
+### Step 7: Verification
 
 Verify the installation:
 
 ```bash
-python detect_meteors_cli.py --help
+uv run python detect_meteors_cli.py --help
 ```
 
 You should see the help message with all available options.
+
+**Note**: Use `uv run` to execute commands within the virtual environment, or activate it manually:
+```bash
+source .venv/bin/activate
+python detect_meteors_cli.py --help
+```
 
 ---
 
@@ -100,15 +89,15 @@ winget install --id Git.Git -e --source winget
 
 After installation, restart your terminal or open a new one to ensure Git is in your PATH.
 
-### Step 2: Install Python
+### Step 2: Install uv
 
-Install Python 3.12 using Winget:
+Install uv using Winget:
 
 ```powershell
-winget install --id Python.Python.3.12 -e --source winget
+winget install --id astral-sh.uv -e --source winget
 ```
 
-After installation, restart your terminal or open a new one to ensure Python is in your PATH.
+After installation, restart your terminal or open a new one to ensure uv is in your PATH.
 
 ### Step 3: Clone the Repository
 
@@ -120,59 +109,45 @@ cd detect_meteors
 
 ### Step 4: Install System Dependencies
 
-Install OpenCV and LibRaw:
+**Note**: On Windows, OpenCV will be installed via uv in the next steps. For LibRaw support, `rawpy` includes the necessary binaries, so no separate installation is required.
 
-**Note**: On Windows, OpenCV will be installed via pip in the next steps. For LibRaw support, `rawpy` includes the necessary binaries, so no separate installation is required.
+### Step 5: Set Up Python Environment
 
-### Step 5: Create Virtual Environment
-
-Create and activate a Python virtual environment:
+uv manages Python versions and virtual environments automatically:
 
 ```powershell
-# Create virtual environment
-python -m venv venv
+# Install the latest Python 3.12.x
+uv python install 3.12
 
-# Allow script execution for this terminal session only
-Set-ExecutionPolicy RemoteSigned -Scope Process
-
-# Activate virtual environment
-.\venv\Scripts\Activate.ps1
+# Create virtual environment and install dependencies
+uv sync
 ```
 
-**Note**: The `Set-ExecutionPolicy` command with `-Scope Process` only affects the current terminal session and doesn't change your system-wide policy. This is the safest approach.
+This will:
+- Download and install the latest Python 3.12.x patch release
+- Create a virtual environment in `.venv`
+- Install all dependencies from `pyproject.toml`
 
-On subsequent uses, you need to run both commands:
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope Process
-.\venv\Scripts\Activate.ps1
-```
-
-### Step 6: Install Python Dependencies
-
-Install required Python packages from `requirements.txt`:
-
-```powershell
-pip install -r requirements.txt
-```
-
-This will install:
-- `numpy` - Numerical computing
-- `opencv-python` - Image processing
-- `rawpy` - RAW image reading
-- `psutil` - System utilities
-- `pillow` - Image handling and EXIF extraction
-- `pydantic` - Configuration and data validation
-- `pyyaml` - Locale message parsing
-
-### Step 7: Verification
+### Step 6: Verification
 
 Verify the installation:
 
 ```powershell
-python detect_meteors_cli.py --help
+uv run python detect_meteors_cli.py --help
 ```
 
 You should see the help message with all available options.
+
+**Note**: Use `uv run` to execute commands within the virtual environment, or activate it manually:
+```powershell
+# Allow script execution for this terminal session only
+Set-ExecutionPolicy RemoteSigned -Scope Process
+
+# Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+python detect_meteors_cli.py --help
+```
 
 ---
 
@@ -181,13 +156,13 @@ You should see the help message with all available options.
 ### macOS
 
 - **Homebrew not found**: Ensure Homebrew is installed and `/usr/local/bin` (Intel) or `/opt/homebrew/bin` (Apple Silicon) is in your PATH.
-- **Python version issues**: If `python3.12` is not found, check the Homebrew installation path with `brew --prefix python@3.12`.
+- **uv not found**: After installation, restart your terminal or run `brew link uv`.
 
 ### Windows
 
 - **Winget not available**: Ensure you're running Windows 10 (version 1809 or later) or Windows 11. Update Windows if necessary.
-- **Git or Python not in PATH**: After installation, restart your terminal or add the installation directories to your PATH manually.
-- **PowerShell execution policy**: Use `Set-ExecutionPolicy RemoteSigned -Scope Process` as mentioned in Step 5. This only affects the current terminal session and is the safest approach.
+- **Git or uv not in PATH**: After installation, restart your terminal or add the installation directories to your PATH manually.
+- **PowerShell execution policy**: Use `Set-ExecutionPolicy RemoteSigned -Scope Process` as mentioned in Step 6. This only affects the current terminal session and is the safest approach.
 
 ## Next Steps
 

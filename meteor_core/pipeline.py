@@ -593,7 +593,7 @@ def estimate_diff_threshold_from_samples(
         Estimated diff_threshold value
     """
     locale = _resolve_locale(locale)
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(
         get_message(
             "ui.pipeline.estimate.diff_threshold.header",
@@ -602,7 +602,7 @@ def estimate_diff_threshold_from_samples(
         )
     )
     print(get_message("ui.pipeline.estimate.diff_threshold.subtitle", locale=locale))
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
     sample_size = min(sample_size, len(files))
     if sample_size < 2:
@@ -691,7 +691,7 @@ def estimate_diff_threshold_from_samples(
     # Clamp to reasonable range (adjusted based on real-world feedback)
     estimated_threshold = np.clip(estimated_threshold, 3, 18)
 
-    print(f"\n{'─'*50}")
+    print(f"\n{'─' * 50}")
     print(
         get_message(
             "ui.pipeline.estimate.diff_threshold.stats.header",
@@ -699,7 +699,7 @@ def estimate_diff_threshold_from_samples(
             pixel_count=len(diff_values),
         )
     )
-    print(f"{'─'*50}")
+    print(f"{'─' * 50}")
     stats_labels = {
         "mean": get_message(
             "ui.pipeline.estimate.diff_threshold.stats.label.mean", locale=locale
@@ -735,7 +735,7 @@ def estimate_diff_threshold_from_samples(
     print(format_stat("p95", p95))
     print(format_stat("p98", p98))
     print(format_stat("p99", p99))
-    print(f"{'─'*50}")
+    print(f"{'─' * 50}")
     print(
         get_message("ui.pipeline.estimate.diff_threshold.methods.header", locale=locale)
     )
@@ -759,7 +759,7 @@ def estimate_diff_threshold_from_samples(
     print(format_method("p98", method_1))
     print(format_method("mean_sigma", method_2))
     print(format_method("median", method_3))
-    print(f"{'─'*50}")
+    print(f"{'─' * 50}")
     print(
         get_message(
             "ui.pipeline.estimate.diff_threshold.selected",
@@ -767,7 +767,7 @@ def estimate_diff_threshold_from_samples(
             value=estimated_threshold,
         )
     )
-    print(f"{'='*50}\n")
+    print(f"{'=' * 50}\n")
 
     return estimated_threshold
 
@@ -793,7 +793,7 @@ def estimate_min_area_from_samples(
         Estimated min_area value
     """
     locale = _resolve_locale(locale)
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(
         get_message(
             "ui.pipeline.estimate.min_area.header",
@@ -802,7 +802,7 @@ def estimate_min_area_from_samples(
         )
     )
     print(get_message("ui.pipeline.estimate.min_area.subtitle", locale=locale))
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
     sample_size = min(sample_size, len(files))
     if sample_size < 1:
@@ -901,7 +901,7 @@ def estimate_min_area_from_samples(
     # Clamp to reasonable range
     estimated_min_area = np.clip(estimated_min_area, 8, 50)
 
-    print(f"\n{'─'*50}")
+    print(f"\n{'─' * 50}")
     print(
         get_message(
             "ui.pipeline.estimate.min_area.stats.header",
@@ -909,7 +909,7 @@ def estimate_min_area_from_samples(
             count=len(all_star_areas),
         )
     )
-    print(f"{'─'*50}")
+    print(f"{'─' * 50}")
     stats_labels = {
         "median": get_message(
             "ui.pipeline.estimate.min_area.stats.label.median", locale=locale
@@ -936,7 +936,7 @@ def estimate_min_area_from_samples(
     print(format_stat("mean", mean_star))
     print(format_stat("p75", p75_star))
     print(format_stat("p90", p90_star))
-    print(f"{'─'*50}")
+    print(f"{'─' * 50}")
     print(
         get_message(
             "ui.pipeline.estimate.min_area.estimated",
@@ -945,7 +945,7 @@ def estimate_min_area_from_samples(
         )
     )
     print(get_message("ui.pipeline.estimate.min_area.method_note", locale=locale))
-    print(f"{'='*50}\n")
+    print(f"{'=' * 50}\n")
 
     return estimated_min_area
 
@@ -966,9 +966,9 @@ def estimate_min_line_score_from_image(
         Estimated min_line_score value
     """
     locale = _resolve_locale(locale)
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(get_message("ui.pipeline.estimate.min_line_score.header", locale=locale))
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
     height, width = image_shape
     diagonal = np.sqrt(height**2 + width**2)
@@ -980,13 +980,13 @@ def estimate_min_line_score_from_image(
         focal_factor = focal_length_mm / 50.0
         adjusted_score = base_score * focal_factor
 
-        print(f"\n{'─'*50}")
+        print(f"\n{'─' * 50}")
         print(
             get_message(
                 "ui.pipeline.estimate.min_line_score.geometry.header", locale=locale
             )
         )
-        print(f"{'─'*50}")
+        print(f"{'─' * 50}")
         geometry_labels = {
             "dimensions": get_message(
                 "ui.pipeline.estimate.min_line_score.geometry.label.dimensions",
@@ -1083,13 +1083,13 @@ def estimate_min_line_score_from_image(
         )
     else:
         adjusted_score = base_score
-        print(f"\n{'─'*50}")
+        print(f"\n{'─' * 50}")
         print(
             get_message(
                 "ui.pipeline.estimate.min_line_score.geometry.header", locale=locale
             )
         )
-        print(f"{'─'*50}")
+        print(f"{'─' * 50}")
         geometry_labels = {
             "dimensions": get_message(
                 "ui.pipeline.estimate.min_line_score.geometry.label.dimensions",
@@ -1151,7 +1151,7 @@ def estimate_min_line_score_from_image(
     # Adjusted clamp range based on real meteor data
     estimated_score = np.clip(adjusted_score, 40.0, 150.0)
 
-    print(f"{'─'*50}")
+    print(f"{'─' * 50}")
     print(
         get_message(
             "ui.pipeline.estimate.min_line_score.estimated",
@@ -1160,7 +1160,7 @@ def estimate_min_line_score_from_image(
         )
     )
     print(get_message("ui.pipeline.estimate.min_line_score.method_note", locale=locale))
-    print(f"{'='*50}\n")
+    print(f"{'=' * 50}\n")
 
     return estimated_score
 
@@ -1468,9 +1468,9 @@ class MeteorDetectionPipeline:
         output_fullpath = os.path.abspath(self._config.output_folder)
 
         if target_fullpath == output_fullpath:
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(get_message("ui.pipeline.error.same_directories", locale=locale))
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
             return 0
 
         # Collect files

@@ -193,8 +193,7 @@ def discover_detectors(
         >>> HoughDetector = detectors['hough']
     """
     warnings.warn(
-        "discover_detectors() is deprecated. "
-        "Use DetectorRegistry.discover() instead.",
+        "discover_detectors() is deprecated. Use DetectorRegistry.discover() instead.",
         DeprecationWarning,
         stacklevel=2,
     )

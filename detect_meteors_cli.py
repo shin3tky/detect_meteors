@@ -517,11 +517,11 @@ def collect_exif_warnings(
 def print_warnings(warnings, locale: Optional[str] = None):
     """Print warnings in a formatted box."""
     if warnings:
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(get_message("ui.cli.warnings.header", locale=locale))
         for warning in warnings:
             print(f"  • {warning}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
 
 def handle_show_exif(args) -> None:
@@ -530,12 +530,12 @@ def handle_show_exif(args) -> None:
     Raises:
         MeteorError: On any error during EXIF extraction or display.
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     if args.show_npf:
         print(get_message("ui.cli.exif.header_npf", locale=args.locale))
     else:
         print(get_message("ui.cli.exif.header", locale=args.locale))
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
     print(
         get_message("ui.cli.exif.target_folder", locale=args.locale, path=args.target)
     )
@@ -771,9 +771,9 @@ def _run_auto_params(
     Returns:
         Tuple of (diff_threshold, min_area, min_line_score, focal_length_mm)
     """
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(get_message("ui.cli.auto_params.header", locale=locale))
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Step 1: EXIF Information Extraction
     exif_data = extract_exif_metadata(files[0])
@@ -947,14 +947,14 @@ def _display_auto_params_warnings(
             )
 
     if warnings:
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(get_message("ui.cli.warnings.header", locale=locale))
         for warning in warnings:
             if warning.startswith("  →"):
                 print(f"  {warning}")
             else:
                 print(f"  • {warning}")
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")
 
 
 def _optimize_with_npf(
@@ -969,9 +969,9 @@ def _optimize_with_npf(
     locale: Optional[str] = None,
 ):
     """Optimize parameters using NPF Rule."""
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(get_message("ui.cli.auto_params.optimize.header", locale=locale))
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     diff_threshold, min_area, min_line_score, opt_info = optimize_params_with_npf(
         exif_data,
@@ -1017,7 +1017,7 @@ def _optimize_with_npf(
             )
         )
 
-    print(f"\n{'='*60}\n")
+    print(f"\n{'=' * 60}\n")
 
     return diff_threshold, min_area, min_line_score
 
@@ -1104,9 +1104,9 @@ def _optimize_with_legacy(
 
 def _print_processing_params(processing_params, locale: Optional[str] = None):
     """Print processing parameters in a formatted box."""
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(get_message("ui.cli.processing_params.header", locale=locale))
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
     labels = {
         "diff_threshold": get_message(
             "ui.cli.processing_params.label.diff_threshold", locale=locale
@@ -1157,7 +1157,7 @@ def _print_processing_params(processing_params, locale: Optional[str] = None):
         )
     )
     print(format_line("min_line_score", f"{processing_params['min_line_score']:.1f}"))
-    print(f"{'='*50}\n")
+    print(f"{'=' * 50}\n")
 
 
 def _save_candidate_file(

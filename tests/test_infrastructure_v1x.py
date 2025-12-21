@@ -218,7 +218,9 @@ class TestFileCollection(unittest.TestCase):
         mock_glob.side_effect = lambda p: (
             ["img1.ORF", "img2.ORF"]
             if "*.ORF" in p
-            else ["img3.ARW"] if "*.ARW" in p else []
+            else ["img3.ARW"]
+            if "*.ARW" in p
+            else []
         )
 
         files = collect_files("/fake/path")

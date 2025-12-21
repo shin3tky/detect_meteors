@@ -13,48 +13,44 @@ Complete the basic installation from [INSTALL.md](INSTALL.md) first, then follow
 
 ### Step 1: Install Development Dependencies
 
-After activating your virtual environment, install development dependencies (defined in `pyproject.toml`):
+After cloning the repository, install all dependencies including dev tools:
 
 ```bash
-pip install -e ".[dev]"
+uv sync --all-extras
 ```
 
-This installs the project in editable mode plus the dev toolchain (Black, flake8, flake8-pyproject, coverage, pre-commit). If you prefer a minimal install, the equivalent explicit command is:
-
-```bash
-pip install pre-commit black flake8 flake8-pyproject coverage
-```
+This installs the project in editable mode plus the dev toolchain (Ruff, pre-commit, coverage).
 
 ### Step 2: Set Up Pre-commit Hooks
 
-This project uses [pre-commit](https://pre-commit.com/) with [Black](https://github.com/psf/black) for automatic code formatting.
+This project uses [pre-commit](https://pre-commit.com/) with [Ruff](https://docs.astral.sh/ruff/) for automatic code formatting and linting.
 
 ```bash
 # Install the git hooks
-pre-commit install
+uv run pre-commit install
 
 # Verify installation
-pre-commit --version
+uv run pre-commit --version
 ```
 
 ### Step 3: Verify Setup
 
-Run the formatter on all files to verify the setup:
+Run the linter and formatter on all files to verify the setup:
 
 ```bash
-pre-commit run --all-files
+uv run pre-commit run --all-files
 ```
 
 ## Pre-commit Hooks
 
 ### How It Works
 
-Once installed, pre-commit will automatically run Black (formatter) and flake8 (linter) before each commit:
+Once installed, pre-commit will automatically run Ruff (linter and formatter) before each commit:
 
 1. You make changes and run `git commit`
-2. Pre-commit runs Black (formatting) and flake8 (linting) on staged files
-3. If formatting changes are made or linting errors are found, the commit is aborted
-4. You fix any issues, stage the changes, and commit again
+2. Pre-commit runs Ruff linter with auto-fix and formatter on staged files
+3. If changes are made or errors are found, the commit is aborted
+4. You stage the changes and commit again
 
 ### Example Workflow
 
@@ -66,12 +62,12 @@ vim detect_meteors_cli.py
 git add detect_meteors_cli.py
 git commit -m "Add new feature"
 
-# If Black reformats files or flake8 finds errors, you'll see:
-# - Files were modified by this hook (Black)
-# - or linting errors (flake8)
+# If Ruff makes changes or finds errors, you'll see:
+# - Files were modified by this hook
+# - or linting errors
 # - Commit aborted
 
-# Fix any issues, stage the changes, and commit again
+# Stage the changes and commit again
 git add detect_meteors_cli.py
 git commit -m "Add new feature"
 ```
@@ -79,12 +75,14 @@ git commit -m "Add new feature"
 ### Manual Formatting and Linting
 
 ```bash
-# Run both Black and flake8 via pre-commit
-pre-commit run --all-files
+# Run both linter and formatter via pre-commit
+uv run pre-commit run --all-files
 
-# Or run tools directly
-black detect_meteors_cli.py meteor_core/ tests/
-flake8 .
+# Or run Ruff directly
+uv run ruff check .              # Lint
+uv run ruff check --fix .        # Lint with auto-fix
+uv run ruff format .             # Format
+uv run ruff format --check .     # Check format without changing
 ```
 
 ## Running Tests
@@ -92,33 +90,33 @@ flake8 .
 ### Using the Test Runner
 
 ```bash
-python run_tests.py
+uv run python run_tests.py
 ```
 
 ### Using unittest Directly
 
 ```bash
 # Run all tests
-python -m unittest discover -s tests -p "test_*.py" -v
+uv run python -m unittest discover -s tests -p "test_*.py" -v
 
 # Run specific test file
-python -m unittest tests.test_calculations_v1x -v
+uv run python -m unittest tests.test_calculations_v1x -v
 
 # Run specific test class
-python -m unittest tests.test_calculations_v1x.TestCalculateNPFRule -v
+uv run python -m unittest tests.test_calculations_v1x.TestCalculateNPFRule -v
 ```
 
 ### Test Coverage
 
 ```bash
 # Run tests with coverage measurement
-coverage run -m unittest discover tests
+uv run coverage run -m unittest discover tests
 
 # View coverage report
-coverage report
+uv run coverage report
 
 # Generate HTML report (outputs to htmlcov/)
-coverage html
+uv run coverage html
 ```
 
 ### Test Files Overview
@@ -153,8 +151,7 @@ coverage html
 
 ### Standards
 
-- **Black** with default settings (88 character line length)
-- **flake8** for static code analysis
+- **Ruff** for linting and formatting (88 character line length)
 - **Python 3.12+** required
 - **Google-style docstrings**
 - **Type hints** throughout
@@ -233,7 +230,6 @@ detect_meteors/
 ├── rawfiles/                      # Sample/raw image inputs
 ├── tests/                         # Test suite
 ├── pyproject.toml                 # Project configuration
-├── requirements.txt               # Dependencies
 ├── run_tests.py                   # Test runner helper
 └── PLUGIN_AUTHOR_GUIDE.md         # Plugin development guide
 ```
@@ -251,42 +247,48 @@ For creating custom plugins (input loaders, detectors, output handlers), see the
 3. **Set up** development environment (this guide)
 4. **Create** a feature branch: `git checkout -b feature/your-feature`
 5. **Make** changes and add tests
-6. **Run** tests: `python run_tests.py`
-7. **Measure** coverage: `coverage run -m unittest discover tests && coverage report`
-8. **Commit** (pre-commit will run Black and flake8 automatically)
+6. **Run** tests: `uv run python run_tests.py`
+7. **Measure** coverage: `uv run coverage run -m unittest discover tests && uv run coverage report`
+8. **Commit** (pre-commit will run Ruff automatically)
 9. **Push** to your fork
 10. **Create** a Pull Request
 
 ## Troubleshooting
 
+### Updating Ruff Version
+
+Ruff version is pinned in two locations for consistency across all environments:
+- `pyproject.toml` (`ruff==X.Y.Z` in dev dependencies)
+- `.pre-commit-config.yaml` (`rev: vX.Y.Z`)
+
+When updating Ruff, change both files to the same version.
+
 ### Pre-commit Issues
 
 ```bash
 # Reinstall hooks
-pre-commit uninstall
-pre-commit install
+uv run pre-commit uninstall
+uv run pre-commit install
 
 # Update to latest versions
-pre-commit autoupdate
+uv run pre-commit autoupdate
 ```
 
 ### Test Issues
 
 ```bash
-# Ensure virtual environment is activated
-source ./venv/bin/activate  # macOS/Linux
-.\venv\Scripts\Activate.ps1  # Windows
+# Ensure dependencies are installed
+uv sync --all-extras
 
-# Install missing dependencies
-pip install -r requirements.txt
-pip install pre-commit black flake8 flake8-pyproject coverage
+# Reinstall if needed
+uv sync --reinstall
 ```
 
 ### Import Errors
 
 ```bash
 # Test imports
-python -c "from meteor_core import BaseInputLoader, BaseOutputHandler, BaseDetector"
+uv run python -c "from meteor_core import BaseInputLoader, BaseOutputHandler, BaseDetector"
 ```
 
 ## License
@@ -300,6 +302,6 @@ When redistributing, include the [NOTICE](NOTICE) file.
 - [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) - Plugin development
 - [README.md](README.md) - User documentation
 - [CHANGELOG.md](CHANGELOG.md) - Release history
-- [Black Documentation](https://black.readthedocs.io/)
-- [flake8 Documentation](https://flake8.pycqa.org/)
+- [Ruff Documentation](https://docs.astral.sh/ruff/)
+- [uv Documentation](https://docs.astral.sh/uv/)
 - [Pre-commit Documentation](https://pre-commit.com/)
