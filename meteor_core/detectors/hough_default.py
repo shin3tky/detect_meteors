@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 
 from .base import BaseDetector
+from meteor_core.schema import DetectionContext, DetectionResult
 
 
 logger = logging.getLogger(__name__)
@@ -64,25 +65,23 @@ class HoughDetector(BaseDetector):
 
     def detect(
         self,
-        current_image: np.ndarray,
-        previous_image: np.ndarray,
-        roi_mask: np.ndarray,
-        params: Dict[str, Any],
-    ) -> Tuple[
-        bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]
-    ]:
+        context: DetectionContext,
+    ) -> DetectionResult:
         """
         Detect meteor candidates by comparing two consecutive frames.
 
         Args:
-            current_image: Current frame (uint16 grayscale)
-            previous_image: Previous frame (uint16 grayscale)
-            roi_mask: Binary mask for region of interest (uint8)
-            params: Detection parameters dictionary
+            context: DetectionContext containing image data, ROI mask,
+                runtime parameters, and metadata.
 
         Returns:
-            Tuple of (is_candidate, line_score, line_segments, max_aspect_ratio, debug_image)
+            DetectionResult with detection outcome and diagnostics.
         """
+        current_image = context.current_image
+        previous_image = context.previous_image
+        roi_mask = context.roi_mask
+        params = context.runtime_params
+
         if current_image.shape != previous_image.shape:
             logger.error("Current and previous images must share the same shape.")
             raise ValueError("current_image and previous_image must be the same size")
@@ -96,6 +95,36 @@ class HoughDetector(BaseDetector):
             raise ValueError("roi_mask must match the shape of the input images")
 
         if not self.validate_params(params):
+            raise ValueError("Invalid detection parameters supplied to HoughDetector")
+
+        hough_runtime = params.get("hough", {})
+        if not isinstance(hough_runtime, dict):
+            logger.error("Hough runtime params must be a dictionary.")
+            raise ValueError("Invalid detection parameters supplied to HoughDetector")
+
+        required_keys = [
+            "diff_threshold",
+            "min_area",
+            "min_aspect_ratio",
+            "min_line_score",
+        ]
+        missing = [key for key in required_keys if key not in params]
+        if missing:
+            logger.error("Missing required detection parameters: %s", missing)
+            raise ValueError("Invalid detection parameters supplied to HoughDetector")
+
+        def _get_hough_param(key: str, fallback_key: str) -> Any:
+            if key in params:
+                return params[key]
+            return hough_runtime.get(fallback_key)
+
+        hough_threshold = _get_hough_param("hough_threshold", "threshold")
+        hough_min_line_length = _get_hough_param(
+            "hough_min_line_length", "min_line_length"
+        )
+        hough_max_line_gap = _get_hough_param("hough_max_line_gap", "max_line_gap")
+        if None in (hough_threshold, hough_min_line_length, hough_max_line_gap):
+            logger.error("Missing required Hough detection parameters.")
             raise ValueError("Invalid detection parameters supplied to HoughDetector")
 
         try:
@@ -116,9 +145,9 @@ class HoughDetector(BaseDetector):
 
             # Hough transform
             hough_params = {
-                "threshold": params["hough_threshold"],
-                "min_line_length": params["hough_min_line_length"],
-                "max_line_gap": params["hough_max_line_gap"],
+                "threshold": hough_threshold,
+                "min_line_length": hough_min_line_length,
+                "max_line_gap": hough_max_line_gap,
             }
             line_score, hough_lines = self.compute_line_score(mask, hough_params)
 
@@ -170,7 +199,14 @@ class HoughDetector(BaseDetector):
                 line_score,
                 max_aspect_ratio,
             )
-            return is_candidate, line_score, hough_lines, max_aspect_ratio, debug_img
+            return DetectionResult(
+                is_candidate=is_candidate,
+                score=line_score,
+                lines=hough_lines,
+                aspect_ratio=max_aspect_ratio,
+                debug_image=debug_img,
+                extras={"contour_count": len(contours)},
+            )
         except Exception as exc:  # pragma: no cover - safety net
             logger.exception("Error during HoughDetector detection: %s", exc)
             raise

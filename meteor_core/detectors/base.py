@@ -13,13 +13,14 @@ from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
 import importlib.util
 import logging
-from typing import Tuple, List, Any, Optional, Dict, Generic, Type, TypeVar
+from typing import Tuple, List, Any, Dict, Generic, Type, TypeVar
 
 from meteor_core.plugin_contract import (
     forbid_unknown_keys as _forbid_unknown_keys,
     require_config_type,
     require_plugin_name,
 )
+from meteor_core.schema import DetectionContext, DetectionResult
 
 ConfigType = TypeVar("ConfigType")
 
@@ -60,38 +61,41 @@ class BaseDetector(ABC, Generic[ConfigType]):
     @abstractmethod
     def detect(
         self,
-        current_image: np.ndarray,
-        previous_image: np.ndarray,
-        roi_mask: np.ndarray,
-        params: Dict[str, Any],
-    ) -> Tuple[
-        bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]
-    ]:
+        context: DetectionContext,
+    ) -> DetectionResult:
         """
         Detect meteor candidates by comparing two consecutive frames.
 
         Args:
-            current_image: Current frame (uint16 grayscale)
-            previous_image: Previous frame (uint16 grayscale)
-            roi_mask: Binary mask for region of interest (uint8)
-            params: Detection parameters dictionary containing:
-                - diff_threshold: int
-                - min_area: int
-                - min_aspect_ratio: float
-                - hough_threshold: int
-                - hough_min_line_length: int
-                - hough_max_line_gap: int
-                - min_line_score: float
+            context: DetectionContext containing image data, ROI mask,
+                runtime parameters, and metadata.
 
         Returns:
-            Tuple of:
-                - is_candidate: bool - Whether a meteor candidate was detected
-                - line_score: float - Hough line detection score
-                - line_segments: List of (x1, y1, x2, y2) tuples
-                - max_aspect_ratio: float - Maximum aspect ratio of detected contours
-                - debug_image: Optional numpy array (BGR) for visualization
+            DetectionResult with detection outcome, score, line segments,
+            aspect ratio, debug visualization, and extras.
         """
         pass
+
+    def detect_legacy(
+        self,
+        current_image: np.ndarray,
+        previous_image: np.ndarray,
+        roi_mask: np.ndarray,
+        params: Dict[str, Any],
+    ) -> DetectionResult:
+        """Backward-compatible adapter for the legacy detect signature."""
+        logger.warning(
+            "Deprecated detect(current_image, previous_image, roi_mask, params) "
+            "signature used. Please migrate to detect(DetectionContext)."
+        )
+        context = DetectionContext(
+            current_image=current_image,
+            previous_image=previous_image,
+            roi_mask=roi_mask,
+            runtime_params=params,
+            metadata={},
+        )
+        return self.detect(context)
 
     @abstractmethod
     def compute_line_score(
@@ -132,6 +136,8 @@ class BaseDetector(ABC, Generic[ConfigType]):
         """
         Validate detection parameters.
 
+        Subclasses are responsible for validating detector-specific keys.
+
         Args:
             params: Detection parameters dictionary
 
@@ -145,23 +151,6 @@ class BaseDetector(ABC, Generic[ConfigType]):
         if not isinstance(params, dict):
             logger.error("Detection parameters must be provided as a dictionary.")
             raise TypeError("params must be a dictionary.")
-
-        required_keys = [
-            "diff_threshold",
-            "min_area",
-            "min_aspect_ratio",
-            "hough_threshold",
-            "hough_min_line_length",
-            "hough_max_line_gap",
-            "min_line_score",
-        ]
-
-        for key in required_keys:
-            if key not in params:
-                logger.error("Missing required detection parameter: %s", key)
-                return False
-
-        logger.debug("All required detection parameters are present.")
         return True
 
 

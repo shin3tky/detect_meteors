@@ -10,13 +10,13 @@ Unit tests for DetectorRegistry.
 
 import unittest
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
 from meteor_core.detectors.registry import DetectorRegistry
 from meteor_core.detectors.base import BaseDetector
-from meteor_core.schema import DEFAULT_DETECTOR_NAME
+from meteor_core.schema import DEFAULT_DETECTOR_NAME, DetectionContext, DetectionResult
 
 try:
     from pydantic import BaseModel
@@ -104,20 +104,15 @@ class TestDetectorRegistryGet(unittest.TestCase):
         class CustomHoughDetector(BaseDetector):
             plugin_name = "hough"
 
-            def detect(
-                self,
-                current_image: np.ndarray,
-                previous_image: np.ndarray,
-                roi_mask: np.ndarray,
-                params: Dict[str, Any],
-            ) -> Tuple[
-                bool,
-                float,
-                List[Tuple[int, int, int, int]],
-                float,
-                Optional[np.ndarray],
-            ]:
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(
                 self, mask: np.ndarray, hough_params: Dict[str, int]
@@ -146,20 +141,15 @@ class TestDetectorRegistryRegister(unittest.TestCase):
         class MockDetector(BaseDetector):
             plugin_name = "mock"
 
-            def detect(
-                self,
-                current_image: np.ndarray,
-                previous_image: np.ndarray,
-                roi_mask: np.ndarray,
-                params: Dict[str, Any],
-            ) -> Tuple[
-                bool,
-                float,
-                List[Tuple[int, int, int, int]],
-                float,
-                Optional[np.ndarray],
-            ]:
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(
                 self, mask: np.ndarray, hough_params: Dict[str, int]
@@ -187,20 +177,15 @@ class TestDetectorRegistryRegister(unittest.TestCase):
         class EmptyNameDetector(BaseDetector):
             plugin_name = ""
 
-            def detect(
-                self,
-                current_image: np.ndarray,
-                previous_image: np.ndarray,
-                roi_mask: np.ndarray,
-                params: Dict[str, Any],
-            ) -> Tuple[
-                bool,
-                float,
-                List[Tuple[int, int, int, int]],
-                float,
-                Optional[np.ndarray],
-            ]:
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(
                 self, mask: np.ndarray, hough_params: Dict[str, int]
@@ -218,20 +203,15 @@ class TestDetectorRegistryRegister(unittest.TestCase):
         class MockDetector1(BaseDetector):
             plugin_name = "mock"
 
-            def detect(
-                self,
-                current_image: np.ndarray,
-                previous_image: np.ndarray,
-                roi_mask: np.ndarray,
-                params: Dict[str, Any],
-            ) -> Tuple[
-                bool,
-                float,
-                List[Tuple[int, int, int, int]],
-                float,
-                Optional[np.ndarray],
-            ]:
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(
                 self, mask: np.ndarray, hough_params: Dict[str, int]
@@ -241,20 +221,15 @@ class TestDetectorRegistryRegister(unittest.TestCase):
         class MockDetector2(BaseDetector):
             plugin_name = "mock"
 
-            def detect(
-                self,
-                current_image: np.ndarray,
-                previous_image: np.ndarray,
-                roi_mask: np.ndarray,
-                params: Dict[str, Any],
-            ) -> Tuple[
-                bool,
-                float,
-                List[Tuple[int, int, int, int]],
-                float,
-                Optional[np.ndarray],
-            ]:
-                return True, 1.0, [], 1.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=True,
+                    score=1.0,
+                    lines=[],
+                    aspect_ratio=1.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(
                 self, mask: np.ndarray, hough_params: Dict[str, int]
@@ -286,20 +261,15 @@ class TestDetectorRegistryUnregister(unittest.TestCase):
         class MockDetector(BaseDetector):
             plugin_name = "mock"
 
-            def detect(
-                self,
-                current_image: np.ndarray,
-                previous_image: np.ndarray,
-                roi_mask: np.ndarray,
-                params: Dict[str, Any],
-            ) -> Tuple[
-                bool,
-                float,
-                List[Tuple[int, int, int, int]],
-                float,
-                Optional[np.ndarray],
-            ]:
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(
                 self, mask: np.ndarray, hough_params: Dict[str, int]
@@ -350,20 +320,15 @@ class TestDetectorRegistryListAvailable(unittest.TestCase):
         class MockDetector(BaseDetector):
             plugin_name = "mock"
 
-            def detect(
-                self,
-                current_image: np.ndarray,
-                previous_image: np.ndarray,
-                roi_mask: np.ndarray,
-                params: Dict[str, Any],
-            ) -> Tuple[
-                bool,
-                float,
-                List[Tuple[int, int, int, int]],
-                float,
-                Optional[np.ndarray],
-            ]:
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(
                 self, mask: np.ndarray, hough_params: Dict[str, int]
@@ -442,20 +407,15 @@ class TestDetectorRegistryCreate(unittest.TestCase):
             def __init__(self, config: PydanticConfig) -> None:
                 self.config = config
 
-            def detect(
-                self,
-                current_image: np.ndarray,
-                previous_image: np.ndarray,
-                roi_mask: np.ndarray,
-                params: Dict[str, Any],
-            ) -> Tuple[
-                bool,
-                float,
-                List[Tuple[int, int, int, int]],
-                float,
-                Optional[np.ndarray],
-            ]:
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(
                 self, mask: np.ndarray, hough_params: Dict[str, int]
@@ -503,20 +463,15 @@ class TestDetectorRegistryReset(unittest.TestCase):
         class MockDetector(BaseDetector):
             plugin_name = "mock"
 
-            def detect(
-                self,
-                current_image: np.ndarray,
-                previous_image: np.ndarray,
-                roi_mask: np.ndarray,
-                params: Dict[str, Any],
-            ) -> Tuple[
-                bool,
-                float,
-                List[Tuple[int, int, int, int]],
-                float,
-                Optional[np.ndarray],
-            ]:
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(
                 self, mask: np.ndarray, hough_params: Dict[str, int]

@@ -148,23 +148,38 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 **Required methods**:
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `detect` | `(current, previous, roi_mask, params) -> DetectionResult` | Main detection (see below) |
+| `detect` | `(context: DetectionContext) -> DetectionResult` | Main detection (see below) |
 | `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | Line scoring (called internally by `detect`) |
+
+**DetectionContext type** (input to `detect`):
+```python
+@dataclass
+class DetectionContext:
+    current_image: np.ndarray
+    previous_image: np.ndarray
+    roi_mask: np.ndarray
+    runtime_params: Dict[str, Any]
+    metadata: Dict[str, Any]
+```
 
 **DetectionResult type** (return value of `detect`):
 ```python
-Tuple[
-    bool,                              # is_candidate: Whether a meteor was detected
-    float,                             # score: Detection confidence score
-    List[Tuple[int, int, int, int]],   # lines: Line segments as (x1, y1, x2, y2)
-    float,                             # aspect_ratio: Contour aspect ratio
-    Optional[np.ndarray],              # debug_image: BGR visualization (or None)
-]
+@dataclass
+class DetectionResult:
+    is_candidate: bool
+    score: float
+    lines: List[Tuple[int, int, int, int]]
+    aspect_ratio: float
+    debug_image: Optional[np.ndarray]
+    extras: Dict[str, Any]
 ```
 
-**Detection parameters** (`params` argument):
+**Runtime parameters** (`context.runtime_params`):
 
-The `params` dict contains CLI-configured detection settings:
+The `runtime_params` dict contains CLI-configured detection settings. For now
+the built-in CLI passes a flat dict, but detector-specific namespaces are
+preferred as the contract evolves (e.g., Hough-specific values under
+`runtime_params["hough"]`).
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -496,6 +511,7 @@ import cv2
 import numpy as np
 
 from meteor_core.detectors import DataclassDetector, DetectorRegistry
+from meteor_core.schema import DetectionContext, DetectionResult
 
 # Set up logger for this plugin
 logger = logging.getLogger("meteor_core.detectors.threshold")
@@ -526,24 +542,22 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
     def detect(
         self,
-        current_image: np.ndarray,
-        previous_image: np.ndarray,
-        roi_mask: np.ndarray,
-        params: Dict[str, Any],
-    ) -> Tuple[bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]]:
+        context: DetectionContext,
+    ) -> DetectionResult:
         """Detect meteor candidates using threshold-based approach.
 
-        This method should NEVER raise exceptions - return failure tuple instead.
+        This method should NEVER raise exceptions - return a failure result instead.
 
         Args:
-            current_image: Current frame (uint16 grayscale).
-            previous_image: Previous frame (uint16 grayscale).
-            roi_mask: Binary ROI mask (uint8, 255=inside).
-            params: Detection parameters from CLI.
+            context: Input bundle containing frames, ROI, and runtime params.
 
         Returns:
-            Tuple of (is_candidate, score, lines, aspect_ratio, debug_image).
+            DetectionResult with the detection outcome.
         """
+        current_image = context.current_image
+        previous_image = context.previous_image
+        roi_mask = context.roi_mask
+        params = context.runtime_params
         logger.debug(
             f"Starting detection: image_shape={current_image.shape}, "
             f"diff_threshold={params.get('diff_threshold', 8)}"
@@ -589,7 +603,14 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
             if not valid_contours:
                 logger.debug("No valid contours found - returning no detection")
-                return False, 0.0, [], 0.0, None
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             # Compute metrics
             max_area = max(cv2.contourArea(c) for c in valid_contours)
@@ -624,12 +645,26 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             else:
                 logger.debug(f"Not a candidate: score={score:.1f} < {min_score}")
 
-            return is_candidate, score, lines, max_aspect_ratio, debug_image
+            return DetectionResult(
+                is_candidate=is_candidate,
+                score=score,
+                lines=lines,
+                aspect_ratio=max_aspect_ratio,
+                debug_image=debug_image,
+                extras={"valid_contours": len(valid_contours)},
+            )
 
         except Exception as e:
-            # NEVER raise exceptions in detect() - return failure tuple
+            # NEVER raise exceptions in detect() - return failure result
             logger.warning(f"Detection failed with error: {e}")
-            return False, 0.0, [], 0.0, None
+            return DetectionResult(
+                is_candidate=False,
+                score=0.0,
+                lines=[],
+                aspect_ratio=0.0,
+                debug_image=None,
+                extras={"error": str(e)},
+            )
 
     def compute_line_score(
         self,
@@ -1153,7 +1188,7 @@ Each plugin type has different expectations for when to raise exceptions vs. con
 |-------------|--------|--------|
 | **Input Loader** | `load()` | **Raise exceptions** - Pipeline cannot continue without image |
 | **Input Loader** | `extract_metadata()` | **Return empty dict** - Metadata is optional |
-| **Detector** | `detect()` | **Return tuple** - Never raise for detection failures |
+| **Detector** | `detect()` | **Return DetectionResult** - Never raise for detection failures |
 | **Output Handler** | `save_candidate()` | **Depends on criticality** - See below |
 | **Output Handler** | Lifecycle hooks | **Never raise** - Log errors, continue processing |
 
@@ -1217,15 +1252,29 @@ class MyLoader(DataclassInputLoader[MyConfig]):
 
 ```python
 class MyDetector(DataclassDetector[MyConfig]):
-    def detect(self, current_image, previous_image, roi_mask, params):
+    def detect(self, context: DetectionContext) -> DetectionResult:
         try:
             # Detection logic here
             ...
-            return (is_candidate, score, lines, aspect_ratio, debug_image)
+            return DetectionResult(
+                is_candidate=is_candidate,
+                score=score,
+                lines=lines,
+                aspect_ratio=aspect_ratio,
+                debug_image=debug_image,
+                extras={},
+            )
         except Exception as e:
             # Log but don't raise - return "no detection" result
             logger.warning(f"Detection failed: {e}")
-            return (False, 0.0, [], 0.0, None)
+            return DetectionResult(
+                is_candidate=False,
+                score=0.0,
+                lines=[],
+                aspect_ratio=0.0,
+                debug_image=None,
+                extras={"error": str(e)},
+            )
 ```
 
 **Output Handler error handling**:

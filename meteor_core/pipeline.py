@@ -30,6 +30,7 @@ from .schema import (
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
+    DetectionContext,
     DetectionParams,
     PipelineConfig,
 )
@@ -520,28 +521,41 @@ def process_image_batch(
             prev_img = loader.load(prev_file)
 
             # Delegate detection to the detector
-            is_candidate, line_score, hough_lines, max_aspect_ratio, debug_img = (
-                det.detect(curr_img, prev_img, roi_mask, params)
+            try:
+                metadata = {
+                    "current": _extract_metadata_from_loader(loader, curr_file),
+                    "previous": _extract_metadata_from_loader(loader, prev_file),
+                }
+            except Exception as exc:
+                logger.warning("Metadata extraction failed for %s: %s", filename, exc)
+                metadata = {"current": {}, "previous": {}}
+            context = DetectionContext(
+                current_image=curr_img,
+                previous_image=prev_img,
+                roi_mask=roi_mask,
+                runtime_params=params,
+                metadata=metadata,
             )
+            result = det.detect(context)
 
             results.append(
                 (
-                    is_candidate,
+                    result.is_candidate,
                     filename,
                     curr_file,
-                    line_score,
-                    debug_img,
-                    max_aspect_ratio,
-                    len(hough_lines),
+                    result.score,
+                    result.debug_image,
+                    result.aspect_ratio,
+                    len(result.lines),
                 )
             )
 
-            if is_candidate:
+            if result.is_candidate:
                 logger.debug(
                     "Candidate detected: %s (score=%.2f, lines=%d)",
                     filename,
-                    line_score,
-                    len(hough_lines),
+                    result.score,
+                    len(result.lines),
                 )
 
         except MeteorError as e:

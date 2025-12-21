@@ -263,6 +263,17 @@ class DetectionParams:
 
 
 @dataclass
+class DetectionContext:
+    """Input bundle for detector execution."""
+
+    current_image: Any
+    previous_image: Any
+    roi_mask: Any
+    runtime_params: Dict[str, Any]
+    metadata: Dict[str, Any]
+
+
+@dataclass
 class PipelineConfig:
     """Configuration for MeteorDetectionPipeline.
 
@@ -485,24 +496,22 @@ class NPFMetrics:
 
 @dataclass
 class DetectionResult:
-    """Result of processing a single image."""
+    """Result returned by detectors."""
 
     is_candidate: bool
-    filename: str
-    filepath: str
-    line_score: float
-    max_aspect_ratio: float
-    num_lines: int
-    debug_image: Optional[Any] = None  # numpy array, but avoid importing numpy here
+    score: float
+    lines: List[Tuple[int, int, int, int]]
+    aspect_ratio: float
+    debug_image: Optional[Any]
+    extras: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "is_candidate": self.is_candidate,
-            "filename": self.filename,
-            "filepath": self.filepath,
-            "line_score": self.line_score,
-            "max_aspect_ratio": self.max_aspect_ratio,
-            "num_lines": self.num_lines,
+            "score": self.score,
+            "lines": self.lines,
+            "aspect_ratio": self.aspect_ratio,
+            "extras": self.extras,
         }
 
 
