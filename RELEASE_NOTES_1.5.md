@@ -652,7 +652,6 @@ requires-python = ">=3.12"
 
 **Runtime dependencies:**
 - `numpy>=2.2.6` - Numerical computing
-- `matplotlib>=3.10.7` - Plotting and visualization
 - `opencv-python>=4.12.0` - Image processing
 - `rawpy>=0.25.1` - RAW image reading
 - `psutil>=7.1.3` - System utilities

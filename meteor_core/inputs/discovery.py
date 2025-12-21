@@ -193,7 +193,7 @@ def discover_loaders(
         >>> RawLoader = loaders['raw']
     """
     warnings.warn(
-        "discover_loaders() is deprecated. " "Use LoaderRegistry.discover() instead.",
+        "discover_loaders() is deprecated. Use LoaderRegistry.discover() instead.",
         DeprecationWarning,
         stacklevel=2,
     )

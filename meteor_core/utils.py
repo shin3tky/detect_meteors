@@ -311,10 +311,10 @@ def validate_sensor_overrides(
 
     # Print warnings if any
     if warnings:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         for warning in warnings:
             print(warning)
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
 
 def list_sensor_types(locale: Optional[str] = None) -> None:
@@ -323,9 +323,9 @@ def list_sensor_types(locale: Optional[str] = None) -> None:
     Ordered by sensor size (smallest to largest).
     """
     locale = _resolve_locale(locale)
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(get_message("ui.utils.sensor_types.header", locale=locale))
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     # Group by primary types (exclude aliases), ordered by sensor size
     primary_types = [
@@ -361,7 +361,7 @@ def list_sensor_types(locale: Optional[str] = None) -> None:
             )
             print()
 
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(get_message("ui.utils.sensor_types.aliases.header", locale=locale))
     print(get_message("ui.utils.sensor_types.aliases.1inch", locale=locale))
     print(get_message("ui.utils.sensor_types.aliases.apsc", locale=locale))
@@ -370,13 +370,13 @@ def list_sensor_types(locale: Optional[str] = None) -> None:
     print(get_message("ui.utils.sensor_types.aliases.ff", locale=locale))
     print(get_message("ui.utils.sensor_types.aliases.mf44x33", locale=locale))
     print(get_message("ui.utils.sensor_types.aliases.mf54x40", locale=locale))
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(get_message("ui.utils.sensor_types.examples.header", locale=locale))
     print(get_message("ui.utils.sensor_types.examples.mft", locale=locale))
     print(get_message("ui.utils.sensor_types.examples.apsc", locale=locale))
     print(get_message("ui.utils.sensor_types.examples.ff", locale=locale))
     print(get_message("ui.utils.sensor_types.examples.mf44x33", locale=locale))
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
 
 # ==========================================
@@ -537,9 +537,9 @@ def display_fisheye_info(
         projection_model.upper(), {"name": projection_model, "description": ""}
     )
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(get_message("ui.utils.fisheye.header", locale=locale))
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     labels = {
         "projection_model": get_message(
             "ui.utils.fisheye.label.projection_model", locale=locale
@@ -595,7 +595,7 @@ def display_fisheye_info(
             get_message("ui.utils.fisheye.value.npf_basis", locale=locale),
         )
     )
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 # ==========================================
@@ -1342,9 +1342,9 @@ def display_exif_info(
         npf_metrics: calculate_npf_metrics() return value (Options)
     """
     locale = _resolve_locale(locale)
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(get_message("ui.utils.exif.header", locale=locale))
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     labels = {
         "camera": get_message("ui.utils.exif.label.camera", locale=locale),
@@ -1505,13 +1505,13 @@ def display_exif_info(
             )
         )
 
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # NPF Rule Analysis
     if npf_metrics and npf_metrics.get("npf_recommended_sec"):
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(get_message("ui.utils.npf.header", locale=locale))
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         labels = {
             "pixel_pitch": get_message("ui.utils.npf.label.pixel_pitch", locale=locale),
@@ -1659,4 +1659,4 @@ def display_exif_info(
                 )
             )
 
-        print(f"{'='*60}\n")
+        print(f"{'=' * 60}\n")

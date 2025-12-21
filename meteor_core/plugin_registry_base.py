@@ -316,7 +316,7 @@ class PluginRegistryBase(Generic[PluginType]):
                     exc,
                 )
                 raise TypeError(
-                    f"Invalid config for {cls._plugin_kind} " f"'{plugin_name}': {exc}"
+                    f"Invalid config for {cls._plugin_kind} '{plugin_name}': {exc}"
                 ) from exc
 
         # Case 5: Dict -> Pydantic v2 (model_validate)
@@ -331,8 +331,7 @@ class PluginRegistryBase(Generic[PluginType]):
                 return result
             except Exception as exc:  # pragma: no cover - pydantic error
                 logger.error(
-                    "_coerce_config(%s): Pydantic v2 validation failed for %s - "
-                    "%s: %s",
+                    "_coerce_config(%s): Pydantic v2 validation failed for %s - %s: %s",
                     plugin_name,
                     config_type.__name__,
                     type(exc).__name__,
@@ -355,8 +354,7 @@ class PluginRegistryBase(Generic[PluginType]):
                 return result
             except Exception as exc:  # pragma: no cover - pydantic error
                 logger.error(
-                    "_coerce_config(%s): Pydantic v1 validation failed for %s - "
-                    "%s: %s",
+                    "_coerce_config(%s): Pydantic v1 validation failed for %s - %s: %s",
                     plugin_name,
                     config_type.__name__,
                     type(exc).__name__,
