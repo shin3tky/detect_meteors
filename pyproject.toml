@@ -162,5 +162,11 @@ exclude_lines = [
 ]
 show_missing = true
 
+# ==========================================
+# Setuptools - Package Discovery
+# ==========================================
+[tool.setuptools.packages.find]
+include = ["meteor_core", "meteor_core.*"]
+
 [tool.setuptools.package-data]
 "meteor_core" = ["templates/*.md.j2", "locales/**/*.yaml"]
