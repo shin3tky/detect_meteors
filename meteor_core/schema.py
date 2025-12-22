@@ -22,7 +22,7 @@ ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
 # ==========================================
 # Version
 # ==========================================
-VERSION = "1.6.1"
+VERSION = "1.6.2"
 DETECTION_CONTEXT_SCHEMA_VERSION = 1
 DETECTION_RESULT_SCHEMA_VERSION = 1
 INPUT_CONTEXT_SCHEMA_VERSION = 1
