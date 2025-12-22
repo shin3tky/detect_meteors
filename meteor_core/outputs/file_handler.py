@@ -14,6 +14,7 @@ meteor candidate RAW files and debug visualization images to disk.
 import logging
 import os
 import shutil
+import time
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -158,6 +159,7 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
             )
 
         # Copy the RAW file
+        start_time = time.perf_counter()
         try:
             shutil.copy(source_path, output_path)
             logger.debug("save_candidate: copied %s -> %s", source_path, output_path)
@@ -177,6 +179,12 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                 operation="copy",
                 context={"error_category": "copy_failed"},
             ) from exc
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        metrics = {
+            "duration_ms": duration_ms,
+            "file_size_bytes": os.path.getsize(output_path),
+        }
 
         # Save debug image if provided
         debug_path = None
@@ -214,6 +222,7 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
             output_path=output_path,
             debug_path=debug_path,
             handler_info=self.get_info(),
+            metrics=metrics,
         )
 
     def save_debug_image(
