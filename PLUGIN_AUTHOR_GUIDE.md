@@ -117,6 +117,30 @@ The plugin system provides three extension points:
 |--------|-----------|-------------|
 | `load` | `(filepath: str) -> InputContext` | Load image data plus metadata and loader info |
 
+**InputContext type** (return value of `load`):
+```python
+ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
+
+@dataclass
+class InputContext:
+    image_data: ImageLike
+    filepath: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    loader_info: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = 1      # INPUT_CONTEXT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize context for JSON/logging (excludes image_data)."""
+        ...
+```
+
+**Fields**:
+- `image_data`: Loaded image pixels. This is the payload used by the detector.
+- `filepath`: Original path of the loaded image.
+- `metadata`: Loader-provided metadata (EXIF, timestamps, camera info, etc.).
+- `loader_info`: Loader identity details (from `BaseInputLoader.get_info()`).
+- `schema_version`: Contract version for future migrations (current: `1`).
+
 **Optional features**:
 - Implement `BaseMetadataExtractor` for EXIF-like metadata extraction
 - Define `name`, `version` attributes for plugin info
@@ -273,6 +297,30 @@ namespaced structure when available.
 |--------|-----------|-------------|
 | `save_candidate` | `(source_path, filename, ...) -> OutputResult` | Save meteor candidate |
 | `save_debug_image` | `(debug_image, filename, ...) -> str` | Save debug image |
+
+**OutputResult type** (return value of `save_candidate`):
+```python
+@dataclass
+class OutputResult:
+    saved: bool
+    output_path: Optional[str]
+    debug_path: Optional[str]
+    handler_info: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = 1      # OUTPUT_RESULT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize result for JSON/logging."""
+        ...
+```
+
+**Fields**:
+- `saved`: True if the handler persisted the candidate successfully.
+- `output_path`: Location of the persisted candidate (if any).
+- `debug_path`: Location of the persisted debug image (if any).
+- `handler_info`: Handler identity details (from `BaseOutputHandler.get_info()`).
+- `metrics`: Stable diagnostics (duration, bytes written, upload timings, etc.).
+- `schema_version`: Contract version for future migrations (current: `1`).
 
 **Lifecycle hooks (optional, currently not invoked)**:
 | Hook | Signature |
