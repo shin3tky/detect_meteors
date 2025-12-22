@@ -9,7 +9,7 @@
   - Enables gradual loader/handler migration without breaking existing plugins.
 - **Complete plugin contract coverage**: All three plugin types (loaders, detectors, handlers) now have versioned contracts.
 - **Updated Plugin Author Guide**: Comprehensive documentation for `InputContext` and `OutputResult` contracts.
-- **Backward compatibility**: Fully compatible with v1.6.1. Existing loaders and handlers work without modification.
+- **Backward compatibility**: Experimental plugin architecture. Output handlers must return `OutputResult`; legacy `OutputWriter`/handlers returning `bool` are not compatible with the v1.6.2 pipeline without changes.
 
 ## v1.6.1 - 2025-12-22
 - **Schema versioning for plugin contracts**: Added `schema_version` field to `DetectionContext` and `DetectionResult` dataclasses for future migration support.

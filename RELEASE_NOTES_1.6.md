@@ -81,18 +81,21 @@ All plugin contracts now follow a consistent pattern:
 
 ### Migration Guide for Plugin Authors
 
-No migration required. Existing plugins work without modification.
+Plugin architecture remains **experimental**, and v1.6.2 introduces a breaking change for output handlers used by the pipeline.
+
+**Required for Output Handler authors**:
+1. Return `OutputResult` from `save_candidate`. The pipeline expects `.saved`, `.output_path`, and `.debug_path`.
+2. Update any legacy `OutputWriter`-based handlers (or wrappers returning `bool`) to return `OutputResult` instead.
 
 **For Input Loader authors** (optional enhancements):
 1. Return `InputContext` instead of raw image array
 2. Populate `loader_info` using `self.get_info()` from `BaseInputLoader`
 3. Use `context.to_dict()` for logging
 
-**For Output Handler authors** (optional enhancements):
-1. Return `OutputResult` instead of simple bool/path
-2. Populate `handler_info` using `self.get_info()` from `BaseOutputHandler`
-3. Use `metrics` for performance tracking (duration_ms, bytes_written, etc.)
-4. Use `result.to_dict()` for logging
+**Recommended for Output Handler authors**:
+1. Populate `handler_info` using `self.get_info()` from `BaseOutputHandler`
+2. Use `metrics` for performance tracking (duration_ms, bytes_written, etc.)
+3. Use `result.to_dict()` for logging
 
 ### Example: Updated Loader Implementation
 

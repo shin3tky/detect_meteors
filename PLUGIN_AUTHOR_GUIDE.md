@@ -2,7 +2,8 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.5.x)**:
+> **Current status (v1.6.x)**:
+>
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
 > - ⚠️ Detector/runtime parameter contracts may still evolve
