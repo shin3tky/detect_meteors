@@ -16,7 +16,18 @@ import signal
 import time
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Protocol, Tuple, Type, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    Union,
+    overload,
+)
 
 import cv2
 import numpy as np
@@ -31,6 +42,7 @@ from .schema import (
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
+    DETECTION_CONTEXT_SCHEMA_VERSION,
     DetectionContext,
     DetectionParams,
     PipelineConfig,
@@ -53,6 +65,32 @@ from .utils import (
 
 # Module-level logger
 logger = logging.getLogger(__name__)
+
+# Pipeline-side DetectionContext schema conversions.
+_DETECTION_CONTEXT_CONVERTERS: Dict[
+    int, Callable[[DetectionContext], DetectionContext]
+] = {}
+
+
+def _normalize_detection_context(context: DetectionContext) -> DetectionContext:
+    if context.schema_version == DETECTION_CONTEXT_SCHEMA_VERSION:
+        return context
+
+    converter = _DETECTION_CONTEXT_CONVERTERS.get(context.schema_version)
+    if converter is None:
+        raise MeteorConfigError(
+            "Unsupported DetectionContext schema_version "
+            f"{context.schema_version}; expected "
+            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
+        )
+
+    converted = converter(context)
+    if converted.schema_version != DETECTION_CONTEXT_SCHEMA_VERSION:
+        raise MeteorConfigError(
+            "DetectionContext converter did not return the expected schema_version "
+            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
+        )
+    return converted
 
 
 # Lazy initialization to avoid circular imports
@@ -545,6 +583,7 @@ def process_image_batch(
                 runtime_params=runtime_params,
                 metadata=metadata,
             )
+            context = _normalize_detection_context(context)
             result = det.detect(context)
 
             results.append(

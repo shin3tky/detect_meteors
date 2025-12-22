@@ -16,6 +16,8 @@ import multiprocessing as mp
 # Version
 # ==========================================
 VERSION = "1.6.1"
+DETECTION_CONTEXT_SCHEMA_VERSION = 1
+DETECTION_RESULT_SCHEMA_VERSION = 1
 
 # ==========================================
 # Default Settings
@@ -271,7 +273,7 @@ class DetectionContext:
     roi_mask: Any
     runtime_params: Dict[str, Any]
     metadata: Dict[str, Any]
-    schema_version: int = 1
+    schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION
 
 
 @dataclass
@@ -512,7 +514,7 @@ class DetectionResult:
     debug_image: Optional[Any]
     extras: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1
+    schema_version: int = DETECTION_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -522,6 +524,7 @@ class DetectionResult:
             "aspect_ratio": self.aspect_ratio,
             "extras": self.extras,
             "metrics": self.metrics,
+            "schema_version": self.schema_version,
         }
 
 
