@@ -173,6 +173,7 @@ class DetectionResult:
     aspect_ratio: float
     debug_image: Optional[np.ndarray]
     extras: Dict[str, Any]
+    metrics: Dict[str, Any]
     schema_version: int = 1
 ```
 

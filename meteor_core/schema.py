@@ -505,6 +505,7 @@ class DetectionResult:
     aspect_ratio: float
     debug_image: Optional[Any]
     extras: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
     schema_version: int = 1
 
     def to_dict(self) -> Dict[str, Any]:
@@ -514,6 +515,7 @@ class DetectionResult:
             "lines": self.lines,
             "aspect_ratio": self.aspect_ratio,
             "extras": self.extras,
+            "metrics": self.metrics,
         }
 
 
