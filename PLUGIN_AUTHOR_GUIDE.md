@@ -177,6 +177,18 @@ class DetectionResult:
     schema_version: int = 1
 ```
 
+**Standard diagnostics** (`DetectionResult.metrics`):
+
+Use `metrics` to emit stable, comparable diagnostics across detectors. These
+entries are intended for downstream analysis and visualization tools, while
+`extras` should hold detector-specific or auxiliary data.
+
+Recommended keys:
+- `duration_ms`: Total detection wall time for the call.
+- `num_contours`: Number of contours found in the binary mask.
+- `mask_area`: Non-zero pixel count in the mask used for line/contour analysis.
+- `hough_votes`: Hough line evidence count (e.g., number of detected lines).
+
 **Runtime parameters** (`context.runtime_params`):
 
 The `runtime_params` dict contains CLI-configured detection settings and is
@@ -616,14 +628,20 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
             if not valid_contours:
                 logger.debug("No valid contours found - returning no detection")
-                return DetectionResult(
-                    is_candidate=False,
-                    score=0.0,
-                    lines=[],
-                    aspect_ratio=0.0,
-                    debug_image=None,
-                    extras={},
-                )
+            return DetectionResult(
+                is_candidate=False,
+                score=0.0,
+                lines=[],
+                aspect_ratio=0.0,
+                debug_image=None,
+                extras={},
+                metrics={
+                    "duration_ms": 0.0,
+                    "num_contours": 0,
+                    "mask_area": 0,
+                    "hough_votes": 0,
+                },
+            )
 
             # Compute metrics
             max_area = max(cv2.contourArea(c) for c in valid_contours)
@@ -665,6 +683,12 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
                 aspect_ratio=max_aspect_ratio,
                 debug_image=debug_image,
                 extras={"valid_contours": len(valid_contours)},
+                metrics={
+                    "duration_ms": 0.0,
+                    "num_contours": len(valid_contours),
+                    "mask_area": int(np.count_nonzero(binary)),
+                    "hough_votes": 0,
+                },
             )
 
         except Exception as e:
@@ -677,6 +701,12 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
                 aspect_ratio=0.0,
                 debug_image=None,
                 extras={"error": str(e)},
+                metrics={
+                    "duration_ms": 0.0,
+                    "num_contours": 0,
+                    "mask_area": 0,
+                    "hough_votes": 0,
+                },
             )
 
     def compute_line_score(

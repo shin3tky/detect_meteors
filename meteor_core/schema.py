@@ -497,7 +497,13 @@ class NPFMetrics:
 
 @dataclass
 class DetectionResult:
-    """Result returned by detectors."""
+    """Result returned by detectors.
+
+    Standard diagnostics belong in ``metrics`` (e.g. ``duration_ms``,
+    ``num_contours``, ``mask_area``, ``hough_votes``). Use ``extras`` for
+    detector-specific or auxiliary data that should not be part of the
+    normalized comparison surface.
+    """
 
     is_candidate: bool
     score: float

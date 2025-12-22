@@ -9,6 +9,7 @@ Default meteor detector using Hough line transform.
 """
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Tuple, List, Optional, Dict, Any
 
@@ -130,6 +131,7 @@ class HoughDetector(BaseDetector):
             logger.error("Missing required Hough detection parameters.")
             raise ValueError("Invalid detection parameters supplied to HoughDetector")
 
+        start_time = time.perf_counter()
         try:
             # Calculate difference
             diff = cv2.absdiff(current_image, previous_image)
@@ -196,6 +198,15 @@ class HoughDetector(BaseDetector):
                         box = np.int64(box)
                         cv2.drawContours(debug_img, [box], 0, (0, 0, 255), 2)
 
+            duration_ms = (time.perf_counter() - start_time) * 1000.0
+            mask_area = int(np.count_nonzero(mask))
+            metrics = {
+                "duration_ms": duration_ms,
+                "num_contours": len(contours),
+                "mask_area": mask_area,
+                "hough_votes": len(hough_lines),
+            }
+
             logger.debug(
                 "Detection finished: candidate=%s, line_score=%.2f, max_aspect_ratio=%.2f",
                 is_candidate,
@@ -208,7 +219,8 @@ class HoughDetector(BaseDetector):
                 lines=hough_lines,
                 aspect_ratio=max_aspect_ratio,
                 debug_image=debug_img,
-                extras={"contour_count": len(contours)},
+                extras={},
+                metrics=metrics,
             )
         except Exception as exc:  # pragma: no cover - safety net
             logger.exception("Error during HoughDetector detection: %s", exc)

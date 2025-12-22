@@ -1,6 +1,7 @@
 """Lightweight configurable detector example for validation and tests."""
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
@@ -74,6 +75,7 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
             )
             raise ValueError("roi_mask must match the shape of the input images")
 
+        start_time = time.perf_counter()
         # Frame inputs are expected to be single-channel uint8 images. Mixed
         # channel types will still work because OpenCV handles per-channel
         # subtraction, but tests keep images grayscale so the summed pixel
@@ -110,6 +112,15 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
             # remains stable even if contour extraction changes slightly.
             line_score = float(np.sum(binary))
 
+            duration_ms = (time.perf_counter() - start_time) * 1000.0
+            mask_area = int(np.count_nonzero(binary))
+            metrics = {
+                "duration_ms": duration_ms,
+                "num_contours": len(contours),
+                "mask_area": mask_area,
+                "hough_votes": 0,
+            }
+
             logger.debug(
                 "SimpleThreshold detection finished: candidate=%s, line_score=%.2f, max_aspect_ratio=%.2f",
                 is_candidate,
@@ -122,7 +133,8 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
                 lines=segments,
                 aspect_ratio=max_aspect_ratio,
                 debug_image=None,
-                extras={"binary_nonzero": int(np.count_nonzero(binary))},
+                extras={},
+                metrics=metrics,
             )
         except Exception as exc:  # pragma: no cover - guard against OpenCV errors
             logger.exception("Error during SimpleThreshold detection: %s", exc)
