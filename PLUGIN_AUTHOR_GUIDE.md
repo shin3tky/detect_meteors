@@ -141,6 +141,10 @@ class InputContext:
 - `loader_info`: Loader identity details (from `BaseInputLoader.get_info()`).
 - `schema_version`: Contract version for future migrations (current: `1`).
 
+**Schema versioning**: The `schema_version` field enables future migration of loader plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing loaders to handle different versions gracefully. Current version is `1`.
+
+**Serialization**: Use `context.to_dict()` to get a JSON-serializable representation (excludes `image_data` to avoid large binary data in logs).
+
 **Optional features**:
 - Implement `BaseMetadataExtractor` for EXIF-like metadata extraction
 - Define `name`, `version` attributes for plugin info
@@ -321,6 +325,10 @@ class OutputResult:
 - `handler_info`: Handler identity details (from `BaseOutputHandler.get_info()`).
 - `metrics`: Stable diagnostics (duration, bytes written, upload timings, etc.).
 - `schema_version`: Contract version for future migrations (current: `1`).
+
+**Schema versioning**: The `schema_version` field enables future migration of handler plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing handlers to handle different versions gracefully. Current version is `1`.
+
+**Serialization**: Use `result.to_dict()` to get a JSON-serializable representation for logging and debugging.
 
 **Lifecycle hooks (optional, currently not invoked)**:
 | Hook | Signature |

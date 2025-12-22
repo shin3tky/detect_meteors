@@ -133,7 +133,17 @@
   - [x] `ensure_numpy()` utility for type-safe image conversion
   - [x] `DetectionResult.metrics` field for standardized diagnostics
   - [x] `DetectionResult.to_dict()` method for serialization
-  - [x] Updated Plugin Author Guide with new schema documentation
+  - [x] Updated Plugin Author Guide with detector schema documentation
+
+### Input/Output Contract Standardization
+- [x] **v1.6.2** - Input/output context contracts
+  - [x] `InputContext` dataclass for standardized loader return values
+  - [x] `OutputResult` dataclass for standardized handler return values
+  - [x] Schema versioning (`INPUT_CONTEXT_SCHEMA_VERSION`, `OUTPUT_RESULT_SCHEMA_VERSION`)
+  - [x] `loader_info`/`handler_info` fields for plugin identity tracking
+  - [x] `metrics` field in `OutputResult` for performance diagnostics
+  - [x] `to_dict()` methods for serialization support
+  - [x] Updated Plugin Author Guide with loader/handler contract documentation
 
 ### Pending (Deferred from v1.x)
 The following features were originally planned for v1.x but have been deferred:
@@ -163,5 +173,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.1 (Plugin Contract Versioning)
+**Current Status**: v1.6.2 (Input/Output Contract Standardization)
 **Next Focus**: v2.0 Architecture and Extensibility - Plugin architecture implementation

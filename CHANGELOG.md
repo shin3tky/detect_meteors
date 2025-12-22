@@ -1,9 +1,15 @@
 # Changelog
 
 ## v1.6.2 - 2025-12-23
-- **Input/Output context contracts**: Added `InputContext` and `OutputResult` dataclasses to standardize loader/handler return values.
-  - Includes `schema_version`, `loader_info`/`handler_info`, and `metrics` for forward compatibility and diagnostics.
-- **Documentation updates**: Added `InputContext`/`OutputResult` coverage to the plugin author guide and release notes.
+- **Input/output context contracts**: Added `InputContext` and `OutputResult` dataclasses to standardize loader/handler return values.
+  - `INPUT_CONTEXT_SCHEMA_VERSION = 1` and `OUTPUT_RESULT_SCHEMA_VERSION = 1` constants for version tracking.
+  - `InputContext`: Contains `image_data`, `filepath`, `metadata`, `loader_info`, `schema_version`.
+  - `OutputResult`: Contains `saved`, `output_path`, `debug_path`, `handler_info`, `metrics`, `schema_version`.
+  - New `to_dict()` methods for serialization support on both dataclasses.
+  - Enables gradual loader/handler migration without breaking existing plugins.
+- **Complete plugin contract coverage**: All three plugin types (loaders, detectors, handlers) now have versioned contracts.
+- **Updated Plugin Author Guide**: Comprehensive documentation for `InputContext` and `OutputResult` contracts.
+- **Backward compatibility**: Fully compatible with v1.6.1. Existing loaders and handlers work without modification.
 
 ## v1.6.1 - 2025-12-22
 - **Schema versioning for plugin contracts**: Added `schema_version` field to `DetectionContext` and `DetectionResult` dataclasses for future migration support.
