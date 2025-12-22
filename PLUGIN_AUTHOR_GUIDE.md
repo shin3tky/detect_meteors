@@ -174,7 +174,8 @@ also be provided as `torch.Tensor` or `PIL.Image.Image` for ML-based detectors.
 If you rely on specific array operations, normalize these inputs at the start
 of your detector implementation. The helper `meteor_core.utils.ensure_numpy`
 converts `numpy.ndarray`, `torch.Tensor`, and `PIL.Image.Image` into a
-`numpy.ndarray`.
+`numpy.ndarray`. If you prefer working with PyTorch, `meteor_core.utils.ensure_tensor`
+performs the same normalization into a `torch.Tensor`.
 
 **DetectionResult type** (return value of `detect`):
 ```python

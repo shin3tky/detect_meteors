@@ -150,6 +150,7 @@ from .utils import (
     format_polygon_string,
     display_exif_info,
     ensure_numpy,
+    ensure_tensor,
 )
 
 from .detectors import (
@@ -303,6 +304,7 @@ __all__ = [
     "format_polygon_string",
     "display_exif_info",
     "ensure_numpy",
+    "ensure_tensor",
     # Detectors
     "BaseDetector",
     "HoughDetector",
