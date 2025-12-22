@@ -155,6 +155,7 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 ```python
 @dataclass
 class DetectionContext:
+    schema_version: int = 1
     current_image: np.ndarray
     previous_image: np.ndarray
     roi_mask: np.ndarray
@@ -166,6 +167,7 @@ class DetectionContext:
 ```python
 @dataclass
 class DetectionResult:
+    schema_version: int = 1
     is_candidate: bool
     score: float
     lines: List[Tuple[int, int, int, int]]

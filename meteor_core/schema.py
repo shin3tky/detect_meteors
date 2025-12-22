@@ -266,6 +266,7 @@ class DetectionParams:
 class DetectionContext:
     """Input bundle for detector execution."""
 
+    schema_version: int = 1
     current_image: Any
     previous_image: Any
     roi_mask: Any
@@ -498,6 +499,7 @@ class NPFMetrics:
 class DetectionResult:
     """Result returned by detectors."""
 
+    schema_version: int = 1
     is_candidate: bool
     score: float
     lines: List[Tuple[int, int, int, int]]
