@@ -177,6 +177,17 @@ class DetectionResult:
     schema_version: int = 1
 ```
 
+**Normalized vs detector-specific outputs**
+
+`lines` remains the normalized, line-segment-centric output for downstream
+consumers. Detectors that do not produce line segments should still return
+`lines=[]` and place non-linear detections into `extras`.
+
+Recommended `extras` keys for non-linear detections:
+- `bounding_boxes`: List of rects, e.g. `[{x1, y1, x2, y2}, ...]`
+- `polygons`: List of polygons, e.g. `[[[x, y], [x, y], ...], ...]`
+- `masks`: Detector-specific masks (numpy arrays or references/paths)
+
 **Standard diagnostics** (`DetectionResult.metrics`):
 
 Use `metrics` to emit stable, comparable diagnostics across detectors. These
