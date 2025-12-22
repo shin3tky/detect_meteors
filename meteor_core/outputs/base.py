@@ -25,6 +25,7 @@ from meteor_core.plugin_contract import (
     require_config_type,
     require_plugin_name,
 )
+from meteor_core.schema import OutputResult
 
 # Module-level logger for diagnostics shared by output handlers
 logger = logging.getLogger(__name__)
@@ -67,7 +68,7 @@ class BaseOutputHandler(ABC):
         ...
         ...     def save_candidate(self, source_path, filename, debug_image=None, roi_polygon=None):
         ...         # Implementation here
-        ...         return True
+        ...         return OutputResult(saved=True, output_path="/path/to/file", debug_path=None)
         ...
         ...     def save_debug_image(self, debug_image, filename, roi_polygon=None):
         ...         # Implementation here
@@ -90,7 +91,7 @@ class BaseOutputHandler(ABC):
         filename: str,
         debug_image: Optional[np.ndarray] = None,
         roi_polygon: Optional[List[List[int]]] = None,
-    ) -> bool:
+    ) -> OutputResult:
         """Save a meteor candidate and optional debug visualization.
 
         Args:
@@ -100,7 +101,7 @@ class BaseOutputHandler(ABC):
             roi_polygon: Optional ROI polygon to draw on debug image.
 
         Returns:
-            True when the candidate was persisted, False when skipped.
+            OutputResult describing what was persisted or skipped.
         """
         pass
 

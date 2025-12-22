@@ -71,10 +71,12 @@ from .schema import (
     HoughParams,
     DetectionParams,
     DetectionContext,
+    InputContext,
     PipelineConfig,
     ExifData,
     NPFMetrics,
     DetectionResult,
+    OutputResult,
     ROIData,
     ProgressData,
     OptimizationInfo,
@@ -150,6 +152,7 @@ from .utils import (
     format_polygon_string,
     display_exif_info,
     ensure_numpy,
+    ensure_tensor,
 )
 
 from .detectors import (
@@ -231,10 +234,12 @@ __all__ = [
     "HoughParams",
     "DetectionParams",
     "DetectionContext",
+    "InputContext",
     "PipelineConfig",
     "ExifData",
     "NPFMetrics",
     "DetectionResult",
+    "OutputResult",
     "ROIData",
     "ProgressData",
     "OptimizationInfo",
@@ -303,6 +308,7 @@ __all__ = [
     "format_polygon_string",
     "display_exif_info",
     "ensure_numpy",
+    "ensure_tensor",
     # Detectors
     "BaseDetector",
     "HoughDetector",

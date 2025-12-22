@@ -11,6 +11,7 @@ from meteor_core.plugin_contract import (
     require_config_type,
     require_plugin_name,
 )
+from meteor_core.schema import InputContext
 
 ConfigType = TypeVar("ConfigType")
 
@@ -39,7 +40,7 @@ class BaseInputLoader(ABC, Generic[ConfigType]):
 
     Subclasses must define:
         - plugin_name: str - Unique identifier for the loader
-        - load(filepath: str) -> Any - The loading method
+        - load(filepath: str) -> InputContext - The loading method
 
     Attributes:
         plugin_name: Unique identifier for the loader plugin (used in registry).
@@ -73,14 +74,14 @@ class BaseInputLoader(ABC, Generic[ConfigType]):
     config: ConfigType
 
     @abstractmethod
-    def load(self, filepath: str) -> Any:
+    def load(self, filepath: str) -> InputContext:
         """Load an image from the given filepath.
 
         Args:
             filepath: Path to the image file to load.
 
         Returns:
-            Loaded image data (typically a numpy array).
+            InputContext containing the loaded image and metadata.
         """
         pass
 

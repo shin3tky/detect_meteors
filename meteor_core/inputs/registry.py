@@ -54,7 +54,7 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
 
         >>> # Create an instance with config
         >>> loader = LoaderRegistry.create("raw", {"normalize": True})
-        >>> image = loader.load("photo.CR2")
+        >>> context = loader.load("photo.CR2")
 
         >>> # Register a custom loader for testing
         >>> LoaderRegistry.register(MyCustomLoader)

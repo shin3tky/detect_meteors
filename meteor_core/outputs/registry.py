@@ -57,7 +57,7 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
         ...     "output_folder": "./candidates",
         ...     "debug_folder": "./debug",
         ... })
-        >>> saved = handler.save_candidate("/path/to/source.CR2", "source.CR2")
+        >>> result = handler.save_candidate("/path/to/source.CR2", "source.CR2")
 
         >>> # Register a custom handler for testing
         >>> OutputHandlerRegistry.register(MyCustomHandler)

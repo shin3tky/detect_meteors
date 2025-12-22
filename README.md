@@ -104,12 +104,15 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.1
+## What's New in v1.6.2
 
-- **Schema versioning**: `DetectionContext` and `DetectionResult` now include `schema_version` for future migration support
-- **Multi-framework images**: New `ImageLike` type supports numpy, PyTorch tensors, and PIL images
-- **Enhanced diagnostics**: `DetectionResult.metrics` field for standardized detector diagnostics
-- **ML-ready architecture**: Foundation for PyTorch/TensorFlow-based detectors in v2.x
+- **Input/output context contracts**: `InputContext` and `OutputResult` standardize loader/handler return values
+  - `schema_version` field for future migration support
+  - `loader_info`/`handler_info` for plugin identity tracking
+  - `metrics` field in `OutputResult` for performance diagnostics
+  - `to_dict()` method for serialization support
+- **Complete plugin contract coverage**: All three plugin types (loaders, detectors, handlers) now have versioned contracts
+- **Documentation updates**: Plugin Author Guide updated with comprehensive contract documentation
 
 For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
 

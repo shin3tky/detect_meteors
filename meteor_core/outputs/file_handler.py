@@ -14,6 +14,7 @@ meteor candidate RAW files and debug visualization images to disk.
 import logging
 import os
 import shutil
+import time
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -21,7 +22,7 @@ import cv2
 import numpy as np
 
 from .base import DataclassOutputHandler
-from ..schema import DEFAULT_DEBUG_FOLDER, DEFAULT_OUTPUT_FOLDER
+from ..schema import DEFAULT_DEBUG_FOLDER, DEFAULT_OUTPUT_FOLDER, OutputResult
 from ..exceptions import MeteorWriteError
 
 # Module-level logger
@@ -67,8 +68,8 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
         ...     output_overwrite=False,
         ... )
         >>> handler = FileOutputHandler(config)
-        >>> saved = handler.save_candidate("/path/to/source.CR2", "source.CR2")
-        >>> print(saved)
+        >>> result = handler.save_candidate("/path/to/source.CR2", "source.CR2")
+        >>> print(result.saved)
         True
     """
 
@@ -122,7 +123,7 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
         filename: str,
         debug_image: Optional[np.ndarray] = None,
         roi_polygon: Optional[List[List[int]]] = None,
-    ) -> bool:
+    ) -> OutputResult:
         """Save a meteor candidate file and optional debug image.
 
         Args:
@@ -132,7 +133,7 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
             roi_polygon: Optional ROI polygon to draw on debug image.
 
         Returns:
-            True if file was saved, False if skipped (already exists).
+            OutputResult describing the persisted files.
         """
         logger.debug(
             "save_candidate: source_path=%s, filename=%s, has_debug_image=%s, "
@@ -150,9 +151,15 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                 "save_candidate: skipped (file exists and overwrite disabled): %s",
                 output_path,
             )
-            return False
+            return OutputResult(
+                saved=False,
+                output_path=output_path,
+                debug_path=None,
+                handler_info=self.get_info(),
+            )
 
         # Copy the RAW file
+        start_time = time.perf_counter()
         try:
             shutil.copy(source_path, output_path)
             logger.debug("save_candidate: copied %s -> %s", source_path, output_path)
@@ -173,10 +180,19 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                 context={"error_category": "copy_failed"},
             ) from exc
 
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        metrics = {
+            "duration_ms": duration_ms,
+            "file_size_bytes": os.path.getsize(output_path),
+        }
+
         # Save debug image if provided
+        debug_path = None
         if debug_image is not None:
             try:
-                self._save_debug_with_roi(debug_image, filename, roi_polygon)
+                debug_path = self._save_debug_with_roi(
+                    debug_image, filename, roi_polygon
+                )
             except MeteorWriteError:
                 # Already wrapped, re-raise as-is
                 raise
@@ -201,7 +217,13 @@ class FileOutputHandler(DataclassOutputHandler[FileOutputConfig]):
                 ) from exc
 
         logger.debug("save_candidate: completed successfully")
-        return True
+        return OutputResult(
+            saved=True,
+            output_path=output_path,
+            debug_path=debug_path,
+            handler_info=self.get_info(),
+            metrics=metrics,
+        )
 
     def save_debug_image(
         self,

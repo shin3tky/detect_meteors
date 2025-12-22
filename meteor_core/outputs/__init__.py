@@ -21,7 +21,7 @@ Recommended usage::
     })
 
     # Save a candidate
-    saved = handler.save_candidate("/path/to/source.CR2", "source.CR2")
+    result = handler.save_candidate("/path/to/source.CR2", "source.CR2")
 
 Available handlers:
     - "file": FileOutputHandler - Default file-based output (copies files to disk)

@@ -31,6 +31,7 @@ from meteor_core.schema import (
     DEFAULT_DEBUG_FOLDER,
     DEFAULT_OUTPUT_FOLDER,
     DEFAULT_OUTPUT_HANDLER_NAME,
+    OutputResult,
 )
 
 _PYDANTIC_AVAILABLE = importlib.util.find_spec("pydantic") is not None
@@ -119,7 +120,11 @@ class TestOutputHandlerRegistryGet(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/custom/path"
@@ -152,7 +157,11 @@ class TestOutputHandlerRegistryRegister(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/mock/path"
@@ -178,7 +187,11 @@ class TestOutputHandlerRegistryRegister(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"
@@ -198,7 +211,11 @@ class TestOutputHandlerRegistryRegister(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"
@@ -212,7 +229,11 @@ class TestOutputHandlerRegistryRegister(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return False
+                return OutputResult(
+                    saved=False,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path2"
@@ -249,7 +270,11 @@ class TestOutputHandlerRegistryUnregister(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"
@@ -309,7 +334,11 @@ class TestOutputHandlerRegistryListAvailable(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"
@@ -482,7 +511,11 @@ class TestPydanticOutputHandlerSupport(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"
@@ -527,7 +560,11 @@ class TestOutputHandlerRegistryReset(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"
@@ -582,7 +619,11 @@ class TestIsValidOutputHandler(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"
@@ -598,7 +639,11 @@ class TestIsValidOutputHandler(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"
@@ -657,11 +702,11 @@ class TestFileOutputHandler(unittest.TestCase):
                 )
             )
             saved = handler.save_candidate(source_path, "source.raw")
-            self.assertTrue(saved)
+            self.assertTrue(saved.saved)
             self.assertTrue(os.path.exists(os.path.join(output_dir, "source.raw")))
 
             saved_again = handler.save_candidate(source_path, "source.raw")
-            self.assertFalse(saved_again)
+            self.assertFalse(saved_again.saved)
 
             debug_image = np.zeros((10, 10, 3), dtype=np.uint8)
             roi_polygon = [[1, 1], [8, 1], [8, 8], [1, 8]]
@@ -701,7 +746,11 @@ class TestBaseOutputHandlerHooks(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"
@@ -726,7 +775,11 @@ class TestBaseOutputHandlerHooks(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return "/path"

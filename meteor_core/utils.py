@@ -56,6 +56,22 @@ def ensure_numpy(image: Any) -> np.ndarray:
     raise TypeError(f"Unsupported image type: {type(image)}")
 
 
+def ensure_tensor(image: Any) -> "torch.Tensor":
+    if not _HAS_TORCH:
+        raise ImportError("torch is required to convert images into tensors.")
+
+    if isinstance(image, torch.Tensor):
+        return image
+
+    if isinstance(image, np.ndarray):
+        return torch.from_numpy(image)
+
+    if _HAS_PIL and isinstance(image, Image.Image):
+        return torch.from_numpy(np.array(image))
+
+    raise TypeError(f"Unsupported image type: {type(image)}")
+
+
 def _resolve_locale(locale: Optional[str]) -> str:
     if locale:
         return locale

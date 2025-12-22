@@ -1,5 +1,163 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.2 (2025-12-23)
+
+### 🔧 Input/Output Context Contracts
+
+Version 1.6.2 extends schema versioning to input loaders and output handlers, completing the contract standardization across all plugin types.
+
+### Highlights
+
+- **Input context contracts**: `InputContext` formalizes loader return values with `schema_version`, `loader_info`, and `to_dict()`
+- **Output result contracts**: `OutputResult` formalizes handler return values with `schema_version`, `handler_info`, `metrics`, and `to_dict()`
+- **Complete plugin contract coverage**: All three plugin types (loaders, detectors, handlers) now have versioned contracts
+- **Documentation updates**: Plugin Author Guide updated with comprehensive `InputContext`/`OutputResult` documentation
+
+### Why This Change?
+
+This release completes the schema versioning initiative started in v1.6.1:
+
+| Plugin Type | v1.6.1 | v1.6.2 |
+|-------------|--------|--------|
+| **Detectors** | ✅ `DetectionContext`, `DetectionResult` | — |
+| **Input Loaders** | — | ✅ `InputContext` |
+| **Output Handlers** | — | ✅ `OutputResult` |
+
+Benefits:
+1. **Consistent contracts**: All plugin types follow the same pattern (schema_version, info dict, to_dict())
+2. **Future migration support**: Version field enables gradual migration without breaking existing plugins
+3. **Improved diagnostics**: `metrics` field in `OutputResult` for standardized performance tracking
+4. **Serialization support**: `to_dict()` methods for JSON-compatible logging and debugging
+
+### Schema Changes (v1.6.2)
+
+**InputContext** (new in v1.6.2):
+```python
+@dataclass
+class InputContext:
+    image_data: ImageLike              # Loaded image (numpy, torch, or PIL)
+    filepath: str                      # Original file path
+    metadata: Dict[str, Any] = {}      # Loader-extracted metadata (EXIF, etc.)
+    loader_info: Dict[str, Any] = {}   # Loader identity (name, version)
+    schema_version: int = 1            # INPUT_CONTEXT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize context for JSON/logging (excludes image_data)."""
+        ...
+```
+
+**OutputResult** (new in v1.6.2):
+```python
+@dataclass
+class OutputResult:
+    saved: bool                        # Whether file was persisted
+    output_path: Optional[str]         # Path to saved candidate
+    debug_path: Optional[str]          # Path to saved debug image
+    handler_info: Dict[str, Any] = {}  # Handler identity (name, version)
+    metrics: Dict[str, Any] = {}       # Performance diagnostics
+    schema_version: int = 1            # OUTPUT_RESULT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize result for JSON/logging."""
+        ...
+```
+
+**Constants added**:
+```python
+INPUT_CONTEXT_SCHEMA_VERSION = 1
+OUTPUT_RESULT_SCHEMA_VERSION = 1
+```
+
+### Contract Pattern Summary
+
+All plugin contracts now follow a consistent pattern:
+
+| Contract | Plugin Type | Info Field | Metrics | Schema Version |
+|----------|-------------|------------|---------|----------------|
+| `DetectionContext` | Detector (input) | — | — | ✅ |
+| `DetectionResult` | Detector (output) | — | ✅ | ✅ |
+| `InputContext` | Loader (output) | `loader_info` | — | ✅ |
+| `OutputResult` | Handler (output) | `handler_info` | ✅ | ✅ |
+
+### Migration Guide for Plugin Authors
+
+Plugin architecture remains **experimental**, and v1.6.2 introduces a breaking change for output handlers used by the pipeline.
+
+**Required for Output Handler authors**:
+1. Return `OutputResult` from `save_candidate`. The pipeline expects `.saved`, `.output_path`, and `.debug_path`.
+2. Update any legacy `OutputWriter`-based handlers (or wrappers returning `bool`) to return `OutputResult` instead.
+
+**For Input Loader authors** (optional enhancements):
+1. Return `InputContext` instead of raw image array
+2. Populate `loader_info` using `self.get_info()` from `BaseInputLoader`
+3. Use `context.to_dict()` for logging
+
+**Recommended for Output Handler authors**:
+1. Populate `handler_info` using `self.get_info()` from `BaseOutputHandler`
+2. Use `metrics` for performance tracking (duration_ms, bytes_written, etc.)
+3. Use `result.to_dict()` for logging
+
+### Example: Updated Loader Implementation
+
+```python
+from meteor_core.inputs import DataclassInputLoader
+from meteor_core.schema import InputContext
+
+class MyLoader(DataclassInputLoader[MyConfig]):
+    def load(self, filepath: str) -> InputContext:
+        image = self._load_image(filepath)
+        return InputContext(
+            image_data=image,
+            filepath=filepath,
+            metadata=self.extract_metadata(filepath),
+            loader_info=self.get_info(),  # {"name": ..., "version": ...}
+        )
+```
+
+### Example: Updated Handler Implementation
+
+```python
+from meteor_core.outputs import DataclassOutputHandler
+from meteor_core.schema import OutputResult
+import time
+
+class MyHandler(DataclassOutputHandler[MyConfig]):
+    def save_candidate(self, source_path, filename, ...) -> OutputResult:
+        start = time.perf_counter()
+        dest_path = self._save_file(source_path, filename)
+        duration_ms = (time.perf_counter() - start) * 1000
+
+        return OutputResult(
+            saved=True,
+            output_path=dest_path,
+            debug_path=None,
+            handler_info=self.get_info(),
+            metrics={"duration_ms": duration_ms},
+        )
+```
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `meteor_core/schema.py` | Added `InputContext`, `OutputResult`, schema version constants |
+| `PLUGIN_AUTHOR_GUIDE.md` | Updated loader/handler documentation with new contracts |
+| `CHANGELOG.md` | Added v1.6.2 entry |
+| `README.md` | Updated "What's New" section |
+| `ROADMAP.md` | Added v1.6.2 milestone |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.6.1 and v1.6.0:
+
+- **CLI**: No changes
+- **Runtime**: No changes to detection behavior
+- **API**: Existing loader/handler plugins work unchanged
+- **Configuration**: No changes
+
+
+---
+
 ## Version 1.6.1 (2025-12-22)
 
 ### 🔧 Plugin Schema Versioning and ML-Ready Architecture
@@ -9,6 +167,7 @@ Version 1.6.1 introduces schema versioning for detector plugin contracts and mul
 ### Highlights
 
 - **Schema versioning**: `DetectionContext` and `DetectionResult` now include `schema_version` field
+
 - **Multi-framework images**: New `ImageLike` type supports numpy, PyTorch, and PIL
 - **Enhanced diagnostics**: `DetectionResult.metrics` for standardized performance metrics
 - **Serialization support**: `DetectionResult.to_dict()` for JSON-compatible output
@@ -20,7 +179,7 @@ This release prepares the plugin architecture for:
 2. **ML detector support**: `ImageLike` type allows detectors to work with PyTorch tensors natively
 3. **Standardized metrics**: Consistent diagnostics across different detector implementations
 
-### Schema Changes
+### Schema Changes (v1.6.1)
 
 **DetectionContext** (v1.6.1):
 ```python
@@ -46,7 +205,6 @@ class DetectionResult:
     extras: Dict[str, Any]
     metrics: Dict[str, Any]       # NEW: Standard diagnostics
     schema_version: int = 1       # NEW: For migration support
-
     def to_dict(self) -> Dict[str, Any]:  # NEW: Serialization
         ...
 ```
@@ -321,7 +479,16 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
-### v1.6.1 (Latest)
+### v1.6.2 (Latest)
+- **Version**: 1.6.2
+- **Release Date**: 2025-12-23
+- **Major Changes**:
+  - InputContext for standardized loader return values
+  - OutputResult for standardized handler return values
+  - Schema versioning for all plugin contracts
+  - Complete plugin contract documentation
+
+### v1.6.1
 - **Version**: 1.6.1
 - **Release Date**: 2025-12-22
 - **Major Changes**:
@@ -339,10 +506,11 @@ This release only affects the development toolchain. Users who install the packa
   - Unified configuration in pyproject.toml
   - Simplified developer setup workflow
 
+
 ---
 
 **Status**: Production Ready  
 **Compatibility**: Fully backward compatible with v1.5.x  
-**Recommendation**: Contributors should migrate to uv/Ruff workflow
+**Recommendation**: Contributors should migrate to uv/Ruff workflow; plugin authors should adopt new contract types
 
 Happy meteor hunting! 🌠
