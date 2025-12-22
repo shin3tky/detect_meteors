@@ -177,7 +177,7 @@ class TestSimpleThresholdDetector(unittest.TestCase):
             current_image=current,
             previous_image=previous,
             roi_mask=roi_mask,
-            runtime_params={},
+            runtime_params={"global": {}, "detector": {}},
             metadata={},
         )
         result = detector.detect(context)
@@ -206,7 +206,7 @@ class TestSimpleThresholdDetector(unittest.TestCase):
                     current_image=current,
                     previous_image=previous,
                     roi_mask=roi_mask,
-                    runtime_params={},
+                    runtime_params={"global": {}, "detector": {}},
                     metadata={},
                 )
             )
@@ -339,7 +339,10 @@ class TestProcessImageBatchWithDetector(unittest.TestCase):
 
             # Verify detector was called
             self.assertEqual(mock.detect_call_count, 1)
-            self.assertEqual(mock.last_params, self.params)
+            self.assertEqual(
+                mock.last_params,
+                {"global": self.params, "detector": {"mock": self.params}},
+            )
 
 
 class TestBaseDetectorInterface(unittest.TestCase):

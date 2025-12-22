@@ -155,33 +155,43 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 ```python
 @dataclass
 class DetectionContext:
-    schema_version: int = 1
     current_image: np.ndarray
     previous_image: np.ndarray
     roi_mask: np.ndarray
     runtime_params: Dict[str, Any]
     metadata: Dict[str, Any]
+    schema_version: int = 1
 ```
 
 **DetectionResult type** (return value of `detect`):
 ```python
 @dataclass
 class DetectionResult:
-    schema_version: int = 1
     is_candidate: bool
     score: float
     lines: List[Tuple[int, int, int, int]]
     aspect_ratio: float
     debug_image: Optional[np.ndarray]
     extras: Dict[str, Any]
+    schema_version: int = 1
 ```
 
 **Runtime parameters** (`context.runtime_params`):
 
-The `runtime_params` dict contains CLI-configured detection settings. For now
-the built-in CLI passes a flat dict, but detector-specific namespaces are
-preferred as the contract evolves (e.g., Hough-specific values under
-`runtime_params["hough"]`).
+The `runtime_params` dict contains CLI-configured detection settings and is
+namespaced to separate global and detector-specific values.
+
+```python
+{
+    "global": { ... },        # Pipeline-wide params
+    "detector": {
+        "<plugin_name>": { ... }  # Detector-specific overrides
+    },
+}
+```
+
+Legacy detectors may still receive a flat dict; prefer reading from the
+namespaced structure when available.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|

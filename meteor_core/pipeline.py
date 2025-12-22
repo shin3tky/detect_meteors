@@ -27,6 +27,7 @@ from .schema import (
     EXTENSIONS,
     DEFAULT_DIFF_THRESHOLD,
     DEFAULT_MIN_AREA,
+    DEFAULT_DETECTOR_NAME,
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
@@ -82,6 +83,13 @@ def _get_default_detector() -> BaseDetector:
     if _DEFAULT_DETECTOR is None:
         _DEFAULT_DETECTOR = DetectorRegistry.create_default()
     return _DEFAULT_DETECTOR
+
+
+def _build_runtime_params(
+    params: Dict[str, Any], detector: BaseDetector
+) -> Dict[str, Any]:
+    detector_name = getattr(detector, "plugin_name", "") or DEFAULT_DETECTOR_NAME
+    return {"global": params, "detector": {detector_name: params}}
 
 
 def _resolve_detector(
@@ -529,11 +537,12 @@ def process_image_batch(
             except Exception as exc:
                 logger.warning("Metadata extraction failed for %s: %s", filename, exc)
                 metadata = {"current": {}, "previous": {}}
+            runtime_params = _build_runtime_params(params, det)
             context = DetectionContext(
                 current_image=curr_img,
                 previous_image=prev_img,
                 roi_mask=roi_mask,
-                runtime_params=params,
+                runtime_params=runtime_params,
                 metadata=metadata,
             )
             result = det.detect(context)

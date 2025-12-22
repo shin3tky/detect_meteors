@@ -1606,10 +1606,8 @@ def detect_meteors_advanced(
         )
 
     # Build processing parameters.
-    # NOTE: These are still constructed as a flat dict for backward compatibility,
-    # then passed into DetectionContext.runtime_params by the pipeline.
-    # TODO: Migrate to detector-specific parameter schemas (e.g., runtime_params["hough"])
-    #       once detector configs are promoted to first-class CLI options.
+    # NOTE: These are still constructed as a flat dict for backward compatibility.
+    # The pipeline wraps them into namespaced runtime_params for detectors.
     processing_params = {
         "diff_threshold": diff_threshold,
         "min_area": min_area,

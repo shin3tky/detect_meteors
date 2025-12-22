@@ -15,7 +15,7 @@ import multiprocessing as mp
 # ==========================================
 # Version
 # ==========================================
-VERSION = "1.6.0"
+VERSION = "1.6.1"
 
 # ==========================================
 # Default Settings
@@ -266,12 +266,12 @@ class DetectionParams:
 class DetectionContext:
     """Input bundle for detector execution."""
 
-    schema_version: int = 1
     current_image: Any
     previous_image: Any
     roi_mask: Any
     runtime_params: Dict[str, Any]
     metadata: Dict[str, Any]
+    schema_version: int = 1
 
 
 @dataclass
@@ -499,13 +499,13 @@ class NPFMetrics:
 class DetectionResult:
     """Result returned by detectors."""
 
-    schema_version: int = 1
     is_candidate: bool
     score: float
     lines: List[Tuple[int, int, int, int]]
     aspect_ratio: float
     debug_image: Optional[Any]
     extras: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = 1
 
     def to_dict(self) -> Dict[str, Any]:
         return {

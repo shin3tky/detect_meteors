@@ -132,11 +132,12 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
         self, mask: np.ndarray, hough_params: Dict[str, int]
     ) -> Tuple[float, List[Tuple[int, int, int, int]]]:
         # This detector does not compute separate line scores; reuse detect results.
+        runtime_params = self.build_runtime_params(hough_params)
         context = DetectionContext(
             current_image=mask,
             previous_image=mask,
             roi_mask=mask,
-            runtime_params=hough_params,
+            runtime_params=runtime_params,
             metadata={},
         )
         result = self.detect(context)

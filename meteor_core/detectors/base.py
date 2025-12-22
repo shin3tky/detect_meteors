@@ -20,7 +20,11 @@ from meteor_core.plugin_contract import (
     require_config_type,
     require_plugin_name,
 )
-from meteor_core.schema import DetectionContext, DetectionResult
+from meteor_core.schema import (
+    DEFAULT_DETECTOR_NAME,
+    DetectionContext,
+    DetectionResult,
+)
 
 ConfigType = TypeVar("ConfigType")
 
@@ -88,14 +92,40 @@ class BaseDetector(ABC, Generic[ConfigType]):
             "Deprecated detect(current_image, previous_image, roi_mask, params) "
             "signature used. Please migrate to detect(DetectionContext)."
         )
+        runtime_params = self.build_runtime_params(params)
         context = DetectionContext(
             current_image=current_image,
             previous_image=previous_image,
             roi_mask=roi_mask,
-            runtime_params=params,
+            runtime_params=runtime_params,
             metadata={},
         )
         return self.detect(context)
+
+    def build_runtime_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Wrap flat params into the namespaced runtime_params structure."""
+        detector_name = self.plugin_name or DEFAULT_DETECTOR_NAME
+        return {"global": params, "detector": {detector_name: params}}
+
+    def split_runtime_params(
+        self, runtime_params: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Return (global_params, detector_params) from runtime_params."""
+        if not isinstance(runtime_params, dict):
+            logger.error("runtime_params must be a dictionary.")
+            raise TypeError("runtime_params must be a dictionary.")
+
+        global_params = runtime_params.get("global", runtime_params)
+        detector_params: Dict[str, Any] = {}
+        detector_group = runtime_params.get("detector")
+        if isinstance(detector_group, dict):
+            detector_params = detector_group.get(
+                self.plugin_name or DEFAULT_DETECTOR_NAME, {}
+            )
+        if not isinstance(global_params, dict) or not isinstance(detector_params, dict):
+            logger.error("Runtime params namespaces must be dictionaries.")
+            raise TypeError("runtime_params namespaces must be dictionaries.")
+        return global_params, detector_params
 
     @abstractmethod
     def compute_line_score(

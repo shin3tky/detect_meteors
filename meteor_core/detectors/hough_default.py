@@ -80,7 +80,10 @@ class HoughDetector(BaseDetector):
         current_image = context.current_image
         previous_image = context.previous_image
         roi_mask = context.roi_mask
-        params = context.runtime_params
+        global_params, detector_params = self.split_runtime_params(
+            context.runtime_params
+        )
+        params = {**global_params, **detector_params}
 
         if current_image.shape != previous_image.shape:
             logger.error("Current and previous images must share the same shape.")
