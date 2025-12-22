@@ -27,6 +27,8 @@ from meteor_core.schema import (
     DEFAULT_OUTPUT_HANDLER_NAME,
     DetectionContext,
     DetectionResult,
+    InputContext,
+    OutputResult,
 )
 
 
@@ -76,7 +78,7 @@ class TestRegistryDefaultContracts(unittest.TestCase):
                 self.config = config
 
             def load(self, filepath: str):
-                return filepath
+                return InputContext(image_data=filepath, filepath=filepath)
 
         class OutputWithoutConfig(BaseOutputHandler):
             plugin_name = DEFAULT_OUTPUT_HANDLER_NAME
@@ -87,7 +89,11 @@ class TestRegistryDefaultContracts(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return filename
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return filename
@@ -134,7 +140,7 @@ class TestRegistryDefaultContracts(unittest.TestCase):
                 self.config = config
 
             def load(self, filepath: str):
-                return filepath
+                return InputContext(image_data=filepath, filepath=filepath)
 
         class OutputWithRequiredConfig(BaseOutputHandler):
             plugin_name = "required_config_output"
@@ -146,7 +152,11 @@ class TestRegistryDefaultContracts(unittest.TestCase):
             def save_candidate(
                 self, source_path, filename, debug_image=None, roi_polygon=None
             ):
-                return filename
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return filename

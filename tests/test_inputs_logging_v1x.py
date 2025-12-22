@@ -15,6 +15,7 @@ if "cv2" not in sys.modules:  # pragma: no cover - optional dependency shim
 
 from meteor_core.exceptions import MeteorValidationError
 from meteor_core.inputs.base import BaseInputLoader
+from meteor_core.schema import InputContext
 from meteor_core.inputs.discovery import _add_loader, _discover_handlers_internal
 from meteor_core.inputs.raw import RawImageLoader, RawLoaderConfig
 from meteor_core.inputs.registry import LoaderRegistry
@@ -25,7 +26,7 @@ class DummyValidLoader(BaseInputLoader):
     ConfigType = type(None)
 
     def load(self, filepath: str):  # pragma: no cover - minimal implementation
-        return filepath
+        return InputContext(image_data=filepath, filepath=filepath)
 
 
 class TestDiscoveryLogging(unittest.TestCase):
@@ -57,7 +58,7 @@ class TestDiscoveryLogging(unittest.TestCase):
             ConfigType = type(None)
 
             def load(self, filepath: str):  # pragma: no cover
-                return filepath
+                return InputContext(image_data=filepath, filepath=filepath)
 
         registry = {}
         with warnings.catch_warnings(record=True) as caught:
@@ -83,7 +84,7 @@ class TestDiscoveryLogging(unittest.TestCase):
             ConfigType = type(None)
 
             def load(self, filepath: str):  # pragma: no cover
-                return filepath
+                return InputContext(image_data=filepath, filepath=filepath)
 
         registry = {"dummy": DummyValidLoader}
         with warnings.catch_warnings(record=True) as caught:

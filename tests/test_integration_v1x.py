@@ -75,9 +75,17 @@ class TestMeteorDetectionBase(unittest.TestCase):
                 self.prev_img = prev_img
 
             def load(self, filepath):
+                from meteor_core.schema import InputContext
+
                 if "current" in filepath:
-                    return self.curr_img
-                return self.prev_img
+                    return InputContext(
+                        image_data=self.curr_img,
+                        filepath=filepath,
+                    )
+                return InputContext(
+                    image_data=self.prev_img,
+                    filepath=filepath,
+                )
 
         batch_data = [("path/to/current.ORF", "path/to/prev.ORF")]
         loader = DummyLoader(img_current, img_previous)

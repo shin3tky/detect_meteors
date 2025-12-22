@@ -141,7 +141,7 @@ class TestRawImageLoader(unittest.TestCase):
         loader = RawImageLoader(RawLoaderConfig(normalize=False))
         result = loader.load("/dummy/path.CR2")
 
-        self.assertEqual(result.dtype, np.uint16)
+        self.assertEqual(result.image_data.dtype, np.uint16)
 
     @patch("meteor_core.inputs.raw.load_and_bin_raw_fast")
     def test_load_normalizes_when_configured(self, mock_load):
@@ -157,9 +157,9 @@ class TestRawImageLoader(unittest.TestCase):
         loader = RawImageLoader(RawLoaderConfig(normalize=True))
         result = loader.load("/dummy/path.CR2")
 
-        self.assertEqual(result.dtype, np.float32)
-        self.assertAlmostEqual(result[0, 0], 1.0)
-        self.assertAlmostEqual(result[0, 1], 0.0)
+        self.assertEqual(result.image_data.dtype, np.float32)
+        self.assertAlmostEqual(result.image_data[0, 0], 1.0)
+        self.assertAlmostEqual(result.image_data[0, 1], 0.0)
 
     def test_error_has_diagnostic_info(self):
         """Test that errors contain diagnostic information."""

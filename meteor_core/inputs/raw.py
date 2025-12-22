@@ -12,6 +12,7 @@ from ..exceptions import (
     MeteorValidationError,
 )
 from ..image_io import extract_exif_metadata, load_and_bin_raw_fast
+from ..schema import InputContext
 from .base import BaseMetadataExtractor, DataclassInputLoader
 
 # Module-level logger
@@ -69,13 +70,13 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
 
     Example:
         >>> loader = RawImageLoader(RawLoaderConfig())
-        >>> image = loader.load("photo.CR2")
-        >>> print(image.shape, image.dtype)
+        >>> context = loader.load("photo.CR2")
+        >>> print(context.image_data.shape, context.image_data.dtype)
         (3000, 4000) uint16
 
         >>> loader_normalized = RawImageLoader(RawLoaderConfig(normalize=True))
-        >>> image = loader_normalized.load("photo.CR2")
-        >>> print(image.shape, image.dtype)
+        >>> context = loader_normalized.load("photo.CR2")
+        >>> print(context.image_data.shape, context.image_data.dtype)
         (3000, 4000) float32
     """
 
@@ -84,15 +85,14 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
     version = "1.0.0"
     ConfigType = RawLoaderConfig
 
-    def load(self, filepath: str) -> np.ndarray:
+    def load(self, filepath: str) -> InputContext:
         """Load a RAW image applying the configured binning and normalization.
 
         Args:
             filepath: Path to the RAW image file.
 
         Returns:
-            Loaded image as numpy array. Shape is (height, width) after 2x2 binning.
-            dtype is uint16 if normalize=False, float32 if normalize=True.
+            InputContext with loaded image data and metadata.
 
         Raises:
             MeteorUnsupportedFormatError: If the file format is not supported.
@@ -133,12 +133,18 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
             logger.debug("Normalizing image to float32 [0, 1] range")
             image = image.astype(np.float32) / np.iinfo(np.uint16).max
 
+        metadata = self.extract_metadata(filepath)
         logger.debug(
             "RawImageLoader.load: completed, shape=%s, dtype=%s",
             image.shape,
             image.dtype,
         )
-        return image
+        return InputContext(
+            image_data=image,
+            filepath=filepath,
+            metadata=metadata,
+            loader_info=self.get_info(),
+        )
 
     def extract_metadata(self, filepath: str) -> Dict[str, Any]:
         """Extract EXIF metadata for the RAW file.

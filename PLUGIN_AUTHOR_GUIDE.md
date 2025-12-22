@@ -55,8 +55,8 @@ For each image pair (current, previous):
 
     ┌─────────────────────────────────────────────────────────────┐
     │                    Input Loader                             │
-    │  • Load current image  ───▶  np.ndarray (single-channel)    │
-    │  • Load previous image ───▶  np.ndarray (single-channel)    │
+    │  • Load current image  ───▶  InputContext                   │
+    │  • Load previous image ───▶  InputContext                   │
     │  • Extract metadata (optional)                              │
     └─────────────────────────────────────────────────────────────┘
                                 │
@@ -77,6 +77,7 @@ For each image pair (current, previous):
     │  • save_candidate() ── Save detected meteor image           │
     │  • save_debug_image() ── Save debug visualization           │
     │                                                             │
+    │  Returns: OutputResult                                      │
     │  Lifecycle Hooks (defined, not yet called):                 │
     │  • on_candidate_detected()                                  │
     │  • on_batch_complete()                                      │
@@ -114,7 +115,7 @@ The plugin system provides three extension points:
 **Required methods**:
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `load` | `(filepath: str) -> np.ndarray` | Load image as a single-channel array (uint16 by default; float32 if normalized) |
+| `load` | `(filepath: str) -> InputContext` | Load image data plus metadata and loader info |
 
 **Optional features**:
 - Implement `BaseMetadataExtractor` for EXIF-like metadata extraction
@@ -270,7 +271,7 @@ namespaced structure when available.
 **Required methods**:
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `save_candidate` | `(source_path, filename, ...) -> bool` | Save meteor candidate |
+| `save_candidate` | `(source_path, filename, ...) -> OutputResult` | Save meteor candidate |
 | `save_debug_image` | `(debug_image, filename, ...) -> str` | Save debug image |
 
 **Lifecycle hooks (optional, currently not invoked)**:
@@ -443,6 +444,7 @@ from meteor_core.inputs import (
     BaseMetadataExtractor,
     LoaderRegistry,
 )
+from meteor_core.schema import InputContext
 from meteor_core.exceptions import (
     MeteorLoadError,
     MeteorUnsupportedFormatError,
@@ -471,14 +473,14 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
         super().__init__(config)
         logger.debug(f"TiffImageLoader initialized with config: {self.config}")
 
-    def load(self, filepath: str) -> np.ndarray:
+    def load(self, filepath: str) -> InputContext:
         """Load a TIFF image file.
 
         Args:
             filepath: Path to the TIFF file.
 
         Returns:
-            Image as uint16 grayscale numpy array.
+            InputContext with the loaded image data.
 
         Raises:
             MeteorUnsupportedFormatError: If file is not a TIFF.
@@ -523,7 +525,12 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
                 image = image.astype(np.uint16)
 
             logger.debug(f"Final image shape: {image.shape}, dtype: {image.dtype}")
-            return image
+            return InputContext(
+                image_data=image,
+                filepath=filepath,
+                metadata=self.extract_metadata(filepath),
+                loader_info=self.get_info(),
+            )
 
         except ImportError as e:
             logger.error("tifffile package not installed")
@@ -818,6 +825,8 @@ import numpy as np
 from meteor_core.i18n import DEFAULT_LOCALE, get_message
 from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
 from meteor_core.exceptions import MeteorWriteError
+from meteor_core.schema import OutputResult
+from meteor_core.schema import OutputResult
 
 # Set up logger for this plugin
 logger = logging.getLogger("meteor_core.outputs.slack_handler")
@@ -870,7 +879,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
         filename: str,
         debug_image: Optional[np.ndarray] = None,
         roi_polygon: Optional[List[List[int]]] = None,
-    ) -> bool:
+    ) -> OutputResult:
         """Save a meteor candidate file.
 
         NOTE: This is a secondary (non-critical) handler example.
@@ -884,7 +893,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             roi_polygon: Optional ROI polygon.
 
         Returns:
-            True if saved, False if skipped or failed.
+            OutputResult with saved flag and paths.
         """
         logger.debug(f"Saving candidate: {filename}")
 
@@ -893,7 +902,11 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
         # Skip if exists
         if os.path.exists(dest_path):
             logger.debug(f"File already exists, skipping: {dest_path}")
-            return False
+            return OutputResult(
+                saved=False,
+                output_path=dest_path,
+                debug_path=None,
+            )
 
         try:
             # Copy the file
@@ -905,7 +918,11 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 debug_filename = os.path.splitext(filename)[0] + "_debug.png"
                 self.save_debug_image(debug_image, debug_filename, roi_polygon)
 
-            return True
+            return OutputResult(
+                saved=True,
+                output_path=dest_path,
+                debug_path=None,
+            )
 
         except OSError as e:
             # Create structured error with context for diagnostics
@@ -919,10 +936,18 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             )
             # Log error but don't fail the pipeline
             logger.error(str(error))
-            return False
+            return OutputResult(
+                saved=False,
+                output_path=dest_path,
+                debug_path=None,
+            )
         except Exception as e:
             logger.exception(f"Unexpected error saving candidate {filename}")
-            return False
+            return OutputResult(
+                saved=False,
+                output_path=dest_path,
+                debug_path=None,
+            )
 
     def save_debug_image(
         self,
@@ -1294,7 +1319,7 @@ Output handlers fall into two categories based on their role:
 | Category | Examples | Policy |
 |----------|----------|--------|
 | **Primary (Critical)** | FileOutputHandler, S3Handler | **Raise exceptions** - Disk/storage errors are critical |
-| **Secondary (Non-Critical)** | SlackHandler, WebhookHandler | **Return False** - Notification failures are non-critical |
+| **Secondary (Non-Critical)** | SlackHandler, WebhookHandler | **Return OutputResult(saved=False, ...)** - Notification failures are non-critical |
 
 - **Primary handlers** persist the detection results (RAW files, debug images). If these fail, it usually indicates a systemic issue (disk full, permission denied, network storage unavailable) that will affect all subsequent writes. Raising an exception allows users to address the issue immediately rather than discovering hours later that no files were saved.
 
@@ -1306,7 +1331,7 @@ The built-in `FileOutputHandler` follows the **primary handler** pattern and rai
 
 ```python
 class MyLoader(DataclassInputLoader[MyConfig]):
-    def load(self, filepath: str) -> np.ndarray:
+    def load(self, filepath: str) -> InputContext:
         # Check file existence
         if not os.path.exists(filepath):
             raise MeteorLoadError(
@@ -1324,7 +1349,13 @@ class MyLoader(DataclassInputLoader[MyConfig]):
 
         try:
             # Load the image
-            return self._read_fits(filepath)
+            image = self._read_fits(filepath)
+            return InputContext(
+                image_data=image,
+                filepath=filepath,
+                metadata=self.extract_metadata(filepath),
+                loader_info=self.get_info(),
+            )
         except Exception as e:
             # Wrap low-level errors with context
             raise MeteorLoadError(
@@ -1374,11 +1405,15 @@ from meteor_core.exceptions import MeteorWriteError
 class MyFileHandler(DataclassOutputHandler[MyConfig]):
     """Primary handler - raises exceptions on critical failures."""
 
-    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> bool:
+    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> OutputResult:
         dest_path = os.path.join(self.config.output_folder, filename)
         try:
             shutil.copy2(source_path, dest_path)
-            return True
+            return OutputResult(
+                saved=True,
+                output_path=dest_path,
+                debug_path=None,
+            )
         except OSError as e:
             # Primary handlers raise to stop pipeline on critical errors
             raise MeteorWriteError(
@@ -1391,20 +1426,28 @@ class MyFileHandler(DataclassOutputHandler[MyConfig]):
             ) from e
 ```
 
-For **secondary handlers** (notifications, webhooks), log and return False:
+For **secondary handlers** (notifications, webhooks), log and return `OutputResult(saved=False, ...)`:
 
 ```python
 class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
     """Secondary handler - logs errors and continues."""
 
-    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> bool:
+    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> OutputResult:
         try:
             self._upload_to_cloud(source_path)
-            return True
+            return OutputResult(
+                saved=True,
+                output_path=source_path,
+                debug_path=None,
+            )
         except Exception as e:
             # Secondary handlers log but don't fail the pipeline
             logger.warning(f"Cloud upload failed (non-critical): {e}")
-            return False
+            return OutputResult(
+                saved=False,
+                output_path=source_path,
+                debug_path=None,
+            )
 
     def on_candidate_detected(self, filename, saved, score, aspect_ratio):
         try:
@@ -1443,6 +1486,7 @@ logger = logging.getLogger("meteor_core.inputs.my_loader")
 
 ```python
 import logging
+from meteor_core.schema import InputContext
 
 logger = logging.getLogger("meteor_core.inputs.fits_loader")
 
@@ -1452,7 +1496,7 @@ class FitsLoader(DataclassInputLoader[FitsConfig]):
         super().__init__(config)
         logger.debug(f"FitsLoader initialized with config: {config}")
 
-    def load(self, filepath: str) -> np.ndarray:
+    def load(self, filepath: str) -> InputContext:
         logger.debug(f"Loading FITS file: {filepath}")
 
         # INFO: Significant events
@@ -1461,7 +1505,12 @@ class FitsLoader(DataclassInputLoader[FitsConfig]):
         try:
             image = self._read_fits(filepath)
             logger.debug(f"Loaded image shape: {image.shape}, dtype: {image.dtype}")
-            return image
+            return InputContext(
+                image_data=image,
+                filepath=filepath,
+                metadata=self.extract_metadata(filepath),
+                loader_info=self.get_info(),
+            )
         except Exception as e:
             # ERROR: Operation failed
             logger.error(f"Failed to load {filepath}: {e}")
@@ -1632,7 +1681,7 @@ class MyPlugin(DataclassInputLoader[MyPluginConfig]):
     version = "1.0.0"          # Optional
     ConfigType = MyPluginConfig
 
-    def load(self, filepath: str) -> np.ndarray:
+    def load(self, filepath: str) -> InputContext:
         # Implementation
         pass
 ```
@@ -1672,10 +1721,10 @@ class TestMyPlugin(unittest.TestCase):
         config = MyPluginConfig(option1="test")
         plugin = MyPlugin(config)
 
-        image = plugin.load("test_image.tiff")
+        context = plugin.load("test_image.tiff")
 
-        self.assertEqual(len(image.shape), 2)  # Grayscale
-        self.assertEqual(image.dtype, np.uint16)
+        self.assertEqual(len(context.image_data.shape), 2)  # Grayscale
+        self.assertEqual(context.image_data.dtype, np.uint16)
 
     def test_default_config(self):
         # Test with default configuration

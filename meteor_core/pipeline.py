@@ -563,22 +563,22 @@ def process_image_batch(
 
         try:
             # Load images
-            curr_img = loader.load(curr_file)
-            prev_img = loader.load(prev_file)
+            curr_context = loader.load(curr_file)
+            prev_context = loader.load(prev_file)
 
             # Delegate detection to the detector
             try:
                 metadata = {
-                    "current": _extract_metadata_from_loader(loader, curr_file),
-                    "previous": _extract_metadata_from_loader(loader, prev_file),
+                    "current": curr_context.metadata,
+                    "previous": prev_context.metadata,
                 }
             except Exception as exc:
                 logger.warning("Metadata extraction failed for %s: %s", filename, exc)
                 metadata = {"current": {}, "previous": {}}
             runtime_params = _build_runtime_params(params, det)
             context = DetectionContext(
-                current_image=curr_img,
-                previous_image=prev_img,
+                current_image=curr_context.image_data,
+                previous_image=prev_context.image_data,
                 roi_mask=roi_mask,
                 runtime_params=runtime_params,
                 metadata=metadata,
@@ -685,8 +685,8 @@ def estimate_diff_threshold_from_samples(
 
     for i in range(sample_size):
         try:
-            img = loader.load(files[i])
-            samples.append(img)
+            context = loader.load(files[i])
+            samples.append(context.image_data)
         except Exception as exc:
             print(
                 get_message(
@@ -883,8 +883,8 @@ def estimate_min_area_from_samples(
 
     for i in range(sample_size):
         try:
-            img = loader.load(files[i])
-            samples.append(img)
+            context = loader.load(files[i])
+            samples.append(context.image_data)
         except Exception as exc:
             print(
                 get_message(
@@ -1554,7 +1554,7 @@ class MeteorDetectionPipeline:
         # Load first image
         t_load = time.time()
         try:
-            prev_img = input_loader.load(files[0])
+            prev_context = input_loader.load(files[0])
         except Exception as exc:
             print(
                 get_message(
@@ -1568,6 +1568,7 @@ class MeteorDetectionPipeline:
 
         if profile:
             timing["first_load"] = time.time() - t_load
+        prev_img = prev_context.image_data
         height, width = prev_img.shape
 
         # ROI setup
@@ -1827,10 +1828,10 @@ class MeteorDetectionPipeline:
                             )
 
                         if is_candidate:
-                            saved = self.output_handler.save_candidate(
+                            output_result = self.output_handler.save_candidate(
                                 filepath, filename, debug_img, roi_polygon
                             )
-                            if saved:
+                            if output_result.saved:
                                 print(
                                     get_message(
                                         "ui.pipeline.processing.hit",
@@ -1948,10 +1949,10 @@ class MeteorDetectionPipeline:
 
                 if is_candidate:
                     print()
-                    saved = self.output_handler.save_candidate(
+                    output_result = self.output_handler.save_candidate(
                         filepath, filename, debug_img, roi_polygon
                     )
-                    if saved:
+                    if output_result.saved:
                         print(
                             get_message(
                                 "ui.pipeline.processing.hit",

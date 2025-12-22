@@ -28,15 +28,17 @@ class _StubEntryPoint:
 def _write_plugin(
     destination: Path, class_name: str, plugin_name: str, base_import: str, body: str
 ) -> None:
+    body_block = textwrap.indent(textwrap.dedent(body).strip("\n"), "    ")
     destination.write_text(
-        textwrap.dedent(
-            f"""
-            {base_import}
-
-            class {class_name}(BaseClass):
-                plugin_name = "{plugin_name}"
-            {body}
-            """
+        "\n".join(
+            [
+                base_import,
+                "",
+                f"class {class_name}(BaseClass):",
+                f'    plugin_name = "{plugin_name}"',
+                body_block,
+                "",
+            ]
         )
     )
 
@@ -46,7 +48,9 @@ def _loader_methods(_: str) -> Dict[str, Callable]:
         self.config = config
 
     def load(self, filepath: str):
-        return filepath
+        from meteor_core.schema import InputContext
+
+        return InputContext(image_data=filepath, filepath=filepath)
 
     return {"__init__": __init__, "load": load}
 
@@ -66,7 +70,13 @@ def _handler_methods(_: str) -> Dict[str, Callable]:
         self.config = config
 
     def save_candidate(self, source_path, filename, debug_image=None, roi_polygon=None):
-        return True
+        from meteor_core.schema import OutputResult
+
+        return OutputResult(
+            saved=True,
+            output_path=source_path,
+            debug_path=None,
+        )
 
     def save_debug_image(self, debug_image, filename, roi_polygon=None):
         return "saved"
@@ -99,13 +109,18 @@ def _get_discovery_cases():
             "kind": "input",
             "module": input_discovery,
             "base_cls": BaseInputLoader,
-            "base_import": "from meteor_core.inputs.base import BaseInputLoader as BaseClass",
+            "base_import": "\n".join(
+                [
+                    "from meteor_core.inputs.base import BaseInputLoader as BaseClass",
+                    "from meteor_core.schema import InputContext",
+                ]
+            ),
             "method_block": """
                 def __init__(self, config=None):
                     self.config = config
 
                 def load(self, filepath: str):
-                    return filepath
+                    return InputContext(image_data=filepath, filepath=filepath)
             """,
             "methods_factory": _loader_methods,
             "noun": "loader",
@@ -129,13 +144,18 @@ def _get_discovery_cases():
             "kind": "output",
             "module": output_discovery,
             "base_cls": BaseOutputHandler,
-            "base_import": "from meteor_core.outputs.base import BaseOutputHandler as BaseClass",
+            "base_import": "\n".join(
+                [
+                    "from meteor_core.outputs.base import BaseOutputHandler as BaseClass",
+                    "from meteor_core.schema import OutputResult",
+                ]
+            ),
             "method_block": """
                 def __init__(self, config=None):
                     self.config = config
 
                 def save_candidate(self, source_path, filename, debug_image=None, roi_polygon=None):
-                    return True
+                    return OutputResult(saved=True, output_path=source_path, debug_path=None)
 
                 def save_debug_image(self, debug_image, filename, roi_polygon=None):
                     return "saved"

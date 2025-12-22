@@ -25,6 +25,8 @@ ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
 VERSION = "1.6.1"
 DETECTION_CONTEXT_SCHEMA_VERSION = 1
 DETECTION_RESULT_SCHEMA_VERSION = 1
+INPUT_CONTEXT_SCHEMA_VERSION = 1
+OUTPUT_RESULT_SCHEMA_VERSION = 1
 
 # ==========================================
 # Default Settings
@@ -284,6 +286,25 @@ class DetectionContext:
 
 
 @dataclass
+class InputContext:
+    """Input bundle for loader execution."""
+
+    image_data: ImageLike
+    filepath: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    loader_info: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = INPUT_CONTEXT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "filepath": self.filepath,
+            "metadata": self.metadata,
+            "loader_info": self.loader_info,
+            "schema_version": self.schema_version,
+        }
+
+
+@dataclass
 class PipelineConfig:
     """Configuration for MeteorDetectionPipeline.
 
@@ -530,6 +551,28 @@ class DetectionResult:
             "lines": self.lines,
             "aspect_ratio": self.aspect_ratio,
             "extras": self.extras,
+            "metrics": self.metrics,
+            "schema_version": self.schema_version,
+        }
+
+
+@dataclass
+class OutputResult:
+    """Result returned by output handlers."""
+
+    saved: bool
+    output_path: Optional[str]
+    debug_path: Optional[str]
+    handler_info: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = OUTPUT_RESULT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "saved": self.saved,
+            "output_path": self.output_path,
+            "debug_path": self.debug_path,
+            "handler_info": self.handler_info,
             "metrics": self.metrics,
             "schema_version": self.schema_version,
         }

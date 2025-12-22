@@ -10,11 +10,10 @@ Unit tests for LoaderRegistry.
 
 import unittest
 import warnings
-from typing import Any
 
 from meteor_core.inputs.registry import LoaderRegistry
 from meteor_core.inputs.base import BaseInputLoader
-from meteor_core.schema import DEFAULT_LOADER_NAME
+from meteor_core.schema import DEFAULT_LOADER_NAME, InputContext
 
 
 class TestLoaderRegistryDiscovery(unittest.TestCase):
@@ -87,8 +86,8 @@ class TestLoaderRegistryGet(unittest.TestCase):
             def __init__(self, config=None):
                 self.config = config
 
-            def load(self, filepath: str) -> Any:
-                return "custom_result"
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data="custom_result", filepath=filepath)
 
         LoaderRegistry.register(CustomRawLoader)
         loader_cls = LoaderRegistry.get("raw")
@@ -115,8 +114,8 @@ class TestLoaderRegistryRegister(unittest.TestCase):
             def __init__(self, config=None):
                 self.config = config
 
-            def load(self, filepath: str) -> Any:
-                return None
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data=None, filepath=filepath)
 
         LoaderRegistry.register(MockLoader)
         loader_cls = LoaderRegistry.get("mock")
@@ -142,8 +141,8 @@ class TestLoaderRegistryRegister(unittest.TestCase):
             def __init__(self, config=None):
                 self.config = config
 
-            def load(self, filepath: str) -> Any:
-                return None
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data=None, filepath=filepath)
 
         with self.assertRaises(ValueError) as ctx:
             LoaderRegistry.register(EmptyNameLoader)
@@ -159,8 +158,8 @@ class TestLoaderRegistryRegister(unittest.TestCase):
             def __init__(self, config=None):
                 self.config = config
 
-            def load(self, filepath: str) -> Any:
-                return "v1"
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data="v1", filepath=filepath)
 
         class MockLoader2(BaseInputLoader):
             plugin_name = "mock"
@@ -168,8 +167,8 @@ class TestLoaderRegistryRegister(unittest.TestCase):
             def __init__(self, config=None):
                 self.config = config
 
-            def load(self, filepath: str) -> Any:
-                return "v2"
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data="v2", filepath=filepath)
 
         LoaderRegistry.register(MockLoader1)
 
@@ -199,8 +198,8 @@ class TestLoaderRegistryUnregister(unittest.TestCase):
             def __init__(self, config=None):
                 self.config = config
 
-            def load(self, filepath: str) -> Any:
-                return None
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data=None, filepath=filepath)
 
         LoaderRegistry.register(MockLoader)
         self.assertTrue(LoaderRegistry.unregister("mock"))
@@ -249,8 +248,8 @@ class TestLoaderRegistryListAvailable(unittest.TestCase):
             def __init__(self, config=None):
                 self.config = config
 
-            def load(self, filepath: str) -> Any:
-                return None
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data=None, filepath=filepath)
 
         LoaderRegistry.register(MockLoader)
         available = LoaderRegistry.list_available()
@@ -374,8 +373,8 @@ class TestLoaderRegistryReset(unittest.TestCase):
             def __init__(self, config=None):
                 self.config = config
 
-            def load(self, filepath: str) -> Any:
-                return None
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data=None, filepath=filepath)
 
         LoaderRegistry.register(MockLoader)
         self.assertEqual(len(LoaderRegistry._custom), 1)
