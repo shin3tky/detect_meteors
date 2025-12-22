@@ -5,8 +5,8 @@
 > **Current status (v1.5.x)**:
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
-> - ⚠️ Method signatures may change (especially `detect` parameters)
-> - ⚠️ Configuration coercion behavior may be refined
+> - ⚠️ Detector/runtime parameter contracts may still evolve
+> - ⚠️ Output handler lifecycle hooks exist but are not yet invoked by the pipeline
 
 This guide provides comprehensive instructions for developing custom plugins for Detect Meteors CLI.
 
@@ -55,8 +55,8 @@ For each image pair (current, previous):
 
     ┌─────────────────────────────────────────────────────────────┐
     │                    Input Loader                             │
-    │  • Load current image  ───▶  np.ndarray (uint16 grayscale)  │
-    │  • Load previous image ───▶  np.ndarray (uint16 grayscale)  │
+    │  • Load current image  ───▶  np.ndarray (single-channel)    │
+    │  • Load previous image ───▶  np.ndarray (single-channel)    │
     │  • Extract metadata (optional)                              │
     └─────────────────────────────────────────────────────────────┘
                                 │
@@ -68,7 +68,7 @@ For each image pair (current, previous):
     │  • Detect meteor candidates                                 │
     │  • Generate debug visualization                             │
     │                                                             │
-    │  Returns: (is_candidate, score, lines, aspect_ratio, debug) │
+    │  Returns: DetectionResult                                   │
     └─────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
@@ -77,22 +77,22 @@ For each image pair (current, previous):
     │  • save_candidate() ── Save detected meteor image           │
     │  • save_debug_image() ── Save debug visualization           │
     │                                                             │
-    │  Lifecycle Hooks (called by pipeline):                      │
-    │  • on_candidate_detected() ── After each detection          │
-    │  • on_batch_complete() ── After each batch                  │
-    │  • on_pipeline_complete() ── When pipeline finishes         │
+    │  Lifecycle Hooks (defined, not yet called):                 │
+    │  • on_candidate_detected()                                  │
+    │  • on_batch_complete()                                      │
+    │  • on_pipeline_complete()                                   │
     └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 1.3 Lifecycle Events (Output Handler Only)
 
-Only Output Handlers receive lifecycle events from the pipeline. These hooks enable real-time notifications, progress tracking, and post-processing.
+Output Handlers define lifecycle hooks, but **the current pipeline does not call them yet**. You may still implement them for forward compatibility, but do not depend on them in v1.5.x.
 
-| Event | When Called | Use Case |
-|-------|-------------|----------|
-| `on_candidate_detected` | After each meteor detection | Real-time notifications (Slack, webhook) |
-| `on_batch_complete` | After each batch finishes | Progress reporting, metrics collection |
-| `on_pipeline_complete` | When entire pipeline completes | Final summary, cleanup, reporting |
+| Event | Current Status | Intended Use Case |
+|-------|----------------|-------------------|
+| `on_candidate_detected` | Not invoked | Real-time notifications (Slack, webhook) |
+| `on_batch_complete` | Not invoked | Progress reporting, metrics collection |
+| `on_pipeline_complete` | Not invoked | Final summary, cleanup, reporting |
 
 **Important**: Input Loaders and Detectors do **not** receive lifecycle events.
 
@@ -114,7 +114,7 @@ The plugin system provides three extension points:
 **Required methods**:
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `load` | `(filepath: str) -> np.ndarray` | Load image as uint16 grayscale |
+| `load` | `(filepath: str) -> np.ndarray` | Load image as a single-channel array (uint16 by default; float32 if normalized) |
 
 **Optional features**:
 - Implement `BaseMetadataExtractor` for EXIF-like metadata extraction
@@ -132,9 +132,11 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 ```
 
 **When is `extract_metadata` called?**
-- The pipeline calls it automatically when metadata logging is enabled (`--log-metadata`)
-- You can also call it manually for custom processing
-- If not implemented, metadata extraction is silently skipped
+- The pipeline calls it for each image pair; if your loader does **not** implement
+  `BaseMetadataExtractor`, the pipeline falls back to `meteor_core.image_io.extract_exif_metadata`.
+- Detectors receive metadata as `context.metadata = {"current": ..., "previous": ...}`.
+- You can also call it manually for custom processing.
+- If extraction fails, return `{}` to keep the pipeline moving.
 
 ### 2.2 Detectors
 
@@ -161,7 +163,7 @@ class DetectionContext:
     previous_image: ImageLike
     roi_mask: Any                # Typically np.ndarray (uint8 mask)
     runtime_params: Dict[str, Any]
-    metadata: Dict[str, Any]
+    metadata: Dict[str, Any]     # {"current": {...}, "previous": {...}} in pipeline
     schema_version: int = 1      # DETECTION_CONTEXT_SCHEMA_VERSION
 ```
 
@@ -236,9 +238,16 @@ namespaced to separate global and detector-specific values.
 Legacy detectors may still receive a flat dict; prefer reading from the
 namespaced structure when available.
 
+`BaseDetector` provides helpers to make this easy:
+- `split_runtime_params(runtime_params)` → `(global_params, detector_params)`
+- `build_runtime_params(flat_params)` → namespaced structure
+- `detect_legacy(current_image, previous_image, roi_mask, params)` → adapter for
+  the old signature
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `diff_threshold` | `int` | `8` | Frame difference threshold (0-255 scale) |
+| `diff_threshold` | `int` | `8` | Frame difference threshold (scale matches input dtype) |
+| `min_area` | `int` | `10` | Minimum contour area in pixels |
 | `min_line_score` | `float` | `30.0` | Minimum score to classify as candidate |
 | `min_aspect_ratio` | `float` | `2.0` | Minimum contour aspect ratio |
 | `hough_threshold` | `int` | `50` | Hough transform vote threshold |
@@ -263,7 +272,7 @@ namespaced structure when available.
 | `save_candidate` | `(source_path, filename, ...) -> bool` | Save meteor candidate |
 | `save_debug_image` | `(debug_image, filename, ...) -> str` | Save debug image |
 
-**Lifecycle hooks (optional)**:
+**Lifecycle hooks (optional, currently not invoked)**:
 | Hook | Signature |
 |------|-----------|
 | `on_candidate_detected` | `(filename, saved, score, aspect_ratio) -> None` |
@@ -295,6 +304,13 @@ loader_cls = LoaderRegistry.get("MY_LOADER")  # Same result
 
 # Create configured instance
 loader = LoaderRegistry.create("my_loader", {"option": "value"})
+
+# Create default instances (requires ConfigType with zero-arg defaults)
+detector = DetectorRegistry.create_default()
+handler = OutputHandlerRegistry.create_default(
+    output_folder="./candidates",
+    debug_folder="./debug_masks",
+)
 
 # List available plugins
 names = LoaderRegistry.list_available()  # ["raw", "my_loader", ...]
@@ -356,6 +372,12 @@ Plugins can define a `ConfigType` for typed configuration. See [5.1 Choosing Con
 - `TypeError`: Missing required fields, wrong type
 - `ValueError`: Validation failed (Pydantic)
 
+**Default instance requirement**:
+`create_default()` for the built-in loader/detector/handler assumes your
+`ConfigType()` constructor yields a complete default configuration. If it does
+not, `create_default()` raises a `TypeError` to avoid silently creating a
+misconfigured plugin.
+
 ### 3.4 Plugin Discovery
 
 Plugins are discovered in this order (duplicates warn but don't overwrite):
@@ -363,7 +385,7 @@ Plugins are discovered in this order (duplicates warn but don't overwrite):
 1. **Built-in plugins** (RawImageLoader, HoughDetector, FileOutputHandler)
 2. **Entry points** (sorted alphabetically by name)
 3. **Plugin directories** (sorted alphabetically by filename)
-4. **Runtime registrations** via `Registry.register()`
+4. **Runtime registrations** via `Registry.register()` (overrides discovered entries)
 
 **Plugin Directories**:
 | Plugin Type | Directory |
@@ -373,10 +395,12 @@ Plugins are discovered in this order (duplicates warn but don't overwrite):
 | Output Handlers | `~/.detect_meteors/output_plugins/` |
 
 **How plugin directory discovery works**:
-1. Place your `.py` file in the appropriate directory (create it if needed)
-2. Your plugin class **must** call `Registry.register()` at module level (see examples)
-3. All `.py` files are loaded alphabetically on first registry access
-4. No special naming convention required, but descriptive names help organization
+1. Place your `.py` file in the appropriate directory (create it if needed).
+2. The registry loads all `.py` files alphabetically on first access.
+3. Any class defined in the module that subclasses the correct base and has
+   `plugin_name` is auto-registered (you do **not** need to call
+   `Registry.register()`).
+4. No special naming convention required, but descriptive names help organization.
 
 Example file structure:
 ```
@@ -602,7 +626,8 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
     ) -> DetectionResult:
         """Detect meteor candidates using threshold-based approach.
 
-        This method should NEVER raise exceptions - return a failure result instead.
+        Raise for invalid inputs/configuration or return a failure result for
+        recoverable cases. The pipeline treats exceptions as no-detection results.
 
         Args:
             context: Input bundle containing frames, ROI, and runtime params.
@@ -613,7 +638,10 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
         current_image = ensure_numpy(context.current_image)
         previous_image = ensure_numpy(context.previous_image)
         roi_mask = ensure_numpy(context.roi_mask)
-        params = context.runtime_params
+        global_params, detector_params = self.split_runtime_params(
+            context.runtime_params
+        )
+        params = {**global_params, **detector_params}
         logger.debug(
             f"Starting detection: image_shape={current_image.shape}, "
             f"diff_threshold={params.get('diff_threshold', 8)}"
@@ -628,7 +656,7 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             diff = cv2.bitwise_and(diff, diff, mask=roi_mask)
 
             # Get threshold from params
-            threshold = params.get("diff_threshold", 8) * 256
+            threshold = params.get("diff_threshold", 8)
             effective_threshold = int(threshold * self.config.brightness_multiplier)
             logger.debug(f"Applying threshold: {effective_threshold}")
 
@@ -659,20 +687,20 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
             if not valid_contours:
                 logger.debug("No valid contours found - returning no detection")
-            return DetectionResult(
-                is_candidate=False,
-                score=0.0,
-                lines=[],
-                aspect_ratio=0.0,
-                debug_image=None,
-                extras={},
-                metrics={
-                    "duration_ms": 0.0,
-                    "num_contours": 0,
-                    "mask_area": 0,
-                    "hough_votes": 0,
-                },
-            )
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                    metrics={
+                        "duration_ms": 0.0,
+                        "num_contours": 0,
+                        "mask_area": 0,
+                        "hough_votes": 0,
+                    },
+                )
 
             # Compute metrics
             max_area = max(cv2.contourArea(c) for c in valid_contours)
@@ -723,22 +751,10 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             )
 
         except Exception as e:
-            # NEVER raise exceptions in detect() - return failure result
+            # The pipeline treats exceptions as a failed detection (no candidate).
+            # Raise if you want the pipeline to log the error for this file.
             logger.warning(f"Detection failed with error: {e}")
-            return DetectionResult(
-                is_candidate=False,
-                score=0.0,
-                lines=[],
-                aspect_ratio=0.0,
-                debug_image=None,
-                extras={"error": str(e)},
-                metrics={
-                    "duration_ms": 0.0,
-                    "num_contours": 0,
-                    "mask_area": 0,
-                    "hough_votes": 0,
-                },
-            )
+            raise
 
     def compute_line_score(
         self,
@@ -780,6 +796,10 @@ DetectorRegistry.register(ThresholdDetector)
 ```
 
 ### 4.3 Output Handler with Lifecycle Hooks (Secondary Handler Example)
+
+> **Note**: The pipeline does not call lifecycle hooks in v1.5.x. Implementing
+> them is safe (and future-proof) but you will only see them execute if you
+> call them manually.
 
 ```python
 """Slack notification handler with full lifecycle support, logging, and exceptions."""
@@ -1262,7 +1282,7 @@ Each plugin type has different expectations for when to raise exceptions vs. con
 |-------------|--------|--------|
 | **Input Loader** | `load()` | **Raise exceptions** - Pipeline cannot continue without image |
 | **Input Loader** | `extract_metadata()` | **Return empty dict** - Metadata is optional |
-| **Detector** | `detect()` | **Return DetectionResult** - Never raise for detection failures |
+| **Detector** | `detect()` | **Raise or return DetectionResult** - Pipeline marks failures as no detection |
 | **Output Handler** | `save_candidate()` | **Depends on criticality** - See below |
 | **Output Handler** | Lifecycle hooks | **Never raise** - Log errors, continue processing |
 
@@ -1322,33 +1342,25 @@ class MyLoader(DataclassInputLoader[MyConfig]):
             return {}
 ```
 
-**Detector return values** (never raise for detection failures):
+**Detector behavior** (raise or return):
 
 ```python
 class MyDetector(DataclassDetector[MyConfig]):
     def detect(self, context: DetectionContext) -> DetectionResult:
-        try:
-            # Detection logic here
-            ...
-            return DetectionResult(
-                is_candidate=is_candidate,
-                score=score,
-                lines=lines,
-                aspect_ratio=aspect_ratio,
-                debug_image=debug_image,
-                extras={},
-            )
-        except Exception as e:
-            # Log but don't raise - return "no detection" result
-            logger.warning(f"Detection failed: {e}")
-            return DetectionResult(
-                is_candidate=False,
-                score=0.0,
-                lines=[],
-                aspect_ratio=0.0,
-                debug_image=None,
-                extras={"error": str(e)},
-            )
+        # Raise when configuration or inputs are invalid so the pipeline can
+        # log the error for that file.
+        if context.current_image.shape != context.previous_image.shape:
+            raise ValueError("current_image and previous_image must match")
+
+        # Or return a "no detection" result for recoverable cases.
+        return DetectionResult(
+            is_candidate=False,
+            score=0.0,
+            lines=[],
+            aspect_ratio=0.0,
+            debug_image=None,
+            extras={"reason": "no contours"},
+        )
 ```
 
 **Output Handler error handling**:
@@ -1550,7 +1562,7 @@ except MeteorLoadError as e:
 ### 5.5 Performance Considerations
 
 **Input Loaders**:
-- Return uint16 grayscale arrays for consistency
+- Return single-channel arrays; use uint16 by default or float32 if you normalize
 - Avoid unnecessary copies (`image.astype()` creates a copy)
 - Consider memory-mapped files for very large images
 
@@ -1736,6 +1748,6 @@ handler = OutputHandlerRegistry.create("my_handler")  # Uses ConfigType()
 - [README.md](README.md) — User documentation
 
 **Built-in plugin implementations** (reference code):
-- [`meteor_core/inputs/raw_image_loader.py`](meteor_core/inputs/raw_image_loader.py) — RawImageLoader
-- [`meteor_core/detectors/hough_detector.py`](meteor_core/detectors/hough_detector.py) — HoughDetector
-- [`meteor_core/outputs/file_output_handler.py`](meteor_core/outputs/file_output_handler.py) — FileOutputHandler
+- [`meteor_core/inputs/raw.py`](meteor_core/inputs/raw.py) — RawImageLoader
+- [`meteor_core/detectors/hough_default.py`](meteor_core/detectors/hough_default.py) — HoughDetector
+- [`meteor_core/outputs/file_handler.py`](meteor_core/outputs/file_handler.py) — FileOutputHandler
