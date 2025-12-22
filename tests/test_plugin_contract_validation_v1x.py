@@ -11,7 +11,12 @@ import unittest
 sys.modules.setdefault("cv2", types.SimpleNamespace())
 
 from meteor_core.detectors.base import BaseDetector, _is_valid_detector  # noqa: E402
-from meteor_core.schema import DetectionContext, DetectionResult  # noqa: E402
+from meteor_core.schema import (  # noqa: E402
+    DetectionContext,
+    DetectionResult,
+    InputContext,
+    OutputResult,
+)
 from meteor_core.inputs.base import (  # noqa: E402
     BaseInputLoader,
     _is_valid_input_loader,
@@ -27,8 +32,8 @@ class ValidInputLoader(BaseInputLoader[str]):
 
     plugin_name = "valid_input"
 
-    def load(self, filepath: str) -> str:
-        return filepath
+    def load(self, filepath: str) -> InputContext:
+        return InputContext(image_data=filepath, filepath=filepath)
 
 
 class ValidOutputHandler(BaseOutputHandler):
@@ -42,8 +47,12 @@ class ValidOutputHandler(BaseOutputHandler):
         filename: str,
         debug_image: np.ndarray | None = None,
         roi_polygon: List[Tuple[int, int]] | None = None,
-    ) -> bool:
-        return True
+    ) -> OutputResult:
+        return OutputResult(
+            saved=True,
+            output_path=source_path,
+            debug_path=None,
+        )
 
     def save_debug_image(
         self,
@@ -94,8 +103,8 @@ class TestPluginContractValidation(unittest.TestCase):
         class MissingInputName(BaseInputLoader[str]):
             plugin_name: Any = None
 
-            def load(self, filepath: str) -> str:
-                return filepath
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data=filepath, filepath=filepath)
 
         class MissingOutputName(BaseOutputHandler):
             plugin_name: Any = True
@@ -107,7 +116,11 @@ class TestPluginContractValidation(unittest.TestCase):
                 debug_image=None,
                 roi_polygon=None,
             ):
-                return True
+                return OutputResult(
+                    saved=True,
+                    output_path=source_path,
+                    debug_path=None,
+                )
 
             def save_debug_image(self, debug_image, filename, roi_polygon=None):
                 return filename

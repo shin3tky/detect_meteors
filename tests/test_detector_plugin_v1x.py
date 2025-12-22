@@ -316,6 +316,7 @@ class TestProcessImageBatchWithDetector(unittest.TestCase):
         # Create temporary test files
         import tempfile
         import os
+        from meteor_core.schema import InputContext
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create dummy image files (we'll mock the loader)
@@ -325,7 +326,10 @@ class TestProcessImageBatchWithDetector(unittest.TestCase):
             # Create a mock loader that returns our test images
             class MockLoader:
                 def load(self, filepath):
-                    return np.zeros((100, 100), dtype=np.uint16)
+                    return InputContext(
+                        image_data=np.zeros((100, 100), dtype=np.uint16),
+                        filepath=filepath,
+                    )
 
             # Process with mock detector and mock loader
             results = process_image_batch(

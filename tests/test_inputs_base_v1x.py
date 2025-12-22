@@ -32,6 +32,7 @@ from meteor_core.inputs.base import (
     PydanticInputLoader,
     supports_metadata_extraction,
 )
+from meteor_core.schema import InputContext
 
 
 @dataclass
@@ -47,8 +48,8 @@ class ExampleDataclassLoader(DataclassInputLoader[ExampleConfig]):
     plugin_name = "example_dataclass"
     ConfigType = ExampleConfig
 
-    def load(self, filepath: str) -> str:
-        return filepath
+    def load(self, filepath: str) -> InputContext:
+        return InputContext(image_data=filepath, filepath=filepath)
 
 
 _PYDANTIC_SPEC = importlib.util.find_spec("pydantic")
@@ -66,8 +67,8 @@ if _PYDANTIC_SPEC:
         plugin_name = "example_pydantic"
         ConfigType = ExampleModel
 
-        def load(self, filepath: str) -> str:
-            return filepath
+        def load(self, filepath: str) -> InputContext:
+            return InputContext(image_data=filepath, filepath=filepath)
 else:
     BaseModel = None
     ExampleModel = None
@@ -106,8 +107,8 @@ class TestInputLoaderBases(unittest.TestCase):
             plugin_name = "bad_loader"
             ConfigType = BadConfig
 
-            def load(self, filepath: str) -> str:
-                return filepath
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data=filepath, filepath=filepath)
 
         with self.assertRaises(TypeError):
             BadLoader(BadConfig())
@@ -134,8 +135,8 @@ class TestInputLoaderBases(unittest.TestCase):
             plugin_name = "bad_pydantic"
             ConfigType = BadConfig
 
-            def load(self, filepath: str) -> str:
-                return filepath
+            def load(self, filepath: str) -> InputContext:
+                return InputContext(image_data=filepath, filepath=filepath)
 
         with self.assertRaises(TypeError):
             BadLoader(BadConfig())
