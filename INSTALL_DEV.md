@@ -148,11 +148,16 @@ uv run coverage html
 | `test_plugin_contract_helpers_v1x.py` | 5 | Plugin contract helpers |
 | `test_roi_selector_helpers_v1x.py` | 2 | ROI selector helpers |
 | `test_utils_display_width_v1x.py` | 3 | Unicode display width helpers |
-| `test_inputs_base_v1x.py` | 7 | Input loader base class |
+| `test_utils_roi_hash_v1x.py` | 5 | ROI hash utilities |
+| `test_inputs_base_v1x.py` | 12 | Input loader base class |
+| `test_outputs_base_v1x.py` | 7 | Output handler base class |
+| `test_detectors_base_v1x.py` | 12 | Detector base class |
 | `test_roi_selector_ui_v1x.py` | 2 | ROI selector UI flow |
 | `test_pipeline_helpers_v1x.py` | 12 | Pipeline helpers |
+| `test_pipeline_execution_v1x.py` | 4 | Pipeline execution and results |
+| `test_schema_context_results_v1x.py` | 4 | Schema context/results helpers |
 
-**Total: 529 tests**
+**Total: 566 tests**
 
 ## Code Style
 
@@ -216,6 +221,7 @@ detect_meteors/
 ├── detect_meteors_cli.py          # CLI interface
 ├── detect_meteors_cli_completion.bash  # Bash completion script
 ├── meteor_core/                   # Core logic modules
+│   ├── __init__.py                # Package entry point
 │   ├── i18n.py                    # Locale resolution and message formatting
 │   ├── schema.py                  # Type definitions, constants
 │   ├── exceptions.py              # Custom exception hierarchy
@@ -228,8 +234,8 @@ detect_meteors/
 │   ├── plugin_registry.py         # Unified plugin registry
 │   ├── plugin_contract.py         # Plugin contract definitions
 │   ├── inputs/                    # Input loader plugins
-│   ├── outputs/                   # Output handler plugins
 │   ├── detectors/                 # Detection algorithm plugins
+│   ├── outputs/                   # Output handler plugins
 │   ├── locales/                   # Translations
 │   └── templates/                 # Report templates and assets
 ├── candidates/                    # Default output folder for detections
