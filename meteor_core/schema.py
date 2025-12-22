@@ -9,13 +9,22 @@ Data structures, constants, and type definitions for meteor detection.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, TYPE_CHECKING, Union
 import multiprocessing as mp
+
+if TYPE_CHECKING:
+    import numpy as np
+    import torch
+    from PIL import Image
+
+ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
 
 # ==========================================
 # Version
 # ==========================================
-VERSION = "1.6.0"
+VERSION = "1.6.1"
+DETECTION_CONTEXT_SCHEMA_VERSION = 1
+DETECTION_RESULT_SCHEMA_VERSION = 1
 
 # ==========================================
 # Default Settings
@@ -263,6 +272,18 @@ class DetectionParams:
 
 
 @dataclass
+class DetectionContext:
+    """Input bundle for detector execution."""
+
+    current_image: ImageLike
+    previous_image: ImageLike
+    roi_mask: Any
+    runtime_params: Dict[str, Any]
+    metadata: Dict[str, Any]
+    schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION
+
+
+@dataclass
 class PipelineConfig:
     """Configuration for MeteorDetectionPipeline.
 
@@ -485,24 +506,32 @@ class NPFMetrics:
 
 @dataclass
 class DetectionResult:
-    """Result of processing a single image."""
+    """Result returned by detectors.
+
+    Standard diagnostics belong in ``metrics`` (e.g. ``duration_ms``,
+    ``num_contours``, ``mask_area``, ``hough_votes``). Use ``extras`` for
+    detector-specific or auxiliary data that should not be part of the
+    normalized comparison surface.
+    """
 
     is_candidate: bool
-    filename: str
-    filepath: str
-    line_score: float
-    max_aspect_ratio: float
-    num_lines: int
-    debug_image: Optional[Any] = None  # numpy array, but avoid importing numpy here
+    score: float
+    lines: List[Tuple[int, int, int, int]]
+    aspect_ratio: float
+    debug_image: Optional[Any]
+    extras: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = DETECTION_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "is_candidate": self.is_candidate,
-            "filename": self.filename,
-            "filepath": self.filepath,
-            "line_score": self.line_score,
-            "max_aspect_ratio": self.max_aspect_ratio,
-            "num_lines": self.num_lines,
+            "score": self.score,
+            "lines": self.lines,
+            "aspect_ratio": self.aspect_ratio,
+            "extras": self.extras,
+            "metrics": self.metrics,
+            "schema_version": self.schema_version,
         }
 
 

@@ -53,7 +53,14 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
 
         >>> # Create an instance
         >>> detector = DetectorRegistry.create("hough")
-        >>> result = detector.detect(current_img, prev_img, roi_mask, params)
+        >>> context = DetectionContext(
+        ...     current_image=current_img,
+        ...     previous_image=prev_img,
+        ...     roi_mask=roi_mask,
+        ...     runtime_params=params,
+        ...     metadata={},
+        ... )
+        >>> result = detector.detect(context)
 
         >>> # Register a custom detector for testing
         >>> DetectorRegistry.register(MyCustomDetector)

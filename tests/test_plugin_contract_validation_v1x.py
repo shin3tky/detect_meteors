@@ -11,6 +11,7 @@ import unittest
 sys.modules.setdefault("cv2", types.SimpleNamespace())
 
 from meteor_core.detectors.base import BaseDetector, _is_valid_detector  # noqa: E402
+from meteor_core.schema import DetectionContext, DetectionResult  # noqa: E402
 from meteor_core.inputs.base import (  # noqa: E402
     BaseInputLoader,
     _is_valid_input_loader,
@@ -60,12 +61,16 @@ class ValidDetector(BaseDetector):
 
     def detect(
         self,
-        current_image: np.ndarray,
-        previous_image: np.ndarray,
-        roi_mask: np.ndarray,
-        params: Dict[str, Any],
-    ) -> Tuple[bool, float, List[Tuple[int, int, int, int]], float, np.ndarray | None]:
-        return False, 0.0, [], 0.0, None
+        context: DetectionContext,
+    ) -> DetectionResult:
+        return DetectionResult(
+            is_candidate=False,
+            score=0.0,
+            lines=[],
+            aspect_ratio=0.0,
+            debug_image=None,
+            extras={},
+        )
 
     def compute_line_score(
         self, mask: np.ndarray, hough_params: Dict[str, int]
@@ -110,8 +115,15 @@ class TestPluginContractValidation(unittest.TestCase):
         class MissingDetectorName(BaseDetector):
             plugin_name: Any = 0
 
-            def detect(self, current_image, previous_image, roi_mask, params):
-                return False, 0.0, [], 0.0, None
+            def detect(self, context):
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(self, mask, hough_params):
                 return 0.0, []

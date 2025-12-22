@@ -1605,7 +1605,9 @@ def detect_meteors_advanced(
             locale=locale,
         )
 
-    # Build processing parameters
+    # Build processing parameters.
+    # NOTE: These are still constructed as a flat dict for backward compatibility.
+    # The pipeline wraps them into namespaced runtime_params for detectors.
     processing_params = {
         "diff_threshold": diff_threshold,
         "min_area": min_area,

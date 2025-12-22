@@ -1,13 +1,16 @@
 """Lightweight configurable detector example for validation and tests."""
 
 import logging
+import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import cv2
 import numpy as np
 
 from .base import DataclassDetector
+from meteor_core.schema import DetectionContext, DetectionResult
+from meteor_core.utils import ensure_numpy
 
 
 logger = logging.getLogger(__name__)
@@ -55,13 +58,12 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
 
     def detect(
         self,
-        current_image: np.ndarray,
-        previous_image: np.ndarray,
-        roi_mask: np.ndarray,
-        params: Dict[str, Any],
-    ) -> Tuple[
-        bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]
-    ]:
+        context: DetectionContext,
+    ) -> DetectionResult:
+        current_image = ensure_numpy(context.current_image)
+        previous_image = ensure_numpy(context.previous_image)
+        roi_mask = ensure_numpy(context.roi_mask)
+
         if current_image.shape != previous_image.shape:
             logger.error("Current and previous images must share the same shape.")
             raise ValueError("current_image and previous_image must be the same size")
@@ -74,6 +76,7 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
             )
             raise ValueError("roi_mask must match the shape of the input images")
 
+        start_time = time.perf_counter()
         # Frame inputs are expected to be single-channel uint8 images. Mixed
         # channel types will still work because OpenCV handles per-channel
         # subtraction, but tests keep images grayscale so the summed pixel
@@ -110,13 +113,30 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
             # remains stable even if contour extraction changes slightly.
             line_score = float(np.sum(binary))
 
+            duration_ms = (time.perf_counter() - start_time) * 1000.0
+            mask_area = int(np.count_nonzero(binary))
+            metrics = {
+                "duration_ms": duration_ms,
+                "num_contours": len(contours),
+                "mask_area": mask_area,
+                "hough_votes": 0,
+            }
+
             logger.debug(
                 "SimpleThreshold detection finished: candidate=%s, line_score=%.2f, max_aspect_ratio=%.2f",
                 is_candidate,
                 line_score,
                 max_aspect_ratio,
             )
-            return is_candidate, line_score, segments, max_aspect_ratio, None
+            return DetectionResult(
+                is_candidate=is_candidate,
+                score=line_score,
+                lines=segments,
+                aspect_ratio=max_aspect_ratio,
+                debug_image=None,
+                extras={},
+                metrics=metrics,
+            )
         except Exception as exc:  # pragma: no cover - guard against OpenCV errors
             logger.exception("Error during SimpleThreshold detection: %s", exc)
             raise
@@ -125,8 +145,16 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
         self, mask: np.ndarray, hough_params: Dict[str, int]
     ) -> Tuple[float, List[Tuple[int, int, int, int]]]:
         # This detector does not compute separate line scores; reuse detect results.
-        _, line_score, segments, _, _ = self.detect(mask, mask, mask, hough_params)
-        return line_score, segments
+        runtime_params = self.build_runtime_params(hough_params)
+        context = DetectionContext(
+            current_image=mask,
+            previous_image=mask,
+            roi_mask=mask,
+            runtime_params=runtime_params,
+            metadata={},
+        )
+        result = self.detect(context)
+        return result.score, result.lines
 
 
 __all__ = ["SimpleThresholdDetector", "SimpleThresholdConfig"]

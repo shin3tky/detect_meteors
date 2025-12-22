@@ -55,7 +55,7 @@ def _detector_methods(_: str) -> Dict[str, Callable]:
     def __init__(self, config=None):
         self.config = config
 
-    def detect(self, current_img, prev_img, roi_mask, params):
+    def detect(self, context):
         return {}
 
     return {"__init__": __init__, "detect": detect}
@@ -119,7 +119,7 @@ def _get_discovery_cases():
                 def __init__(self, config=None):
                     self.config = config
 
-                def detect(self, current_img, prev_img, roi_mask, params):
+                def detect(self, context):
                     return {}
             """,
             "methods_factory": _detector_methods,

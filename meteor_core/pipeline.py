@@ -16,7 +16,18 @@ import signal
 import time
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Protocol, Tuple, Type, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    Union,
+    overload,
+)
 
 import cv2
 import numpy as np
@@ -27,9 +38,12 @@ from .schema import (
     EXTENSIONS,
     DEFAULT_DIFF_THRESHOLD,
     DEFAULT_MIN_AREA,
+    DEFAULT_DETECTOR_NAME,
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
+    DETECTION_CONTEXT_SCHEMA_VERSION,
+    DetectionContext,
     DetectionParams,
     PipelineConfig,
 )
@@ -51,6 +65,32 @@ from .utils import (
 
 # Module-level logger
 logger = logging.getLogger(__name__)
+
+# Pipeline-side DetectionContext schema conversions.
+_DETECTION_CONTEXT_CONVERTERS: Dict[
+    int, Callable[[DetectionContext], DetectionContext]
+] = {}
+
+
+def _normalize_detection_context(context: DetectionContext) -> DetectionContext:
+    if context.schema_version == DETECTION_CONTEXT_SCHEMA_VERSION:
+        return context
+
+    converter = _DETECTION_CONTEXT_CONVERTERS.get(context.schema_version)
+    if converter is None:
+        raise MeteorConfigError(
+            "Unsupported DetectionContext schema_version "
+            f"{context.schema_version}; expected "
+            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
+        )
+
+    converted = converter(context)
+    if converted.schema_version != DETECTION_CONTEXT_SCHEMA_VERSION:
+        raise MeteorConfigError(
+            "DetectionContext converter did not return the expected schema_version "
+            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
+        )
+    return converted
 
 
 # Lazy initialization to avoid circular imports
@@ -81,6 +121,13 @@ def _get_default_detector() -> BaseDetector:
     if _DEFAULT_DETECTOR is None:
         _DEFAULT_DETECTOR = DetectorRegistry.create_default()
     return _DEFAULT_DETECTOR
+
+
+def _build_runtime_params(
+    params: Dict[str, Any], detector: BaseDetector
+) -> Dict[str, Any]:
+    detector_name = getattr(detector, "plugin_name", "") or DEFAULT_DETECTOR_NAME
+    return {"global": params, "detector": {detector_name: params}}
 
 
 def _resolve_detector(
@@ -520,28 +567,43 @@ def process_image_batch(
             prev_img = loader.load(prev_file)
 
             # Delegate detection to the detector
-            is_candidate, line_score, hough_lines, max_aspect_ratio, debug_img = (
-                det.detect(curr_img, prev_img, roi_mask, params)
+            try:
+                metadata = {
+                    "current": _extract_metadata_from_loader(loader, curr_file),
+                    "previous": _extract_metadata_from_loader(loader, prev_file),
+                }
+            except Exception as exc:
+                logger.warning("Metadata extraction failed for %s: %s", filename, exc)
+                metadata = {"current": {}, "previous": {}}
+            runtime_params = _build_runtime_params(params, det)
+            context = DetectionContext(
+                current_image=curr_img,
+                previous_image=prev_img,
+                roi_mask=roi_mask,
+                runtime_params=runtime_params,
+                metadata=metadata,
             )
+            context = _normalize_detection_context(context)
+            result = det.detect(context)
 
             results.append(
                 (
-                    is_candidate,
+                    result.is_candidate,
                     filename,
                     curr_file,
-                    line_score,
-                    debug_img,
-                    max_aspect_ratio,
-                    len(hough_lines),
+                    result.score,
+                    result.debug_image,
+                    result.aspect_ratio,
+                    len(result.lines),
                 )
             )
 
-            if is_candidate:
+            if result.is_candidate:
                 logger.debug(
                     "Candidate detected: %s (score=%.2f, lines=%d)",
                     filename,
-                    line_score,
-                    len(hough_lines),
+                    result.score,
+                    len(result.lines),
                 )
 
         except MeteorError as e:

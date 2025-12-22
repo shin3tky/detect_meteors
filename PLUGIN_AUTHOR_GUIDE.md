@@ -148,23 +148,93 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 **Required methods**:
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `detect` | `(current, previous, roi_mask, params) -> DetectionResult` | Main detection (see below) |
+| `detect` | `(context: DetectionContext) -> DetectionResult` | Main detection (see below) |
 | `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | Line scoring (called internally by `detect`) |
+
+**DetectionContext type** (input to `detect`):
+```python
+ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
+
+@dataclass
+class DetectionContext:
+    current_image: ImageLike
+    previous_image: ImageLike
+    roi_mask: Any                # Typically np.ndarray (uint8 mask)
+    runtime_params: Dict[str, Any]
+    metadata: Dict[str, Any]
+    schema_version: int = 1      # DETECTION_CONTEXT_SCHEMA_VERSION
+```
+
+**Schema versioning**: The `schema_version` field enables future migration of detector plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing detectors to handle different versions gracefully. Current version is `1`.
+
+`current_image` and `previous_image` are typically `numpy.ndarray` today, but can
+also be provided as `torch.Tensor` or `PIL.Image.Image` for ML-based detectors.
+If you rely on specific array operations, normalize these inputs at the start
+of your detector implementation. The helper `meteor_core.utils.ensure_numpy`
+converts `numpy.ndarray`, `torch.Tensor`, and `PIL.Image.Image` into a
+`numpy.ndarray`.
 
 **DetectionResult type** (return value of `detect`):
 ```python
-Tuple[
-    bool,                              # is_candidate: Whether a meteor was detected
-    float,                             # score: Detection confidence score
-    List[Tuple[int, int, int, int]],   # lines: Line segments as (x1, y1, x2, y2)
-    float,                             # aspect_ratio: Contour aspect ratio
-    Optional[np.ndarray],              # debug_image: BGR visualization (or None)
-]
+@dataclass
+class DetectionResult:
+    is_candidate: bool
+    score: float
+    lines: List[Tuple[int, int, int, int]]
+    aspect_ratio: float
+    debug_image: Optional[Any]   # Typically np.ndarray (BGR)
+    extras: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = 1      # DETECTION_RESULT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize result for JSON/logging (excludes debug_image)."""
+        ...
 ```
 
-**Detection parameters** (`params` argument):
+**Schema versioning**: Like `DetectionContext`, the `schema_version` enables forward-compatible result handling. Downstream consumers can check the version before processing.
 
-The `params` dict contains CLI-configured detection settings:
+**Normalized vs detector-specific outputs**
+
+`lines` remains the normalized, line-segment-centric output for downstream
+consumers. Detectors that do not produce line segments should still return
+`lines=[]` and place non-linear detections into `extras`.
+
+Recommended `extras` keys for non-linear detections:
+- `bounding_boxes`: List of rects, e.g. `[{x1, y1, x2, y2}, ...]`
+- `polygons`: List of polygons, e.g. `[[[x, y], [x, y], ...], ...]`
+- `masks`: Detector-specific masks (numpy arrays or references/paths)
+
+**Standard diagnostics** (`DetectionResult.metrics`):
+
+Use `metrics` to emit stable, comparable diagnostics across detectors. These
+entries are intended for downstream analysis and visualization tools, while
+`extras` should hold detector-specific or auxiliary data.
+
+Recommended keys:
+- `duration_ms`: Total detection wall time for the call.
+- `num_contours`: Number of contours found in the binary mask.
+- `mask_area`: Non-zero pixel count in the mask used for line/contour analysis.
+- `hough_votes`: Hough line evidence count (e.g., number of detected lines).
+
+**Serialization**: Use `result.to_dict()` to get a JSON-serializable representation (excludes `debug_image` to avoid large binary data in logs).
+
+**Runtime parameters** (`context.runtime_params`):
+
+The `runtime_params` dict contains CLI-configured detection settings and is
+namespaced to separate global and detector-specific values.
+
+```python
+{
+    "global": { ... },        # Pipeline-wide params
+    "detector": {
+        "<plugin_name>": { ... }  # Detector-specific overrides
+    },
+}
+```
+
+Legacy detectors may still receive a flat dict; prefer reading from the
+namespaced structure when available.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -496,6 +566,8 @@ import cv2
 import numpy as np
 
 from meteor_core.detectors import DataclassDetector, DetectorRegistry
+from meteor_core.schema import DetectionContext, DetectionResult
+from meteor_core.utils import ensure_numpy
 
 # Set up logger for this plugin
 logger = logging.getLogger("meteor_core.detectors.threshold")
@@ -526,24 +598,22 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
     def detect(
         self,
-        current_image: np.ndarray,
-        previous_image: np.ndarray,
-        roi_mask: np.ndarray,
-        params: Dict[str, Any],
-    ) -> Tuple[bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]]:
+        context: DetectionContext,
+    ) -> DetectionResult:
         """Detect meteor candidates using threshold-based approach.
 
-        This method should NEVER raise exceptions - return failure tuple instead.
+        This method should NEVER raise exceptions - return a failure result instead.
 
         Args:
-            current_image: Current frame (uint16 grayscale).
-            previous_image: Previous frame (uint16 grayscale).
-            roi_mask: Binary ROI mask (uint8, 255=inside).
-            params: Detection parameters from CLI.
+            context: Input bundle containing frames, ROI, and runtime params.
 
         Returns:
-            Tuple of (is_candidate, score, lines, aspect_ratio, debug_image).
+            DetectionResult with the detection outcome.
         """
+        current_image = ensure_numpy(context.current_image)
+        previous_image = ensure_numpy(context.previous_image)
+        roi_mask = ensure_numpy(context.roi_mask)
+        params = context.runtime_params
         logger.debug(
             f"Starting detection: image_shape={current_image.shape}, "
             f"diff_threshold={params.get('diff_threshold', 8)}"
@@ -589,7 +659,20 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
             if not valid_contours:
                 logger.debug("No valid contours found - returning no detection")
-                return False, 0.0, [], 0.0, None
+            return DetectionResult(
+                is_candidate=False,
+                score=0.0,
+                lines=[],
+                aspect_ratio=0.0,
+                debug_image=None,
+                extras={},
+                metrics={
+                    "duration_ms": 0.0,
+                    "num_contours": 0,
+                    "mask_area": 0,
+                    "hough_votes": 0,
+                },
+            )
 
             # Compute metrics
             max_area = max(cv2.contourArea(c) for c in valid_contours)
@@ -624,12 +707,38 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             else:
                 logger.debug(f"Not a candidate: score={score:.1f} < {min_score}")
 
-            return is_candidate, score, lines, max_aspect_ratio, debug_image
+            return DetectionResult(
+                is_candidate=is_candidate,
+                score=score,
+                lines=lines,
+                aspect_ratio=max_aspect_ratio,
+                debug_image=debug_image,
+                extras={"valid_contours": len(valid_contours)},
+                metrics={
+                    "duration_ms": 0.0,
+                    "num_contours": len(valid_contours),
+                    "mask_area": int(np.count_nonzero(binary)),
+                    "hough_votes": 0,
+                },
+            )
 
         except Exception as e:
-            # NEVER raise exceptions in detect() - return failure tuple
+            # NEVER raise exceptions in detect() - return failure result
             logger.warning(f"Detection failed with error: {e}")
-            return False, 0.0, [], 0.0, None
+            return DetectionResult(
+                is_candidate=False,
+                score=0.0,
+                lines=[],
+                aspect_ratio=0.0,
+                debug_image=None,
+                extras={"error": str(e)},
+                metrics={
+                    "duration_ms": 0.0,
+                    "num_contours": 0,
+                    "mask_area": 0,
+                    "hough_votes": 0,
+                },
+            )
 
     def compute_line_score(
         self,
@@ -1153,7 +1262,7 @@ Each plugin type has different expectations for when to raise exceptions vs. con
 |-------------|--------|--------|
 | **Input Loader** | `load()` | **Raise exceptions** - Pipeline cannot continue without image |
 | **Input Loader** | `extract_metadata()` | **Return empty dict** - Metadata is optional |
-| **Detector** | `detect()` | **Return tuple** - Never raise for detection failures |
+| **Detector** | `detect()` | **Return DetectionResult** - Never raise for detection failures |
 | **Output Handler** | `save_candidate()` | **Depends on criticality** - See below |
 | **Output Handler** | Lifecycle hooks | **Never raise** - Log errors, continue processing |
 
@@ -1217,15 +1326,29 @@ class MyLoader(DataclassInputLoader[MyConfig]):
 
 ```python
 class MyDetector(DataclassDetector[MyConfig]):
-    def detect(self, current_image, previous_image, roi_mask, params):
+    def detect(self, context: DetectionContext) -> DetectionResult:
         try:
             # Detection logic here
             ...
-            return (is_candidate, score, lines, aspect_ratio, debug_image)
+            return DetectionResult(
+                is_candidate=is_candidate,
+                score=score,
+                lines=lines,
+                aspect_ratio=aspect_ratio,
+                debug_image=debug_image,
+                extras={},
+            )
         except Exception as e:
             # Log but don't raise - return "no detection" result
             logger.warning(f"Detection failed: {e}")
-            return (False, 0.0, [], 0.0, None)
+            return DetectionResult(
+                is_candidate=False,
+                score=0.0,
+                lines=[],
+                aspect_ratio=0.0,
+                debug_image=None,
+                extras={"error": str(e)},
+            )
 ```
 
 **Output Handler error handling**:

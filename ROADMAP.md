@@ -126,6 +126,15 @@
   - [x] Update `pyproject.toml` for ruff configuration
   - [x] Update pre-commit hooks for ruff integration
 
+### Plugin Contract Versioning
+- [x] **v1.6.1** - Schema versioning and ML-ready architecture
+  - [x] Schema versioning for `DetectionContext` and `DetectionResult`
+  - [x] `ImageLike` type alias for multi-framework support (numpy, PyTorch, PIL)
+  - [x] `ensure_numpy()` utility for type-safe image conversion
+  - [x] `DetectionResult.metrics` field for standardized diagnostics
+  - [x] `DetectionResult.to_dict()` method for serialization
+  - [x] Updated Plugin Author Guide with new schema documentation
+
 ### Pending (Deferred from v1.x)
 The following features were originally planned for v1.x but have been deferred:
 
@@ -154,5 +163,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.0 (Development Tooling Modernization)
+**Current Status**: v1.6.1 (Plugin Contract Versioning)
 **Next Focus**: v2.0 Architecture and Extensibility - Plugin architecture implementation

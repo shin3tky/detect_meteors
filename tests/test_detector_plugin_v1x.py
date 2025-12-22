@@ -27,7 +27,12 @@ from meteor_core.detectors.simple_threshold import (  # noqa: E402
     SimpleThresholdConfig,
     SimpleThresholdDetector,
 )
-from meteor_core.schema import PipelineConfig, DetectionParams  # noqa: E402
+from meteor_core.schema import (  # noqa: E402
+    PipelineConfig,
+    DetectionParams,
+    DetectionContext,
+    DetectionResult,
+)
 from meteor_core.pipeline import (  # noqa: E402
     _resolve_detector,
     _get_default_detector,
@@ -46,12 +51,19 @@ class MockDetector(BaseDetector):
         self.detect_call_count = 0
         self.last_params = None
 
-    def detect(self, current_image, previous_image, roi_mask, params):
+    def detect(self, context: DetectionContext) -> DetectionResult:
         """Mock detection that tracks calls and returns fixed result."""
         self.detect_call_count += 1
-        self.last_params = params
+        self.last_params = context.runtime_params
         # Return: is_candidate, line_score, line_segments, max_aspect_ratio, debug_img
-        return False, 0.0, [], 0.0, None
+        return DetectionResult(
+            is_candidate=False,
+            score=0.0,
+            lines=[],
+            aspect_ratio=0.0,
+            debug_image=None,
+            extras={},
+        )
 
     def compute_line_score(self, mask, hough_params):
         """Mock line score computation."""
@@ -161,18 +173,20 @@ class TestSimpleThresholdDetector(unittest.TestCase):
         current[2:4, 2:4] = 20
         roi_mask = np.full_like(current, 255)
 
-        is_candidate, line_score, segments, aspect_ratio, mask = detector.detect(
-            current,
-            previous,
-            roi_mask,
-            {},
+        context = DetectionContext(
+            current_image=current,
+            previous_image=previous,
+            roi_mask=roi_mask,
+            runtime_params={"global": {}, "detector": {}},
+            metadata={},
         )
+        result = detector.detect(context)
 
-        self.assertTrue(is_candidate)
-        self.assertGreater(line_score, 0)
-        self.assertEqual(len(segments), 1)
-        self.assertGreaterEqual(aspect_ratio, 1.0)
-        self.assertIsNone(mask)
+        self.assertTrue(result.is_candidate)
+        self.assertGreater(result.score, 0)
+        self.assertEqual(len(result.lines), 1)
+        self.assertGreaterEqual(result.aspect_ratio, 1.0)
+        self.assertIsNone(result.debug_image)
 
         score_from_compute, segments_from_compute = detector.compute_line_score(
             roi_mask, {}
@@ -187,7 +201,15 @@ class TestSimpleThresholdDetector(unittest.TestCase):
         roi_mask = np.full_like(current, 255)
 
         with self.assertRaises(ValueError):
-            detector.detect(current, previous, roi_mask, {})
+            detector.detect(
+                DetectionContext(
+                    current_image=current,
+                    previous_image=previous,
+                    roi_mask=roi_mask,
+                    runtime_params={"global": {}, "detector": {}},
+                    metadata={},
+                )
+            )
 
 
 class TestPipelineConfigDetector(unittest.TestCase):
@@ -317,7 +339,10 @@ class TestProcessImageBatchWithDetector(unittest.TestCase):
 
             # Verify detector was called
             self.assertEqual(mock.detect_call_count, 1)
-            self.assertEqual(mock.last_params, self.params)
+            self.assertEqual(
+                mock.last_params,
+                {"global": self.params, "detector": {"mock": self.params}},
+            )
 
 
 class TestBaseDetectorInterface(unittest.TestCase):
@@ -370,9 +395,9 @@ class TestBaseDetectorInterface(unittest.TestCase):
         }
         self.assertTrue(detector.validate_params(valid_params))
 
-        # Missing required key
+        # Missing required key no longer fails at BaseDetector level
         invalid_params = {"diff_threshold": 10}
-        self.assertFalse(detector.validate_params(invalid_params))
+        self.assertTrue(detector.validate_params(invalid_params))
 
 
 if __name__ == "__main__":

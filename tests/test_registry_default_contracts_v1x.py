@@ -25,6 +25,8 @@ from meteor_core.schema import (
     DEFAULT_DETECTOR_NAME,
     DEFAULT_LOADER_NAME,
     DEFAULT_OUTPUT_HANDLER_NAME,
+    DetectionContext,
+    DetectionResult,
 )
 
 
@@ -54,8 +56,15 @@ class TestRegistryDefaultContracts(unittest.TestCase):
             def __init__(self, config):
                 self.config = config
 
-            def detect(self, current_image, previous_image, roi_mask, params):
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(self, mask, hough_params):
                 return 0.0, []
@@ -104,8 +113,15 @@ class TestRegistryDefaultContracts(unittest.TestCase):
             def __init__(self, config: RequiredOnlyConfig):
                 self.config = config
 
-            def detect(self, current_image, previous_image, roi_mask, params):
-                return False, 0.0, [], 0.0, None
+            def detect(self, context: DetectionContext) -> DetectionResult:
+                return DetectionResult(
+                    is_candidate=False,
+                    score=0.0,
+                    lines=[],
+                    aspect_ratio=0.0,
+                    debug_image=None,
+                    extras={},
+                )
 
             def compute_line_score(self, mask, hough_params):
                 return 0.0, []

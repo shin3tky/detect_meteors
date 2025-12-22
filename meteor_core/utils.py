@@ -14,6 +14,7 @@ import json
 import hashlib
 import os
 import unicodedata
+import importlib.util
 import numpy as np
 from typing import Dict, Optional, Tuple, List, Any
 
@@ -28,6 +29,31 @@ from .schema import (
     AUTO_BATCH_MEMORY_FRACTION,
 )
 from .i18n import DEFAULT_LOCALE, get_message
+
+_HAS_TORCH = importlib.util.find_spec("torch") is not None
+if _HAS_TORCH:
+    import torch
+else:
+    torch = None  # type: ignore[assignment]
+
+_HAS_PIL = importlib.util.find_spec("PIL.Image") is not None
+if _HAS_PIL:
+    from PIL import Image
+else:
+    Image = None  # type: ignore[assignment]
+
+
+def ensure_numpy(image: Any) -> np.ndarray:
+    if isinstance(image, np.ndarray):
+        return image
+
+    if _HAS_PIL and isinstance(image, Image.Image):
+        return np.array(image)
+
+    if _HAS_TORCH and isinstance(image, torch.Tensor):
+        return image.detach().cpu().numpy()
+
+    raise TypeError(f"Unsupported image type: {type(image)}")
 
 
 def _resolve_locale(locale: Optional[str]) -> str:

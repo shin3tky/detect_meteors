@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.6.1 - 2025-12-22
+- **Schema versioning for plugin contracts**: Added `schema_version` field to `DetectionContext` and `DetectionResult` dataclasses for future migration support.
+  - `DETECTION_CONTEXT_SCHEMA_VERSION = 1` and `DETECTION_RESULT_SCHEMA_VERSION = 1` constants for version tracking.
+  - Enables gradual detector migration without breaking existing plugins.
+- **Multi-framework image support**: Introduced `ImageLike` type alias supporting `numpy.ndarray`, `torch.Tensor`, and `PIL.Image.Image`.
+  - Prepares plugin architecture for ML-based detectors (PyTorch, TensorFlow).
+  - New `ensure_numpy()` utility in `meteor_core.utils` for type-safe conversion.
+- **Enhanced DetectionResult diagnostics**: Added `metrics` field for standardized detector diagnostics.
+  - Recommended keys: `duration_ms`, `num_contours`, `mask_area`, `hough_votes`.
+  - New `to_dict()` method for serialization support.
+- **Updated Plugin Author Guide**: Comprehensive documentation for new schema contracts and `ImageLike` handling.
+- **Backward compatibility**: Fully compatible with v1.6.0. Existing detectors work without modification.
+
 ## v1.6.0 - 2025-12-21
 - **Development toolchain modernization**: Migrated from pip/black/flake8 to uv/ruff for faster, unified development workflow.
   - **uv**: Rust-based Python package manager (10-100× faster than pip).
