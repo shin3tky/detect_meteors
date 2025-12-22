@@ -1,5 +1,41 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.2 (2025-12-23)
+
+### 🔧 Loader/Handler Contracts and Documentation
+
+Version 1.6.2 documents the new loader/output contracts for plugin authors.
+
+### Highlights
+
+- **Loader/handler contracts**: `InputContext` and `OutputResult` formalize loader/output return values
+- **Documentation updates**: Plugin author guide now documents `InputContext` and `OutputResult`
+
+### Schema Changes (v1.6.2)
+
+**InputContext** (v1.6.2):
+```python
+class InputContext:
+    image_data: ImageLike
+    filepath: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    loader_info: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = 1       # NEW: For migration support
+```
+
+**OutputResult** (v1.6.2):
+```python
+class OutputResult:
+    saved: bool
+    output_path: Optional[str]
+    debug_path: Optional[str]
+    handler_info: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = 1       # NEW: For migration support
+```
+
+---
+
 ## Version 1.6.1 (2025-12-22)
 
 ### 🔧 Plugin Schema Versioning and ML-Ready Architecture
@@ -9,6 +45,7 @@ Version 1.6.1 introduces schema versioning for detector plugin contracts and mul
 ### Highlights
 
 - **Schema versioning**: `DetectionContext` and `DetectionResult` now include `schema_version` field
+
 - **Multi-framework images**: New `ImageLike` type supports numpy, PyTorch, and PIL
 - **Enhanced diagnostics**: `DetectionResult.metrics` for standardized performance metrics
 - **Serialization support**: `DetectionResult.to_dict()` for JSON-compatible output
@@ -20,7 +57,7 @@ This release prepares the plugin architecture for:
 2. **ML detector support**: `ImageLike` type allows detectors to work with PyTorch tensors natively
 3. **Standardized metrics**: Consistent diagnostics across different detector implementations
 
-### Schema Changes
+### Schema Changes (v1.6.1)
 
 **DetectionContext** (v1.6.1):
 ```python
@@ -46,7 +83,6 @@ class DetectionResult:
     extras: Dict[str, Any]
     metrics: Dict[str, Any]       # NEW: Standard diagnostics
     schema_version: int = 1       # NEW: For migration support
-
     def to_dict(self) -> Dict[str, Any]:  # NEW: Serialization
         ...
 ```
