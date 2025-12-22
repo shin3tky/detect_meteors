@@ -153,15 +153,22 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 
 **DetectionContext type** (input to `detect`):
 ```python
+ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
+
 @dataclass
 class DetectionContext:
-    current_image: np.ndarray
-    previous_image: np.ndarray
+    current_image: ImageLike
+    previous_image: ImageLike
     roi_mask: np.ndarray
     runtime_params: Dict[str, Any]
     metadata: Dict[str, Any]
     schema_version: int = 1
 ```
+
+`current_image` and `previous_image` are typically `numpy.ndarray` today, but can
+also be provided as `torch.Tensor` or `PIL.Image.Image` for ML-based detectors.
+If you rely on specific array operations, normalize these inputs at the start
+of your detector implementation.
 
 **DetectionResult type** (return value of `detect`):
 ```python

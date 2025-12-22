@@ -9,8 +9,15 @@ Data structures, constants, and type definitions for meteor detection.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, TYPE_CHECKING, Union
 import multiprocessing as mp
+
+if TYPE_CHECKING:
+    import numpy as np
+    import torch
+    from PIL import Image
+
+ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
 
 # ==========================================
 # Version
@@ -268,8 +275,8 @@ class DetectionParams:
 class DetectionContext:
     """Input bundle for detector execution."""
 
-    current_image: Any
-    previous_image: Any
+    current_image: ImageLike
+    previous_image: ImageLike
     roi_mask: Any
     runtime_params: Dict[str, Any]
     metadata: Dict[str, Any]
