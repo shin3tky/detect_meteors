@@ -107,6 +107,15 @@ class OutputWriter(FileOutputHandler):
         """Get output overwrite setting."""
         return self.config.output_overwrite
 
+    def save_candidate(self, *args, **kwargs) -> bool:
+        """Save a meteor candidate file and return success status.
+
+        This overrides FileOutputHandler.save_candidate to preserve legacy
+        OutputWriter behavior where the return value was a simple boolean.
+        """
+        result = super().save_candidate(*args, **kwargs)
+        return result.saved
+
 
 __all__ = [
     # Backward-compatible classes
