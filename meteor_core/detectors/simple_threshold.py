@@ -10,6 +10,7 @@ import numpy as np
 
 from .base import DataclassDetector
 from meteor_core.schema import DetectionContext, DetectionResult
+from meteor_core.utils import ensure_numpy
 
 
 logger = logging.getLogger(__name__)
@@ -59,9 +60,9 @@ class SimpleThresholdDetector(DataclassDetector[SimpleThresholdConfig]):
         self,
         context: DetectionContext,
     ) -> DetectionResult:
-        current_image = context.current_image
-        previous_image = context.previous_image
-        roi_mask = context.roi_mask
+        current_image = ensure_numpy(context.current_image)
+        previous_image = ensure_numpy(context.previous_image)
+        roi_mask = ensure_numpy(context.roi_mask)
 
         if current_image.shape != previous_image.shape:
             logger.error("Current and previous images must share the same shape.")

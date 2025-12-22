@@ -149,6 +149,7 @@ from .utils import (
     parse_roi_polygon_string,
     format_polygon_string,
     display_exif_info,
+    ensure_numpy,
 )
 
 from .detectors import (
@@ -301,6 +302,7 @@ __all__ = [
     "parse_roi_polygon_string",
     "format_polygon_string",
     "display_exif_info",
+    "ensure_numpy",
     # Detectors
     "BaseDetector",
     "HoughDetector",

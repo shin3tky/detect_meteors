@@ -168,7 +168,9 @@ class DetectionContext:
 `current_image` and `previous_image` are typically `numpy.ndarray` today, but can
 also be provided as `torch.Tensor` or `PIL.Image.Image` for ML-based detectors.
 If you rely on specific array operations, normalize these inputs at the start
-of your detector implementation.
+of your detector implementation. The helper `meteor_core.utils.ensure_numpy`
+converts `numpy.ndarray`, `torch.Tensor`, and `PIL.Image.Image` into a
+`numpy.ndarray`.
 
 **DetectionResult type** (return value of `detect`):
 ```python
@@ -555,6 +557,7 @@ import numpy as np
 
 from meteor_core.detectors import DataclassDetector, DetectorRegistry
 from meteor_core.schema import DetectionContext, DetectionResult
+from meteor_core.utils import ensure_numpy
 
 # Set up logger for this plugin
 logger = logging.getLogger("meteor_core.detectors.threshold")
@@ -597,9 +600,9 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
         Returns:
             DetectionResult with the detection outcome.
         """
-        current_image = context.current_image
-        previous_image = context.previous_image
-        roi_mask = context.roi_mask
+        current_image = ensure_numpy(context.current_image)
+        previous_image = ensure_numpy(context.previous_image)
+        roi_mask = ensure_numpy(context.roi_mask)
         params = context.runtime_params
         logger.debug(
             f"Starting detection: image_shape={current_image.shape}, "
