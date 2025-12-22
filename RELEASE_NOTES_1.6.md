@@ -1,5 +1,96 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.1 (2025-12-22)
+
+### 🔧 Plugin Schema Versioning and ML-Ready Architecture
+
+Version 1.6.1 introduces schema versioning for detector plugin contracts and multi-framework image support, laying the groundwork for ML-based detectors in v2.x.
+
+### Highlights
+
+- **Schema versioning**: `DetectionContext` and `DetectionResult` now include `schema_version` field
+- **Multi-framework images**: New `ImageLike` type supports numpy, PyTorch, and PIL
+- **Enhanced diagnostics**: `DetectionResult.metrics` for standardized performance metrics
+- **Serialization support**: `DetectionResult.to_dict()` for JSON-compatible output
+
+### Why This Change?
+
+This release prepares the plugin architecture for:
+1. **Future schema migrations**: Version field enables gradual migration without breaking existing plugins
+2. **ML detector support**: `ImageLike` type allows detectors to work with PyTorch tensors natively
+3. **Standardized metrics**: Consistent diagnostics across different detector implementations
+
+### Schema Changes
+
+**DetectionContext** (v1.6.1):
+```python
+@dataclass
+class DetectionContext:
+    current_image: ImageLike      # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
+    previous_image: ImageLike     # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
+    roi_mask: Any
+    runtime_params: Dict[str, Any]
+    metadata: Dict[str, Any]
+    schema_version: int = 1       # NEW: For migration support
+```
+
+**DetectionResult** (v1.6.1):
+```python
+@dataclass
+class DetectionResult:
+    is_candidate: bool
+    score: float
+    lines: List[Tuple[int, int, int, int]]
+    aspect_ratio: float
+    debug_image: Optional[Any]
+    extras: Dict[str, Any]
+    metrics: Dict[str, Any]       # NEW: Standard diagnostics
+    schema_version: int = 1       # NEW: For migration support
+
+    def to_dict(self) -> Dict[str, Any]:  # NEW: Serialization
+        ...
+```
+
+### New Utility Functions
+
+**`ensure_numpy()`** in `meteor_core.utils`:
+```python
+from meteor_core.utils import ensure_numpy
+
+# Convert any ImageLike to numpy array
+image = ensure_numpy(context.current_image)  # Works with numpy, torch, PIL
+```
+
+### Migration Guide for Plugin Authors
+
+No migration required. Existing plugins work without modification.
+
+**Optional enhancements**:
+1. Use `ensure_numpy()` for type-safe image handling
+2. Populate `metrics` dict with standard diagnostics
+3. Use `result.to_dict()` for logging
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `meteor_core/schema.py` | Added `ImageLike`, schema versions, `to_dict()` |
+| `meteor_core/utils.py` | Added `ensure_numpy()` function |
+| `PLUGIN_AUTHOR_GUIDE.md` | Updated DetectionContext/DetectionResult documentation |
+| `CHANGELOG.md` | Added v1.6.1 entry |
+| `README.md` | Updated "What's New" section |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.6.0:
+
+- **CLI**: No changes
+- **Runtime**: No changes to detection behavior
+- **API**: All existing detector plugins work unchanged
+- **Configuration**: No changes
+
+---
+
 ## Version 1.6.0 (2025-12-21)
 
 ### ⚡ Development Toolchain Modernization
@@ -230,6 +321,16 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
+### v1.6.1 (Latest)
+- **Version**: 1.6.1
+- **Release Date**: 2025-12-22
+- **Major Changes**:
+  - Schema versioning for DetectionContext/DetectionResult
+  - ImageLike type for multi-framework support
+  - DetectionResult.metrics for standardized diagnostics
+  - ensure_numpy() utility for type-safe conversion
+
+### v1.6.0
 - **Version**: 1.6.0
 - **Release Date**: 2025-12-21
 - **Major Changes**:

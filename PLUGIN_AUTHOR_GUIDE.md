@@ -159,11 +159,13 @@ ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
 class DetectionContext:
     current_image: ImageLike
     previous_image: ImageLike
-    roi_mask: np.ndarray
+    roi_mask: Any                # Typically np.ndarray (uint8 mask)
     runtime_params: Dict[str, Any]
     metadata: Dict[str, Any]
-    schema_version: int = 1
+    schema_version: int = 1      # DETECTION_CONTEXT_SCHEMA_VERSION
 ```
+
+**Schema versioning**: The `schema_version` field enables future migration of detector plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing detectors to handle different versions gracefully. Current version is `1`.
 
 `current_image` and `previous_image` are typically `numpy.ndarray` today, but can
 also be provided as `torch.Tensor` or `PIL.Image.Image` for ML-based detectors.
@@ -180,11 +182,17 @@ class DetectionResult:
     score: float
     lines: List[Tuple[int, int, int, int]]
     aspect_ratio: float
-    debug_image: Optional[np.ndarray]
-    extras: Dict[str, Any]
-    metrics: Dict[str, Any]
-    schema_version: int = 1
+    debug_image: Optional[Any]   # Typically np.ndarray (BGR)
+    extras: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = 1      # DETECTION_RESULT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize result for JSON/logging (excludes debug_image)."""
+        ...
 ```
+
+**Schema versioning**: Like `DetectionContext`, the `schema_version` enables forward-compatible result handling. Downstream consumers can check the version before processing.
 
 **Normalized vs detector-specific outputs**
 
@@ -208,6 +216,8 @@ Recommended keys:
 - `num_contours`: Number of contours found in the binary mask.
 - `mask_area`: Non-zero pixel count in the mask used for line/contour analysis.
 - `hough_votes`: Hough line evidence count (e.g., number of detected lines).
+
+**Serialization**: Use `result.to_dict()` to get a JSON-serializable representation (excludes `debug_image` to avoid large binary data in logs).
 
 **Runtime parameters** (`context.runtime_params`):
 
