@@ -122,7 +122,20 @@ def _normalize_detection_result(result: DetectionResult) -> DetectionResult:
         raise MeteorConfigError(str(exc)) from exc
 
 
-def _normalize_output_result(result: OutputResult) -> OutputResult:
+def _normalize_output_result(result: OutputResult | bool) -> OutputResult:
+    if isinstance(result, bool):
+        warnings.warn(
+            "Output handler returned a legacy boolean instead of OutputResult. "
+            "Wrap legacy output handlers to return OutputResult to avoid this warning.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return OutputResult(
+            saved=result,
+            output_path=None,
+            debug_path=None,
+            handler_info={"legacy_return": True},
+        )
     try:
         return normalize_output_result(result)
     except ValueError as exc:
