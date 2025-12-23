@@ -45,7 +45,13 @@ from .schema import (
     DETECTION_CONTEXT_SCHEMA_VERSION,
     DetectionContext,
     DetectionParams,
+    DetectionResult,
+    InputContext,
+    OutputResult,
     PipelineConfig,
+    normalize_detection_result,
+    normalize_input_context,
+    normalize_output_result,
 )
 from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, LoaderRegistry
@@ -91,6 +97,34 @@ def _normalize_detection_context(context: DetectionContext) -> DetectionContext:
             f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
         )
     return converted
+
+
+def _normalize_input_context(
+    context: InputContext | Any, filepath: Optional[str] = None
+) -> InputContext:
+    if not isinstance(context, InputContext):
+        return InputContext(
+            image_data=context,
+            filepath=filepath or "",
+        )
+    try:
+        return normalize_input_context(context)
+    except ValueError as exc:
+        raise MeteorConfigError(str(exc)) from exc
+
+
+def _normalize_detection_result(result: DetectionResult) -> DetectionResult:
+    try:
+        return normalize_detection_result(result)
+    except ValueError as exc:
+        raise MeteorConfigError(str(exc)) from exc
+
+
+def _normalize_output_result(result: OutputResult) -> OutputResult:
+    try:
+        return normalize_output_result(result)
+    except ValueError as exc:
+        raise MeteorConfigError(str(exc)) from exc
 
 
 # Lazy initialization to avoid circular imports
@@ -496,7 +530,8 @@ def validate_raw_file(
     logger.debug("Validating RAW file [%d]: %s", index, raw_file)
 
     try:
-        loader.load(raw_file)
+        context = loader.load(raw_file)
+        _normalize_input_context(context, filepath=raw_file)
         logger.debug("Validation successful [%d]: %s", index, raw_file)
         return index, raw_file, None
     except MeteorError as exc:
@@ -563,8 +598,14 @@ def process_image_batch(
 
         try:
             # Load images
-            curr_context = loader.load(curr_file)
-            prev_context = loader.load(prev_file)
+            curr_context = _normalize_input_context(
+                loader.load(curr_file),
+                filepath=curr_file,
+            )
+            prev_context = _normalize_input_context(
+                loader.load(prev_file),
+                filepath=prev_file,
+            )
 
             # Delegate detection to the detector
             try:
@@ -584,7 +625,7 @@ def process_image_batch(
                 metadata=metadata,
             )
             context = _normalize_detection_context(context)
-            result = det.detect(context)
+            result = _normalize_detection_result(det.detect(context))
 
             results.append(
                 (
@@ -685,7 +726,10 @@ def estimate_diff_threshold_from_samples(
 
     for i in range(sample_size):
         try:
-            context = loader.load(files[i])
+            context = _normalize_input_context(
+                loader.load(files[i]),
+                filepath=files[i],
+            )
             samples.append(context.image_data)
         except Exception as exc:
             print(
@@ -883,7 +927,10 @@ def estimate_min_area_from_samples(
 
     for i in range(sample_size):
         try:
-            context = loader.load(files[i])
+            context = _normalize_input_context(
+                loader.load(files[i]),
+                filepath=files[i],
+            )
             samples.append(context.image_data)
         except Exception as exc:
             print(
@@ -1554,7 +1601,10 @@ class MeteorDetectionPipeline:
         # Load first image
         t_load = time.time()
         try:
-            prev_context = input_loader.load(files[0])
+            prev_context = _normalize_input_context(
+                input_loader.load(files[0]),
+                filepath=files[0],
+            )
         except Exception as exc:
             print(
                 get_message(
@@ -1831,6 +1881,7 @@ class MeteorDetectionPipeline:
                             output_result = self.output_handler.save_candidate(
                                 filepath, filename, debug_img, roi_polygon
                             )
+                            output_result = _normalize_output_result(output_result)
                             if output_result.saved:
                                 print(
                                     get_message(
@@ -1952,6 +2003,7 @@ class MeteorDetectionPipeline:
                     output_result = self.output_handler.save_candidate(
                         filepath, filename, debug_img, roi_polygon
                     )
+                    output_result = _normalize_output_result(output_result)
                     if output_result.saved:
                         print(
                             get_message(

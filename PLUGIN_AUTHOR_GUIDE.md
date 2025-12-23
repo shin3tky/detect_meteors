@@ -144,6 +144,8 @@ class InputContext:
 
 **Schema versioning**: The `schema_version` field enables future migration of loader plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing loaders to handle different versions gracefully. Current version is `1`.
 
+**Normalization point**: The pipeline calls `meteor_core.schema.normalize_input_context` immediately after `load` returns. If `schema_version` is older, the pipeline uses any converter registered via `meteor_core.schema.register_input_context_converter`; otherwise it rejects the input with a configuration error.
+
 **Serialization**: Use `context.to_dict()` to get a JSON-serializable representation (excludes `image_data` to avoid large binary data in logs).
 
 **Optional features**:
@@ -226,6 +228,8 @@ class DetectionResult:
 ```
 
 **Schema versioning**: Like `DetectionContext`, the `schema_version` enables forward-compatible result handling. Downstream consumers can check the version before processing.
+
+**Normalization point**: The pipeline calls `meteor_core.schema.normalize_detection_result` right after your `detect` implementation returns. If `schema_version` is older, it applies converters registered with `meteor_core.schema.register_detection_result_converter`; if no converter exists, the pipeline rejects the result.
 
 **Normalized vs detector-specific outputs**
 
@@ -328,6 +332,8 @@ class OutputResult:
 - `schema_version`: Contract version for future migrations (current: `1`).
 
 **Schema versioning**: The `schema_version` field enables future migration of handler plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing handlers to handle different versions gracefully. Current version is `1`.
+
+**Normalization point**: The pipeline calls `meteor_core.schema.normalize_output_result` immediately after `save_candidate` returns. If `schema_version` is older, it uses converters registered via `meteor_core.schema.register_output_result_converter`; without a converter, the pipeline rejects the result.
 
 **Serialization**: Use `result.to_dict()` to get a JSON-serializable representation for logging and debugging.
 

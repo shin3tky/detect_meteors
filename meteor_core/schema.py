@@ -9,7 +9,7 @@ Data structures, constants, and type definitions for meteor detection.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any, TYPE_CHECKING, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 import multiprocessing as mp
 
 if TYPE_CHECKING:
@@ -27,6 +27,15 @@ DETECTION_CONTEXT_SCHEMA_VERSION = 1
 DETECTION_RESULT_SCHEMA_VERSION = 1
 INPUT_CONTEXT_SCHEMA_VERSION = 1
 OUTPUT_RESULT_SCHEMA_VERSION = 1
+
+# ==========================================
+# Conversion Registries
+# ==========================================
+_INPUT_CONTEXT_CONVERTERS: Dict[int, Callable[["InputContext"], "InputContext"]] = {}
+_DETECTION_RESULT_CONVERTERS: Dict[
+    int, Callable[["DetectionResult"], "DetectionResult"]
+] = {}
+_OUTPUT_RESULT_CONVERTERS: Dict[int, Callable[["OutputResult"], "OutputResult"]] = {}
 
 # ==========================================
 # Default Settings
@@ -576,6 +585,111 @@ class OutputResult:
             "metrics": self.metrics,
             "schema_version": self.schema_version,
         }
+
+
+def register_input_context_converter(
+    version: int, converter: Callable[[InputContext], InputContext]
+) -> None:
+    """Register a converter for legacy InputContext schema versions."""
+    if version == INPUT_CONTEXT_SCHEMA_VERSION:
+        raise ValueError(
+            "Refusing to register InputContext converter for current schema_version "
+            f"{INPUT_CONTEXT_SCHEMA_VERSION}."
+        )
+    if version in _INPUT_CONTEXT_CONVERTERS:
+        raise ValueError(f"InputContext converter already registered for {version}.")
+    _INPUT_CONTEXT_CONVERTERS[version] = converter
+
+
+def register_detection_result_converter(
+    version: int, converter: Callable[[DetectionResult], DetectionResult]
+) -> None:
+    """Register a converter for legacy DetectionResult schema versions."""
+    if version == DETECTION_RESULT_SCHEMA_VERSION:
+        raise ValueError(
+            "Refusing to register DetectionResult converter for current schema_version "
+            f"{DETECTION_RESULT_SCHEMA_VERSION}."
+        )
+    if version in _DETECTION_RESULT_CONVERTERS:
+        raise ValueError(f"DetectionResult converter already registered for {version}.")
+    _DETECTION_RESULT_CONVERTERS[version] = converter
+
+
+def register_output_result_converter(
+    version: int, converter: Callable[[OutputResult], OutputResult]
+) -> None:
+    """Register a converter for legacy OutputResult schema versions."""
+    if version == OUTPUT_RESULT_SCHEMA_VERSION:
+        raise ValueError(
+            "Refusing to register OutputResult converter for current schema_version "
+            f"{OUTPUT_RESULT_SCHEMA_VERSION}."
+        )
+    if version in _OUTPUT_RESULT_CONVERTERS:
+        raise ValueError(f"OutputResult converter already registered for {version}.")
+    _OUTPUT_RESULT_CONVERTERS[version] = converter
+
+
+def normalize_input_context(context: InputContext) -> InputContext:
+    """Normalize InputContext to the current schema version."""
+    if context.schema_version == INPUT_CONTEXT_SCHEMA_VERSION:
+        return context
+
+    converter = _INPUT_CONTEXT_CONVERTERS.get(context.schema_version)
+    if converter is None:
+        raise ValueError(
+            "Unsupported InputContext schema_version "
+            f"{context.schema_version}; expected {INPUT_CONTEXT_SCHEMA_VERSION}."
+        )
+
+    converted = converter(context)
+    if converted.schema_version != INPUT_CONTEXT_SCHEMA_VERSION:
+        raise ValueError(
+            "InputContext converter did not return the expected schema_version "
+            f"{INPUT_CONTEXT_SCHEMA_VERSION}."
+        )
+    return converted
+
+
+def normalize_detection_result(result: DetectionResult) -> DetectionResult:
+    """Normalize DetectionResult to the current schema version."""
+    if result.schema_version == DETECTION_RESULT_SCHEMA_VERSION:
+        return result
+
+    converter = _DETECTION_RESULT_CONVERTERS.get(result.schema_version)
+    if converter is None:
+        raise ValueError(
+            "Unsupported DetectionResult schema_version "
+            f"{result.schema_version}; expected {DETECTION_RESULT_SCHEMA_VERSION}."
+        )
+
+    converted = converter(result)
+    if converted.schema_version != DETECTION_RESULT_SCHEMA_VERSION:
+        raise ValueError(
+            "DetectionResult converter did not return the expected schema_version "
+            f"{DETECTION_RESULT_SCHEMA_VERSION}."
+        )
+    return converted
+
+
+def normalize_output_result(result: OutputResult) -> OutputResult:
+    """Normalize OutputResult to the current schema version."""
+    if result.schema_version == OUTPUT_RESULT_SCHEMA_VERSION:
+        return result
+
+    converter = _OUTPUT_RESULT_CONVERTERS.get(result.schema_version)
+    if converter is None:
+        raise ValueError(
+            "Unsupported OutputResult schema_version "
+            f"{result.schema_version}; expected {OUTPUT_RESULT_SCHEMA_VERSION}."
+        )
+
+    converted = converter(result)
+    if converted.schema_version != OUTPUT_RESULT_SCHEMA_VERSION:
+        raise ValueError(
+            "OutputResult converter did not return the expected schema_version "
+            f"{OUTPUT_RESULT_SCHEMA_VERSION}."
+        )
+    return converted
 
 
 @dataclass
