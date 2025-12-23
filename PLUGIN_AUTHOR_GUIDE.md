@@ -441,7 +441,7 @@ misconfigured plugin.
 
 Plugins are discovered in this order (duplicates warn but don't overwrite):
 
-1. **Built-in plugins** (RawImageLoader, HoughDetector, FileOutputHandler)
+1. **Built-in plugins** (RawImageLoader, HoughDetector, SimpleThresholdDetector, FileOutputHandler)
 2. **Entry points** (sorted alphabetically by name)
 3. **Plugin directories** (sorted alphabetically by filename)
 4. **Runtime registrations** via `Registry.register()` (overrides discovered entries)
@@ -465,8 +465,8 @@ Example file structure:
 ```
 ~/.detect_meteors/
 └── input_plugins/
-    ├── fits_loader.py      # Contains: LoaderRegistry.register(FitsLoader)
-    └── tiff_loader.py      # Contains: LoaderRegistry.register(TiffLoader)
+    ├── fits_loader.py      # Defines: class FitsLoader(DataclassInputLoader)
+    └── tiff_loader.py      # Defines: class TiffLoader(DataclassInputLoader)
 ```
 
 **Entry Points** (in `pyproject.toml`):
