@@ -262,11 +262,12 @@ Recommended keys:
 
 **Runtime parameters** (`context.runtime_params`):
 
-The `runtime_params` dict contains CLI-configured detection settings and is
-namespaced to separate global and detector-specific values.
+Runtime parameters are carried as a `RuntimeParams` dataclass
+(`meteor_core.schema.RuntimeParams`). The serialized shape is:
 
 ```python
 {
+    "schema_version": 1,
     "global": { ... },        # Pipeline-wide params
     "detector": {
         "<plugin_name>": { ... }  # Detector-specific overrides
@@ -274,12 +275,21 @@ namespaced to separate global and detector-specific values.
 }
 ```
 
-Legacy detectors may still receive a flat dict; prefer reading from the
-namespaced structure when available.
+**Versioning policy**:
+- `schema_version` increments only when the structure above changes in a
+  backward-incompatible way.
+- New optional keys may be added without bumping the version as long as
+  existing keys remain valid.
+
+**Compatibility rules**:
+- `context.runtime_params` may be either a `RuntimeParams` instance or a plain
+  dict with the same keys.
+- Legacy detectors may still receive a flat dict; prefer reading from the
+  namespaced structure when available.
 
 `BaseDetector` provides helpers to make this easy:
 - `split_runtime_params(runtime_params)` → `(global_params, detector_params)`
-- `build_runtime_params(flat_params)` → namespaced structure
+- `build_runtime_params(flat_params)` → `RuntimeParams`
 - `detect_legacy(current_image, previous_image, roi_mask, params)` → adapter for
   the old signature
 

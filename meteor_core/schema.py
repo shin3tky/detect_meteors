@@ -27,6 +27,7 @@ DETECTION_CONTEXT_SCHEMA_VERSION = 1
 DETECTION_RESULT_SCHEMA_VERSION = 1
 INPUT_CONTEXT_SCHEMA_VERSION = 1
 OUTPUT_RESULT_SCHEMA_VERSION = 1
+RUNTIME_PARAMS_SCHEMA_VERSION = 1
 
 # ==========================================
 # Conversion Registries
@@ -283,19 +284,40 @@ class DetectionParams:
 
 
 @dataclass
+class RuntimeParams:
+    """Runtime parameters passed into detector execution."""
+
+    schema_version: int = RUNTIME_PARAMS_SCHEMA_VERSION
+    global_params: Dict[str, Any] = field(default_factory=dict)
+    detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+    def to_dict(self, include_schema_version: bool = True) -> Dict[str, Any]:
+        payload = {
+            "global": self.global_params,
+            "detector": self.detector,
+        }
+        if include_schema_version:
+            payload["schema_version"] = self.schema_version
+        return payload
+
+
+@dataclass
 class DetectionContext:
     """Input bundle for detector execution."""
 
     current_image: ImageLike
     previous_image: ImageLike
     roi_mask: Any
-    runtime_params: Dict[str, Any]
+    runtime_params: Union["RuntimeParams", Dict[str, Any]]
     metadata: Dict[str, Any]
     schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
+        runtime_params = self.runtime_params
+        if isinstance(runtime_params, RuntimeParams):
+            runtime_params = runtime_params.to_dict()
         return {
-            "runtime_params": self.runtime_params,
+            "runtime_params": runtime_params,
             "metadata": self.metadata,
             "schema_version": self.schema_version,
         }

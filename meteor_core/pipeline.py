@@ -49,6 +49,8 @@ from .schema import (
     InputContext,
     OutputResult,
     PipelineConfig,
+    RuntimeParams,
+    RUNTIME_PARAMS_SCHEMA_VERSION,
     normalize_detection_result,
     normalize_input_context,
     normalize_output_result,
@@ -161,7 +163,11 @@ def _build_runtime_params(
     params: Dict[str, Any], detector: BaseDetector
 ) -> Dict[str, Any]:
     detector_name = getattr(detector, "plugin_name", "") or DEFAULT_DETECTOR_NAME
-    return {"global": params, "detector": {detector_name: params}}
+    return RuntimeParams(
+        schema_version=RUNTIME_PARAMS_SCHEMA_VERSION,
+        global_params=params,
+        detector={detector_name: params},
+    ).to_dict(include_schema_version=False)
 
 
 def _resolve_detector(
