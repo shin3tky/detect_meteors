@@ -293,6 +293,13 @@ class DetectionContext:
     metadata: Dict[str, Any]
     schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "runtime_params": self.runtime_params,
+            "metadata": self.metadata,
+            "schema_version": self.schema_version,
+        }
+
 
 @dataclass
 class InputContext:

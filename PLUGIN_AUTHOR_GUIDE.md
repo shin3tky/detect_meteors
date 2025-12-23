@@ -197,6 +197,10 @@ class DetectionContext:
     runtime_params: Dict[str, Any]
     metadata: Dict[str, Any]     # {"current": {...}, "previous": {...}} in pipeline
     schema_version: int = 1      # DETECTION_CONTEXT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize context for JSON/logging (excludes current_image/previous_image/roi_mask)."""
+        ...
 ```
 
 **Schema versioning**: The `schema_version` field enables future migration of detector plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing detectors to handle different versions gracefully. Current version is `1`.
