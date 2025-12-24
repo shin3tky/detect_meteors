@@ -75,6 +75,43 @@ source .venv/bin/activate
 python detect_meteors_cli.py --help
 ```
 
+### Optional: Alias + completion (bash/zsh)
+
+If you prefer `uv run ...` but still want shell completion, add an alias and
+explicitly attach the provided completion function to that alias.
+
+**Bash (`~/.bashrc`)**
+
+```bash
+# detect_meteors alias
+alias detect_meteors='uv run python /path/to/detect_meteors_cli.py'
+
+# Load completion script (adjust path if needed)
+source /path/to/detect_meteors_cli_completion.bash
+
+# Attach completion to the alias
+complete -F _detect_meteors_cli_completion detect_meteors
+```
+
+**Zsh (`~/.zshrc`)**
+
+```zsh
+# Enable bash-style completion for the provided script
+autoload -U +X bashcompinit && bashcompinit
+
+# detect_meteors alias
+alias detect_meteors='uv run python /path/to/detect_meteors_cli.py'
+
+# Load completion script (adjust path if needed)
+source /path/to/detect_meteors_cli_completion.bash
+
+# Attach completion to the alias
+complete -F _detect_meteors_cli_completion detect_meteors
+```
+
+After updating your shell config, reload it (e.g. `source ~/.bashrc` or
+`source ~/.zshrc`) or start a new terminal session.
+
 ---
 
 ## Windows Installation

@@ -24,6 +24,8 @@ from meteor_core.schema import (
     DEFAULT_DETECTOR_NAME,
     DetectionContext,
     DetectionResult,
+    RUNTIME_PARAMS_SCHEMA_VERSION,
+    RuntimeParams,
 )
 
 ConfigType = TypeVar("ConfigType")
@@ -102,15 +104,25 @@ class BaseDetector(ABC, Generic[ConfigType]):
         )
         return self.detect(context)
 
-    def build_runtime_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def build_runtime_params(
+        self, params: Dict[str, Any] | RuntimeParams
+    ) -> Dict[str, Any]:
         """Wrap flat params into the namespaced runtime_params structure."""
+        if isinstance(params, RuntimeParams):
+            return params.to_dict(include_schema_version=False)
         detector_name = self.plugin_name or DEFAULT_DETECTOR_NAME
-        return {"global": params, "detector": {detector_name: params}}
+        return RuntimeParams(
+            global_params=params,
+            detector={detector_name: params},
+            schema_version=RUNTIME_PARAMS_SCHEMA_VERSION,
+        ).to_dict(include_schema_version=False)
 
     def split_runtime_params(
-        self, runtime_params: Dict[str, Any]
+        self, runtime_params: Dict[str, Any] | RuntimeParams
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Return (global_params, detector_params) from runtime_params."""
+        if isinstance(runtime_params, RuntimeParams):
+            runtime_params = runtime_params.to_dict()
         if not isinstance(runtime_params, dict):
             logger.error("runtime_params must be a dictionary.")
             raise TypeError("runtime_params must be a dictionary.")

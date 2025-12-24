@@ -1,5 +1,173 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.3 (2025-12-24)
+
+### 🔧 RuntimeParams Contract and Pipeline Normalization
+
+Version 1.6.3 completes the schema versioning initiative by adding `RuntimeParams` as a versioned dataclass and implementing automatic normalization checkpoints throughout the pipeline.
+
+### Highlights
+
+- **RuntimeParams dataclass**: Formalized runtime parameter passing with `schema_version`, namespaced structure, and `to_dict()` serialization
+- **DetectionContext.to_dict()**: New serialization method for logging and debugging (excludes image/mask payloads)
+- **Pipeline normalization checkpoints**: Automatic normalization of `InputContext`, `DetectionResult`, and `OutputResult` at pipeline boundaries
+- **Legacy boolean compatibility**: Output handlers returning `bool` are automatically wrapped in `OutputResult` with deprecation warning
+- **Documentation updates**: Comprehensive Plugin Author Guide updates for all contract types
+
+### Why This Change?
+
+This release finalizes the contract standardization across all plugin interfaces:
+
+| Contract | v1.6.1 | v1.6.2 | v1.6.3 |
+|----------|--------|--------|--------|
+| `DetectionContext` | ✅ schema_version | — | ✅ `to_dict()` |
+| `DetectionResult` | ✅ schema_version, metrics, `to_dict()` | — | — |
+| `InputContext` | — | ✅ schema_version, `to_dict()` | — |
+| `OutputResult` | — | ✅ schema_version, metrics, `to_dict()` | — |
+| `RuntimeParams` | — | — | ✅ NEW: schema_version, `to_dict()` |
+| **Pipeline normalization** | — | — | ✅ All contracts |
+
+Benefits:
+1. **Complete serialization**: All contracts now support `to_dict()` for JSON-compatible logging
+2. **Namespaced parameters**: `RuntimeParams` separates global params from detector-specific overrides
+3. **Automatic validation**: Pipeline normalizes all plugin outputs, catching schema mismatches early
+4. **Smooth migration**: Legacy `bool` returns from output handlers work with deprecation warnings
+
+### Schema Changes (v1.6.3)
+
+**RuntimeParams** (new in v1.6.3):
+```python
+@dataclass
+class RuntimeParams:
+    """Runtime parameters passed into detector execution."""
+
+    schema_version: int = 1                             # RUNTIME_PARAMS_SCHEMA_VERSION
+    global_params: Dict[str, Any] = field(default_factory=dict)
+    detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+    def to_dict(self, include_schema_version: bool = True) -> Dict[str, Any]:
+        """Serialize to dict for JSON/logging."""
+        ...
+```
+
+Serialized form via `to_dict()`:
+```python
+{
+    "schema_version": 1,
+    "global": {"diff_threshold": 8, "min_area": 10, ...},
+    "detector": {"hough": {"hough_threshold": 50}, ...},
+}
+```
+
+**DetectionContext.to_dict()** (new in v1.6.3):
+```python
+@dataclass
+class DetectionContext:
+    # ... existing fields ...
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize context for JSON/logging.
+
+        Excludes current_image, previous_image, and roi_mask
+        to avoid large binary data in logs.
+        """
+        ...
+```
+
+**Constants added**:
+```python
+RUNTIME_PARAMS_SCHEMA_VERSION = 1
+```
+
+### Pipeline Normalization
+
+The pipeline now automatically normalizes plugin outputs at these checkpoints:
+
+| Checkpoint | Function | Action |
+|------------|----------|--------|
+| After `loader.load()` | `normalize_input_context()` | Validates schema, applies converters |
+| After `detector.detect()` | `normalize_detection_result()` | Validates schema, applies converters |
+| After `handler.save_candidate()` | `normalize_output_result()` | Validates schema, wraps legacy `bool` |
+
+**Legacy boolean compatibility**:
+
+Output handlers returning `bool` instead of `OutputResult` are automatically wrapped:
+
+```python
+# Legacy handler (deprecated but still works)
+def save_candidate(self, source_path, filename, ...) -> bool:
+    # ... save logic ...
+    return True  # or False
+
+# Pipeline automatically converts to:
+# OutputResult(saved=True, output_path=None, debug_path=None)
+# with a deprecation warning logged
+```
+
+### Migration Guide for Plugin Authors
+
+**No immediate migration required.** All existing plugins continue to work.
+
+**Recommended updates**:
+
+1. **For Detector authors**: Access runtime params via the namespaced structure
+   ```python
+   def detect(self, context: DetectionContext) -> DetectionResult:
+       # Use helper methods from BaseDetector
+       global_params, detector_params = self.split_runtime_params(
+           context.runtime_params
+       )
+       params = {**global_params, **detector_params}
+   ```
+
+2. **For Output Handler authors**: Return `OutputResult` instead of `bool`
+   ```python
+   # Before (deprecated)
+   def save_candidate(self, ...) -> bool:
+       return True
+
+   # After (recommended)
+   def save_candidate(self, ...) -> OutputResult:
+       return OutputResult(saved=True, output_path=dest_path, debug_path=None)
+   ```
+
+3. **For debugging/logging**: Use `to_dict()` methods
+   ```python
+   logger.debug(f"Detection context: {context.to_dict()}")
+   logger.debug(f"Runtime params: {context.runtime_params.to_dict()}")
+   ```
+
+### BaseDetector Helper Methods
+
+`BaseDetector` provides convenience methods for working with `RuntimeParams`:
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `split_runtime_params` | `(runtime_params) -> (global_params, detector_params)` | Extract namespaced params |
+| `build_runtime_params` | `(flat_params) -> RuntimeParams` | Convert flat dict to RuntimeParams |
+| `detect_legacy` | `(current, previous, roi, params) -> DetectionResult` | Adapter for old signature |
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `meteor_core/schema.py` | Added `RuntimeParams`, `DetectionContext.to_dict()` |
+| `meteor_core/pipeline.py` | Added normalization checkpoints, legacy bool wrapping |
+| `PLUGIN_AUTHOR_GUIDE.md` | Comprehensive updates for all contracts |
+| `CHANGELOG.md` | Added v1.6.3 entry |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.6.2, v1.6.1, and v1.6.0:
+
+- **CLI**: No changes
+- **Runtime**: No changes to detection behavior
+- **API**: All existing plugins work unchanged
+- **Output handlers**: Legacy `bool` returns work with deprecation warning
+- **Detectors**: Legacy flat dict params still supported
+
+---
+
 ## Version 1.6.2 (2025-12-23)
 
 ### 🔧 Input/Output Context Contracts
@@ -479,7 +647,17 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
-### v1.6.2 (Latest)
+### v1.6.3 (Latest)
+- **Version**: 1.6.3
+- **Release Date**: 2025-12-24
+- **Major Changes**:
+  - RuntimeParams dataclass with schema versioning
+  - DetectionContext.to_dict() for serialization
+  - Pipeline normalization checkpoints for all contracts
+  - Legacy boolean compatibility for output handlers
+  - Comprehensive Plugin Author Guide updates
+
+### v1.6.2
 - **Version**: 1.6.2
 - **Release Date**: 2025-12-23
 - **Major Changes**:

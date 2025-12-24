@@ -18,9 +18,10 @@ This guide provides comprehensive instructions for developing custom plugins for
 1. [Application Lifecycle](#1-application-lifecycle)
 2. [Extension Points](#2-extension-points)
 3. [Plugin Architecture](#3-plugin-architecture)
-4. [Sample Code](#4-sample-code)
-5. [Best Practices](#5-best-practices)
-6. [Step-by-Step Tutorial](#6-step-by-step-tutorial)
+4. [Data Contracts Reference](#4-data-contracts-reference)
+5. [Sample Code](#5-sample-code)
+6. [Best Practices](#6-best-practices)
+7. [Step-by-Step Tutorial](#7-step-by-step-tutorial)
 
 ---
 
@@ -124,11 +125,13 @@ ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
 
 @dataclass
 class InputContext:
+    """Input bundle for loader execution."""
+
     image_data: ImageLike
     filepath: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     loader_info: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1      # INPUT_CONTEXT_SCHEMA_VERSION
+    schema_version: int = 1                             # INPUT_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize context for JSON/logging (excludes image_data)."""
@@ -143,6 +146,8 @@ class InputContext:
 - `schema_version`: Contract version for future migrations (current: `1`).
 
 **Schema versioning**: The `schema_version` field enables future migration of loader plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing loaders to handle different versions gracefully. Current version is `1`.
+
+**Normalization point**: The pipeline calls `meteor_core.schema.normalize_input_context` immediately after `load` returns. If `schema_version` is older, the pipeline uses any converter registered via `meteor_core.schema.register_input_context_converter`; otherwise it rejects the input with a configuration error.
 
 **Serialization**: Use `context.to_dict()` to get a JSON-serializable representation (excludes `image_data` to avoid large binary data in logs).
 
@@ -189,15 +194,23 @@ ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
 
 @dataclass
 class DetectionContext:
+    """Input bundle for detector execution."""
+
     current_image: ImageLike
     previous_image: ImageLike
-    roi_mask: Any                # Typically np.ndarray (uint8 mask)
-    runtime_params: Dict[str, Any]
-    metadata: Dict[str, Any]     # {"current": {...}, "previous": {...}} in pipeline
-    schema_version: int = 1      # DETECTION_CONTEXT_SCHEMA_VERSION
+    roi_mask: Any                                       # Typically np.ndarray (uint8 mask)
+    runtime_params: Union["RuntimeParams", Dict[str, Any]]
+    metadata: Dict[str, Any]                            # {"current": {...}, "previous": {...}} in pipeline
+    schema_version: int = 1                             # DETECTION_CONTEXT_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize context for JSON/logging (excludes current_image/previous_image/roi_mask)."""
+        ...
 ```
 
 **Schema versioning**: The `schema_version` field enables future migration of detector plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing detectors to handle different versions gracefully. Current version is `1`.
+
+**Normalization point**: The pipeline normalizes `DetectionContext` internally before passing it to your `detect` method. This normalization is handled by a pipeline-internal function (`_normalize_detection_context`), so plugin authors do not need to call it directly. Unlike `InputContext`, `DetectionResult`, and `OutputResult`, there is no public `normalize_detection_context` function or converter registration API exposed by `meteor_core.schema`.
 
 `current_image` and `previous_image` are typically `numpy.ndarray` today, but can
 also be provided as `torch.Tensor` or `PIL.Image.Image` for ML-based detectors.
@@ -211,14 +224,22 @@ performs the same normalization into a `torch.Tensor`.
 ```python
 @dataclass
 class DetectionResult:
+    """Result returned by detectors.
+
+    Standard diagnostics belong in ``metrics`` (e.g. ``duration_ms``,
+    ``num_contours``, ``mask_area``, ``hough_votes``). Use ``extras`` for
+    detector-specific or auxiliary data that should not be part of the
+    normalized comparison surface.
+    """
+
     is_candidate: bool
     score: float
     lines: List[Tuple[int, int, int, int]]
     aspect_ratio: float
-    debug_image: Optional[Any]   # Typically np.ndarray (BGR)
+    debug_image: Optional[Any]                          # Typically np.ndarray (BGR)
     extras: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1      # DETECTION_RESULT_SCHEMA_VERSION
+    schema_version: int = 1                             # DETECTION_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize result for JSON/logging (excludes debug_image)."""
@@ -226,6 +247,8 @@ class DetectionResult:
 ```
 
 **Schema versioning**: Like `DetectionContext`, the `schema_version` enables forward-compatible result handling. Downstream consumers can check the version before processing.
+
+**Normalization point**: The pipeline calls `meteor_core.schema.normalize_detection_result` right after your `detect` implementation returns. If `schema_version` is older, it applies converters registered with `meteor_core.schema.register_detection_result_converter`; if no converter exists, the pipeline rejects the result.
 
 **Normalized vs detector-specific outputs**
 
@@ -254,11 +277,28 @@ Recommended keys:
 
 **Runtime parameters** (`context.runtime_params`):
 
-The `runtime_params` dict contains CLI-configured detection settings and is
-namespaced to separate global and detector-specific values.
+Runtime parameters are carried as a `RuntimeParams` dataclass
+(`meteor_core.schema.RuntimeParams`):
+
+```python
+@dataclass
+class RuntimeParams:
+    """Runtime parameters passed into detector execution."""
+
+    schema_version: int = 1                             # RUNTIME_PARAMS_SCHEMA_VERSION
+    global_params: Dict[str, Any] = field(default_factory=dict)
+    detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+    def to_dict(self, include_schema_version: bool = True) -> Dict[str, Any]:
+        """Serialize to dict for JSON/logging."""
+        ...
+```
+
+The serialized shape (via `to_dict()`) is:
 
 ```python
 {
+    "schema_version": 1,
     "global": { ... },        # Pipeline-wide params
     "detector": {
         "<plugin_name>": { ... }  # Detector-specific overrides
@@ -266,12 +306,21 @@ namespaced to separate global and detector-specific values.
 }
 ```
 
-Legacy detectors may still receive a flat dict; prefer reading from the
-namespaced structure when available.
+**Versioning policy**:
+- `schema_version` increments only when the structure above changes in a
+  backward-incompatible way.
+- New optional keys may be added without bumping the version as long as
+  existing keys remain valid.
+
+**Compatibility rules**:
+- `context.runtime_params` may be either a `RuntimeParams` instance or a plain
+  dict with the same keys.
+- Legacy detectors may still receive a flat dict; prefer reading from the
+  namespaced structure when available.
 
 `BaseDetector` provides helpers to make this easy:
 - `split_runtime_params(runtime_params)` → `(global_params, detector_params)`
-- `build_runtime_params(flat_params)` → namespaced structure
+- `build_runtime_params(flat_params)` → `RuntimeParams`
 - `detect_legacy(current_image, previous_image, roi_mask, params)` → adapter for
   the old signature
 
@@ -307,12 +356,14 @@ namespaced structure when available.
 ```python
 @dataclass
 class OutputResult:
+    """Result returned by output handlers."""
+
     saved: bool
     output_path: Optional[str]
     debug_path: Optional[str]
     handler_info: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1      # OUTPUT_RESULT_SCHEMA_VERSION
+    schema_version: int = 1                             # OUTPUT_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize result for JSON/logging."""
@@ -328,6 +379,8 @@ class OutputResult:
 - `schema_version`: Contract version for future migrations (current: `1`).
 
 **Schema versioning**: The `schema_version` field enables future migration of handler plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing handlers to handle different versions gracefully. Current version is `1`.
+
+**Normalization point**: The pipeline calls `meteor_core.schema.normalize_output_result` immediately after `save_candidate` returns. If `schema_version` is older, it uses converters registered via `meteor_core.schema.register_output_result_converter`; without a converter, the pipeline rejects the result.
 
 **Serialization**: Use `result.to_dict()` to get a JSON-serializable representation for logging and debugging.
 
@@ -441,7 +494,7 @@ misconfigured plugin.
 
 Plugins are discovered in this order (duplicates warn but don't overwrite):
 
-1. **Built-in plugins** (RawImageLoader, HoughDetector, FileOutputHandler)
+1. **Built-in plugins** (RawImageLoader, HoughDetector, SimpleThresholdDetector, FileOutputHandler)
 2. **Entry points** (sorted alphabetically by name)
 3. **Plugin directories** (sorted alphabetically by filename)
 4. **Runtime registrations** via `Registry.register()` (overrides discovered entries)
@@ -465,8 +518,8 @@ Example file structure:
 ```
 ~/.detect_meteors/
 └── input_plugins/
-    ├── fits_loader.py      # Contains: LoaderRegistry.register(FitsLoader)
-    └── tiff_loader.py      # Contains: LoaderRegistry.register(TiffLoader)
+    ├── fits_loader.py      # Defines: class FitsLoader(DataclassInputLoader)
+    └── tiff_loader.py      # Defines: class TiffLoader(DataclassInputLoader)
 ```
 
 **Entry Points** (in `pyproject.toml`):
@@ -483,9 +536,370 @@ my_handler = "my_package.handlers:MyHandler"
 
 ---
 
-## 4. Sample Code
+## 4. Data Contracts Reference
 
-### 4.1 Input Loader (Complete Example)
+This section provides a comprehensive reference for the dataclasses used in the plugin system. All dataclasses are imported from `meteor_core.schema`.
+
+```python
+from meteor_core.schema import (
+    InputContext,
+    DetectionContext,
+    DetectionResult,
+    OutputResult,
+    RuntimeParams,
+)
+```
+
+### 4.1 InputContext
+
+`InputContext` bundles the loaded image data with metadata for downstream processing.
+
+**Import**: `from meteor_core.schema import InputContext`
+
+```python
+@dataclass
+class InputContext:
+    """Input bundle for loader execution."""
+
+    image_data: ImageLike                               # Loaded image pixels
+    filepath: str                                       # Original file path
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    loader_info: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = INPUT_CONTEXT_SCHEMA_VERSION  # Currently 1
+
+    def to_dict(self) -> Dict[str, Any]: ...
+```
+
+**Fields**:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `image_data` | `ImageLike` | — | Loaded image pixels. Accepts `np.ndarray`, `torch.Tensor`, or `PIL.Image.Image`. |
+| `filepath` | `str` | — | Original path of the loaded image file. |
+| `metadata` | `Dict[str, Any]` | `{}` | Loader-provided metadata (EXIF, timestamps, camera info, etc.). |
+| `loader_info` | `Dict[str, Any]` | `{}` | Loader identity details from `BaseInputLoader.get_info()`. |
+| `schema_version` | `int` | `1` | Contract version for future migrations. |
+
+**Usage Example**:
+
+```python
+from meteor_core.schema import InputContext
+from meteor_core.inputs import DataclassInputLoader
+
+class MyLoader(DataclassInputLoader[MyConfig]):
+    def load(self, filepath: str) -> InputContext:
+        image = self._load_image(filepath)
+        return InputContext(
+            image_data=image,
+            filepath=filepath,
+            metadata={"camera": "Canon EOS R5", "iso": 6400},
+            loader_info=self.get_info(),
+        )
+```
+
+**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `image_data` to avoid large binary data in logs).
+
+### 4.2 DetectionContext
+
+`DetectionContext` bundles all inputs required for detector execution.
+
+**Import**: `from meteor_core.schema import DetectionContext`
+
+```python
+@dataclass
+class DetectionContext:
+    """Input bundle for detector execution."""
+
+    current_image: ImageLike                            # Current frame
+    previous_image: ImageLike                           # Previous frame for differencing
+    roi_mask: Any                                       # ROI mask (typically np.ndarray uint8)
+    runtime_params: Union[RuntimeParams, Dict[str, Any]]
+    metadata: Dict[str, Any]                            # {"current": {...}, "previous": {...}}
+    schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION  # Currently 1
+
+    def to_dict(self) -> Dict[str, Any]: ...
+```
+
+**Fields**:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `current_image` | `ImageLike` | — | Current frame to analyze. |
+| `previous_image` | `ImageLike` | — | Previous frame for frame differencing. |
+| `roi_mask` | `Any` | — | ROI mask (typically `np.ndarray` with dtype `uint8`). |
+| `runtime_params` | `RuntimeParams \| Dict` | — | Runtime parameters (see below). |
+| `metadata` | `Dict[str, Any]` | — | Metadata dict with keys `"current"` and `"previous"` containing per-frame metadata. |
+| `schema_version` | `int` | `1` | Contract version for future migrations. |
+
+**RuntimeParams Structure**:
+
+```python
+@dataclass
+class RuntimeParams:
+    schema_version: int = 1
+    global_params: Dict[str, Any] = field(default_factory=dict)  # Pipeline-wide params
+    detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # Per-detector overrides
+```
+
+Serialized form via `to_dict()`:
+```python
+{
+    "schema_version": 1,
+    "global": {"diff_threshold": 8, "min_area": 10, ...},
+    "detector": {"hough": {"hough_threshold": 50}, ...},
+}
+```
+
+**Usage Example**:
+
+```python
+from meteor_core.schema import DetectionContext, DetectionResult
+from meteor_core.detectors import DataclassDetector
+from meteor_core.utils import ensure_numpy
+
+class MyDetector(DataclassDetector[MyConfig]):
+    def detect(self, context: DetectionContext) -> DetectionResult:
+        # Normalize images to numpy arrays
+        current = ensure_numpy(context.current_image)
+        previous = ensure_numpy(context.previous_image)
+        roi_mask = ensure_numpy(context.roi_mask)
+
+        # Extract runtime params
+        global_params, detector_params = self.split_runtime_params(
+            context.runtime_params
+        )
+        params = {**global_params, **detector_params}
+
+        # Access per-frame metadata
+        current_meta = context.metadata.get("current", {})
+        previous_meta = context.metadata.get("previous", {})
+
+        # Perform detection...
+        return DetectionResult(...)
+```
+
+**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `current_image`, `previous_image`, and `roi_mask`).
+
+**Normalization**: Unlike `InputContext` and `OutputResult`, the normalization of `DetectionContext` is handled internally by the pipeline (via `_normalize_detection_context` in `meteor_core.pipeline`). Plugin authors do not need to call any normalization function for `DetectionContext`, and there is no public `normalize_detection_context()` or `register_detection_context_converter()` function exposed by `meteor_core.schema`.
+
+### 4.3 DetectionResult
+
+`DetectionResult` encapsulates the output of a detector's `detect()` method.
+
+**Import**: `from meteor_core.schema import DetectionResult`
+
+```python
+@dataclass
+class DetectionResult:
+    """Result returned by detectors.
+
+    Standard diagnostics belong in ``metrics`` (e.g. ``duration_ms``,
+    ``num_contours``, ``mask_area``, ``hough_votes``). Use ``extras`` for
+    detector-specific or auxiliary data that should not be part of the
+    normalized comparison surface.
+    """
+
+    is_candidate: bool                                  # Detection decision
+    score: float                                        # Detection confidence score
+    lines: List[Tuple[int, int, int, int]]              # Detected line segments
+    aspect_ratio: float                                 # Max contour aspect ratio
+    debug_image: Optional[Any]                          # Debug visualization (BGR)
+    extras: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = DETECTION_RESULT_SCHEMA_VERSION  # Currently 1
+
+    def to_dict(self) -> Dict[str, Any]: ...
+```
+
+**Fields**:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `is_candidate` | `bool` | — | `True` if the frame contains a meteor candidate. |
+| `score` | `float` | — | Detection confidence score (higher = more confident). |
+| `lines` | `List[Tuple[int, int, int, int]]` | — | Detected line segments as `(x1, y1, x2, y2)` tuples. |
+| `aspect_ratio` | `float` | — | Maximum aspect ratio of detected contours. |
+| `debug_image` | `Optional[Any]` | — | Debug visualization image (typically BGR `np.ndarray`). |
+| `extras` | `Dict[str, Any]` | `{}` | Detector-specific auxiliary data (see below). |
+| `metrics` | `Dict[str, Any]` | `{}` | Standard diagnostics for analysis tools. |
+| `schema_version` | `int` | `1` | Contract version for future migrations. |
+
+**metrics vs extras**:
+
+| Dictionary | Purpose | Recommended Keys |
+|------------|---------|------------------|
+| `metrics` | Stable diagnostics for downstream analysis tools | `duration_ms`, `num_contours`, `mask_area`, `hough_votes` |
+| `extras` | Detector-specific or auxiliary data | `bounding_boxes`, `polygons`, `masks`, custom keys |
+
+**Usage Example**:
+
+```python
+from meteor_core.schema import DetectionResult
+
+def detect(self, context: DetectionContext) -> DetectionResult:
+    start_time = time.perf_counter()
+
+    # ... detection logic ...
+
+    duration_ms = (time.perf_counter() - start_time) * 1000
+
+    return DetectionResult(
+        is_candidate=score >= threshold,
+        score=score,
+        lines=[(x1, y1, x2, y2) for line in detected_lines],
+        aspect_ratio=max_aspect_ratio,
+        debug_image=debug_visualization,
+        extras={
+            "bounding_boxes": [{"x1": 10, "y1": 20, "x2": 100, "y2": 50}],
+            "algorithm_variant": "adaptive",
+        },
+        metrics={
+            "duration_ms": duration_ms,
+            "num_contours": len(contours),
+            "mask_area": int(np.count_nonzero(binary_mask)),
+            "hough_votes": len(hough_lines),
+        },
+    )
+```
+
+**Serialization**: `result.to_dict()` returns a JSON-serializable dict (excludes `debug_image`).
+
+### 4.4 OutputResult
+
+`OutputResult` encapsulates the result of an output handler's `save_candidate()` method.
+
+**Import**: `from meteor_core.schema import OutputResult`
+
+```python
+@dataclass
+class OutputResult:
+    """Result returned by output handlers."""
+
+    saved: bool                                         # Whether save succeeded
+    output_path: Optional[str]                          # Path to saved candidate
+    debug_path: Optional[str]                           # Path to saved debug image
+    handler_info: Dict[str, Any] = field(default_factory=dict)
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = OUTPUT_RESULT_SCHEMA_VERSION  # Currently 1
+
+    def to_dict(self) -> Dict[str, Any]: ...
+```
+
+**Fields**:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `saved` | `bool` | — | `True` if the handler persisted the candidate successfully. |
+| `output_path` | `Optional[str]` | — | Location of the persisted candidate file (if any). |
+| `debug_path` | `Optional[str]` | — | Location of the persisted debug image (if any). |
+| `handler_info` | `Dict[str, Any]` | `{}` | Handler identity details from `BaseOutputHandler.get_info()`. |
+| `metrics` | `Dict[str, Any]` | `{}` | Stable diagnostics (duration, bytes written, etc.). |
+| `schema_version` | `int` | `1` | Contract version for future migrations. |
+
+**Usage Example**:
+
+```python
+from meteor_core.schema import OutputResult
+
+def save_candidate(
+    self,
+    source_path: str,
+    filename: str,
+    debug_image: Optional[np.ndarray] = None,
+    roi_polygon: Optional[List[List[int]]] = None,
+) -> OutputResult:
+    start_time = time.perf_counter()
+    dest_path = os.path.join(self.config.output_folder, filename)
+
+    try:
+        shutil.copy2(source_path, dest_path)
+        bytes_written = os.path.getsize(dest_path)
+
+        debug_path = None
+        if debug_image is not None:
+            debug_path = self.save_debug_image(debug_image, filename, roi_polygon)
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+
+        return OutputResult(
+            saved=True,
+            output_path=dest_path,
+            debug_path=debug_path,
+            handler_info=self.get_info(),
+            metrics={
+                "duration_ms": duration_ms,
+                "bytes_written": bytes_written,
+            },
+        )
+    except OSError as e:
+        return OutputResult(
+            saved=False,
+            output_path=dest_path,
+            debug_path=None,
+            handler_info=self.get_info(),
+            metrics={"error": str(e)},
+        )
+```
+
+**Serialization**: `result.to_dict()` returns a JSON-serializable dict.
+
+### 4.5 Schema Versioning and Normalization
+
+All four dataclasses include a `schema_version` field (currently `1`) to enable forward-compatible evolution of the plugin system.
+
+**Available normalize/converter functions**:
+
+| Dataclass | normalize function | converter registration |
+|-----------|-------------------|------------------------|
+| `InputContext` | `meteor_core.schema.normalize_input_context()` | `register_input_context_converter()` |
+| `DetectionContext` | Pipeline-internal only | Not exposed publicly |
+| `DetectionResult` | `meteor_core.schema.normalize_detection_result()` | `register_detection_result_converter()` |
+| `OutputResult` | `meteor_core.schema.normalize_output_result()` | `register_output_result_converter()` |
+
+> **Note**: `DetectionContext` normalization is handled internally by the pipeline (`_normalize_detection_context` in `meteor_core.pipeline`). Plugin authors do not need to call it directly, and there is no public converter registration function for `DetectionContext`.
+
+**How it works**:
+1. Plugins return dataclass instances with their implemented `schema_version`.
+2. The pipeline calls `normalize_*()` functions immediately after plugin methods return.
+3. If `schema_version` matches the current version, the instance passes through unchanged.
+4. If `schema_version` is older, registered converters upgrade the instance.
+5. If no converter exists for an older version, the pipeline raises `ValueError` (or `MeteorConfigError` for `DetectionContext`).
+
+**Registering converters** (for backward compatibility):
+
+```python
+from meteor_core.schema import (
+    register_input_context_converter,
+    register_detection_result_converter,
+    register_output_result_converter,
+)
+
+def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResult:
+    """Convert v0 DetectionResult to v1 format."""
+    return DetectionResult(
+        is_candidate=result.is_candidate,
+        score=result.score,
+        lines=result.lines,
+        aspect_ratio=result.aspect_ratio,
+        debug_image=result.debug_image,
+        extras=result.extras,
+        metrics=result.metrics if hasattr(result, 'metrics') else {},
+        schema_version=1,
+    )
+
+register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
+```
+
+**Versioning policy**:
+- `schema_version` increments only for backward-incompatible structural changes.
+- New optional fields can be added without version bump.
+- Current version for all dataclasses is `1`.
+
+---
+
+## 5. Sample Code
+
+### 5.1 Input Loader (Complete Example)
 
 ```python
 """Custom TIFF image loader with metadata extraction, logging, and exceptions."""
@@ -643,7 +1057,7 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
 LoaderRegistry.register(TiffImageLoader)
 ```
 
-### 4.2 Detector (Complete Example)
+### 5.2 Detector (Complete Example)
 
 ```python
 """Simple threshold-based detector for bright meteors with logging."""
@@ -860,7 +1274,7 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 DetectorRegistry.register(ThresholdDetector)
 ```
 
-### 4.3 Output Handler with Lifecycle Hooks (Secondary Handler Example)
+### 5.3 Output Handler with Lifecycle Hooks (Secondary Handler Example)
 
 > **Note**: The pipeline does not call lifecycle hooks in v1.5.x. Implementing
 > them is safe (and future-proof) but you will only see them execute if you
@@ -1202,9 +1616,9 @@ OutputHandlerRegistry.register(SlackNotificationHandler)
 
 ---
 
-## 5. Best Practices
+## 6. Best Practices
 
-### 5.1 Choosing ConfigType
+### 6.1 Choosing ConfigType
 
 Use this decision tree to select the right configuration approach:
 
@@ -1258,7 +1672,7 @@ class MyConfig(BaseModel):
     model_config = {"extra": "forbid"}  # Reject unknown keys
 ```
 
-### 5.2 Required Attributes
+### 6.2 Required Attributes
 
 | Attribute | Required | Type | Description |
 |-----------|----------|------|-------------|
@@ -1267,7 +1681,7 @@ class MyConfig(BaseModel):
 | `version` | ❌ No | `str` | Version string |
 | `ConfigType` | ❌ No | `type` | Configuration class |
 
-### 5.3 Exception Hierarchy and Error Handling
+### 6.3 Exception Hierarchy and Error Handling
 
 #### Exception Hierarchy
 
@@ -1514,7 +1928,7 @@ class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
             logger.warning(f"Notification failed: {e}")
 ```
 
-### 5.4 Logging Guidelines
+### 6.4 Logging Guidelines
 
 #### Setting Up Logging
 
@@ -1666,7 +2080,7 @@ except MeteorLoadError as e:
     raise
 ```
 
-### 5.5 Performance Considerations
+### 6.5 Performance Considerations
 
 **Input Loaders**:
 - Return single-channel arrays; use uint16 by default or float32 if you normalize
@@ -1683,7 +2097,7 @@ except MeteorLoadError as e:
 - Buffer notifications for batch sending if needed
 - Use async I/O for network operations (advanced)
 
-### 5.6 Thread Safety
+### 6.6 Thread Safety
 
 The pipeline may process images in parallel. Ensure your plugins are thread-safe:
 
@@ -1701,9 +2115,9 @@ class MyHandler(DataclassOutputHandler[MyConfig]):
 
 ---
 
-## 6. Step-by-Step Tutorial
+## 7. Step-by-Step Tutorial
 
-### 6.1 Step-by-Step: Creating a Plugin
+### 7.1 Step-by-Step: Creating a Plugin
 
 #### Step 1: Choose Plugin Type and Base Class
 

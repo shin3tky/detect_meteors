@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.6.3 - 2025-12-24
+- **RuntimeParams contract**: Added `RuntimeParams` dataclass to formalize runtime parameter passing.
+  - `RUNTIME_PARAMS_SCHEMA_VERSION = 1` constant for version tracking.
+  - `RuntimeParams`: Contains `schema_version`, `global_params`, `detector` (namespaced per-detector overrides).
+  - New `to_dict()` method for serialization support.
+  - `BaseDetector` helpers: `split_runtime_params()`, `build_runtime_params()`, `detect_legacy()`.
+- **DetectionContext serialization**: Added `to_dict()` method to `DetectionContext` for logging/debugging (excludes image/mask payloads).
+- **Pipeline normalization checkpoints**: Automatic normalization of `InputContext`, `DetectionResult`, and `OutputResult` at pipeline boundaries.
+- **Legacy boolean compatibility**: Output handlers returning `bool` are automatically wrapped in `OutputResult` with deprecation warning.
+- **Updated Plugin Author Guide**: Comprehensive documentation for `RuntimeParams` and pipeline normalization.
+- **Backward compatibility**: Fully compatible with v1.6.2. Legacy `bool` returns work with deprecation warnings.
+
 ## v1.6.2 - 2025-12-23
 - **Input/output context contracts**: Added `InputContext` and `OutputResult` dataclasses to standardize loader/handler return values.
   - `INPUT_CONTEXT_SCHEMA_VERSION = 1` and `OUTPUT_RESULT_SCHEMA_VERSION = 1` constants for version tracking.

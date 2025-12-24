@@ -104,15 +104,16 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.2
+## What's New in v1.6.3
 
-- **Input/output context contracts**: `InputContext` and `OutputResult` standardize loader/handler return values
-  - `schema_version` field for future migration support
-  - `loader_info`/`handler_info` for plugin identity tracking
-  - `metrics` field in `OutputResult` for performance diagnostics
-  - `to_dict()` method for serialization support
-- **Complete plugin contract coverage**: All three plugin types (loaders, detectors, handlers) now have versioned contracts
-- **Documentation updates**: Plugin Author Guide updated with comprehensive contract documentation
+- **RuntimeParams contract**: Formalized runtime parameter passing with namespaced structure
+  - `global_params` for pipeline-wide parameters
+  - `detector` dict for per-detector overrides
+  - `to_dict()` method for serialization
+- **DetectionContext.to_dict()**: Serialize context for logging/debugging (excludes image/mask payloads)
+- **Pipeline normalization**: Automatic validation and normalization at all plugin boundaries
+- **Legacy compatibility**: Output handlers returning `bool` are wrapped in `OutputResult` with deprecation warning
+- **Documentation updates**: Comprehensive Plugin Author Guide for all contract types
 
 For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
 
