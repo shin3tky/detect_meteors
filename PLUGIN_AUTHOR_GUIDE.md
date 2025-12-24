@@ -81,7 +81,7 @@ For each image pair (current, previous):
     │                                                             │
     │  Returns: OutputResult                                      │
     │  Lifecycle Hooks (Output Handlers):                         │
-    │  • on_detection_result()                                    │
+    │  • on_detection_result(context_payload)                     │
     │  • on_candidate_detected()                                  │
     │  • on_batch_complete()                                      │
     │  • on_pipeline_complete()                                   │
@@ -92,7 +92,9 @@ For each image pair (current, previous):
 
 Output Handlers define lifecycle hooks. The pipeline now invokes per-frame hooks
 (`on_detection_result`, `on_candidate_detected`), while batch/pipeline hooks are
-reserved for future releases.
+reserved for future releases. The `on_detection_result` hook receives a
+serialized context payload (from `DetectionContext.to_dict()`), not raw image
+arrays.
 
 | Event | Current Status | Intended Use Case |
 |-------|----------------|-------------------|
@@ -391,13 +393,13 @@ class OutputResult:
 **Lifecycle hooks (optional)**:
 | Hook | Signature |
 |------|-----------|
-| `on_detection_result` | `(context, result, filepath) -> None` |
+| `on_detection_result` | `(context_payload, result, filepath) -> None` |
 | `on_candidate_detected` | `(filename, saved, score, aspect_ratio) -> None` |
 | `on_batch_complete` | `(processed_count, detected_count, batch_size) -> None` |
 | `on_pipeline_complete` | `(total_processed, total_detected, elapsed_seconds) -> None` |
 
 **Invocation order (per frame)**:
-1. `on_detection_result()` — called immediately after the detector returns and the pipeline normalizes `DetectionResult`.
+1. `on_detection_result()` — called immediately after the detector returns and the pipeline normalizes `DetectionResult`. The `context_payload` is the result of `DetectionContext.to_dict()` and excludes image/ROI arrays.
 2. `save_candidate()` — only if `result.is_candidate` is `True`.
 3. `on_candidate_detected()` — called after `save_candidate()` returns (with `saved` reflecting the output decision).
 
@@ -688,7 +690,7 @@ class MyDetector(DataclassDetector[MyConfig]):
         return DetectionResult(...)
 ```
 
-**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `current_image`, `previous_image`, and `roi_mask`).
+**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `current_image`, `previous_image`, and `roi_mask`). The pipeline uses this payload when invoking `on_detection_result()` to avoid transferring large image arrays.
 
 **Normalization**: Unlike `InputContext` and `OutputResult`, the normalization of `DetectionContext` is handled internally by the pipeline (via `_normalize_detection_context` in `meteor_core.pipeline`). Plugin authors do not need to call any normalization function for `DetectionContext`, and there is no public `normalize_detection_context()` or `register_detection_context_converter()` function exposed by `meteor_core.schema`.
 
@@ -1288,8 +1290,10 @@ DetectorRegistry.register(ThresholdDetector)
 
 Per-frame hooks run during detection, so you can use `DetectionResult.lines` to
 inspect line segments and `DetectionResult.extras` to read detector-specific
-metadata (e.g., bounding boxes, masks, or algorithm tags). Keep `extras`
-JSON-serializable so it can be logged or emitted to observability tools.
+metadata (e.g., bounding boxes, masks, or algorithm tags). The
+`context_payload` argument contains `DetectionContext.to_dict()` output (no
+image buffers). Keep `extras` JSON-serializable so it can be logged or emitted
+to observability tools.
 
 ```python
 """Slack notification handler with full lifecycle support, logging, and exceptions."""
@@ -1299,7 +1303,7 @@ import os
 import shutil
 import urllib.request
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -1307,7 +1311,7 @@ import numpy as np
 from meteor_core.i18n import DEFAULT_LOCALE, get_message
 from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
 from meteor_core.exceptions import MeteorWriteError
-from meteor_core.schema import DetectionContext, DetectionResult, OutputResult
+from meteor_core.schema import DetectionResult, OutputResult
 
 # Set up logger for this plugin
 logger = logging.getLogger("meteor_core.outputs.slack_handler")
@@ -1481,7 +1485,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
 
     def on_detection_result(
         self,
-        context: DetectionContext,
+        context_payload: Dict[str, Any],
         result: DetectionResult,
         filepath: str,
     ) -> None:
@@ -1492,14 +1496,16 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
         """
         try:
             basename = os.path.basename(filepath)
+            runtime_params = context_payload.get("runtime_params", {})
             line_count = len(result.lines)
             extra_keys = ", ".join(sorted(result.extras.keys()))
             logger.debug(
-                "on_detection_result: %s is_candidate=%s lines=%d extras=%s",
+                "on_detection_result: %s is_candidate=%s lines=%d extras=%s params=%s",
                 basename,
                 result.is_candidate,
                 line_count,
                 extra_keys or "(none)",
+                runtime_params,
             )
         except Exception as e:
             # NEVER raise in lifecycle hooks
