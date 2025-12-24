@@ -586,7 +586,9 @@ def process_image_batch(
     params: dict,
     input_loader: Optional[BaseInputLoader] = None,
     detector: Optional[BaseDetector] = None,
-) -> List[Tuple]:
+) -> List[
+    Tuple[bool, str, str, float, Optional[Any], float, int, Optional[DetectionResult]]
+]:
     """
     Process a batch of images (handle multiple pairs at once).
 
@@ -599,7 +601,19 @@ def process_image_batch(
 
     Returns:
         List of processing results for each image:
-        [(is_candidate, filename, filepath, line_score, debug_img, aspect_ratio, num_lines), ...]
+        [
+            (
+                is_candidate,
+                filename,
+                filepath,
+                line_score,
+                debug_img,
+                aspect_ratio,
+                num_lines,
+                detection_result,
+            ),
+            ...
+        ]
 
     Note:
         Errors during processing are logged but do not stop batch processing.
@@ -655,6 +669,7 @@ def process_image_batch(
                     result.debug_image,
                     result.aspect_ratio,
                     len(result.lines),
+                    result,
                 )
             )
 
@@ -677,7 +692,7 @@ def process_image_batch(
                     "error_category": e.context.get("error_category"),
                 },
             )
-            results.append((False, filename, curr_file, 0.0, None, 0.0, 0))
+            results.append((False, filename, curr_file, 0.0, None, 0.0, 0, None))
 
         except Exception as e:
             logger.error(
@@ -688,7 +703,7 @@ def process_image_batch(
                 exc_info=True,
                 extra={"filepath": curr_file, "error_type": type(e).__name__},
             )
-            results.append((False, filename, curr_file, 0.0, None, 0.0, 0))
+            results.append((False, filename, curr_file, 0.0, None, 0.0, 0, None))
 
     return results
 
@@ -1882,6 +1897,7 @@ class MeteorDetectionPipeline:
                             debug_img,
                             aspect_ratio,
                             num_lines,
+                            detection_result,
                         ) = result
                         processed += 1
 
@@ -2003,6 +2019,7 @@ class MeteorDetectionPipeline:
                     debug_img,
                     aspect_ratio,
                     num_lines,
+                    detection_result,
                 ) = result
 
                 if line_score > 0:

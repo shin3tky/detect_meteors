@@ -59,6 +59,7 @@ from meteor_core import (
     process_image_batch,
     compute_params_hash,
     ProgressManager,
+    DetectionResult,
 )
 from meteor_core.utils import _display_width, _pad_label
 
@@ -1243,7 +1244,7 @@ def _run_parallel_detection(
         batch_size: Batch size for processing
         resume_offset: Offset for progress display
         overall_total: Total number of files for progress display
-        record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio)
+        record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio, detection_result)
 
     Returns:
         Number of detected candidates
@@ -1288,6 +1289,7 @@ def _run_parallel_detection(
                         debug_img,
                         aspect_ratio,
                         num_lines,
+                        detection_result,
                     ) = result
                     processed += 1
 
@@ -1342,7 +1344,12 @@ def _run_parallel_detection(
                         )
 
                     detected_count = record_result_callback(
-                        filename, is_candidate, line_score, num_lines, aspect_ratio
+                        filename,
+                        is_candidate,
+                        line_score,
+                        num_lines,
+                        aspect_ratio,
+                        detection_result,
                     )
 
             except Exception as e:
@@ -1392,7 +1399,7 @@ def _run_sequential_detection(
         output_overwrite: Whether to overwrite existing files
         resume_offset: Offset for progress display
         overall_total: Total number of files for progress display
-        record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio)
+        record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio, detection_result)
 
     Returns:
         Number of detected candidates
@@ -1427,6 +1434,7 @@ def _run_sequential_detection(
                 debug_img,
                 aspect_ratio,
                 num_lines,
+                detection_result,
             ) = result
 
             if line_score > 0:
@@ -1488,7 +1496,12 @@ def _run_sequential_detection(
                 progress_line_active = True
 
             detected_count = record_result_callback(
-                filename, is_candidate, line_score, num_lines, aspect_ratio
+                filename,
+                is_candidate,
+                line_score,
+                num_lines,
+                aspect_ratio,
+                detection_result,
             )
 
     return detected_count
@@ -1662,6 +1675,7 @@ def detect_meteors_advanced(
         score: float = 0.0,
         lines: int = 0,
         ratio: float = 0.0,
+        detection_result: Optional[DetectionResult] = None,
     ) -> int:
         """Record result and return current detected count."""
         return progress_manager.record_result(
