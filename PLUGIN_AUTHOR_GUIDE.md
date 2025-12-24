@@ -7,7 +7,7 @@
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
 > - ⚠️ Detector/runtime parameter contracts may still evolve
-> - ⚠️ Output handler lifecycle hooks exist but are not yet invoked by the pipeline
+> - ⚠️ Output handler lifecycle hooks are partially invoked (see Lifecycle Events)
 
 This guide provides comprehensive instructions for developing custom plugins for Detect Meteors CLI.
 
@@ -80,7 +80,8 @@ For each image pair (current, previous):
     │  • save_debug_image() ── Save debug visualization           │
     │                                                             │
     │  Returns: OutputResult                                      │
-    │  Lifecycle Hooks (defined, not yet called):                 │
+    │  Lifecycle Hooks (Output Handlers):                         │
+    │  • on_detection_result()                                    │
     │  • on_candidate_detected()                                  │
     │  • on_batch_complete()                                      │
     │  • on_pipeline_complete()                                   │
@@ -89,11 +90,14 @@ For each image pair (current, previous):
 
 ### 1.3 Lifecycle Events (Output Handler Only)
 
-Output Handlers define lifecycle hooks, but **the current pipeline does not call them yet**. You may still implement them for forward compatibility, but do not depend on them in v1.5.x.
+Output Handlers define lifecycle hooks. The pipeline now invokes per-frame hooks
+(`on_detection_result`, `on_candidate_detected`), while batch/pipeline hooks are
+reserved for future releases.
 
 | Event | Current Status | Intended Use Case |
 |-------|----------------|-------------------|
-| `on_candidate_detected` | Not invoked | Real-time notifications (Slack, webhook) |
+| `on_detection_result` | Invoked | Per-frame inspection, logging, telemetry |
+| `on_candidate_detected` | Invoked | Real-time notifications (Slack, webhook) |
 | `on_batch_complete` | Not invoked | Progress reporting, metrics collection |
 | `on_pipeline_complete` | Not invoked | Final summary, cleanup, reporting |
 
@@ -384,12 +388,18 @@ class OutputResult:
 
 **Serialization**: Use `result.to_dict()` to get a JSON-serializable representation for logging and debugging.
 
-**Lifecycle hooks (optional, currently not invoked)**:
+**Lifecycle hooks (optional)**:
 | Hook | Signature |
 |------|-----------|
+| `on_detection_result` | `(context, result, filepath) -> None` |
 | `on_candidate_detected` | `(filename, saved, score, aspect_ratio) -> None` |
 | `on_batch_complete` | `(processed_count, detected_count, batch_size) -> None` |
 | `on_pipeline_complete` | `(total_processed, total_detected, elapsed_seconds) -> None` |
+
+**Invocation order (per frame)**:
+1. `on_detection_result()` — called immediately after the detector returns and the pipeline normalizes `DetectionResult`.
+2. `save_candidate()` — only if `result.is_candidate` is `True`.
+3. `on_candidate_detected()` — called after `save_candidate()` returns (with `saved` reflecting the output decision).
 
 ---
 
@@ -1276,9 +1286,10 @@ DetectorRegistry.register(ThresholdDetector)
 
 ### 5.3 Output Handler with Lifecycle Hooks (Secondary Handler Example)
 
-> **Note**: The pipeline does not call lifecycle hooks in v1.5.x. Implementing
-> them is safe (and future-proof) but you will only see them execute if you
-> call them manually.
+Per-frame hooks run during detection, so you can use `DetectionResult.lines` to
+inspect line segments and `DetectionResult.extras` to read detector-specific
+metadata (e.g., bounding boxes, masks, or algorithm tags). Keep `extras`
+JSON-serializable so it can be logged or emitted to observability tools.
 
 ```python
 """Slack notification handler with full lifecycle support, logging, and exceptions."""
@@ -1296,8 +1307,7 @@ import numpy as np
 from meteor_core.i18n import DEFAULT_LOCALE, get_message
 from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
 from meteor_core.exceptions import MeteorWriteError
-from meteor_core.schema import OutputResult
-from meteor_core.schema import OutputResult
+from meteor_core.schema import DetectionContext, DetectionResult, OutputResult
 
 # Set up logger for this plugin
 logger = logging.getLogger("meteor_core.outputs.slack_handler")
@@ -1468,6 +1478,32 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
 
     # ========== LIFECYCLE HOOKS ==========
     # These methods must NEVER raise exceptions!
+
+    def on_detection_result(
+        self,
+        context: DetectionContext,
+        result: DetectionResult,
+        filepath: str,
+    ) -> None:
+        """Called immediately after each detection result.
+
+        Use this to inspect detector outputs before saving candidates.
+        This method must NOT raise exceptions.
+        """
+        try:
+            basename = os.path.basename(filepath)
+            line_count = len(result.lines)
+            extra_keys = ", ".join(sorted(result.extras.keys()))
+            logger.debug(
+                "on_detection_result: %s is_candidate=%s lines=%d extras=%s",
+                basename,
+                result.is_candidate,
+                line_count,
+                extra_keys or "(none)",
+            )
+        except Exception as e:
+            # NEVER raise in lifecycle hooks
+            logger.warning(f"on_detection_result hook failed: {e}")
 
     def on_candidate_detected(
         self,

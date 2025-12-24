@@ -1290,6 +1290,7 @@ def _run_parallel_detection(
                         aspect_ratio,
                         num_lines,
                         detection_result,
+                        _detection_context,
                     ) = result
                     processed += 1
 
@@ -1435,6 +1436,7 @@ def _run_sequential_detection(
                 aspect_ratio,
                 num_lines,
                 detection_result,
+                _detection_context,
             ) = result
 
             if line_score > 0:

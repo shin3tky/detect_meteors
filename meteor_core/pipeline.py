@@ -587,7 +587,17 @@ def process_image_batch(
     input_loader: Optional[BaseInputLoader] = None,
     detector: Optional[BaseDetector] = None,
 ) -> List[
-    Tuple[bool, str, str, float, Optional[Any], float, int, Optional[DetectionResult]]
+    Tuple[
+        bool,
+        str,
+        str,
+        float,
+        Optional[Any],
+        float,
+        int,
+        Optional[DetectionResult],
+        Optional[DetectionContext],
+    ]
 ]:
     """
     Process a batch of images (handle multiple pairs at once).
@@ -611,6 +621,7 @@ def process_image_batch(
                 aspect_ratio,
                 num_lines,
                 detection_result,
+                detection_context,
             ),
             ...
         ]
@@ -670,6 +681,7 @@ def process_image_batch(
                     result.aspect_ratio,
                     len(result.lines),
                     result,
+                    context,
                 )
             )
 
@@ -692,7 +704,7 @@ def process_image_batch(
                     "error_category": e.context.get("error_category"),
                 },
             )
-            results.append((False, filename, curr_file, 0.0, None, 0.0, 0, None))
+            results.append((False, filename, curr_file, 0.0, None, 0.0, 0, None, None))
 
         except Exception as e:
             logger.error(
@@ -703,7 +715,7 @@ def process_image_batch(
                 exc_info=True,
                 extra={"filepath": curr_file, "error_type": type(e).__name__},
             )
-            results.append((False, filename, curr_file, 0.0, None, 0.0, 0, None))
+            results.append((False, filename, curr_file, 0.0, None, 0.0, 0, None, None))
 
     return results
 
@@ -1898,6 +1910,7 @@ class MeteorDetectionPipeline:
                             aspect_ratio,
                             num_lines,
                             detection_result,
+                            detection_context,
                         ) = result
                         processed += 1
 
@@ -1911,6 +1924,20 @@ class MeteorDetectionPipeline:
                                     lines=num_lines,
                                 )
                             )
+
+                        if detection_result and detection_context:
+                            try:
+                                self.output_handler.on_detection_result(
+                                    detection_context,
+                                    detection_result,
+                                    filepath,
+                                )
+                            except Exception as exc:
+                                logger.warning(
+                                    "on_detection_result hook failed for %s: %s",
+                                    filename,
+                                    exc,
+                                )
 
                         if is_candidate:
                             output_result = self.output_handler.save_candidate(
@@ -1933,6 +1960,19 @@ class MeteorDetectionPipeline:
                                         locale=locale,
                                         filename=filename,
                                     )
+                                )
+                            try:
+                                self.output_handler.on_candidate_detected(
+                                    filename,
+                                    output_result.saved,
+                                    score=line_score,
+                                    aspect_ratio=aspect_ratio,
+                                )
+                            except Exception as exc:
+                                logger.warning(
+                                    "on_candidate_detected hook failed for %s: %s",
+                                    filename,
+                                    exc,
                                 )
                         else:
                             print(
@@ -2020,6 +2060,7 @@ class MeteorDetectionPipeline:
                     aspect_ratio,
                     num_lines,
                     detection_result,
+                    detection_context,
                 ) = result
 
                 if line_score > 0:
@@ -2033,6 +2074,20 @@ class MeteorDetectionPipeline:
                             lines=num_lines,
                         )
                     )
+
+                if detection_result and detection_context:
+                    try:
+                        self.output_handler.on_detection_result(
+                            detection_context,
+                            detection_result,
+                            filepath,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "on_detection_result hook failed for %s: %s",
+                            filename,
+                            exc,
+                        )
 
                 if is_candidate:
                     print()
@@ -2056,6 +2111,19 @@ class MeteorDetectionPipeline:
                                 locale=locale,
                                 filename=filename,
                             )
+                        )
+                    try:
+                        self.output_handler.on_candidate_detected(
+                            filename,
+                            output_result.saved,
+                            score=line_score,
+                            aspect_ratio=aspect_ratio,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "on_candidate_detected hook failed for %s: %s",
+                            filename,
+                            exc,
                         )
 
                 self.progress_manager.record_result(

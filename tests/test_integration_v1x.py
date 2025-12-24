@@ -105,7 +105,7 @@ class TestMeteorDetectionBasic(TestMeteorDetectionBase):
         results = self.run_detection(img_meteor, self.img_black)
 
         self.assertEqual(len(results), 1)
-        is_candidate, filename, _, line_score, _, _, _, _ = results[0]
+        is_candidate, filename, _, line_score, _, _, _, _, _ = results[0]
 
         self.assertTrue(is_candidate, "Clear meteor should be detected")
         self.assertGreater(line_score, 0, "Line score should be positive")
@@ -116,7 +116,7 @@ class TestMeteorDetectionBasic(TestMeteorDetectionBase):
         results = self.run_detection(img, img)
 
         self.assertEqual(len(results), 1)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertFalse(is_candidate, "Identical images should not produce detection")
 
     def test_no_detection_on_black_images(self):
@@ -124,7 +124,7 @@ class TestMeteorDetectionBasic(TestMeteorDetectionBase):
         results = self.run_detection(self.img_black, self.img_black)
 
         self.assertEqual(len(results), 1)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertFalse(is_candidate, "Black images should not produce detection")
 
 
@@ -137,7 +137,7 @@ class TestMeteorTrailLength(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((100, 100), (500, 500), intensity=200)
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, line_score, _, _, _, _ = results[0]
+        is_candidate, _, _, line_score, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Long meteor trail should be detected")
         self.assertGreater(line_score, 100, "Long trail should have high line score")
 
@@ -147,7 +147,7 @@ class TestMeteorTrailLength(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((100, 100), (200, 200), intensity=200)
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, line_score, _, _, _, _ = results[0]
+        is_candidate, _, _, line_score, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Medium meteor trail should be detected")
 
     def test_short_trail_with_low_threshold(self):
@@ -160,7 +160,7 @@ class TestMeteorTrailLength(TestMeteorDetectionBase):
         params["min_line_score"] = 20.0  # Lower threshold
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, line_score, _, _, _, _ = results[0]
+        is_candidate, _, _, line_score, _, _, _, _, _ = results[0]
 
         # Short trail may or may not be detected depending on Hough parameters
         # But line_score should be calculated
@@ -174,7 +174,7 @@ class TestMeteorTrailLength(TestMeteorDetectionBase):
         params["min_line_score"] = 80.0  # Higher threshold
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         # Very short trail should likely be rejected
         # (depends on exact Hough parameters)
@@ -188,7 +188,7 @@ class TestMeteorTrailIntensity(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((100, 100), (300, 300), intensity=500)
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Bright meteor should be detected")
 
     def test_dim_meteor_with_low_threshold(self):
@@ -198,7 +198,7 @@ class TestMeteorTrailIntensity(TestMeteorDetectionBase):
         params["diff_threshold"] = 5  # Lower threshold
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertTrue(
             is_candidate, "Dim meteor should be detected with low threshold"
@@ -211,7 +211,7 @@ class TestMeteorTrailIntensity(TestMeteorDetectionBase):
         params["diff_threshold"] = 20  # Higher threshold
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertFalse(
             is_candidate, "Very dim meteor should be rejected with high threshold"
@@ -225,7 +225,7 @@ class TestMeteorTrailIntensity(TestMeteorDetectionBase):
         params["diff_threshold"] = 10
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertFalse(is_candidate, "Meteor below threshold should be rejected")
 
@@ -238,7 +238,7 @@ class TestMeteorTrailThickness(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((100, 100), (300, 300), thickness=10)
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Thick meteor trail should be detected")
 
     def test_thin_trail_detected(self):
@@ -249,7 +249,7 @@ class TestMeteorTrailThickness(TestMeteorDetectionBase):
         params["min_line_score"] = 30.0  # Lower threshold
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         # Thin trails may or may not be detected depending on exact parameters
         # This test verifies the detection pipeline works without error
@@ -263,7 +263,7 @@ class TestMeteorTrailThickness(TestMeteorDetectionBase):
         params["min_aspect_ratio"] = 3.0  # Require elongated shape
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         # Result depends on whether the blob is detected as elongated
         self.assertIsNotNone(is_candidate)
@@ -283,7 +283,7 @@ class TestDiffThresholdParameter(TestMeteorDetectionBase):
         params["diff_threshold"] = threshold
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertTrue(is_candidate, "Intensity above threshold should be detected")
 
@@ -298,7 +298,7 @@ class TestDiffThresholdParameter(TestMeteorDetectionBase):
         params["diff_threshold"] = threshold
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertFalse(is_candidate, "Intensity below threshold should be rejected")
 
@@ -309,7 +309,7 @@ class TestDiffThresholdParameter(TestMeteorDetectionBase):
         params["diff_threshold"] = 1
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertTrue(is_candidate, "Threshold 1 should detect any difference")
 
@@ -320,7 +320,7 @@ class TestDiffThresholdParameter(TestMeteorDetectionBase):
         params["diff_threshold"] = 100
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertFalse(is_candidate, "High threshold should reject moderate meteor")
 
@@ -336,7 +336,7 @@ class TestMinAreaParameter(TestMeteorDetectionBase):
         params["min_area"] = 50
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertTrue(is_candidate, "Large area meteor should be detected")
 
@@ -348,7 +348,7 @@ class TestMinAreaParameter(TestMeteorDetectionBase):
         params["min_area"] = 1
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         # Small area may still pass if it forms a line
         self.assertIsNotNone(is_candidate)
@@ -363,7 +363,7 @@ class TestMinAreaParameter(TestMeteorDetectionBase):
         params["min_area"] = 100  # Require large area
 
         results = self.run_detection(img, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertFalse(
             is_candidate, "Small area should be rejected with high min_area"
@@ -381,7 +381,7 @@ class TestMinLineScoreParameter(TestMeteorDetectionBase):
         params["min_line_score"] = 100.0
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, line_score, _, _, _, _ = results[0]
+        is_candidate, _, _, line_score, _, _, _, _, _ = results[0]
 
         self.assertTrue(is_candidate, "High line score meteor should be detected")
         self.assertGreater(line_score, 100.0)
@@ -394,7 +394,7 @@ class TestMinLineScoreParameter(TestMeteorDetectionBase):
         params["min_line_score"] = 200.0  # Very high threshold
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertFalse(
             is_candidate, "Low line score should be rejected with high threshold"
@@ -407,7 +407,7 @@ class TestMinLineScoreParameter(TestMeteorDetectionBase):
         params["min_line_score"] = 0.0
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         # Any line should be accepted
         self.assertIsNotNone(is_candidate)
@@ -424,7 +424,7 @@ class TestMinAspectRatioParameter(TestMeteorDetectionBase):
         params["min_aspect_ratio"] = 3.0
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertTrue(is_candidate, "Elongated meteor should be detected")
 
@@ -438,7 +438,7 @@ class TestMinAspectRatioParameter(TestMeteorDetectionBase):
         params["min_aspect_ratio"] = 5.0  # Require very elongated
 
         results = self.run_detection(img, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertFalse(is_candidate, "Round shape should be rejected")
 
@@ -452,7 +452,7 @@ class TestMinAspectRatioParameter(TestMeteorDetectionBase):
         params["min_aspect_ratio"] = 1.0  # Accept any shape
 
         results = self.run_detection(img, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         # Should be more likely to accept
         self.assertIsNotNone(is_candidate)
@@ -467,7 +467,7 @@ class TestROIMask(TestMeteorDetectionBase):
         roi_mask = self.create_roi_mask(full=False, region=(100, 100, 500, 500))
 
         results = self.run_detection(img_meteor, self.img_black, roi_mask=roi_mask)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertTrue(is_candidate, "Meteor inside ROI should be detected")
 
@@ -478,7 +478,7 @@ class TestROIMask(TestMeteorDetectionBase):
         roi_mask = self.create_roi_mask(full=False, region=(600, 600, 900, 900))
 
         results = self.run_detection(img_meteor, self.img_black, roi_mask=roi_mask)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertFalse(is_candidate, "Meteor outside ROI should not be detected")
 
@@ -489,7 +489,7 @@ class TestROIMask(TestMeteorDetectionBase):
         roi_mask = self.create_roi_mask(full=False, region=(250, 250, 500, 500))
 
         results = self.run_detection(img_meteor, self.img_black, roi_mask=roi_mask)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         # Partial detection may or may not trigger depending on remaining length
         self.assertIsNotNone(is_candidate)
@@ -503,7 +503,7 @@ class TestMeteorOrientation(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((100, 300), (400, 300))
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Horizontal meteor should be detected")
 
     def test_vertical_meteor(self):
@@ -511,7 +511,7 @@ class TestMeteorOrientation(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((300, 100), (300, 400))
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Vertical meteor should be detected")
 
     def test_diagonal_meteor_45deg(self):
@@ -519,7 +519,7 @@ class TestMeteorOrientation(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((100, 100), (400, 400))
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "45-degree diagonal meteor should be detected")
 
     def test_diagonal_meteor_135deg(self):
@@ -527,7 +527,7 @@ class TestMeteorOrientation(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((400, 100), (100, 400))
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "135-degree diagonal meteor should be detected")
 
     def test_steep_angle_meteor(self):
@@ -535,7 +535,7 @@ class TestMeteorOrientation(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((300, 100), (320, 400))
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Steep angle meteor should be detected")
 
     def test_shallow_angle_meteor(self):
@@ -543,7 +543,7 @@ class TestMeteorOrientation(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((100, 300), (400, 320))
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Shallow angle meteor should be detected")
 
 
@@ -557,7 +557,7 @@ class TestMultipleMeteors(TestMeteorDetectionBase):
         cv2.line(img, (600, 100), (800, 300), 200, 3)  # Second meteor
 
         results = self.run_detection(img, self.img_black)
-        is_candidate, _, _, line_score, _, _, _, _ = results[0]
+        is_candidate, _, _, line_score, _, _, _, _, _ = results[0]
 
         self.assertTrue(is_candidate, "Frame with multiple meteors should be detected")
         # Line score should reflect multiple lines
@@ -573,7 +573,7 @@ class TestMultipleMeteors(TestMeteorDetectionBase):
         params["min_aspect_ratio"] = 1.5  # Lower aspect ratio for crossing trails
 
         results = self.run_detection(img, self.img_black, params=params)
-        is_candidate, _, _, line_score, _, _, _, _ = results[0]
+        is_candidate, _, _, line_score, _, _, _, _, _ = results[0]
 
         # Crossing trails create a cross shape which may or may not pass
         # aspect ratio check depending on how contours are detected
@@ -589,7 +589,7 @@ class TestEdgeCases(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((0, 0), (200, 200))
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Meteor at edge should be detected")
 
     def test_meteor_at_image_corner(self):
@@ -599,7 +599,7 @@ class TestEdgeCases(TestMeteorDetectionBase):
         params["min_line_score"] = 30.0  # Lower threshold for shorter trail
 
         results = self.run_detection(img_meteor, self.img_black, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         # Corner meteor may or may not be fully detected
         self.assertIsNotNone(is_candidate)
@@ -609,7 +609,7 @@ class TestEdgeCases(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((100, 100), (300, 300), intensity=65000)
         results = self.run_detection(img_meteor, self.img_black)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Very bright meteor should be detected")
 
     def test_noisy_background(self):
@@ -626,7 +626,7 @@ class TestEdgeCases(TestMeteorDetectionBase):
         params["diff_threshold"] = 15  # Higher threshold for noise
 
         results = self.run_detection(img_meteor, img_noisy, params=params)
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
 
         self.assertTrue(is_candidate, "Meteor should be detected above noise")
 
@@ -663,7 +663,7 @@ class TestDefaultParameters(TestMeteorDetectionBase):
         img_meteor = self.create_meteor_image((100, 100), (350, 350), intensity=100)
         results = self.run_detection(img_meteor, self.img_black, params=params)
 
-        is_candidate, _, _, _, _, _, _, _ = results[0]
+        is_candidate, _, _, _, _, _, _, _, _ = results[0]
         self.assertTrue(is_candidate, "Clear meteor should be detected with defaults")
 
 

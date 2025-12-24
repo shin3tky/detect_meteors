@@ -25,7 +25,7 @@ from meteor_core.plugin_contract import (
     require_config_type,
     require_plugin_name,
 )
-from meteor_core.schema import OutputResult
+from meteor_core.schema import DetectionContext, DetectionResult, OutputResult
 
 # Module-level logger for diagnostics shared by output handlers
 logger = logging.getLogger(__name__)
@@ -138,6 +138,24 @@ class BaseOutputHandler(ABC):
         }
 
     # === Progress notification hooks (optional overrides) ===
+
+    def on_detection_result(
+        self,
+        context: DetectionContext,
+        result: DetectionResult,
+        filepath: str,
+    ) -> None:
+        """Hook called immediately after a detection result is produced.
+
+        Override this method to react to every detection result (both positive
+        and negative) before candidates are persisted.
+
+        Args:
+            context: DetectionContext used to evaluate the frame.
+            result: DetectionResult returned by the detector.
+            filepath: Full path to the current image file.
+        """
+        pass
 
     def on_candidate_detected(
         self,
