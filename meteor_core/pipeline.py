@@ -671,6 +671,8 @@ def process_image_batch(
             context = _normalize_detection_context(context)
             result = _normalize_detection_result(det.detect(context))
             context_payload = context.to_dict()
+            debug_image = result.debug_image if result.is_candidate else None
+            result.debug_image = None
 
             results.append(
                 (
@@ -678,7 +680,7 @@ def process_image_batch(
                     filename,
                     curr_file,
                     result.score,
-                    result.debug_image,
+                    debug_image,
                     result.aspect_ratio,
                     len(result.lines),
                     result,
