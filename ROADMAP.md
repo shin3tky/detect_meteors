@@ -145,6 +145,18 @@
   - [x] `to_dict()` methods for serialization support
   - [x] Updated Plugin Author Guide with loader/handler contract documentation
 
+### Runtime Parameters and Pipeline Normalization
+- [x] **v1.6.3** - RuntimeParams contract and pipeline normalization
+  - [x] `RuntimeParams` dataclass for formalized runtime parameter passing
+  - [x] Schema versioning (`RUNTIME_PARAMS_SCHEMA_VERSION`)
+  - [x] Namespaced structure (`global_params`, `detector` per-plugin overrides)
+  - [x] `RuntimeParams.to_dict()` method for serialization
+  - [x] `DetectionContext.to_dict()` method for logging/debugging
+  - [x] `BaseDetector` helpers: `split_runtime_params()`, `build_runtime_params()`, `detect_legacy()`
+  - [x] Pipeline normalization checkpoints for `InputContext`, `DetectionResult`, `OutputResult`
+  - [x] Legacy boolean compatibility for output handlers (with deprecation warning)
+  - [x] Updated Plugin Author Guide with comprehensive contract documentation
+
 ### Pending (Deferred from v1.x)
 The following features were originally planned for v1.x but have been deferred:
 
@@ -173,5 +185,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.2 (Input/Output Contract Standardization)
+**Current Status**: v1.6.3 (RuntimeParams Contract and Pipeline Normalization)
 **Next Focus**: v2.0 Architecture and Extensibility - Plugin architecture implementation
