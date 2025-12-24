@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
 import importlib.util
 import logging
-from typing import Dict, Generic, List, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
 import numpy as np
 
@@ -25,7 +25,7 @@ from meteor_core.plugin_contract import (
     require_config_type,
     require_plugin_name,
 )
-from meteor_core.schema import DetectionContext, DetectionResult, OutputResult
+from meteor_core.schema import DetectionResult, OutputResult
 
 # Module-level logger for diagnostics shared by output handlers
 logger = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ class BaseOutputHandler(ABC):
 
     def on_detection_result(
         self,
-        context: DetectionContext,
+        context: Dict[str, Any],
         result: DetectionResult,
         filepath: str,
     ) -> None:
@@ -151,7 +151,7 @@ class BaseOutputHandler(ABC):
         and negative) before candidates are persisted.
 
         Args:
-            context: DetectionContext used to evaluate the frame.
+            context: DetectionContext serialized payload used to evaluate the frame.
             result: DetectionResult returned by the detector.
             filepath: Full path to the current image file.
         """

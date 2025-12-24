@@ -596,7 +596,7 @@ def process_image_batch(
         float,
         int,
         Optional[DetectionResult],
-        Optional[DetectionContext],
+        Optional[Dict[str, Any]],
     ]
 ]:
     """
@@ -621,7 +621,7 @@ def process_image_batch(
                 aspect_ratio,
                 num_lines,
                 detection_result,
-                detection_context,
+                detection_context_payload,
             ),
             ...
         ]
@@ -670,6 +670,7 @@ def process_image_batch(
             )
             context = _normalize_detection_context(context)
             result = _normalize_detection_result(det.detect(context))
+            context_payload = context.to_dict()
 
             results.append(
                 (
@@ -681,7 +682,7 @@ def process_image_batch(
                     result.aspect_ratio,
                     len(result.lines),
                     result,
-                    context,
+                    context_payload,
                 )
             )
 
@@ -1910,7 +1911,7 @@ class MeteorDetectionPipeline:
                             aspect_ratio,
                             num_lines,
                             detection_result,
-                            detection_context,
+                            detection_context_payload,
                         ) = result
                         processed += 1
 
@@ -1925,10 +1926,10 @@ class MeteorDetectionPipeline:
                                 )
                             )
 
-                        if detection_result and detection_context:
+                        if detection_result and detection_context_payload:
                             try:
                                 self.output_handler.on_detection_result(
-                                    detection_context,
+                                    detection_context_payload,
                                     detection_result,
                                     filepath,
                                 )
@@ -2060,7 +2061,7 @@ class MeteorDetectionPipeline:
                     aspect_ratio,
                     num_lines,
                     detection_result,
-                    detection_context,
+                    detection_context_payload,
                 ) = result
 
                 if line_score > 0:
@@ -2075,10 +2076,10 @@ class MeteorDetectionPipeline:
                         )
                     )
 
-                if detection_result and detection_context:
+                if detection_result and detection_context_payload:
                     try:
                         self.output_handler.on_detection_result(
-                            detection_context,
+                            detection_context_payload,
                             detection_result,
                             filepath,
                         )
