@@ -2,12 +2,13 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.6.x)**:
+> **Current status (v1.6.4)**:
 >
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
+> - ✅ `on_detection_result` and `on_candidate_detected` hooks are invoked (v1.6.4)
 > - ⚠️ Detector/runtime parameter contracts may still evolve
-> - ⚠️ Output handler lifecycle hooks are partially invoked (see Lifecycle Events)
+> - ⚠️ `on_batch_complete` and `on_pipeline_complete` hooks reserved for future releases
 
 This guide provides comprehensive instructions for developing custom plugins for Detect Meteors CLI.
 
