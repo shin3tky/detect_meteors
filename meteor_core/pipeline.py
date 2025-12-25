@@ -581,17 +581,29 @@ def validate_raw_file(
 
 
 def process_image_batch(
-    batch_data: List[Tuple[str, str]],
+    batch_data: List[Tuple[int, str, str]],
     roi_mask: np.ndarray,
     params: dict,
     input_loader: Optional[BaseInputLoader] = None,
     detector: Optional[BaseDetector] = None,
-) -> List[Tuple]:
+) -> List[
+    Tuple[
+        bool,
+        str,
+        str,
+        float,
+        Optional[Any],
+        float,
+        int,
+        Optional[DetectionResult],
+        Optional[Dict[str, Any]],
+    ]
+]:
     """
     Process a batch of images (handle multiple pairs at once).
 
     Args:
-        batch_data: List of [(curr_file, prev_file), ...]
+        batch_data: List of [(frame_index, curr_file, prev_file), ...]
         roi_mask: ROI mask
         params: Parameter dictionary
         input_loader: Optional input loader instance
@@ -599,7 +611,20 @@ def process_image_batch(
 
     Returns:
         List of processing results for each image:
-        [(is_candidate, filename, filepath, line_score, debug_img, aspect_ratio, num_lines), ...]
+        [
+            (
+                is_candidate,
+                filename,
+                filepath,
+                line_score,
+                debug_img,
+                aspect_ratio,
+                num_lines,
+                detection_result,
+                detection_context_payload,
+            ),
+            ...
+        ]
 
     Note:
         Errors during processing are logged but do not stop batch processing.
@@ -609,11 +634,13 @@ def process_image_batch(
 
     loader = _resolve_input_loader(input_loader)
     det = _resolve_detector(detector=detector)
+    runtime_params = _build_runtime_params(params, det)
 
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
-    for curr_file, prev_file in batch_data:
+    for frame_index, curr_file, prev_file in batch_data:
         filename = os.path.basename(curr_file)
+        prev_frame_index = frame_index - 1
 
         try:
             # Load images
@@ -631,11 +658,17 @@ def process_image_batch(
                 metadata = {
                     "current": curr_context.metadata,
                     "previous": prev_context.metadata,
+                    "frame_index": frame_index,
+                    "prev_frame_index": prev_frame_index,
                 }
             except Exception as exc:
                 logger.warning("Metadata extraction failed for %s: %s", filename, exc)
-                metadata = {"current": {}, "previous": {}}
-            runtime_params = _build_runtime_params(params, det)
+                metadata = {
+                    "current": {},
+                    "previous": {},
+                    "frame_index": frame_index,
+                    "prev_frame_index": prev_frame_index,
+                }
             context = DetectionContext(
                 current_image=curr_context.image_data,
                 previous_image=prev_context.image_data,
@@ -645,6 +678,9 @@ def process_image_batch(
             )
             context = _normalize_detection_context(context)
             result = _normalize_detection_result(det.detect(context))
+            context_payload = context.to_dict()
+            debug_image = result.debug_image if result.is_candidate else None
+            result.debug_image = None
 
             results.append(
                 (
@@ -652,9 +688,11 @@ def process_image_batch(
                     filename,
                     curr_file,
                     result.score,
-                    result.debug_image,
+                    debug_image,
                     result.aspect_ratio,
                     len(result.lines),
+                    result,
+                    context_payload,
                 )
             )
 
@@ -677,7 +715,7 @@ def process_image_batch(
                     "error_category": e.context.get("error_category"),
                 },
             )
-            results.append((False, filename, curr_file, 0.0, None, 0.0, 0))
+            results.append((False, filename, curr_file, 0.0, None, 0.0, 0, None, None))
 
         except Exception as e:
             logger.error(
@@ -688,9 +726,21 @@ def process_image_batch(
                 exc_info=True,
                 extra={"filepath": curr_file, "error_type": type(e).__name__},
             )
-            results.append((False, filename, curr_file, 0.0, None, 0.0, 0))
+            results.append((False, filename, curr_file, 0.0, None, 0.0, 0, None, None))
 
     return results
+
+
+def _extract_frame_indices(
+    detection_context_payload: Optional[Dict[str, Any]],
+) -> Tuple[Optional[int], Optional[int]]:
+    ctx_frame_index = None
+    ctx_prev_frame_index = None
+    if detection_context_payload and isinstance(detection_context_payload, dict):
+        metadata = detection_context_payload.get("metadata", {})
+        ctx_frame_index = metadata.get("frame_index")
+        ctx_prev_frame_index = metadata.get("prev_frame_index")
+    return ctx_frame_index, ctx_prev_frame_index
 
 
 def estimate_diff_threshold_from_samples(
@@ -1708,11 +1758,11 @@ class MeteorDetectionPipeline:
         self.progress_manager.save()
 
         # Build image pairs
-        image_pairs = [(files[i], files[i - 1]) for i in range(1, len(files))]
+        image_pairs = [(i, files[i], files[i - 1]) for i in range(1, len(files))]
         image_pairs = [
             pair
             for pair in image_pairs
-            if not self.progress_manager.is_processed(os.path.basename(pair[0]))
+            if not self.progress_manager.is_processed(os.path.basename(pair[1]))
         ]
 
         resume_offset = self.progress_manager.get_total_processed()
@@ -1829,7 +1879,7 @@ class MeteorDetectionPipeline:
 
     def _process_parallel(
         self,
-        image_pairs: List[Tuple[str, str]],
+        image_pairs: List[Tuple[int, str, str]],
         roi_mask: np.ndarray,
         params: Dict[str, Any],
         roi_polygon: Optional[List[List[int]]],
@@ -1862,17 +1912,59 @@ class MeteorDetectionPipeline:
         wait_for_tasks = True
 
         try:
-            for batch in batches:
+            for batch_idx, batch in enumerate(batches, 1):
+                print(
+                    get_message(
+                        "ui.pipeline.processing.submitting_batches",
+                        locale=locale,
+                        current=batch_idx,
+                        total=len(batches),
+                    ),
+                    end="\r",
+                    flush=True,
+                )
                 future = executor.submit(
                     process_image_batch, batch, roi_mask, params, input_loader, detector
                 )
                 futures.append(future)
 
+            # Clear the submitting line
+            print()
+
             # Collect results
             processed = 0
+            completed_batches = 0
+            total_batches = len(batches)
+
+            # Show initial batch progress (0 completed)
+            print(
+                get_message(
+                    "ui.pipeline.processing.batch_progress",
+                    locale=locale,
+                    completed=0,
+                    total=total_batches,
+                ),
+                end="\r",
+                flush=True,
+            )
+
             for future in as_completed(futures):
+                completed_batches += 1
                 try:
                     batch_results = future.result()
+
+                    # Show batch progress when a batch completes
+                    print(
+                        get_message(
+                            "ui.pipeline.processing.batch_progress",
+                            locale=locale,
+                            completed=completed_batches,
+                            total=total_batches,
+                        ),
+                        end="\r",
+                        flush=True,
+                    )
+
                     for result in batch_results:
                         (
                             is_candidate,
@@ -1882,10 +1974,25 @@ class MeteorDetectionPipeline:
                             debug_img,
                             aspect_ratio,
                             num_lines,
+                            detection_result,
+                            detection_context_payload,
                         ) = result
                         processed += 1
 
+                        # Always show progress first
+                        print(
+                            get_message(
+                                "ui.pipeline.processing.checking",
+                                locale=locale,
+                                current=resume_offset + processed,
+                                total=overall_total,
+                            ),
+                            end="\r",
+                            flush=True,
+                        )
+
                         if line_score > 0:
+                            print()  # Move to new line before [LINE]
                             print(
                                 get_message(
                                     "ui.pipeline.processing.line",
@@ -1896,7 +2003,23 @@ class MeteorDetectionPipeline:
                                 )
                             )
 
+                        if detection_result and detection_context_payload:
+                            try:
+                                self.output_handler.on_detection_result(
+                                    detection_context_payload,
+                                    detection_result,
+                                    filepath,
+                                )
+                            except Exception as exc:
+                                logger.warning(
+                                    "on_detection_result hook failed for %s: %s",
+                                    filename,
+                                    exc,
+                                )
+
                         if is_candidate:
+                            if line_score <= 0:
+                                print()  # Move to new line if [LINE] wasn't printed
                             output_result = self.output_handler.save_candidate(
                                 filepath, filename, debug_img, roi_polygon
                             )
@@ -1918,20 +2041,33 @@ class MeteorDetectionPipeline:
                                         filename=filename,
                                     )
                                 )
-                        else:
-                            print(
-                                get_message(
-                                    "ui.pipeline.processing.checking",
-                                    locale=locale,
-                                    current=resume_offset + processed,
-                                    total=overall_total,
-                                ),
-                                end="",
-                                flush=True,
-                            )
+                            try:
+                                self.output_handler.on_candidate_detected(
+                                    filename,
+                                    output_result.saved,
+                                    score=line_score,
+                                    aspect_ratio=aspect_ratio,
+                                )
+                            except Exception as exc:
+                                logger.warning(
+                                    "on_candidate_detected hook failed for %s: %s",
+                                    filename,
+                                    exc,
+                                )
+
+                        # Extract frame indices from detection context
+                        ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
+                            detection_context_payload
+                        )
 
                         self.progress_manager.record_result(
-                            filename, is_candidate, line_score, num_lines, aspect_ratio
+                            filename,
+                            is_candidate,
+                            line_score,
+                            num_lines,
+                            aspect_ratio,
+                            frame_index=ctx_frame_index,
+                            prev_frame_index=ctx_prev_frame_index,
                         )
 
                 except Exception as e:
@@ -1962,7 +2098,7 @@ class MeteorDetectionPipeline:
 
     def _process_sequential(
         self,
-        image_pairs: List[Tuple[str, str]],
+        image_pairs: List[Tuple[int, str, str]],
         roi_mask: np.ndarray,
         params: Dict[str, Any],
         roi_polygon: Optional[List[List[int]]],
@@ -1976,7 +2112,7 @@ class MeteorDetectionPipeline:
         locale = _resolve_locale(locale)
         for idx, pair in enumerate(image_pairs):
             current_index = resume_offset + idx + 1
-            current_file = os.path.basename(pair[0])
+            current_file = os.path.basename(pair[1])
 
             print(
                 get_message(
@@ -2003,6 +2139,8 @@ class MeteorDetectionPipeline:
                     debug_img,
                     aspect_ratio,
                     num_lines,
+                    detection_result,
+                    detection_context_payload,
                 ) = result
 
                 if line_score > 0:
@@ -2016,6 +2154,20 @@ class MeteorDetectionPipeline:
                             lines=num_lines,
                         )
                     )
+
+                if detection_result and detection_context_payload:
+                    try:
+                        self.output_handler.on_detection_result(
+                            detection_context_payload,
+                            detection_result,
+                            filepath,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "on_detection_result hook failed for %s: %s",
+                            filename,
+                            exc,
+                        )
 
                 if is_candidate:
                     print()
@@ -2040,9 +2192,33 @@ class MeteorDetectionPipeline:
                                 filename=filename,
                             )
                         )
+                    try:
+                        self.output_handler.on_candidate_detected(
+                            filename,
+                            output_result.saved,
+                            score=line_score,
+                            aspect_ratio=aspect_ratio,
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "on_candidate_detected hook failed for %s: %s",
+                            filename,
+                            exc,
+                        )
+
+                # Extract frame indices from detection context
+                ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
+                    detection_context_payload
+                )
 
                 self.progress_manager.record_result(
-                    filename, is_candidate, line_score, num_lines, aspect_ratio
+                    filename,
+                    is_candidate,
+                    line_score,
+                    num_lines,
+                    aspect_ratio,
+                    frame_index=ctx_frame_index,
+                    prev_frame_index=ctx_prev_frame_index,
                 )
 
         return self.progress_manager.get_total_detected()

@@ -107,8 +107,9 @@ class TestProcessImageBatch(unittest.TestCase):
         loader = DummyInputLoader(img_map, error_map=error_map)
         detector = DummyDetector()
 
+        # batch_data: List[Tuple[int, str, str]] = (frame_index, curr_file, prev_file)
         results = process_image_batch(
-            [("a.CR2", "a.CR2"), ("c.CR2", "a.CR2")],
+            [(1, "a.CR2", "a.CR2"), (2, "c.CR2", "a.CR2")],
             roi_mask=np.ones((2, 2), dtype=np.uint8),
             params={"diff_threshold": 8},
             input_loader=loader,

@@ -2,12 +2,13 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.6.x)**:
+> **Current status (v1.6.4)**:
 >
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
+> - ✅ `on_detection_result` and `on_candidate_detected` hooks are invoked (v1.6.4)
 > - ⚠️ Detector/runtime parameter contracts may still evolve
-> - ⚠️ Output handler lifecycle hooks exist but are not yet invoked by the pipeline
+> - ⚠️ `on_batch_complete` and `on_pipeline_complete` hooks reserved for future releases
 
 This guide provides comprehensive instructions for developing custom plugins for Detect Meteors CLI.
 
@@ -80,7 +81,8 @@ For each image pair (current, previous):
     │  • save_debug_image() ── Save debug visualization           │
     │                                                             │
     │  Returns: OutputResult                                      │
-    │  Lifecycle Hooks (defined, not yet called):                 │
+    │  Lifecycle Hooks (Output Handlers):                         │
+    │  • on_detection_result(context_payload)                     │
     │  • on_candidate_detected()                                  │
     │  • on_batch_complete()                                      │
     │  • on_pipeline_complete()                                   │
@@ -89,11 +91,16 @@ For each image pair (current, previous):
 
 ### 1.3 Lifecycle Events (Output Handler Only)
 
-Output Handlers define lifecycle hooks, but **the current pipeline does not call them yet**. You may still implement them for forward compatibility, but do not depend on them in v1.5.x.
+Output Handlers define lifecycle hooks. The pipeline now invokes per-frame hooks
+(`on_detection_result`, `on_candidate_detected`), while batch/pipeline hooks are
+reserved for future releases. The `on_detection_result` hook receives a
+serialized context payload (from `DetectionContext.to_dict()`), not raw image
+arrays.
 
 | Event | Current Status | Intended Use Case |
 |-------|----------------|-------------------|
-| `on_candidate_detected` | Not invoked | Real-time notifications (Slack, webhook) |
+| `on_detection_result` | Invoked | Per-frame inspection, logging, telemetry |
+| `on_candidate_detected` | Invoked | Real-time notifications (Slack, webhook) |
 | `on_batch_complete` | Not invoked | Progress reporting, metrics collection |
 | `on_pipeline_complete` | Not invoked | Final summary, cleanup, reporting |
 
@@ -384,12 +391,18 @@ class OutputResult:
 
 **Serialization**: Use `result.to_dict()` to get a JSON-serializable representation for logging and debugging.
 
-**Lifecycle hooks (optional, currently not invoked)**:
+**Lifecycle hooks (optional)**:
 | Hook | Signature |
 |------|-----------|
+| `on_detection_result` | `(context_payload, result, filepath) -> None` |
 | `on_candidate_detected` | `(filename, saved, score, aspect_ratio) -> None` |
 | `on_batch_complete` | `(processed_count, detected_count, batch_size) -> None` |
 | `on_pipeline_complete` | `(total_processed, total_detected, elapsed_seconds) -> None` |
+
+**Invocation order (per frame)**:
+1. `on_detection_result()` — called immediately after the detector returns and the pipeline normalizes `DetectionResult`. The `context_payload` is the result of `DetectionContext.to_dict()` and excludes image/ROI arrays.
+2. `save_candidate()` — only if `result.is_candidate` is `True`.
+3. `on_candidate_detected()` — called after `save_candidate()` returns (with `saved` reflecting the output decision).
 
 ---
 
@@ -678,7 +691,7 @@ class MyDetector(DataclassDetector[MyConfig]):
         return DetectionResult(...)
 ```
 
-**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `current_image`, `previous_image`, and `roi_mask`).
+**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `current_image`, `previous_image`, and `roi_mask`). The pipeline uses this payload when invoking `on_detection_result()` to avoid transferring large image arrays.
 
 **Normalization**: Unlike `InputContext` and `OutputResult`, the normalization of `DetectionContext` is handled internally by the pipeline (via `_normalize_detection_context` in `meteor_core.pipeline`). Plugin authors do not need to call any normalization function for `DetectionContext`, and there is no public `normalize_detection_context()` or `register_detection_context_converter()` function exposed by `meteor_core.schema`.
 
@@ -1276,9 +1289,12 @@ DetectorRegistry.register(ThresholdDetector)
 
 ### 5.3 Output Handler with Lifecycle Hooks (Secondary Handler Example)
 
-> **Note**: The pipeline does not call lifecycle hooks in v1.5.x. Implementing
-> them is safe (and future-proof) but you will only see them execute if you
-> call them manually.
+Per-frame hooks run during detection, so you can use `DetectionResult.lines` to
+inspect line segments and `DetectionResult.extras` to read detector-specific
+metadata (e.g., bounding boxes, masks, or algorithm tags). The
+`context_payload` argument contains `DetectionContext.to_dict()` output (no
+image buffers). Keep `extras` JSON-serializable so it can be logged or emitted
+to observability tools.
 
 ```python
 """Slack notification handler with full lifecycle support, logging, and exceptions."""
@@ -1288,7 +1304,7 @@ import os
 import shutil
 import urllib.request
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -1296,8 +1312,7 @@ import numpy as np
 from meteor_core.i18n import DEFAULT_LOCALE, get_message
 from meteor_core.outputs import DataclassOutputHandler, OutputHandlerRegistry
 from meteor_core.exceptions import MeteorWriteError
-from meteor_core.schema import OutputResult
-from meteor_core.schema import OutputResult
+from meteor_core.schema import DetectionResult, OutputResult
 
 # Set up logger for this plugin
 logger = logging.getLogger("meteor_core.outputs.slack_handler")
@@ -1468,6 +1483,34 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
 
     # ========== LIFECYCLE HOOKS ==========
     # These methods must NEVER raise exceptions!
+
+    def on_detection_result(
+        self,
+        context_payload: Dict[str, Any],
+        result: DetectionResult,
+        filepath: str,
+    ) -> None:
+        """Called immediately after each detection result.
+
+        Use this to inspect detector outputs before saving candidates.
+        This method must NOT raise exceptions.
+        """
+        try:
+            basename = os.path.basename(filepath)
+            runtime_params = context_payload.get("runtime_params", {})
+            line_count = len(result.lines)
+            extra_keys = ", ".join(sorted(result.extras.keys()))
+            logger.debug(
+                "on_detection_result: %s is_candidate=%s lines=%d extras=%s params=%s",
+                basename,
+                result.is_candidate,
+                line_count,
+                extra_keys or "(none)",
+                runtime_params,
+            )
+        except Exception as e:
+            # NEVER raise in lifecycle hooks
+            logger.warning(f"on_detection_result hook failed: {e}")
 
     def on_candidate_detected(
         self,

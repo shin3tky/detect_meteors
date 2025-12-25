@@ -59,6 +59,7 @@ from meteor_core import (
     process_image_batch,
     compute_params_hash,
     ProgressManager,
+    DetectionResult,
 )
 from meteor_core.utils import _display_width, _pad_label
 
@@ -1213,6 +1214,16 @@ def _save_candidate_file(
     return True
 
 
+def _extract_frame_indices(detection_context_payload):
+    ctx_frame_index = None
+    ctx_prev_frame_index = None
+    if detection_context_payload and isinstance(detection_context_payload, dict):
+        metadata = detection_context_payload.get("metadata", {})
+        ctx_frame_index = metadata.get("frame_index")
+        ctx_prev_frame_index = metadata.get("prev_frame_index")
+    return ctx_frame_index, ctx_prev_frame_index
+
+
 def _run_parallel_detection(
     image_pairs,
     roi_mask,
@@ -1232,7 +1243,7 @@ def _run_parallel_detection(
     Run detection in parallel using ProcessPoolExecutor.
 
     Args:
-        image_pairs: List of (current_file, previous_file) tuples
+        image_pairs: List of (frame_index, current_file, previous_file) tuples
         roi_mask: ROI mask
         processing_params: Detection parameters
         roi_polygon: ROI polygon for debug visualization
@@ -1243,7 +1254,7 @@ def _run_parallel_detection(
         batch_size: Batch size for processing
         resume_offset: Offset for progress display
         overall_total: Total number of files for progress display
-        record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio)
+        record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio, detection_result)
 
     Returns:
         Number of detected candidates
@@ -1269,16 +1280,58 @@ def _run_parallel_detection(
     detected_count = 0
 
     try:
-        for batch in batches:
+        for batch_idx, batch in enumerate(batches, 1):
+            print(
+                get_message(
+                    "ui.cli.processing.submitting_batches",
+                    locale=locale,
+                    current=batch_idx,
+                    total=len(batches),
+                ),
+                end="\r",
+                flush=True,
+            )
             future = executor.submit(
                 process_image_batch, batch, roi_mask, processing_params
             )
             futures.append(future)
 
+        # Clear the submitting line
+        print()
+
         processed = 0
+        completed_batches = 0
+        total_batches = len(batches)
+
+        # Show initial batch progress (0 completed)
+        print(
+            get_message(
+                "ui.cli.processing.batch_progress",
+                locale=locale,
+                completed=0,
+                total=total_batches,
+            ),
+            end="\r",
+            flush=True,
+        )
+
         for future in as_completed(futures):
+            completed_batches += 1
             try:
                 batch_results = future.result()
+
+                # Show batch progress when a batch completes
+                print(
+                    get_message(
+                        "ui.cli.processing.batch_progress",
+                        locale=locale,
+                        completed=completed_batches,
+                        total=total_batches,
+                    ),
+                    end="\r",
+                    flush=True,
+                )
+
                 for result in batch_results:
                     (
                         is_candidate,
@@ -1288,10 +1341,25 @@ def _run_parallel_detection(
                         debug_img,
                         aspect_ratio,
                         num_lines,
+                        detection_result,
+                        _detection_context,
                     ) = result
                     processed += 1
 
+                    # Always show progress first
+                    print(
+                        get_message(
+                            "ui.cli.processing.checking",
+                            locale=locale,
+                            current=resume_offset + processed,
+                            total=overall_total,
+                        ),
+                        end="\r",
+                        flush=True,
+                    )
+
                     if line_score > 0:
+                        print()  # Move to new line before [LINE]
                         print(
                             get_message(
                                 "ui.cli.processing.line",
@@ -1303,6 +1371,8 @@ def _run_parallel_detection(
                         )
 
                     if is_candidate:
+                        if line_score <= 0:
+                            print()  # Move to new line if [LINE] wasn't printed
                         saved = _save_candidate_file(
                             filepath,
                             filename,
@@ -1329,20 +1399,21 @@ def _run_parallel_detection(
                                     filename=filename,
                                 )
                             )
-                    else:
-                        print(
-                            get_message(
-                                "ui.cli.processing.checking",
-                                locale=locale,
-                                current=resume_offset + processed,
-                                total=overall_total,
-                            ),
-                            end="",
-                            flush=True,
-                        )
+
+                    # Extract frame indices from detection context
+                    ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
+                        _detection_context
+                    )
 
                     detected_count = record_result_callback(
-                        filename, is_candidate, line_score, num_lines, aspect_ratio
+                        filename,
+                        is_candidate,
+                        line_score,
+                        num_lines,
+                        aspect_ratio,
+                        detection_result,
+                        ctx_frame_index,
+                        ctx_prev_frame_index,
                     )
 
             except Exception as e:
@@ -1383,7 +1454,7 @@ def _run_sequential_detection(
     Run detection sequentially (single-threaded).
 
     Args:
-        image_pairs: List of (current_file, previous_file) tuples
+        image_pairs: List of (frame_index, current_file, previous_file) tuples
         roi_mask: ROI mask
         processing_params: Detection parameters
         roi_polygon: ROI polygon for debug visualization
@@ -1392,7 +1463,7 @@ def _run_sequential_detection(
         output_overwrite: Whether to overwrite existing files
         resume_offset: Offset for progress display
         overall_total: Total number of files for progress display
-        record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio)
+        record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio, detection_result)
 
     Returns:
         Number of detected candidates
@@ -1401,7 +1472,7 @@ def _run_sequential_detection(
 
     for idx, pair in enumerate(image_pairs):
         current_index = resume_offset + idx + 1
-        current_file = os.path.basename(pair[0])
+        current_file = os.path.basename(pair[1])  # pair = (frame_index, curr, prev)
         progress_line_active = True
 
         print(
@@ -1427,6 +1498,8 @@ def _run_sequential_detection(
                 debug_img,
                 aspect_ratio,
                 num_lines,
+                detection_result,
+                _detection_context,
             ) = result
 
             if line_score > 0:
@@ -1482,13 +1555,25 @@ def _run_sequential_detection(
                         current=current_index,
                         total=overall_total,
                     ),
-                    end="",
+                    end="\r",
                     flush=True,
                 )
                 progress_line_active = True
 
+            # Extract frame indices from detection context
+            ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
+                _detection_context
+            )
+
             detected_count = record_result_callback(
-                filename, is_candidate, line_score, num_lines, aspect_ratio
+                filename,
+                is_candidate,
+                line_score,
+                num_lines,
+                aspect_ratio,
+                detection_result,
+                ctx_frame_index,
+                ctx_prev_frame_index,
             )
 
     return detected_count
@@ -1662,16 +1747,26 @@ def detect_meteors_advanced(
         score: float = 0.0,
         lines: int = 0,
         ratio: float = 0.0,
+        detection_result: Optional[DetectionResult] = None,
+        frame_index: Optional[int] = None,
+        prev_frame_index: Optional[int] = None,
     ) -> int:
         """Record result and return current detected count."""
         return progress_manager.record_result(
-            filename, is_candidate, score, lines, ratio
+            filename,
+            is_candidate,
+            score,
+            lines,
+            ratio,
+            frame_index=frame_index,
+            prev_frame_index=prev_frame_index,
         )
 
-    # Build image pairs and filter already processed
-    image_pairs = [(files[i], files[i - 1]) for i in range(1, len(files))]
+    # Build image pairs with frame index and filter already processed
+    # (frame_index, curr_file, prev_file)
+    image_pairs = [(i, files[i], files[i - 1]) for i in range(1, len(files))]
     image_pairs = [
-        pair for pair in image_pairs if os.path.basename(pair[0]) not in processed_set
+        pair for pair in image_pairs if os.path.basename(pair[1]) not in processed_set
     ]
 
     resume_offset = len(processed_set)

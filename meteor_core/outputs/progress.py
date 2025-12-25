@@ -380,6 +380,8 @@ class ProgressManager:
         score: float = 0.0,
         lines: int = 0,
         ratio: float = 0.0,
+        frame_index: Optional[int] = None,
+        prev_frame_index: Optional[int] = None,
     ) -> int:
         """
         Record the result of processing a file.
@@ -390,6 +392,8 @@ class ProgressManager:
             score: Line score of detected meteor candidate.
             lines: Number of lines detected.
             ratio: Aspect ratio of detected meteor candidate.
+            frame_index: Frame index of the current image in the sequence.
+            prev_frame_index: Frame index of the previous image in the sequence.
 
         Returns:
             Current total detected count.
@@ -408,13 +412,20 @@ class ProgressManager:
                 self._detected_details_map[filename] = entry
 
             entry.update(score=score, lines=lines, ratio=ratio)
+            if frame_index is not None:
+                entry["frame_index"] = frame_index
+            if prev_frame_index is not None:
+                entry["prev_frame_index"] = prev_frame_index
             self._sync_detected_details_list()
             logger.debug(
-                "Recorded candidate: %s (score=%.2f, lines=%d, ratio=%.2f)",
+                "Recorded candidate: %s (score=%.2f, lines=%d, ratio=%.2f, "
+                "frame_index=%s, prev_frame_index=%s)",
                 filename,
                 score,
                 lines,
                 ratio,
+                frame_index,
+                prev_frame_index,
             )
         else:
             logger.debug("Recorded non-candidate: %s", filename)
