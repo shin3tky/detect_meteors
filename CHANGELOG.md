@@ -16,7 +16,7 @@
   - `DetectionResult.debug_image` cleared before returning non-candidate results.
   - Reduces memory usage in large batch processing.
 - **Performance improvement**: `_build_runtime_params()` moved outside processing loop.
-- **Batch progress display**: Added status messages showing batch processing progress.
+- **Batch progress recording**: Frame indices recorded in `progress.json` for post-processing analysis.
 - **Updated Plugin Author Guide**: Documented `on_detection_result` hook usage, serialized context payload, and lifecycle ordering.
 
 ## v1.6.3 - 2025-12-24 - 🎅 Christmas Eve

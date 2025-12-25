@@ -13,7 +13,7 @@ Version 1.6.4 adds the `on_detection_result` lifecycle hook for output handlers,
 - **Frame indices tracking**: `frame_index` and `prev_frame_index` in detection context metadata and `progress.json`
 - **Debug image optimization**: Debug images only generated for candidate detections, reducing memory usage
 - **Performance improvements**: `_build_runtime_params()` moved outside processing loop
-- **Batch progress display**: Status messages showing batch processing progress with detected frame indices
+- **Batch progress recording**: Frame indices recorded in `progress.json` for post-processing analysis
 
 ### Why This Change?
 
@@ -21,7 +21,7 @@ This release enhances observability and post-processing capabilities:
 
 | Feature | Before (v1.6.3) | After (v1.6.4) |
 |---------|-----------------|----------------|
-| **Per-detection hook** | Not available | `on_detection_result(context_payload, result, filepath)` |
+| **Per-detection hook** | Not available | `on_detection_result(context, result, filepath)` |
 | **DetectionResult access** | Not propagated | Available in output handlers |
 | **Frame tracking** | Filename only | `frame_index` and `prev_frame_index` |
 | **Debug images** | Generated for all | Only for candidates |
@@ -42,9 +42,9 @@ The pipeline now invokes hooks in this order per frame:
 ┌─────────────────────────────────────────────────────────────────┐
 │  For each detection result:                                     │
 │                                                                 │
-│  1. on_detection_result(context_payload, result, filepath)      │
+│  1. on_detection_result(context, result, filepath)              │
 │     └── Inspect result.lines, result.extras, result.metrics    │
-│     └── context_payload contains runtime_params, metadata       │
+│     └── context contains runtime_params, metadata               │
 │                                                                 │
 │  2. save_candidate() [only if result.is_candidate]              │
 │     └── Save the candidate image                                │
@@ -113,14 +113,14 @@ This enables:
    ```python
    def on_detection_result(
        self,
-       context_payload: Dict[str, Any],
+       context: Dict[str, Any],
        result: DetectionResult,
        filepath: str,
    ) -> None:
        """Called immediately after each detection result.
 
        Args:
-           context_payload: Serialized DetectionContext (no image data)
+           context: Serialized DetectionContext (no image data)
            result: The DetectionResult from the detector
            filepath: Path to the current image file
        """
@@ -130,14 +130,14 @@ This enables:
            logger.debug(f"Metrics: {result.metrics}")
 
        # Access runtime params from context
-       runtime_params = context_payload.get("runtime_params", {})
+       runtime_params = context.get("runtime_params", {})
        logger.debug(f"Used params: {runtime_params}")
    ```
 
-2. **Access frame indices** in the context payload:
+2. **Access frame indices** in the context:
    ```python
-   def on_detection_result(self, context_payload, result, filepath):
-       metadata = context_payload.get("metadata", {})
+   def on_detection_result(self, context, result, filepath):
+       metadata = context.get("metadata", {})
        current_frame = metadata.get("current", {}).get("frame_index")
        prev_frame = metadata.get("previous", {}).get("frame_index")
        logger.info(f"Processing frames {prev_frame} → {current_frame}")
@@ -828,7 +828,7 @@ This release only affects the development toolchain. Users who install the packa
   - DetectionResult propagation through pipeline
   - Frame indices (`frame_index`, `prev_frame_index`) in detection context and progress.json
   - Debug image optimization for memory efficiency
-  - Batch progress display with frame indices
+  - Batch progress recording with frame indices in progress.json
 
 ### v1.6.3
 - **Version**: 1.6.3

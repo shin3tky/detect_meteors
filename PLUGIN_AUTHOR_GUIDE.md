@@ -82,7 +82,7 @@ For each image pair (current, previous):
     │                                                             │
     │  Returns: OutputResult                                      │
     │  Lifecycle Hooks (Output Handlers):                         │
-    │  • on_detection_result(context_payload)                     │
+    │  • on_detection_result(context)                             │
     │  • on_candidate_detected()                                  │
     │  • on_batch_complete()                                      │
     │  • on_pipeline_complete()                                   │
@@ -394,13 +394,13 @@ class OutputResult:
 **Lifecycle hooks (optional)**:
 | Hook | Signature |
 |------|-----------|
-| `on_detection_result` | `(context_payload, result, filepath) -> None` |
+| `on_detection_result` | `(context, result, filepath) -> None` |
 | `on_candidate_detected` | `(filename, saved, score, aspect_ratio) -> None` |
 | `on_batch_complete` | `(processed_count, detected_count, batch_size) -> None` |
 | `on_pipeline_complete` | `(total_processed, total_detected, elapsed_seconds) -> None` |
 
 **Invocation order (per frame)**:
-1. `on_detection_result()` — called immediately after the detector returns and the pipeline normalizes `DetectionResult`. The `context_payload` is the result of `DetectionContext.to_dict()` and excludes image/ROI arrays.
+1. `on_detection_result()` — called immediately after the detector returns and the pipeline normalizes `DetectionResult`. The `context` parameter is the result of `DetectionContext.to_dict()` and excludes image/ROI arrays.
 2. `save_candidate()` — only if `result.is_candidate` is `True`.
 3. `on_candidate_detected()` — called after `save_candidate()` returns (with `saved` reflecting the output decision).
 
@@ -1292,7 +1292,7 @@ DetectorRegistry.register(ThresholdDetector)
 Per-frame hooks run during detection, so you can use `DetectionResult.lines` to
 inspect line segments and `DetectionResult.extras` to read detector-specific
 metadata (e.g., bounding boxes, masks, or algorithm tags). The
-`context_payload` argument contains `DetectionContext.to_dict()` output (no
+`context` argument contains `DetectionContext.to_dict()` output (no
 image buffers). Keep `extras` JSON-serializable so it can be logged or emitted
 to observability tools.
 
@@ -1486,7 +1486,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
 
     def on_detection_result(
         self,
-        context_payload: Dict[str, Any],
+        context: Dict[str, Any],
         result: DetectionResult,
         filepath: str,
     ) -> None:
@@ -1497,7 +1497,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
         """
         try:
             basename = os.path.basename(filepath)
-            runtime_params = context_payload.get("runtime_params", {})
+            runtime_params = context.get("runtime_params", {})
             line_count = len(result.lines)
             extra_keys = ", ".join(sorted(result.extras.keys()))
             logger.debug(
