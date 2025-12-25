@@ -1,5 +1,178 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.4 (2025-12-25) 🎄
+
+### 🔧 Output Handler Hooks and Frame Tracking
+
+Version 1.6.4 adds the `on_detection_result` lifecycle hook for output handlers, propagates `DetectionResult` through the pipeline, and introduces frame index tracking for improved progress reporting and post-processing analysis.
+
+### Highlights
+
+- **Output handler `on_detection_result` hook**: New per-detection callback with serialized context payload
+- **DetectionResult propagation**: `process_image_batch()` now returns `DetectionResult`, enabling access to `lines`, `extras`, and `metrics`
+- **Frame indices tracking**: `frame_index` and `prev_frame_index` in detection context metadata and `progress.json`
+- **Debug image optimization**: Debug images only generated for candidate detections, reducing memory usage
+- **Performance improvements**: `_build_runtime_params()` moved outside processing loop
+- **Batch progress display**: Status messages showing batch processing progress with detected frame indices
+
+### Why This Change?
+
+This release enhances observability and post-processing capabilities:
+
+| Feature | Before (v1.6.3) | After (v1.6.4) |
+|---------|-----------------|----------------|
+| **Per-detection hook** | Not available | `on_detection_result(context_payload, result, filepath)` |
+| **DetectionResult access** | Not propagated | Available in output handlers |
+| **Frame tracking** | Filename only | `frame_index` and `prev_frame_index` |
+| **Debug images** | Generated for all | Only for candidates |
+| **Progress detail** | File count | Frame indices (e.g., "frames 42, 108, 215") |
+
+Benefits:
+1. **Real-time inspection**: Output handlers can inspect detection results before saving
+2. **Rich diagnostics**: Access to `lines`, `extras`, and `metrics` from detectors
+3. **Post-processing analysis**: Frame indices in `progress.json` enable correlation with external data
+4. **Memory efficiency**: Debug images cleared for non-candidates
+5. **Better progress UX**: Users see which specific frames detected meteors
+
+### Output Handler Lifecycle (v1.6.4)
+
+The pipeline now invokes hooks in this order per frame:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  For each detection result:                                     │
+│                                                                 │
+│  1. on_detection_result(context_payload, result, filepath)      │
+│     └── Inspect result.lines, result.extras, result.metrics    │
+│     └── context_payload contains runtime_params, metadata       │
+│                                                                 │
+│  2. save_candidate() [only if result.is_candidate]              │
+│     └── Save the candidate image                                │
+│                                                                 │
+│  3. on_candidate_detected(filename, saved, score, aspect_ratio) │
+│     └── Send notifications, update counters                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Frame Indices in Detection Context
+
+Detection context metadata now includes frame indices:
+
+```python
+context.metadata = {
+    "current": {
+        "frame_index": 42,      # 0-based index of current frame
+        # ... other metadata
+    },
+    "previous": {
+        "frame_index": 41,      # 0-based index of previous frame
+        # ... other metadata
+    },
+}
+```
+
+### Progress File Changes (progress.json)
+
+The `detected_details` entries now include frame indices:
+
+```json
+{
+  "processed": 150,
+  "detected": 3,
+  "detected_details": [
+    {
+      "filename": "IMG_0042.CR2",
+      "score": 85.5,
+      "aspect_ratio": 3.2,
+      "frame_index": 42,
+      "prev_frame_index": 41
+    },
+    {
+      "filename": "IMG_0108.CR2",
+      "score": 92.1,
+      "aspect_ratio": 4.1,
+      "frame_index": 108,
+      "prev_frame_index": 107
+    }
+  ]
+}
+```
+
+This enables:
+- Correlation with external timestamp logs
+- Analysis of detection patterns across frame sequences
+- Integration with video/timelapse metadata
+
+### Migration Guide for Plugin Authors
+
+**No immediate migration required.** All existing plugins continue to work.
+
+**Recommended updates for Output Handler authors**:
+
+1. **Implement `on_detection_result` hook** for per-detection processing:
+   ```python
+   def on_detection_result(
+       self,
+       context_payload: Dict[str, Any],
+       result: DetectionResult,
+       filepath: str,
+   ) -> None:
+       """Called immediately after each detection result.
+
+       Args:
+           context_payload: Serialized DetectionContext (no image data)
+           result: The DetectionResult from the detector
+           filepath: Path to the current image file
+       """
+       # Inspect detector outputs
+       if result.is_candidate:
+           logger.info(f"Detected {len(result.lines)} lines in {filepath}")
+           logger.debug(f"Metrics: {result.metrics}")
+
+       # Access runtime params from context
+       runtime_params = context_payload.get("runtime_params", {})
+       logger.debug(f"Used params: {runtime_params}")
+   ```
+
+2. **Access frame indices** in the context payload:
+   ```python
+   def on_detection_result(self, context_payload, result, filepath):
+       metadata = context_payload.get("metadata", {})
+       current_frame = metadata.get("current", {}).get("frame_index")
+       prev_frame = metadata.get("previous", {}).get("frame_index")
+       logger.info(f"Processing frames {prev_frame} → {current_frame}")
+   ```
+
+### Debug Image Optimization
+
+To reduce memory usage in large batch processing:
+
+- `DetectionResult.debug_image` is now cleared before returning non-candidate results
+- Debug images are only generated and retained for actual candidates
+- This significantly reduces memory pressure when processing thousands of images
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `meteor_core/pipeline.py` | Added `on_detection_result` invocation, frame index tracking, debug image optimization |
+| `meteor_core/schema.py` | Frame index fields in metadata |
+| `detect_meteors_cli.py` | Updated result tuple unpacking, progress display with frame indices |
+| `PLUGIN_AUTHOR_GUIDE.md` | Updated lifecycle hooks documentation |
+| `CHANGELOG.md` | Added v1.6.4 entry |
+| `README.md` | Updated "What's New" section |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.6.3, v1.6.2, v1.6.1, and v1.6.0:
+
+- **CLI**: No changes to command-line interface
+- **Runtime**: No changes to detection behavior
+- **API**: Existing plugins work unchanged; new hooks are optional
+- **progress.json**: New fields added; existing fields unchanged
+
+---
+
 ## Version 1.6.3 (2025-12-24)
 
 ### 🔧 RuntimeParams Contract and Pipeline Normalization
@@ -647,7 +820,17 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
-### v1.6.3 (Latest)
+### v1.6.4 (Latest) 🎄
+- **Version**: 1.6.4
+- **Release Date**: 2025-12-25
+- **Major Changes**:
+  - Output handler `on_detection_result` lifecycle hook
+  - DetectionResult propagation through pipeline
+  - Frame indices (`frame_index`, `prev_frame_index`) in detection context and progress.json
+  - Debug image optimization for memory efficiency
+  - Batch progress display with frame indices
+
+### v1.6.3
 - **Version**: 1.6.3
 - **Release Date**: 2025-12-24
 - **Major Changes**:
@@ -689,6 +872,6 @@ This release only affects the development toolchain. Users who install the packa
 
 **Status**: Production Ready  
 **Compatibility**: Fully backward compatible with v1.5.x  
-**Recommendation**: Contributors should migrate to uv/Ruff workflow; plugin authors should adopt new contract types
+**Recommendation**: Contributors should migrate to uv/Ruff workflow; plugin authors should adopt new contract types and implement `on_detection_result` hook for enhanced observability
 
-Happy meteor hunting! 🌠
+Happy meteor hunting! 🌠🎄
