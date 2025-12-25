@@ -680,7 +680,8 @@ def process_image_batch(
             result = _normalize_detection_result(det.detect(context))
             context_payload = context.to_dict()
             debug_image = result.debug_image if result.is_candidate else None
-            result.debug_image = None
+            if not result.is_candidate:
+                result.debug_image = None
 
             results.append(
                 (
