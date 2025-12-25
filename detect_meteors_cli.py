@@ -1214,6 +1214,16 @@ def _save_candidate_file(
     return True
 
 
+def _extract_frame_indices(detection_context_payload):
+    ctx_frame_index = None
+    ctx_prev_frame_index = None
+    if detection_context_payload and isinstance(detection_context_payload, dict):
+        metadata = detection_context_payload.get("metadata", {})
+        ctx_frame_index = metadata.get("frame_index")
+        ctx_prev_frame_index = metadata.get("prev_frame_index")
+    return ctx_frame_index, ctx_prev_frame_index
+
+
 def _run_parallel_detection(
     image_pairs,
     roi_mask,
@@ -1345,12 +1355,9 @@ def _run_parallel_detection(
                         )
 
                     # Extract frame indices from detection context
-                    ctx_frame_index = None
-                    ctx_prev_frame_index = None
-                    if _detection_context and isinstance(_detection_context, dict):
-                        metadata = _detection_context.get("metadata", {})
-                        ctx_frame_index = metadata.get("frame_index")
-                        ctx_prev_frame_index = metadata.get("prev_frame_index")
+                    ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
+                        _detection_context
+                    )
 
                     detected_count = record_result_callback(
                         filename,
@@ -1508,12 +1515,9 @@ def _run_sequential_detection(
                 progress_line_active = True
 
             # Extract frame indices from detection context
-            ctx_frame_index = None
-            ctx_prev_frame_index = None
-            if _detection_context and isinstance(_detection_context, dict):
-                metadata = _detection_context.get("metadata", {})
-                ctx_frame_index = metadata.get("frame_index")
-                ctx_prev_frame_index = metadata.get("prev_frame_index")
+            ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
+                _detection_context
+            )
 
             detected_count = record_result_callback(
                 filename,

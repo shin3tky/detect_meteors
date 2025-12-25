@@ -731,6 +731,18 @@ def process_image_batch(
     return results
 
 
+def _extract_frame_indices(
+    detection_context_payload: Optional[Dict[str, Any]],
+) -> Tuple[Optional[int], Optional[int]]:
+    ctx_frame_index = None
+    ctx_prev_frame_index = None
+    if detection_context_payload and isinstance(detection_context_payload, dict):
+        metadata = detection_context_payload.get("metadata", {})
+        ctx_frame_index = metadata.get("frame_index")
+        ctx_prev_frame_index = metadata.get("prev_frame_index")
+    return ctx_frame_index, ctx_prev_frame_index
+
+
 def estimate_diff_threshold_from_samples(
     files: List[str],
     roi_mask: np.ndarray,
@@ -1998,14 +2010,9 @@ class MeteorDetectionPipeline:
                             )
 
                         # Extract frame indices from detection context
-                        ctx_frame_index = None
-                        ctx_prev_frame_index = None
-                        if detection_context_payload and isinstance(
-                            detection_context_payload, dict
-                        ):
-                            metadata = detection_context_payload.get("metadata", {})
-                            ctx_frame_index = metadata.get("frame_index")
-                            ctx_prev_frame_index = metadata.get("prev_frame_index")
+                        ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
+                            detection_context_payload
+                        )
 
                         self.progress_manager.record_result(
                             filename,
@@ -2154,14 +2161,9 @@ class MeteorDetectionPipeline:
                         )
 
                 # Extract frame indices from detection context
-                ctx_frame_index = None
-                ctx_prev_frame_index = None
-                if detection_context_payload and isinstance(
-                    detection_context_payload, dict
-                ):
-                    metadata = detection_context_payload.get("metadata", {})
-                    ctx_frame_index = metadata.get("frame_index")
-                    ctx_prev_frame_index = metadata.get("prev_frame_index")
+                ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
+                    detection_context_payload
+                )
 
                 self.progress_manager.record_result(
                     filename,
