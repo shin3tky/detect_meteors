@@ -7,10 +7,11 @@
 - **DetectionResult propagation**: `process_image_batch()` now returns `DetectionResult` in result tuples.
   - Enables output handlers to access `lines`, `extras`, and `metrics` from detectors.
   - CLI and pipeline updated to unpack extended result tuple.
-- **Frame indices tracking**: Added frame indices to batch processing for progress tracking.
+- **Frame indices in detection context and progress tracking**: Added `frame_index` and `prev_frame_index` throughout the pipeline.
+  - Detection context metadata now includes `frame_index` and `prev_frame_index`.
+  - `progress.json` `detected_details` entries now contain `frame_index` and `prev_frame_index` fields.
   - `_extract_frame_indices()` helper for batch result processing.
-  - Detection context metadata includes frame indices.
-  - Progress messages show which frames detected meteors.
+  - Progress messages show which frames detected meteors (e.g., "frames 42, 108, 215").
 - **Debug image optimization**: Debug images only generated for candidate detections.
   - `DetectionResult.debug_image` cleared before returning non-candidate results.
   - Reduces memory usage in large batch processing.

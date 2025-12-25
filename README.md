@@ -106,11 +106,13 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
 
 ## What's New in v1.6.4 🎄
 
+- **Frame indices in detection context**: `frame_index` and `prev_frame_index` tracked throughout the pipeline
+  - `progress.json` `detected_details` now includes frame indices for post-processing analysis
+  - Progress messages show which frames detected meteors
 - **Output handler `on_detection_result` hook**: New callback for per-detection processing
   - Receives serialized context payload with runtime params, file info, timestamps
   - Documented lifecycle: `on_detection_result` → `on_candidate_image` → `on_debug_image`
 - **DetectionResult propagation**: Access detector `lines`, `extras`, and `metrics` in output handlers
-- **Frame indices tracking**: Progress messages now show which frames detected meteors
 - **Performance improvements**: Optimized debug image generation and runtime param building
 
 For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
