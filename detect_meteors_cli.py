@@ -1344,6 +1344,14 @@ def _run_parallel_detection(
                             flush=True,
                         )
 
+                    # Extract frame indices from detection context
+                    ctx_frame_index = None
+                    ctx_prev_frame_index = None
+                    if _detection_context and isinstance(_detection_context, dict):
+                        metadata = _detection_context.get("metadata", {})
+                        ctx_frame_index = metadata.get("frame_index")
+                        ctx_prev_frame_index = metadata.get("prev_frame_index")
+
                     detected_count = record_result_callback(
                         filename,
                         is_candidate,
@@ -1351,6 +1359,8 @@ def _run_parallel_detection(
                         num_lines,
                         aspect_ratio,
                         detection_result,
+                        ctx_frame_index,
+                        ctx_prev_frame_index,
                     )
 
             except Exception as e:
@@ -1497,6 +1507,14 @@ def _run_sequential_detection(
                 )
                 progress_line_active = True
 
+            # Extract frame indices from detection context
+            ctx_frame_index = None
+            ctx_prev_frame_index = None
+            if _detection_context and isinstance(_detection_context, dict):
+                metadata = _detection_context.get("metadata", {})
+                ctx_frame_index = metadata.get("frame_index")
+                ctx_prev_frame_index = metadata.get("prev_frame_index")
+
             detected_count = record_result_callback(
                 filename,
                 is_candidate,
@@ -1504,6 +1522,8 @@ def _run_sequential_detection(
                 num_lines,
                 aspect_ratio,
                 detection_result,
+                ctx_frame_index,
+                ctx_prev_frame_index,
             )
 
     return detected_count
@@ -1678,10 +1698,18 @@ def detect_meteors_advanced(
         lines: int = 0,
         ratio: float = 0.0,
         detection_result: Optional[DetectionResult] = None,
+        frame_index: Optional[int] = None,
+        prev_frame_index: Optional[int] = None,
     ) -> int:
         """Record result and return current detected count."""
         return progress_manager.record_result(
-            filename, is_candidate, score, lines, ratio
+            filename,
+            is_candidate,
+            score,
+            lines,
+            ratio,
+            frame_index=frame_index,
+            prev_frame_index=prev_frame_index,
         )
 
     # Build image pairs with frame index and filter already processed

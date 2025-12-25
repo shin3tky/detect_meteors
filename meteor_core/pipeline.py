@@ -1997,8 +1997,24 @@ class MeteorDetectionPipeline:
                                 flush=True,
                             )
 
+                        # Extract frame indices from detection context
+                        ctx_frame_index = None
+                        ctx_prev_frame_index = None
+                        if detection_context_payload and isinstance(
+                            detection_context_payload, dict
+                        ):
+                            metadata = detection_context_payload.get("metadata", {})
+                            ctx_frame_index = metadata.get("frame_index")
+                            ctx_prev_frame_index = metadata.get("prev_frame_index")
+
                         self.progress_manager.record_result(
-                            filename, is_candidate, line_score, num_lines, aspect_ratio
+                            filename,
+                            is_candidate,
+                            line_score,
+                            num_lines,
+                            aspect_ratio,
+                            frame_index=ctx_frame_index,
+                            prev_frame_index=ctx_prev_frame_index,
                         )
 
                 except Exception as e:
@@ -2137,8 +2153,24 @@ class MeteorDetectionPipeline:
                             exc,
                         )
 
+                # Extract frame indices from detection context
+                ctx_frame_index = None
+                ctx_prev_frame_index = None
+                if detection_context_payload and isinstance(
+                    detection_context_payload, dict
+                ):
+                    metadata = detection_context_payload.get("metadata", {})
+                    ctx_frame_index = metadata.get("frame_index")
+                    ctx_prev_frame_index = metadata.get("prev_frame_index")
+
                 self.progress_manager.record_result(
-                    filename, is_candidate, line_score, num_lines, aspect_ratio
+                    filename,
+                    is_candidate,
+                    line_score,
+                    num_lines,
+                    aspect_ratio,
+                    frame_index=ctx_frame_index,
+                    prev_frame_index=ctx_prev_frame_index,
                 )
 
         return self.progress_manager.get_total_detected()
