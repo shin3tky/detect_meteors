@@ -1826,8 +1826,27 @@ class MeteorDetectionPipeline:
             self.progress_manager.save()
             return self.progress_manager.get_total_detected()
 
+        processing_elapsed = time.time() - t_process
+        total_processed = self.progress_manager.get_total_processed()
+        total_detected = self.progress_manager.get_total_detected()
+        try:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "on_pipeline_complete elapsed=%.2fs processed=%s detected=%s",
+                    processing_elapsed,
+                    total_processed,
+                    total_detected,
+                )
+            self.output_handler.on_pipeline_complete(
+                total_processed,
+                total_detected,
+                processing_elapsed,
+            )
+        except Exception as exc:
+            logger.warning("on_pipeline_complete hook failed: %s", exc)
+
         if profile:
-            timing["processing"] = time.time() - t_process
+            timing["processing"] = processing_elapsed
             timing["total"] = time.time() - t_total
 
             print("\n\n" + get_message("ui.profile.header", locale=locale))
@@ -1892,6 +1911,7 @@ class MeteorDetectionPipeline:
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
         locale = _resolve_locale(locale)
+        start_time = time.time()
         batches = [
             image_pairs[i : i + self._config.batch_size]
             for i in range(0, len(image_pairs), self._config.batch_size)
@@ -2071,6 +2091,26 @@ class MeteorDetectionPipeline:
                             prev_frame_index=ctx_prev_frame_index,
                         )
 
+                    try:
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug(
+                                "on_batch_complete elapsed=%.2fs processed=%s detected=%s batch_size=%s",
+                                time.time() - start_time,
+                                self.progress_manager.get_total_processed(),
+                                self.progress_manager.get_total_detected(),
+                                len(batch_results),
+                            )
+                        self.output_handler.on_batch_complete(
+                            self.progress_manager.get_total_processed(),
+                            self.progress_manager.get_total_detected(),
+                            len(batch_results),
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "on_batch_complete hook failed for batch %s: %s",
+                            completed_batches,
+                            exc,
+                        )
                 except Exception as e:
                     print(
                         "\n"
@@ -2111,6 +2151,7 @@ class MeteorDetectionPipeline:
     ) -> int:
         """Process images sequentially."""
         locale = _resolve_locale(locale)
+        start_time = time.time()
         for idx, pair in enumerate(image_pairs):
             current_index = resume_offset + idx + 1
             current_file = os.path.basename(pair[1])
@@ -2220,6 +2261,27 @@ class MeteorDetectionPipeline:
                     aspect_ratio,
                     frame_index=ctx_frame_index,
                     prev_frame_index=ctx_prev_frame_index,
+                )
+
+            try:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "on_batch_complete elapsed=%.2fs processed=%s detected=%s batch_size=%s",
+                        time.time() - start_time,
+                        self.progress_manager.get_total_processed(),
+                        self.progress_manager.get_total_detected(),
+                        len(batch_results),
+                    )
+                self.output_handler.on_batch_complete(
+                    self.progress_manager.get_total_processed(),
+                    self.progress_manager.get_total_detected(),
+                    len(batch_results),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "on_batch_complete hook failed for %s: %s",
+                    current_file,
+                    exc,
                 )
 
         return self.progress_manager.get_total_detected()
