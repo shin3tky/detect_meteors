@@ -1,5 +1,7 @@
 # Version 1.3.1 Release Notes
 
+## Version 1.3.1 (2025-11-23) 🙏
+
 ## 🎉 Comprehensive Auto-Parameter Estimation - Complete Automation Success
 
 Version 1.3.1 brings **complete Auto-Parameter Estimation** for all three critical detection parameters, enabling fully automatic meteor detection without manual tuning. Based on extensive real-world testing with OM Digital OM-1 RAW images, this release successfully detects meteors with zero configuration.
