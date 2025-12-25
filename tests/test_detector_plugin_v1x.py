@@ -332,8 +332,9 @@ class TestProcessImageBatchWithDetector(unittest.TestCase):
                     )
 
             # Process with mock detector and mock loader
+            # batch_data: (frame_index, curr_file, prev_file)
             results = process_image_batch(
-                batch_data=[(file1, file2)],
+                batch_data=[(1, file1, file2)],
                 roi_mask=self.roi_mask,
                 params=self.params,
                 input_loader=MockLoader(),

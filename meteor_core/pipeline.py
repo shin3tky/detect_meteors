@@ -581,7 +581,7 @@ def validate_raw_file(
 
 
 def process_image_batch(
-    batch_data: List[Tuple[str, str]],
+    batch_data: List[Tuple[int, str, str]],
     roi_mask: np.ndarray,
     params: dict,
     input_loader: Optional[BaseInputLoader] = None,
@@ -603,7 +603,7 @@ def process_image_batch(
     Process a batch of images (handle multiple pairs at once).
 
     Args:
-        batch_data: List of [(curr_file, prev_file), ...]
+        batch_data: List of [(frame_index, curr_file, prev_file), ...]
         roi_mask: ROI mask
         params: Parameter dictionary
         input_loader: Optional input loader instance
@@ -637,8 +637,9 @@ def process_image_batch(
 
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
-    for curr_file, prev_file in batch_data:
+    for frame_index, curr_file, prev_file in batch_data:
         filename = os.path.basename(curr_file)
+        prev_frame_index = frame_index - 1
 
         try:
             # Load images
@@ -656,10 +657,17 @@ def process_image_batch(
                 metadata = {
                     "current": curr_context.metadata,
                     "previous": prev_context.metadata,
+                    "frame_index": frame_index,
+                    "prev_frame_index": prev_frame_index,
                 }
             except Exception as exc:
                 logger.warning("Metadata extraction failed for %s: %s", filename, exc)
-                metadata = {"current": {}, "previous": {}}
+                metadata = {
+                    "current": {},
+                    "previous": {},
+                    "frame_index": frame_index,
+                    "prev_frame_index": prev_frame_index,
+                }
             runtime_params = _build_runtime_params(params, det)
             context = DetectionContext(
                 current_image=curr_context.image_data,
@@ -1738,11 +1746,11 @@ class MeteorDetectionPipeline:
         self.progress_manager.save()
 
         # Build image pairs
-        image_pairs = [(files[i], files[i - 1]) for i in range(1, len(files))]
+        image_pairs = [(i, files[i], files[i - 1]) for i in range(1, len(files))]
         image_pairs = [
             pair
             for pair in image_pairs
-            if not self.progress_manager.is_processed(os.path.basename(pair[0]))
+            if not self.progress_manager.is_processed(os.path.basename(pair[1]))
         ]
 
         resume_offset = self.progress_manager.get_total_processed()
@@ -1859,7 +1867,7 @@ class MeteorDetectionPipeline:
 
     def _process_parallel(
         self,
-        image_pairs: List[Tuple[str, str]],
+        image_pairs: List[Tuple[int, str, str]],
         roi_mask: np.ndarray,
         params: Dict[str, Any],
         roi_polygon: Optional[List[List[int]]],
@@ -2021,7 +2029,7 @@ class MeteorDetectionPipeline:
 
     def _process_sequential(
         self,
-        image_pairs: List[Tuple[str, str]],
+        image_pairs: List[Tuple[int, str, str]],
         roi_mask: np.ndarray,
         params: Dict[str, Any],
         roi_polygon: Optional[List[List[int]]],
@@ -2035,7 +2043,7 @@ class MeteorDetectionPipeline:
         locale = _resolve_locale(locale)
         for idx, pair in enumerate(image_pairs):
             current_index = resume_offset + idx + 1
-            current_file = os.path.basename(pair[0])
+            current_file = os.path.basename(pair[1])
 
             print(
                 get_message(

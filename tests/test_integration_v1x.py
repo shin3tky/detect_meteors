@@ -87,7 +87,8 @@ class TestMeteorDetectionBase(unittest.TestCase):
                     filepath=filepath,
                 )
 
-        batch_data = [("path/to/current.ORF", "path/to/prev.ORF")]
+        # batch_data: (frame_index, curr_file, prev_file)
+        batch_data = [(1, "path/to/current.ORF", "path/to/prev.ORF")]
         loader = DummyLoader(img_current, img_previous)
         results = process_image_batch(batch_data, roi_mask, params, input_loader=loader)
 

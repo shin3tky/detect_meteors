@@ -1233,7 +1233,7 @@ def _run_parallel_detection(
     Run detection in parallel using ProcessPoolExecutor.
 
     Args:
-        image_pairs: List of (current_file, previous_file) tuples
+        image_pairs: List of (frame_index, current_file, previous_file) tuples
         roi_mask: ROI mask
         processing_params: Detection parameters
         roi_polygon: ROI polygon for debug visualization
@@ -1391,7 +1391,7 @@ def _run_sequential_detection(
     Run detection sequentially (single-threaded).
 
     Args:
-        image_pairs: List of (current_file, previous_file) tuples
+        image_pairs: List of (frame_index, current_file, previous_file) tuples
         roi_mask: ROI mask
         processing_params: Detection parameters
         roi_polygon: ROI polygon for debug visualization
@@ -1409,7 +1409,7 @@ def _run_sequential_detection(
 
     for idx, pair in enumerate(image_pairs):
         current_index = resume_offset + idx + 1
-        current_file = os.path.basename(pair[0])
+        current_file = os.path.basename(pair[1])  # pair = (frame_index, curr, prev)
         progress_line_active = True
 
         print(
@@ -1684,10 +1684,11 @@ def detect_meteors_advanced(
             filename, is_candidate, score, lines, ratio
         )
 
-    # Build image pairs and filter already processed
-    image_pairs = [(files[i], files[i - 1]) for i in range(1, len(files))]
+    # Build image pairs with frame index and filter already processed
+    # (frame_index, curr_file, prev_file)
+    image_pairs = [(i, files[i], files[i - 1]) for i in range(1, len(files))]
     image_pairs = [
-        pair for pair in image_pairs if os.path.basename(pair[0]) not in processed_set
+        pair for pair in image_pairs if os.path.basename(pair[1]) not in processed_set
     ]
 
     resume_offset = len(processed_set)
