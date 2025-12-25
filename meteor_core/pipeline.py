@@ -634,6 +634,7 @@ def process_image_batch(
 
     loader = _resolve_input_loader(input_loader)
     det = _resolve_detector(detector=detector)
+    runtime_params = _build_runtime_params(params, det)
 
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
@@ -668,7 +669,6 @@ def process_image_batch(
                     "frame_index": frame_index,
                     "prev_frame_index": prev_frame_index,
                 }
-            runtime_params = _build_runtime_params(params, det)
             context = DetectionContext(
                 current_image=curr_context.image_data,
                 previous_image=prev_context.image_data,
