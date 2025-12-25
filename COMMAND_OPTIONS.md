@@ -5,7 +5,9 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 ## Input/Output Options
 - **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan.
 - **`-o`/`--output`** (default: `candidates`): Destination folder for RAW files flagged as meteor candidates.
-- **`--debug-dir`** (default: `debug_masks`): Where to save generated mask and debug images.
+- **`--debug-dir`** (default: `debug_masks`): Where to save generated mask and debug images (used with `--debug-image`).
+- **`--debug-image`** (default: disabled): Save mask/debug images to `--debug-dir`.
+- **`--no-debug-image`** (default): Do not save mask/debug images.
 
 ## Detection Parameters
 - **`--diff-threshold`** (default: `8`): Pixel-difference threshold used to binarize frame-to-frame differences. **TIP**: Use `--auto-params` to optimize automatically based on ISO and NPF compliance.

@@ -84,7 +84,7 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
 - **Input**: Directory of RAW images (default: `rawfiles/`)
 - **Output**: 
   - Candidate images in `candidates/` (or custom `-o` path)
-  - Optional debug masks with `--debug-dir`
+  - Optional debug masks with `--debug-image` and `--debug-dir`
   - `progress.json` for resumable processing
 
 ## Resumable Processing

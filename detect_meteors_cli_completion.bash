@@ -18,6 +18,8 @@ _detect_meteors_cli_completion() {
           -t --target
           -o --output
           --debug-dir
+          --debug-image
+          --no-debug-image
           --diff-threshold
           --min-area
           --min-aspect-ratio

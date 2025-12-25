@@ -21,6 +21,8 @@ _detect_meteors_cli() {
         '(-t --target)'{-t,--target}'[Input RAW image folder]:directory:_directories'
         '(-o --output)'{-o,--output}'[Output folder for candidate RAW files]:directory:_directories'
         '--debug-dir[Folder to save mask/debug images]:directory:_directories'
+        '--debug-image[Enable saving mask/debug images to --debug-dir]'
+        '--no-debug-image[Disable saving mask/debug images (default)]'
         
         # Detection parameters
         '--diff-threshold[Threshold for difference binarization (default: 8)]:threshold:(5 8 10 15 20)'

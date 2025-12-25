@@ -586,6 +586,7 @@ def process_image_batch(
     params: dict,
     input_loader: Optional[BaseInputLoader] = None,
     detector: Optional[BaseDetector] = None,
+    debug_image_enabled: bool = True,
 ) -> List[
     Tuple[
         bool,
@@ -608,6 +609,7 @@ def process_image_batch(
         params: Parameter dictionary
         input_loader: Optional input loader instance
         detector: Optional detector instance (defaults to HoughDetector)
+        debug_image_enabled: Whether to include debug images in results
 
     Returns:
         List of processing results for each image:
@@ -680,8 +682,10 @@ def process_image_batch(
             result = _normalize_detection_result(det.detect(context))
             context_payload = context.to_dict()
             debug_image = result.debug_image if result.is_candidate else None
-            if not result.is_candidate:
+            if not result.is_candidate or not debug_image_enabled:
                 result.debug_image = None
+                if not debug_image_enabled:
+                    debug_image = None
 
             results.append(
                 (

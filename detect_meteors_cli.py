@@ -95,8 +95,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--debug-dir",
         default=DEFAULT_DEBUG_FOLDER,
-        help="Folder to save mask/debug images",
+        help="Folder to save mask/debug images (used with --debug-image)",
     )
+    debug_image_group = parser.add_mutually_exclusive_group()
+    debug_image_group.add_argument(
+        "--debug-image",
+        dest="debug_image",
+        action="store_true",
+        help="Enable saving mask/debug images to --debug-dir",
+    )
+    debug_image_group.add_argument(
+        "--no-debug-image",
+        dest="debug_image",
+        action="store_false",
+        help="Disable saving mask/debug images to --debug-dir (default)",
+    )
+    parser.set_defaults(debug_image=False)
 
     parser.add_argument(
         "--diff-threshold",
@@ -635,7 +649,10 @@ def _init_worker_ignore_interrupt() -> None:
 
 
 def _validate_directories(
-    target_folder: str, output_folder: str, debug_folder: str
+    target_folder: str,
+    output_folder: str,
+    debug_folder: str,
+    debug_image_enabled: bool,
 ) -> None:
     """
     Validate and create directories for processing.
@@ -644,6 +661,7 @@ def _validate_directories(
         target_folder: Input folder with RAW files
         output_folder: Output folder for candidates
         debug_folder: Folder for debug images
+        debug_image_enabled: Whether to create the debug image folder
 
     Raises:
         MeteorValidationError: If target and output directories are the same.
@@ -670,7 +688,8 @@ def _validate_directories(
 
     try:
         os.makedirs(output_folder, exist_ok=True)
-        os.makedirs(debug_folder, exist_ok=True)
+        if debug_image_enabled:
+            os.makedirs(debug_folder, exist_ok=True)
     except OSError as e:
         raise MeteorLoadError(
             f"Failed to create output directory: {e}",
@@ -1232,6 +1251,7 @@ def _run_parallel_detection(
     output_folder,
     debug_folder,
     output_overwrite,
+    debug_image_enabled,
     num_workers,
     batch_size,
     resume_offset,
@@ -1250,6 +1270,7 @@ def _run_parallel_detection(
         output_folder: Output folder for candidates
         debug_folder: Folder for debug images
         output_overwrite: Whether to overwrite existing files
+        debug_image_enabled: Whether to save debug images to disk
         num_workers: Number of parallel workers
         batch_size: Batch size for processing
         resume_offset: Offset for progress display
@@ -1292,7 +1313,13 @@ def _run_parallel_detection(
                 flush=True,
             )
             future = executor.submit(
-                process_image_batch, batch, roi_mask, processing_params
+                process_image_batch,
+                batch,
+                roi_mask,
+                processing_params,
+                None,
+                None,
+                debug_image_enabled,
             )
             futures.append(future)
 
@@ -1373,6 +1400,8 @@ def _run_parallel_detection(
                     if is_candidate:
                         if line_score <= 0:
                             print()  # Move to new line if [LINE] wasn't printed
+                        if not debug_image_enabled:
+                            debug_img = None
                         saved = _save_candidate_file(
                             filepath,
                             filename,
@@ -1445,6 +1474,7 @@ def _run_sequential_detection(
     output_folder,
     debug_folder,
     output_overwrite,
+    debug_image_enabled,
     resume_offset,
     overall_total,
     record_result_callback,
@@ -1461,6 +1491,7 @@ def _run_sequential_detection(
         output_folder: Output folder for candidates
         debug_folder: Folder for debug images
         output_overwrite: Whether to overwrite existing files
+        debug_image_enabled: Whether to save debug images to disk
         resume_offset: Offset for progress display
         overall_total: Total number of files for progress display
         record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio, detection_result)
@@ -1487,7 +1518,14 @@ def _run_sequential_detection(
             flush=True,
         )
 
-        batch_results = process_image_batch([pair], roi_mask, processing_params)
+        batch_results = process_image_batch(
+            [pair],
+            roi_mask,
+            processing_params,
+            None,
+            None,
+            debug_image_enabled,
+        )
 
         for result in batch_results:
             (
@@ -1521,6 +1559,8 @@ def _run_sequential_detection(
                     print()
                     progress_line_active = False
 
+                if not debug_image_enabled:
+                    debug_img = None
                 saved = _save_candidate_file(
                     filepath,
                     filename,
@@ -1583,6 +1623,7 @@ def detect_meteors_advanced(
     target_folder: str,
     output_folder: str,
     debug_folder: str,
+    debug_image_enabled: bool,
     diff_threshold: int,
     min_area: int,
     min_aspect_ratio: float,
@@ -1624,7 +1665,9 @@ def detect_meteors_advanced(
     t_total = time.time()
 
     # Validate and create directories (raises MeteorError on failure)
-    _validate_directories(target_folder, output_folder, debug_folder)
+    _validate_directories(
+        target_folder, output_folder, debug_folder, debug_image_enabled
+    )
 
     # Collect files (raises MeteorLoadError if directory doesn't exist or is empty)
     print(
@@ -1802,6 +1845,7 @@ def detect_meteors_advanced(
                 output_folder=output_folder,
                 debug_folder=debug_folder,
                 output_overwrite=output_overwrite,
+                debug_image_enabled=debug_image_enabled,
                 num_workers=num_workers,
                 batch_size=batch_size,
                 resume_offset=resume_offset,
@@ -1818,6 +1862,7 @@ def detect_meteors_advanced(
                 output_folder=output_folder,
                 debug_folder=debug_folder,
                 output_overwrite=output_overwrite,
+                debug_image_enabled=debug_image_enabled,
                 resume_offset=resume_offset,
                 overall_total=overall_total,
                 record_result_callback=record_result,
@@ -2023,6 +2068,7 @@ def _run_main(args, cli_param_string: str):
         target_folder=args.target,
         output_folder=args.output,
         debug_folder=args.debug_dir,
+        debug_image_enabled=args.debug_image,
         diff_threshold=args.diff_threshold,
         min_area=args.min_area,
         min_aspect_ratio=args.min_aspect_ratio,
