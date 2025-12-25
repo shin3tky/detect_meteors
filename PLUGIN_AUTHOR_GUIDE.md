@@ -14,8 +14,84 @@ This guide provides comprehensive instructions for developing custom plugins for
 
 ---
 
+## Architecture Overview
+
+Before diving into the details, it helps to understand the overall architecture. The plugin system is designed with **loose coupling** between three distinct layers, each with clearly defined responsibilities and data contracts.
+
+### Three-Layer Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           Plugin Architecture                                   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐          │
+│  │   Input Layer     │   │  Detection Layer  │   │   Output Layer    │          │
+│  │  (Input Loaders)  │──▶│    (Detectors)    │──▶│ (Output Handlers) │          │
+│  └───────────────────┘   └───────────────────┘   └───────────────────┘          │
+│          │                        │                        │                    │
+│          ▼                        ▼                        ▼                    │
+│   ┌─────────────┐         ┌───────────────┐        ┌─────────────┐              │
+│   │InputContext │         │DetectionResult│        │OutputResult │              │
+│   └─────────────┘         └───────────────┘        └─────────────┘              │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+The pipeline processes image pairs (current frame, previous frame) to detect meteor candidates:
+
+```
+filepath ──▶ Input Loader ──▶ InputContext
+                                    │
+                                    ▼
+                            ┌────────────────┐
+                            │DetectionContext│  (current + previous InputContext + ROI + params)
+                            └────────────────┘
+                                    │
+                                    ▼
+                              Detector
+                                    │
+                                    ▼
+                            ┌────────────────┐
+                            │DetectionResult │  (is_candidate, score, lines, debug_image, ...)
+                            └────────────────┘
+                                    │
+                                    ▼
+                            Output Handler
+                                    │
+                                    ▼
+                            ┌───────────────┐
+                            │ OutputResult  │  (saved, output_path, debug_path, ...)
+                            └───────────────┘
+```
+
+### Layer Responsibilities
+
+| Layer | Base Class | Input | Output | Responsibility |
+|-------|------------|-------|--------|----------------|
+| **Input** | `BaseInputLoader` | `filepath` | `InputContext` | Load images from various formats (CR2, ARW, DNG, TIFF, FITS, ...), extract metadata |
+| **Detection** | `BaseDetector` | `DetectionContext` | `DetectionResult` | Analyze image pairs to detect meteor candidates (frame differencing, Hough transform, ML, ...) |
+| **Output** | `BaseOutputHandler` | `DetectionResult` | `OutputResult` | Save results, generate reports, send notifications (file, cloud, Slack, database, ...) |
+
+### Benefits of Loose Coupling
+
+This architecture provides significant flexibility:
+
+- **Input Layer**: Detectors never need to know about file formats or image loading libraries. Whether you use rawpy, OpenCV, or a custom FITS reader, the detector simply receives a normalized `InputContext`.
+
+- **Detection Layer**: The entire detection algorithm (preprocessing → analysis → scoring) is encapsulated. You can replace the built-in Hough transform approach with deep learning, morphological analysis, or video-based detection—the input and output layers remain unchanged.
+
+- **Output Layer**: Storage destinations can be changed from local disk to cloud storage (S3, GCS), databases, or notification services (Slack, Discord) without affecting detection logic.
+
+Each layer communicates only through well-defined dataclasses (`InputContext`, `DetectionContext`, `DetectionResult`, `OutputResult`), ensuring that internal implementation changes don't break the pipeline.
+
+---
+
 ## Table of Contents
 
+0. [Architecture Overview](#architecture-overview)
 1. [Application Lifecycle](#1-application-lifecycle)
 2. [Extension Points](#2-extension-points)
 3. [Plugin Architecture](#3-plugin-architecture)
