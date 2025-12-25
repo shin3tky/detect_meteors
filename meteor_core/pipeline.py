@@ -1912,17 +1912,59 @@ class MeteorDetectionPipeline:
         wait_for_tasks = True
 
         try:
-            for batch in batches:
+            for batch_idx, batch in enumerate(batches, 1):
+                print(
+                    get_message(
+                        "ui.pipeline.processing.submitting_batches",
+                        locale=locale,
+                        current=batch_idx,
+                        total=len(batches),
+                    ),
+                    end="\r",
+                    flush=True,
+                )
                 future = executor.submit(
                     process_image_batch, batch, roi_mask, params, input_loader, detector
                 )
                 futures.append(future)
 
+            # Clear the submitting line
+            print()
+
             # Collect results
             processed = 0
+            completed_batches = 0
+            total_batches = len(batches)
+
+            # Show initial batch progress (0 completed)
+            print(
+                get_message(
+                    "ui.pipeline.processing.batch_progress",
+                    locale=locale,
+                    completed=0,
+                    total=total_batches,
+                ),
+                end="\r",
+                flush=True,
+            )
+
             for future in as_completed(futures):
+                completed_batches += 1
                 try:
                     batch_results = future.result()
+
+                    # Show batch progress when a batch completes
+                    print(
+                        get_message(
+                            "ui.pipeline.processing.batch_progress",
+                            locale=locale,
+                            completed=completed_batches,
+                            total=total_batches,
+                        ),
+                        end="\r",
+                        flush=True,
+                    )
+
                     for result in batch_results:
                         (
                             is_candidate,
@@ -1937,7 +1979,20 @@ class MeteorDetectionPipeline:
                         ) = result
                         processed += 1
 
+                        # Always show progress first
+                        print(
+                            get_message(
+                                "ui.pipeline.processing.checking",
+                                locale=locale,
+                                current=resume_offset + processed,
+                                total=overall_total,
+                            ),
+                            end="\r",
+                            flush=True,
+                        )
+
                         if line_score > 0:
+                            print()  # Move to new line before [LINE]
                             print(
                                 get_message(
                                     "ui.pipeline.processing.line",
@@ -1963,6 +2018,8 @@ class MeteorDetectionPipeline:
                                 )
 
                         if is_candidate:
+                            if line_score <= 0:
+                                print()  # Move to new line if [LINE] wasn't printed
                             output_result = self.output_handler.save_candidate(
                                 filepath, filename, debug_img, roi_polygon
                             )
@@ -1997,17 +2054,6 @@ class MeteorDetectionPipeline:
                                     filename,
                                     exc,
                                 )
-                        else:
-                            print(
-                                get_message(
-                                    "ui.pipeline.processing.checking",
-                                    locale=locale,
-                                    current=resume_offset + processed,
-                                    total=overall_total,
-                                ),
-                                end="",
-                                flush=True,
-                            )
 
                         # Extract frame indices from detection context
                         ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
