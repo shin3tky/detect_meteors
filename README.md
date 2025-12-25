@@ -104,16 +104,14 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.3
+## What's New in v1.6.4 🎄
 
-- **RuntimeParams contract**: Formalized runtime parameter passing with namespaced structure
-  - `global_params` for pipeline-wide parameters
-  - `detector` dict for per-detector overrides
-  - `to_dict()` method for serialization
-- **DetectionContext.to_dict()**: Serialize context for logging/debugging (excludes image/mask payloads)
-- **Pipeline normalization**: Automatic validation and normalization at all plugin boundaries
-- **Legacy compatibility**: Output handlers returning `bool` are wrapped in `OutputResult` with deprecation warning
-- **Documentation updates**: Comprehensive Plugin Author Guide for all contract types
+- **Output handler `on_detection_result` hook**: New callback for per-detection processing
+  - Receives serialized context payload with runtime params, file info, timestamps
+  - Documented lifecycle: `on_detection_result` → `on_candidate_image` → `on_debug_image`
+- **DetectionResult propagation**: Access detector `lines`, `extras`, and `metrics` in output handlers
+- **Frame indices tracking**: Progress messages now show which frames detected meteors
+- **Performance improvements**: Optimized debug image generation and runtime param building
 
 For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
 

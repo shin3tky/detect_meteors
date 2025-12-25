@@ -1,6 +1,24 @@
 # Changelog
 
-## v1.6.3 - 2025-12-24
+## v1.6.4 - 2025-12-25 - 🎄 Christmas
+- **Output handler `on_detection_result` hook**: New callback invoked per detection with serialized context payload.
+  - Receives `DetectionResult` with line/extras data and context payload dict (runtime params, file info, timestamps).
+  - Documented lifecycle ordering: `on_detection_result` → `on_candidate_image` → `on_debug_image`.
+- **DetectionResult propagation**: `process_image_batch()` now returns `DetectionResult` in result tuples.
+  - Enables output handlers to access `lines`, `extras`, and `metrics` from detectors.
+  - CLI and pipeline updated to unpack extended result tuple.
+- **Frame indices tracking**: Added frame indices to batch processing for progress tracking.
+  - `_extract_frame_indices()` helper for batch result processing.
+  - Detection context metadata includes frame indices.
+  - Progress messages show which frames detected meteors.
+- **Debug image optimization**: Debug images only generated for candidate detections.
+  - `DetectionResult.debug_image` cleared before returning non-candidate results.
+  - Reduces memory usage in large batch processing.
+- **Performance improvement**: `_build_runtime_params()` moved outside processing loop.
+- **Batch progress display**: Added status messages showing batch processing progress.
+- **Updated Plugin Author Guide**: Documented `on_detection_result` hook usage, serialized context payload, and lifecycle ordering.
+
+## v1.6.3 - 2025-12-24 - 🎅 Christmas Eve
 - **RuntimeParams contract**: Added `RuntimeParams` dataclass to formalize runtime parameter passing.
   - `RUNTIME_PARAMS_SCHEMA_VERSION = 1` constant for version tracking.
   - `RuntimeParams`: Contains `schema_version`, `global_params`, `detector` (namespaced per-detector overrides).
@@ -12,7 +30,7 @@
 - **Updated Plugin Author Guide**: Comprehensive documentation for `RuntimeParams` and pipeline normalization.
 - **Backward compatibility**: Fully compatible with v1.6.2. Legacy `bool` returns work with deprecation warnings.
 
-## v1.6.2 - 2025-12-23
+## v1.6.2 - 2025-12-23 - 🇯🇵 Birthday of The Emperor Emeritus
 - **Input/output context contracts**: Added `InputContext` and `OutputResult` dataclasses to standardize loader/handler return values.
   - `INPUT_CONTEXT_SCHEMA_VERSION = 1` and `OUTPUT_RESULT_SCHEMA_VERSION = 1` constants for version tracking.
   - `InputContext`: Contains `image_data`, `filepath`, `metadata`, `loader_info`, `schema_version`.
@@ -23,7 +41,7 @@
 - **Updated Plugin Author Guide**: Comprehensive documentation for `InputContext` and `OutputResult` contracts.
 - **Backward compatibility**: Experimental plugin architecture. Output handlers must return `OutputResult`; legacy `OutputWriter`/handlers returning `bool` are not compatible with the v1.6.2 pipeline without changes.
 
-## v1.6.1 - 2025-12-22
+## v1.6.1 - 2025-12-22 - 🌃 Winter Solstice
 - **Schema versioning for plugin contracts**: Added `schema_version` field to `DetectionContext` and `DetectionResult` dataclasses for future migration support.
   - `DETECTION_CONTEXT_SCHEMA_VERSION = 1` and `DETECTION_RESULT_SCHEMA_VERSION = 1` constants for version tracking.
   - Enables gradual detector migration without breaking existing plugins.
@@ -36,7 +54,7 @@
 - **Updated Plugin Author Guide**: Comprehensive documentation for new schema contracts and `ImageLike` handling.
 - **Backward compatibility**: Fully compatible with v1.6.0. Existing detectors work without modification.
 
-## v1.6.0 - 2025-12-21
+## v1.6.0 - 2025-12-21 - 💌 Long-distance Relationship Day
 - **Development toolchain modernization**: Migrated from pip/black/flake8 to uv/ruff for faster, unified development workflow.
   - **uv**: Rust-based Python package manager (10-100× faster than pip).
   - **Ruff**: Rust-based linter and formatter replacing both black and flake8.
@@ -47,7 +65,7 @@
 - **Backward compatibility**: No changes to CLI, runtime behavior, or detection algorithms.
 
 
-## v1.5.13 - 2025-12-19
+## v1.5.13 - 2025-12-19 - ⛄️ Build a Snowman Day
 - **Internationalization (i18n)**: Added multi-language support for CLI user-facing messages.
   - New `--locale` option to specify the display language (default: `en`).
   - Environment variable `DETECT_METEORS_LOCALE` can set the default locale.
@@ -61,7 +79,7 @@
 - **Test coverage**: Added `test_i18n.py` and `test_infrastructure_v1x.py` for i18n and progress normalization coverage.
 - **Updated shell completions**: Both bash and zsh completion scripts updated with `--locale` support.
 
-## v1.5.12 - 2025-12-18
+## v1.5.12 - 2025-12-18 - 🔮 Final Fantasy Day
 - **Custom exception hierarchy**: Introduced structured exception classes for better error handling and diagnostics.
   - `MeteorError`: Base exception class with diagnostic information support.
   - `MeteorLoadError`: Image loading failures (file corruption, I/O errors).
@@ -79,7 +97,7 @@
 - **User-friendly error messages**: `format_error_for_user()` provides clear, actionable error messages with optional verbose diagnostics.
 - **Test coverage**: Added `test_exceptions_v1x.py` and `test_inputs_logging_v1x.py` for comprehensive exception and logging coverage.
 
-## v1.5.11 - 2025-12-15
+## v1.5.11 - 2025-12-15 - 📜 Bill of Rights Day
 - **Cross-package consistency**: Unified plugin registry behaviors between `inputs` and `detectors` packages for consistent developer experience.
   - Case-insensitive lookup: Both `LoaderRegistry` and `DetectorRegistry` now support case-insensitive name lookup (`get("raw")`, `get("RAW")`, `get("Raw")` all return the same class).
   - Plugin directory naming: Unified to `~/.detect_meteors/input_plugins/`, `~/.detect_meteors/detector_plugins/`, and `~/.detect_meteors/output_plugins/`.
@@ -88,7 +106,7 @@
 - **Config validation improvement**: `LoaderRegistry._coerce_config()` now raises explicit `TypeError` or `ValueError` on validation failures instead of returning `None`, providing early error detection with actionable messages.
 - **Deprecated function rename**: Renamed `discover_input_loaders()` to `discover_loaders()` for consistency with `discover_detectors()`. `discover_input_loaders()` is removed. Note: `discover_loaders()` is deprecated; prefer `LoaderRegistry.discover()`.
 
-## v1.5.10 - 2025-12-11
+## v1.5.10 - 2025-12-11 - ⛰️ International Mountain Day
 - **Plugin architecture migration**: Migrated plugin interfaces from Protocol-based to ABC (Abstract Base Classes) for improved developer experience.
   - `InputLoader` → `BaseInputLoader` (ABC)
   - `MetadataExtractor` → `BaseMetadataExtractor` (ABC)
@@ -99,28 +117,28 @@
 - **Developer documentation**: Updated `INSTALL_DEV.md` with comprehensive plugin architecture guide including code examples for custom loaders, detectors, and output handlers.
 - **Note**: Plugin architecture is experimental and may change before v2.0 stable release.
 
-## v1.5.9 - 2025-12-10
+## v1.5.9 - 2025-12-10 - 👤 Human Rights Day
 - **PEP 621 compliance**: Migrated project configuration to `pyproject.toml` with full metadata including name, description, authors, keywords, and classifiers.
 - **Unified tool configuration**: Consolidated flake8 settings from `.flake8` into `pyproject.toml` (via flake8-pyproject), providing single-file configuration for all development tools.
 - **Dependency management**: Defined runtime dependencies and optional dev dependencies in `pyproject.toml` for clearer dependency tracking.
 - **Test infrastructure**: Added testing and coverage configuration to `pyproject.toml` for standardized test execution and coverage measurement.
 - **Project URLs**: Added Homepage, Repository, Documentation, Issues, and Changelog links to project metadata.
 
-## v1.5.8 - 2025-12-09
+## v1.5.8 - 2025-12-09 - ♿️ Day of People with Disability
 - **Code quality tooling**: Added flake8 linter with project-specific configuration (`.flake8`) to complement Black formatter for improved code quality and maintainability.
 - **Linting standards**: Configured flake8 with appropriate ignore rules (E203, W503, E501, E226) for Black compatibility, max complexity of 70, and comprehensive exclusion patterns.
 - **Developer workflow**: Integrated flake8 into development workflow with manual linting commands (`flake8 .`) before commits, ensuring consistent code quality across the codebase.
 
-## v1.5.7 - 2025-12-08
+## v1.5.7 - 2025-12-08 - 🪡 Needle Memorial Day
 - **Progress metadata enrichment**: `progress.json` now records CLI parameters (`params`), ROI selection (`roi`), and finalized processing parameters (`processing_params`) for reference when reviewing or re-running detection sessions.
 - **Pipeline consistency**: Both CLI and `PipelineConfig`-driven runs persist the same metadata fields, ensuring uniform progress files across entry points.
 
-## v1.5.6 - 2025-12-07
+## v1.5.6 - 2025-12-07 - ☃️ Taisetsu
 - **Input loader pluginization**: Added `InputLoader`/`MetadataExtractor` protocols with dataclass/Pydantic helper bases, a built-in `RawImageLoader` plugin, and deterministic loader discovery via entry points (`detect_meteors.input`) and the local `~/.detect_meteors/plugins` directory
 - **Pipeline configuration object**: New `PipelineConfig` dataclass centralizes all runtime settings and powers a `DetectionPipeline` protocol plus helpers to resolve input loaders and metadata extraction paths
 - **Output extensibility**: Introduced `OutputHandler` protocol to formalize candidate/debug persistence ahead of v2.0 plugin architecture
 
-## v1.5.5 - 2025-12-05
+## v1.5.5 - 2025-12-05 - 👖 Blue Jeans Day
 - **Code Architecture Refactoring**: Reorganized codebase into modular structure for v2.x plugin architecture preparation
   - `detect_meteors_cli.py`: CLI interface only (argument parsing, user interaction)
   - `meteor_core/`: Core logic modules
@@ -137,11 +155,11 @@
 - **Type Safety Improvements**: Enhanced type hints throughout codebase using TypedDict for structured data
 - **Backward Compatibility**: CLI interface unchanged; all existing commands work without modification
 
-## v1.5.4 - 2025-12-03
+## v1.5.4 - 2025-12-03 - 👩 Housewife Day
 - **Improved ROI Selection Display**: Brightened the ROI selection image for better visibility in dark conditions
 - **NOTICE Document**: Added NOTICE file for third-party license attributions and acknowledgments
 
-## v1.5.3 - 2025-12-02
+## v1.5.3 - 2025-12-02 - 🪒 Safety Razor Day
 - **Fisheye Lens Correction**: Added `--fisheye` flag for equisolid angle projection compensation
   - Accounts for varying effective focal length across the fisheye image
   - Center: nominal focal length preserved
@@ -162,7 +180,7 @@
 - **Updated Shell Completions**: Both bash and zsh completion scripts updated with `--fisheye` support
 - **Comprehensive Test Coverage**: Added `test_fisheye_v1x.py` with 27 test cases
 
-## v1.5.2 - 2025-12-01
+## v1.5.2 - 2025-12-01 - ♥️️ Life Day
 - **Sensor Override Validation**: Added automatic validation when `--sensor-type` preset values are overridden with `--sensor-width` or `--pixel-pitch`.
   - Warns when `--sensor-width` deviates more than ±30% from preset value
   - Warns when `--pixel-pitch` deviates more than ±50% from preset value
@@ -172,14 +190,14 @@
 - **Comprehensive Test Coverage**: Added `test_sensor_validation_v1x.py` with 23 test cases covering validation scenarios
 - **Updated Test Suite**: Modified `test_sensor_presets_v1x.py` to handle new 5-tuple return value from `apply_sensor_preset()`
 
-## v1.5.1 - 2025-11-30
+## v1.5.1 - 2025-11-30 - 📷 Autofocus Camera Day
 - **Medium Format Sensor Support**: Added support for medium format sensors larger than Full Frame (35mm).
   - `MF44X33`: Fujifilm GFX series, Pentax 645Z, Hasselblad X2D/X1D (43.8×32.9mm, crop factor 0.79)
   - `MF54X40`: Hasselblad H6D-100c (53.4×40mm, crop factor 0.64)
 - **Sensor Size Ordering**: Reordered `--sensor-type` options by sensor size (smallest to largest): 1INCH → MFT → APSC → APSC_CANON → APSH → FF → MF44X33 → MF54X40
 - **Updated Shell Completions**: Both bash and zsh completion scripts updated with medium format sensor types
 
-## v1.5.0 - 2025-11-29 🦃
+## v1.5.0 - 2025-11-29 - 🍖 Good Meat Day
 - **Sensor Type Presets**: Introduced unified `SENSOR_PRESETS` configuration that consolidates `DEFAULT_SENSOR_WIDTHS` and `CROP_FACTORS` into a single, comprehensive sensor database with typical pixel pitch values.
 - **New `--sensor-type` Option**: Simplified NPF Rule configuration with a single parameter. Automatically sets `--focal-factor`, `--sensor-width`, and `--pixel-pitch` based on sensor type (MFT, APS-C, APS-C_CANON, APS-H, FF, 1INCH).
 - **New `--list-sensor-types` Option**: Display all available sensor type presets with their configurations (focal factor, sensor width, pixel pitch) and exit.
@@ -188,12 +206,12 @@
 - **Updated Shell Completions**: Both bash and zsh completion scripts updated with `--sensor-type` and `--list-sensor-types` support.
 - **Backward Compatibility**: Fully compatible with v1.4.x. All existing command-line options work unchanged; `CROP_FACTORS` and `DEFAULT_SENSOR_WIDTHS` dictionaries preserved for legacy code.
 
-## v1.4.2 - 2025-11-25
+## v1.4.2 - 2025-11-25 - 🙏 Thanks Teachersʼ Day
 - **Output File Protection**: Changed behavior to skip overwriting existing files at the output destination instead of overwriting them.
 - **New Command-Line Option**: Added `--output-overwrite` flag to allow overwriting existing output files when explicitly requested.
 - **Safety Check**: Added warning and exit when `--target` and `--output` directories are identical to prevent accidental data loss.
 
-## v1.4.1 - 2025-11-24
+## v1.4.1 - 2025-11-24 - 🧍 Evolution Day
 - **NPF Rule-based Scientific Optimization**: Implemented the NPF Rule for scientifically accurate exposure time validation and parameter optimization, marking a milestone in physics-based meteor detection.
 - **EXIF Metadata Integration**: Comprehensive automatic extraction of shooting conditions (ISO, exposure time, aperture, focal length, resolution) from RAW files using multi-strategy approach (embedded thumbnail → PIL → rawpy).
 - **Sensor Characterization**: Introduced pixel pitch calculation from sensor width and image resolution, with support for direct specification or sensor type lookup (MFT, APS-C, FF).
@@ -212,7 +230,7 @@
 - **Real-world Validation**: Tested with OM Digital OM-1 (MFT, 24mm, ISO 1600, 5s) achieving 100% detection (9 candidates including 2 confirmed meteors) with quality score 1.00 (EXCELLENT).
 - **Backward Compatibility**: Fully compatible with v1.3.1, falls back to image-based estimation if EXIF unavailable.
 
-## v1.3.1 - 2025-11-23
+## v1.3.1 - 2025-11-23 - 🙏 Labor Thanksgiving Day
 - **Complete Auto-Parameter Estimation**: Extended `--auto-params` to automatically estimate all three critical detection parameters: `diff_threshold` (v1.2.1), `min_area` (NEW), and `min_line_score` (NEW).
 - **Star size distribution analysis**: Introduced automatic `min_area` estimation by detecting and analyzing star sizes in sample images, using 98th percentile brightness threshold and robust 75th percentile × 2.0 formula.
 - **Image geometry-based scoring**: Implemented automatic `min_line_score` estimation from image diagonal length (2.5% coefficient), with optional focal length adjustment for different lens types.
@@ -224,30 +242,30 @@
   - Improved star detection threshold from 95th to 98th percentile with size filtering (2-100 pixels²)
 - **Real-world validation**: Tested with OM Digital OM-1 (24mm, ISO 1600, 5s exposure) achieving 100% detection rate (2/2 meteors) with automatic parameters.
 
-## v1.2.1 - 2025-11-22
+## v1.2.1 - 2025-11-22 - 🍣 Rotation Sushi Day
 - **Improved Auto-Parameter Estimation**: Revised `diff_threshold` auto-estimation algorithm from 3-sigma rule to percentile-based approach for better handling of peaked night sky brightness distributions.
 - **Real-world validation**: Based on actual RAW image testing, reduced typical estimated thresholds from 25 to 15, significantly improving meteor detection sensitivity.
 - **Enhanced statistics output**: Added 98th and 99th percentile reporting, plus detailed breakdown of three estimation methods (98th percentile, mean + 1.5σ, median × 3).
 - **Optimized threshold range**: Adjusted clamp range from 4-25 to 3-18 based on real-world feedback for more sensitive meteor detection.
 
-## v1.2.0 - 2025-11-22 (unreleased)
+## v1.2.0 - 2025-11-22 (unreleased) - 😱 Thoughtless Monday
 - **NEW: Auto-Parameter Estimation**: Added `--auto-params` flag to automatically estimate optimal `diff_threshold` from sample images using ROI statistics.
 - Implemented 3-sigma rule-based estimation from first 5 sample images for initial auto-tuning capability.
 - Added detailed statistical output (mean, std dev, median, percentiles) during auto-estimation.
 - Preserves manual parameter specification priority when both `--auto-params` and explicit values are provided.
 
-## v1.1.0 - 2025-11-22
+## v1.1.0 - 2025-11-22 - 👩‍❤️‍👨 Good Married-Couple Day
 - Added resumable processing with a JSON progress file that keeps processed/detected counts and resumes only when parameters match, bringing first-class support for both progress tracking and safe resumes.
 - Added `--progress-file`, `--no-resume`, and `--remove-progress` flags to manage progress tracking or clear saved state before runs.
 - Allow safe interruption with `Ctrl-C` without losing tracked progress so long runs can be paused and resumed later.
 
-## v1.0.3 - 2025-11-21
+## v1.0.3 - 2025-11-21 - 📺 World Television Day
 - Added optional RAW file validation with progress reporting to skip corrupted inputs before processing.
 - Added automatic batch-size tuning based on available memory (requires `psutil`) and a profiling flag for timing insights.
 - Defaulted the input folder to `rawfiles` and expanded the CLI option reference in the README for easier configuration.
 
-## v1.0.2 - 2025-11-20
+## v1.0.2 - 2025-11-20 - 🍕 Pizza Day
 - Added help descriptions with defaults for Hough transform parameters and minimum line score.
 
-## v1.0.1 - 2025-11-20
+## v1.0.1 - 2025-11-20 - 🧒 World Childrenʼs Day
 - Initial release.
