@@ -43,7 +43,7 @@ The pipeline now invokes hooks in this order per frame:
 │  For each detection result:                                     │
 │                                                                 │
 │  1. on_detection_result(context, result, filepath)              │
-│     └── Inspect result.lines, result.extras, result.metrics    │
+│     └── Inspect result.lines, result.extras, result. metrics    │
 │     └── context contains runtime_params, metadata               │
 │                                                                 │
 │  2. save_candidate() [only if result.is_candidate]              │
