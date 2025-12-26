@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from typing import Any, Dict, List, Optional, Type, Union
 
@@ -49,7 +50,10 @@ class HookRegistry(PluginRegistryBase[BaseHook]):
             raise
 
         try:
-            instance = hook_cls(coerced_config)
+            if coerced_config is None and _can_instantiate_without_config(hook_cls):
+                instance = hook_cls()
+            else:
+                instance = hook_cls(coerced_config)
         except Exception as exc:
             logger.error(
                 "Failed to instantiate hook '%s' (%s): %s: %s",
@@ -85,3 +89,23 @@ class HookRegistry(PluginRegistryBase[BaseHook]):
 
 
 __all__ = ["HookRegistry"]
+
+
+def _can_instantiate_without_config(hook_cls: Type[BaseHook]) -> bool:
+    signature = inspect.signature(hook_cls.__init__)
+    parameters = list(signature.parameters.values())
+    if parameters:
+        parameters = parameters[1:]
+    for param in parameters:
+        if param.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
+            return True
+        if param.default is inspect.Parameter.empty and param.kind in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        ):
+            return False
+    return True
