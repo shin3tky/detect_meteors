@@ -232,6 +232,29 @@ transform image data or enrich metadata for downstream detectors/output hooks.
 
 ---
 
+### 1.6 Detection Result Hook (Pipeline)
+
+The pipeline calls the detection result hook immediately after the detector
+returns and the `DetectionResult` is normalized, but before debug image handling
+and output processing. This allows you to adjust scoring, candidate flags, or
+attach metadata for downstream consumers.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_detection_complete` | `(result: DetectionResult, context: DetectionContext) -> DetectionResult` | Return updated detection result |
+
+**Notes**:
+- The returned `DetectionResult` is used to determine `is_candidate`, `score`,
+  and `debug_image` for downstream logic.
+- You may return a new `DetectionResult` to override lines or extras.
+- If the hook raises an exception, the pipeline logs a warning and continues.
+
+**Registration**:
+- Register hooks via `meteor_core.hooks.HookRegistry.register(MyHook)`.
+- Registered hooks are invoked in order for each frame.
+
+---
+
 ## 2. Extension Points
 
 The plugin system provides three extension points:

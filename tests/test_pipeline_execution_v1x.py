@@ -105,6 +105,35 @@ class DummyImageLoadedHook(DataclassHook[DummyImageLoadedConfig]):
         )
 
 
+@dataclass
+class DummyDetectionCompleteConfig:
+    """Configuration for DummyDetectionCompleteHook."""
+
+
+class DummyDetectionCompleteHook(DataclassHook[DummyDetectionCompleteConfig]):
+    plugin_name = "dummy_detection_complete"
+    name = "Dummy Detection Complete Hook"
+    ConfigType = DummyDetectionCompleteConfig
+
+    def on_file_found(self, filepath: str) -> bool:
+        return True
+
+    def on_detection_complete(
+        self,
+        result: DetectionResult,
+        context: DetectionContext,
+    ) -> DetectionResult:
+        return DetectionResult(
+            is_candidate=False,
+            score=0.0,
+            lines=[],
+            aspect_ratio=result.aspect_ratio,
+            debug_image="modified",
+            extras={"hooked": True},
+            metrics=result.metrics,
+        )
+
+
 class TestNormalizeDetectionContext(unittest.TestCase):
     def test_normalize_detection_context_unsupported_version(self):
         context = DetectionContext(
@@ -177,6 +206,31 @@ class TestProcessImageBatch(unittest.TestCase):
         self.assertEqual(
             context_payload["metadata"]["previous"]["hook_role"], "previous"
         )
+
+    def test_process_image_batch_calls_detection_complete_hook(self):
+        img = np.zeros((2, 2), dtype=np.uint8)
+        img_map = {
+            "a.CR2": img,
+            "b.CR2": img,
+        }
+        loader = DummyInputLoader(img_map)
+        detector = DummyDetector()
+        HookRegistry.register(DummyDetectionCompleteHook)
+        try:
+            results = process_image_batch(
+                [(1, "a.CR2", "b.CR2")],
+                roi_mask=np.ones((2, 2), dtype=np.uint8),
+                params={"diff_threshold": 8},
+                input_loader=loader,
+                detector=detector,
+            )
+        finally:
+            HookRegistry.unregister(DummyDetectionCompleteHook.plugin_name)
+
+        self.assertFalse(results[0][0])
+        self.assertEqual(results[0][3], 0.0)
+        self.assertIsNone(results[0][4])
+        self.assertEqual(results[0][7].extras.get("hooked"), True)
 
 
 class TestPipelineRun(unittest.TestCase):

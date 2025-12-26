@@ -9,7 +9,7 @@ import logging
 from typing import Dict, Generic, Type, TypeVar
 
 from ..plugin_contract import require_plugin_name
-from ..schema import InputContext
+from ..schema import DetectionContext, DetectionResult, InputContext
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,22 @@ class BaseHook(ABC, Generic[ConfigType]):
             Updated InputContext (default: unchanged).
         """
         return context
+
+    def on_detection_complete(
+        self,
+        result: DetectionResult,
+        context: DetectionContext,
+    ) -> DetectionResult:
+        """Hook called after detection completes and result is normalized.
+
+        Args:
+            result: DetectionResult produced by the detector.
+            context: DetectionContext used during detection.
+
+        Returns:
+            Updated DetectionResult (default: unchanged).
+        """
+        return result
 
     def get_info(self) -> Dict[str, str]:
         return {

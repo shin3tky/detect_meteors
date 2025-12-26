@@ -256,6 +256,26 @@ def _apply_image_loaded_hooks(
     return context
 
 
+def _apply_detection_complete_hooks(
+    result: DetectionResult,
+    context: DetectionContext,
+    hooks: List[Any],
+    filename: str,
+) -> DetectionResult:
+    for hook in hooks:
+        try:
+            result = _normalize_detection_result(
+                hook.on_detection_complete(result, context)
+            )
+        except Exception as exc:
+            logger.warning(
+                "on_detection_complete hook failed for %s: %s",
+                filename,
+                exc,
+            )
+    return result
+
+
 def _resolve_detector(
     detector: Optional[BaseDetector] = None,
     detector_name: Optional[str] = None,
@@ -766,6 +786,12 @@ def process_image_batch(
             )
             context = _normalize_detection_context(context)
             result = _normalize_detection_result(det.detect(context))
+            result = _apply_detection_complete_hooks(
+                result,
+                context,
+                hooks,
+                filename,
+            )
             context_payload = context.to_dict()
             debug_image = result.debug_image if result.is_candidate else None
             if not result.is_candidate or not debug_image_enabled:
