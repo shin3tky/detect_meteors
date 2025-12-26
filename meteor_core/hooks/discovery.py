@@ -112,22 +112,16 @@ def _add_hook(
     # Normalize to lowercase for case-insensitive lookup
     plugin_name_lower = plugin_name.lower()
 
-    # Check for duplicates
+    # Check for duplicates and allow override by later discoveries
     if plugin_name_lower in registry:
         existing = registry[plugin_name_lower]
-        logger.warning(
-            "Duplicate hook name '%s' from %s; keeping %s.%s",
+        logger.info(
+            "Duplicate hook name '%s' from %s; overriding %s.%s",
             plugin_name,
             origin,
             existing.__module__,
             existing.__name__,
         )
-        warnings.warn(
-            f"Duplicate hook name '{plugin_name}' from {origin}; "
-            f"keeping {existing.__module__}.{existing.__name__}",
-            stacklevel=3,
-        )
-        return
 
     logger.debug(
         "Registered hook '%s' from %s (%s.%s)",
@@ -174,8 +168,8 @@ def discover_hooks(
     2. Entry points sorted by entry-point name
     3. Plugin files in the local plugin directory sorted alphabetically
 
-    Later discoveries with duplicate ``plugin_name`` values are ignored
-    with a warning so that resolution is predictable.
+    Later discoveries with duplicate ``plugin_name`` values override
+    earlier registrations so that the most recent hook is used.
 
     Args:
         plugin_dir: Optional custom plugin directory. Defaults to
