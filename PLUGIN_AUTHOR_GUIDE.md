@@ -255,6 +255,27 @@ attach metadata for downstream consumers.
 
 ---
 
+### 1.7 Output Saved Hook (Pipeline)
+
+The pipeline calls the output saved hook immediately after an output handler
+returns a normalized `OutputResult`. This allows you to record metrics,
+telemetry, or notifications based on what was saved.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_output_saved` | `(result: OutputResult) -> None` | Read-only notification when the output handler returns |
+
+**Notes**:
+- The hook receives a snapshot of `OutputResult`; mutations do **not** affect
+  downstream control flow (`saved`/paths are not altered).
+- If the hook raises an exception, the pipeline logs a warning and continues.
+
+**Registration**:
+- Register hooks via `meteor_core.hooks.HookRegistry.register(MyHook)`.
+- Registered hooks are invoked in order for each candidate save attempt.
+
+---
+
 ## 2. Extension Points
 
 The plugin system provides three extension points:

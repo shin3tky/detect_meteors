@@ -276,6 +276,30 @@ def _apply_detection_complete_hooks(
     return result
 
 
+def _apply_output_saved_hooks(
+    result: OutputResult,
+    hooks: List[Any],
+    filename: str,
+) -> None:
+    snapshot = OutputResult(
+        saved=result.saved,
+        output_path=result.output_path,
+        debug_path=result.debug_path,
+        handler_info=dict(result.handler_info),
+        metrics=dict(result.metrics),
+        schema_version=result.schema_version,
+    )
+    for hook in hooks:
+        try:
+            hook.on_output_saved(snapshot)
+        except Exception as exc:
+            logger.warning(
+                "on_output_saved hook failed for %s: %s",
+                filename,
+                exc,
+            )
+
+
 def _resolve_detector(
     detector: Optional[BaseDetector] = None,
     detector_name: Optional[str] = None,
@@ -2058,6 +2082,7 @@ class MeteorDetectionPipeline:
         """Process images in parallel using ProcessPoolExecutor."""
         locale = _resolve_locale(locale)
         start_time = time.time()
+        hooks = HookRegistry.create_all()
         batches = [
             image_pairs[i : i + self._config.batch_size]
             for i in range(0, len(image_pairs), self._config.batch_size)
@@ -2197,6 +2222,11 @@ class MeteorDetectionPipeline:
                                 filepath, filename, debug_img, roi_polygon
                             )
                             output_result = _normalize_output_result(output_result)
+                            _apply_output_saved_hooks(
+                                output_result,
+                                hooks,
+                                filename,
+                            )
                             if output_result.saved:
                                 print(
                                     get_message(
@@ -2305,6 +2335,7 @@ class MeteorDetectionPipeline:
         """Process images sequentially."""
         locale = _resolve_locale(locale)
         start_time = time.time()
+        hooks = HookRegistry.create_all()
         for idx, pair in enumerate(image_pairs):
             current_index = resume_offset + idx + 1
             current_file = os.path.basename(pair[1])
@@ -2375,6 +2406,11 @@ class MeteorDetectionPipeline:
                         filepath, filename, debug_img, roi_polygon
                     )
                     output_result = _normalize_output_result(output_result)
+                    _apply_output_saved_hooks(
+                        output_result,
+                        hooks,
+                        filename,
+                    )
                     if output_result.saved:
                         print(
                             get_message(

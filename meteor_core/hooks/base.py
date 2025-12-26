@@ -9,7 +9,7 @@ import logging
 from typing import Dict, Generic, Type, TypeVar
 
 from ..plugin_contract import require_plugin_name
-from ..schema import DetectionContext, DetectionResult, InputContext
+from ..schema import DetectionContext, DetectionResult, InputContext, OutputResult
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +69,14 @@ class BaseHook(ABC, Generic[ConfigType]):
             Updated DetectionResult (default: unchanged).
         """
         return result
+
+    def on_output_saved(self, result: OutputResult) -> None:
+        """Hook called after an output handler returns a normalized OutputResult.
+
+        Args:
+            result: Normalized OutputResult from the output handler.
+        """
+        return None
 
     def get_info(self) -> Dict[str, str]:
         return {
