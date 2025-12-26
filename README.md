@@ -160,16 +160,17 @@ pipeline.run()
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.4 🎄
+## What's New in v1.6.5 📓
 
-- **Frame indices in detection context**: `frame_index` and `prev_frame_index` tracked throughout the pipeline
-  - `progress.json` `detected_details` now includes frame indices for post-processing analysis
-  - Progress messages show which frames detected meteors
-- **Output handler `on_detection_result` hook**: New callback for per-detection processing
-  - Receives serialized context payload with runtime params, file info, timestamps
-  - Documented lifecycle: `on_detection_result` → `on_candidate_image` → `on_debug_image`
-- **DetectionResult propagation**: Access detector `lines`, `extras`, and `metrics` in output handlers
-- **Performance improvements**: Optimized debug image generation and runtime param building
+- **Pipeline configuration files**: Load all pipeline settings from YAML/JSON files via `--config`
+  - Supports paths, detection params, plugin selections, and worker settings
+  - Example: [`config_examples/pipeline.yaml`](config_examples/pipeline.yaml)
+- **CLI plugin configuration**: Select plugins and provide plugin-specific configs via CLI
+  - `--input-loader`, `--detector`, `--output-handler` for plugin selection
+  - `--input-loader-config`, `--detector-config`, `--output-handler-config` for settings
+- **DetectionContext normalization API**: Public converter registration and normalization
+  - Consistent with `InputContext`, `DetectionResult`, and `OutputResult` APIs
+- **Unified pipeline execution**: CLI now routed through `MeteorDetectionPipeline`
 
 For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
 

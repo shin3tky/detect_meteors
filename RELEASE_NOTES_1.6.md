@@ -1,5 +1,296 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.5 (2025-12-26) 📓
+
+### 🔧 Pipeline Configuration Files and CLI Plugin Selection
+
+Version 1.6.5 introduces configuration file support and CLI plugin selection, enabling users to configure the entire detection pipeline—including plugin choices—via YAML/JSON files or command-line arguments. This is a major step toward the v2.0 plugin architecture.
+
+### Highlights
+
+- **Pipeline configuration files**: Load all settings from YAML/JSON via `--config`
+- **CLI plugin selection**: `--input-loader`, `--detector`, `--output-handler` for runtime plugin choice
+- **CLI plugin configuration**: `--input-loader-config`, `--detector-config`, `--output-handler-config` for plugin-specific settings
+- **DetectionContext normalization API**: Public `register_detection_context_converter()` and `normalize_detection_context()`
+- **Unified pipeline execution**: CLI now routed through `MeteorDetectionPipeline`
+- **Deprecation path**: Legacy parameter flags still work but are deprecated in favor of config files
+
+### Why This Change?
+
+This release bridges the gap between v1.x and v2.0 by externalizing pipeline configuration:
+
+| Feature | Before (v1.6.4) | After (v1.6.5) |
+|---------|-----------------|----------------|
+| **Plugin selection** | Hardcoded defaults | `--config` or `--detector hough` |
+| **Plugin configuration** | Not available | `--detector-config '{...}'` |
+| **Detection params** | CLI flags only | Config file or CLI flags |
+| **Pipeline execution** | Standalone functions | Routed through `MeteorDetectionPipeline` |
+| **DetectionContext normalization** | Internal only | Public API |
+
+Benefits:
+1. **Reproducible runs**: Save and share complete pipeline configurations
+2. **Plugin experimentation**: Easily switch between plugins without code changes
+3. **CI/CD integration**: Configure detection pipelines via config files
+4. **Gradual migration**: Legacy CLI flags still work alongside new config approach
+
+### Configuration File Format
+
+Create a YAML or JSON file with `PipelineConfig` fields:
+
+```yaml
+# pipeline.yaml
+target_folder: ./rawfiles
+output_folder: ./candidates
+debug_folder: ./debug_masks
+
+# Detection parameters
+params:
+  diff_threshold: 8
+  min_area: 10
+  min_aspect_ratio: 3.0
+  min_line_score: 30.0
+
+# Worker settings
+num_workers: 4
+batch_size: 50
+enable_parallel: true
+
+# Plugin selection and configuration
+input_loader_name: raw
+input_loader_config:
+  binning: 2
+  normalize: true
+
+detector_name: hough
+detector_config:
+  use_probabilistic: true
+
+output_handler_name: file
+output_handler_config:
+  overwrite: false
+```
+
+**Usage**:
+
+```bash
+# Load entire configuration from file
+python detect_meteors_cli.py --config pipeline.yaml
+
+# Override specific settings via CLI
+python detect_meteors_cli.py --config pipeline.yaml --detector threshold
+```
+
+### CLI Plugin Selection
+
+Select and configure plugins directly from the command line:
+
+```bash
+# Select plugins by name
+python detect_meteors_cli.py \
+    --input-loader raw \
+    --detector hough \
+    --output-handler file
+
+# Provide plugin configs as JSON strings
+python detect_meteors_cli.py \
+    --detector hough \
+    --detector-config '{"use_probabilistic": true}'
+
+# Or as YAML strings
+python detect_meteors_cli.py \
+    --output-handler slack \
+    --output-handler-config "webhook_url: https://hooks.slack.com/..."
+
+# Or as file paths
+python detect_meteors_cli.py \
+    --detector-config my_detector_settings.yaml
+```
+
+**CLI plugin options**:
+
+| Option | Description |
+|--------|-------------|
+| `--config FILE` | Load pipeline configuration from YAML/JSON file |
+| `--input-loader NAME` | Select input loader plugin by name |
+| `--input-loader-config VALUE` | JSON/YAML string or file path for loader config |
+| `--detector NAME` | Select detector plugin by name |
+| `--detector-config VALUE` | JSON/YAML string or file path for detector config |
+| `--output-handler NAME` | Select output handler plugin by name |
+| `--output-handler-config VALUE` | JSON/YAML string or file path for handler config |
+
+### Configuration Precedence
+
+When multiple sources provide configuration:
+
+1. **CLI arguments** (highest priority)
+2. **Configuration file** (`--config`)
+3. **Built-in defaults** (lowest priority)
+
+This allows loading a base configuration and overriding specific settings:
+
+```bash
+# Load base config, override detector
+python detect_meteors_cli.py --config base.yaml --detector threshold
+
+# Load base config, override detection threshold
+python detect_meteors_cli.py --config base.yaml --diff-threshold 12
+```
+
+### Python API
+
+Load and use configuration files programmatically:
+
+```python
+from meteor_core import MeteorDetectionPipeline, load_pipeline_config
+
+# Load configuration from file
+config = load_pipeline_config("pipeline.yaml")
+
+# Create and run pipeline
+pipeline = MeteorDetectionPipeline(config)
+pipeline.run()
+```
+
+### DetectionContext Normalization API
+
+The `DetectionContext` normalization API is now publicly available, consistent with `InputContext`, `DetectionResult`, and `OutputResult`:
+
+```python
+from meteor_core.schema import (
+    DetectionContext,
+    register_detection_context_converter,
+    normalize_detection_context,
+)
+
+# Register a converter for older schema versions
+def upgrade_v0_to_v1(context: DetectionContext) -> DetectionContext:
+    # Migration logic
+    return DetectionContext(
+        current_image=context.current_image,
+        previous_image=context.previous_image,
+        roi_mask=context.roi_mask,
+        runtime_params=context.runtime_params,
+        metadata=context.metadata,
+        schema_version=1,
+    )
+
+register_detection_context_converter(0, upgrade_v0_to_v1)
+
+# Normalize a context (applies converters if needed)
+normalized = normalize_detection_context(context)
+```
+
+**Available normalization functions**:
+
+| Dataclass | normalize function | converter registration |
+|-----------|-------------------|------------------------|
+| `InputContext` | `normalize_input_context()` | `register_input_context_converter()` |
+| `DetectionContext` | `normalize_detection_context()` | `register_detection_context_converter()` |
+| `DetectionResult` | `normalize_detection_result()` | `register_detection_result_converter()` |
+| `OutputResult` | `normalize_output_result()` | `register_output_result_converter()` |
+
+### Migration Guide
+
+**For CLI users**:
+
+No immediate migration required. All existing CLI flags continue to work:
+
+```bash
+# These still work (but are deprecated)
+python detect_meteors_cli.py --diff-threshold 8 --min-area 10
+
+# Recommended: Use config files for complex setups
+python detect_meteors_cli.py --config pipeline.yaml
+```
+
+**For plugin authors**:
+
+1. **Document your ConfigType fields** for config file users:
+   ```python
+   @dataclass
+   class MyDetectorConfig:
+       """Configuration for MyDetector.
+       
+       YAML example:
+           detector_name: my_detector
+           detector_config:
+             sensitivity: 0.8
+             use_gpu: true
+       """
+       sensitivity: float = 0.5
+       use_gpu: bool = False
+   ```
+
+2. **Provide sensible defaults** so users can omit optional settings in config files.
+
+3. **Use meaningful field names** that work well as YAML/JSON keys.
+
+**For Python API users**:
+
+Use `load_pipeline_config()` for file-based configuration:
+
+```python
+# Before: Manual PipelineConfig construction
+config = PipelineConfig(
+    target_folder="./rawfiles",
+    output_folder="./candidates",
+    params={"diff_threshold": 8},
+)
+
+# After: Load from file
+config = load_pipeline_config("pipeline.yaml")
+```
+
+### Unified Pipeline Execution
+
+CLI execution is now routed through `MeteorDetectionPipeline`, ensuring consistent behavior between CLI and Python API:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  CLI (detect_meteors_cli.py)                                    │
+│                                                                 │
+│  1. Parse CLI arguments                                         │
+│  2. Load --config file (if provided)                            │
+│  3. Apply CLI overrides                                         │
+│  4. Build PipelineConfig                                        │
+│  5. Create MeteorDetectionPipeline(config)                      │
+│  6. pipeline.run()                                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+This ensures:
+- Consistent plugin resolution between CLI and API
+- Consistent normalization checkpoints
+- Consistent lifecycle hook invocation
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `detect_meteors_cli.py` | Added `--config`, plugin selection args, routed through pipeline |
+| `meteor_core/pipeline.py` | Added `load_pipeline_config()`, plugin config handling |
+| `meteor_core/schema.py` | Added public `normalize_detection_context()`, `register_detection_context_converter()` |
+| `meteor_core/completions/bash_completion.sh` | Added new options |
+| `meteor_core/completions/zsh_completion.sh` | Added new options |
+| `config_examples/pipeline.yaml` | New example configuration file |
+| `PLUGIN_AUTHOR_GUIDE.md` | Added configuration file and CLI documentation |
+| `CHANGELOG.md` | Added v1.6.5 entry |
+| `README.md` | Updated configuration file section and "What's New" |
+| `ROADMAP.md` | Added v1.6.5, marked config file support as implemented |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.6.4, v1.6.3, v1.6.2, v1.6.1, and v1.6.0:
+
+- **CLI**: All existing flags work unchanged
+- **Runtime**: No changes to detection behavior
+- **API**: Existing code works unchanged
+- **Plugins**: Existing plugins work unchanged
+
+**Deprecation notice**: Legacy parameter flags (e.g., `--diff-threshold`, `--min-area`) will be deprecated in a future release. Migrate to `--config` or `params:` in config files.
+
+---
+
 ## Version 1.6.4 (2025-12-25) 🎄
 
 ### 🔧 Output Handler Hooks and Frame Tracking
@@ -118,7 +409,7 @@ This enables:
        filepath: str,
    ) -> None:
        """Called immediately after each detection result.
-
+   
        Args:
            context: Serialized DetectionContext (no image data)
            result: The DetectionResult from the detector
@@ -128,7 +419,7 @@ This enables:
        if result.is_candidate:
            logger.info(f"Detected {len(result.lines)} lines in {filepath}")
            logger.debug(f"Metrics: {result.metrics}")
-
+   
        # Access runtime params from context
        runtime_params = context.get("runtime_params", {})
        logger.debug(f"Used params: {runtime_params}")
@@ -298,7 +589,7 @@ def save_candidate(self, source_path, filename, ...) -> bool:
    # Before (deprecated)
    def save_candidate(self, ...) -> bool:
        return True
-
+   
    # After (recommended)
    def save_candidate(self, ...) -> OutputResult:
        return OutputResult(saved=True, output_path=dest_path, debug_path=None)
@@ -820,7 +1111,18 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
-### v1.6.4 (Latest) 🎄
+### v1.6.5 (Latest) 📓
+- **Version**: 1.6.5
+- **Release Date**: 2025-12-26
+- **Major Changes**:
+  - Pipeline configuration file support (YAML/JSON) via `--config`
+  - CLI plugin selection (`--input-loader`, `--detector`, `--output-handler`)
+  - CLI plugin configuration (`--input-loader-config`, `--detector-config`, `--output-handler-config`)
+  - DetectionContext normalization API publicly available
+  - CLI execution routed through `MeteorDetectionPipeline`
+  - Legacy parameter flags deprecated in favor of config files
+
+### v1.6.4 🎄
 - **Version**: 1.6.4
 - **Release Date**: 2025-12-25
 - **Major Changes**:
@@ -872,6 +1174,6 @@ This release only affects the development toolchain. Users who install the packa
 
 **Status**: Production Ready  
 **Compatibility**: Fully backward compatible with v1.5.x  
-**Recommendation**: Contributors should migrate to uv/Ruff workflow; plugin authors should adopt new contract types and implement `on_detection_result` hook for enhanced observability
+**Recommendation**: Use configuration files (`--config`) for reproducible pipeline setups; plugin authors should document ConfigType fields for config file users and implement lifecycle hooks for enhanced observability
 
-Happy meteor hunting! 🌠🎄
+Happy meteor hunting! 🌠📓

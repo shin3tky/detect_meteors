@@ -2,11 +2,14 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.6.4)**:
+> **Current status (v1.6.5)**:
 >
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
 > - ✅ `on_detection_result` and `on_candidate_detected` hooks are invoked (v1.6.4)
+> - ✅ **Pipeline configuration files** (YAML/JSON) supported via `--config` (v1.6.5)
+> - ✅ **CLI plugin selection** with `--input-loader`, `--detector`, `--output-handler` (v1.6.5)
+> - ✅ **DetectionContext normalization API** publicly available (v1.6.5)
 > - ⚠️ Detector/runtime parameter contracts may still evolve
 > - ⚠️ `on_batch_complete` and `on_pipeline_complete` hooks reserved for future releases
 
@@ -579,7 +582,138 @@ Plugins can define a `ConfigType` for typed configuration. See [5.1 Choosing Con
 not, `create_default()` raises a `TypeError` to avoid silently creating a
 misconfigured plugin.
 
-### 3.4 Plugin Discovery
+### 3.4 Pipeline Configuration and CLI Plugin Selection
+
+As of v1.6.5, users can configure the entire pipeline—including plugin selection—via configuration files or CLI arguments. This is a major step toward the v2.0 plugin architecture.
+
+#### Configuration Files (YAML/JSON)
+
+The CLI accepts a `--config` option to load pipeline settings from a YAML or JSON file. The file structure mirrors `PipelineConfig` fields:
+
+```yaml
+# config_examples/pipeline.yaml
+target_folder: ./rawfiles
+output_folder: ./candidates
+debug_folder: ./debug_masks
+
+params:
+  diff_threshold: 8
+  min_area: 10
+  min_aspect_ratio: 3.0
+
+# Plugin selection
+input_loader_name: raw
+input_loader_config:
+  binning: 1
+  normalize: true
+
+detector_name: hough
+detector_config:
+  use_probabilistic: true
+
+output_handler_name: file
+output_handler_config:
+  overwrite: false
+```
+
+**Plugin configuration keys**:
+
+| Key | Description |
+|-----|-------------|
+| `input_loader_name` | Plugin name (e.g., `"raw"`, `"tiff"`, `"fits"`) |
+| `input_loader_config` | Dict passed to plugin's `ConfigType` |
+| `detector_name` | Plugin name (e.g., `"hough"`, `"threshold"`) |
+| `detector_config` | Dict passed to plugin's `ConfigType` |
+| `output_handler_name` | Plugin name (e.g., `"file"`, `"slack"`) |
+| `output_handler_config` | Dict passed to plugin's `ConfigType` |
+
+The `*_config` dicts are coerced into each plugin's `ConfigType` using the standard coercion rules (see [3.3 Configuration Management](#33-configuration-management-configtype)).
+
+**Loading in Python**:
+
+```python
+from meteor_core import MeteorDetectionPipeline, load_pipeline_config
+
+config = load_pipeline_config("config_examples/pipeline.yaml")
+pipeline = MeteorDetectionPipeline(config)
+pipeline.run()
+```
+
+#### CLI Plugin Selection
+
+Users can also specify plugins directly via CLI arguments:
+
+```bash
+# Select plugins by name
+python detect_meteors_cli.py \
+    --input-loader raw \
+    --detector hough \
+    --output-handler file
+
+# Provide plugin configs as JSON strings
+python detect_meteors_cli.py \
+    --detector hough \
+    --detector-config '{"use_probabilistic": true}'
+
+# Or as YAML strings
+python detect_meteors_cli.py \
+    --output-handler slack \
+    --output-handler-config "webhook_url: https://hooks.slack.com/..."
+
+# Or as file paths
+python detect_meteors_cli.py \
+    --detector-config detector_settings.yaml
+```
+
+**CLI plugin options**:
+
+| Option | Description |
+|--------|-------------|
+| `--input-loader NAME` | Select input loader plugin |
+| `--input-loader-config VALUE` | JSON/YAML string or file path |
+| `--detector NAME` | Select detector plugin |
+| `--detector-config VALUE` | JSON/YAML string or file path |
+| `--output-handler NAME` | Select output handler plugin |
+| `--output-handler-config VALUE` | JSON/YAML string or file path |
+
+#### Configuration Precedence
+
+When multiple sources provide configuration, this precedence applies (highest to lowest):
+
+1. **CLI arguments** (`--detector`, `--detector-config`, etc.)
+2. **Configuration file** (`--config pipeline.yaml`)
+3. **Built-in defaults**
+
+This allows users to load a base configuration file and override specific settings via CLI.
+
+#### Plugin Author Considerations
+
+When developing plugins for configuration file support:
+
+1. **Use meaningful field names**: Your `ConfigType` fields become YAML/JSON keys. Use clear, documented names.
+2. **Provide sensible defaults**: All `ConfigType` fields should have defaults so users can omit optional settings.
+3. **Document required fields**: If any fields are required, document them clearly.
+4. **Validate early**: Use Pydantic validators or `__post_init__` to catch configuration errors at load time.
+
+Example with documented configuration:
+
+```python
+@dataclass
+class MyDetectorConfig:
+    """Configuration for MyDetector.
+    
+    YAML example:
+        detector_name: my_detector
+        detector_config:
+          sensitivity: 0.8
+          use_gpu: true
+    """
+    sensitivity: float = 0.5      # Detection sensitivity (0.0-1.0)
+    use_gpu: bool = False         # Enable GPU acceleration
+    model_path: str = ""          # Path to ML model (optional)
+```
+
+### 3.5 Plugin Discovery
 
 Plugins are discovered in this order (duplicates warn but don't overwrite):
 
@@ -1755,23 +1889,6 @@ OutputHandlerRegistry.register(SlackNotificationHandler)
 ### 6.1 Choosing ConfigType
 
 Use this decision tree to select the right configuration approach:
-
-### 3.4 Pipeline Configuration Files (YAML/JSON)
-
-The CLI can ingest YAML/JSON configuration files and load them through
-`PipelineConfig.from_dict`. The file is a top-level object with keys matching
-`PipelineConfig`, including plugin selection and configuration:
-
-- `input_loader_name` / `input_loader_config`
-- `detector_name` / `detector_config`
-- `output_handler_name` / `output_handler_config`
-
-When users provide `*_config` mappings, the registries coerce them into the
-plugin `ConfigType` via the standard config coercion rules. Make sure your
-plugin `ConfigType` fields match the expected keys, and document any required
-settings so they can be supplied in the config file.
-
-Example config file: `config_examples/pipeline.yaml`
 
 ```
 Need configuration?

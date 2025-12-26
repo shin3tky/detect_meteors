@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.6.5 - 2025-12-26 - 📓 Thank-you Note Day
+- **Pipeline configuration file support**: Load pipeline settings from YAML/JSON files via `--config`.
+  - All `PipelineConfig` fields supported: paths, params, plugin selections, worker settings.
+  - `load_pipeline_config()` utility for programmatic loading.
+  - Example configuration: [`config_examples/pipeline.yaml`](config_examples/pipeline.yaml).
+- **CLI plugin configuration**: Specify plugin configs via CLI arguments.
+  - `--input-loader`, `--detector`, `--output-handler` for plugin selection.
+  - `--input-loader-config`, `--detector-config`, `--output-handler-config` for plugin-specific settings.
+  - Config values accept JSON strings, YAML strings, or file paths.
+- **DetectionContext normalization API**: Public converter registration and normalization for `DetectionContext`.
+  - `register_detection_context_converter()`: Register version-specific converters.
+  - `normalize_detection_context()`: Normalize `DetectionContext` to current schema version.
+  - Consistent with existing `InputContext`, `DetectionResult`, and `OutputResult` normalization APIs.
+- **Pipeline routing**: CLI execution now routed through `MeteorDetectionPipeline` for unified processing.
+- **Updated Plugin Author Guide**: Documented `DetectionContext` schema versioning and normalization APIs.
+- **Backward compatibility**: Legacy parameter flags (e.g., `--diff-threshold`) still work but are deprecated in favor of config files.
+
 ## v1.6.4 - 2025-12-25 - 🎄 Christmas
 - **Output handler `on_detection_result` hook**: New callback invoked per detection with serialized context payload.
   - Receives `DetectionResult` with line/extras data and context payload dict (runtime params, file info, timestamps).
