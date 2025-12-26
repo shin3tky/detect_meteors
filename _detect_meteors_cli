@@ -16,11 +16,22 @@ _detect_meteors_cli() {
         '(- *)'{-h,--help}'[Show help message and exit]'
         '(- *)--version[Show version and exit]'
         '--locale[Locale code for CLI messages]:locale:(en ja)'
+        '--config[Pipeline configuration file (YAML/JSON)]:file:_files'
         
         # Input/Output options
         '(-t --target)'{-t,--target}'[Input RAW image folder]:directory:_directories'
         '(-o --output)'{-o,--output}'[Output folder for candidate RAW files]:directory:_directories'
         '--debug-dir[Folder to save mask/debug images]:directory:_directories'
+        '--debug-image[Enable saving mask/debug images to --debug-dir]'
+        '--no-debug-image[Disable saving mask/debug images (default)]'
+
+        # Plugin selection
+        '--input-loader[Input loader plugin name]:name:_message -r "e.g., raw"'
+        '--input-loader-config[Input loader config (JSON/YAML string or file path)]:config:_files'
+        '--detector[Detector plugin name]:name:_message -r "e.g., hough"'
+        '--detector-config[Detector config (JSON/YAML string or file path)]:config:_files'
+        '--output-handler[Output handler plugin name]:name:_message -r "e.g., file"'
+        '--output-handler-config[Output handler config (JSON/YAML string or file path)]:config:_files'
         
         # Detection parameters
         '--diff-threshold[Threshold for difference binarization (default: 8)]:threshold:(5 8 10 15 20)'

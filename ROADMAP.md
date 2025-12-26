@@ -157,6 +157,26 @@
   - [x] Legacy boolean compatibility for output handlers (with deprecation warning)
   - [x] Updated Plugin Author Guide with comprehensive contract documentation
 
+### Output Handler Lifecycle Hooks
+- [x] **v1.6.4** - Output handler hooks and DetectionResult propagation
+  - [x] `on_detection_result` hook invoked per-detection with serialized context payload
+  - [x] `DetectionResult` propagation through `process_image_batch()` result tuples
+  - [x] Frame indices (`frame_index`, `prev_frame_index`) in detection context and progress tracking
+  - [x] Debug image optimization (only generated for candidate detections)
+  - [x] Performance improvement (`_build_runtime_params()` moved outside loop)
+  - [x] Updated Plugin Author Guide with lifecycle hook documentation
+
+### Pipeline Configuration and CLI Plugin Selection
+- [x] **v1.6.5** - Configuration files and CLI plugin specification
+  - [x] Pipeline configuration file support (YAML/JSON) via `--config`
+  - [x] `load_pipeline_config()` utility for programmatic loading
+  - [x] CLI plugin selection (`--input-loader`, `--detector`, `--output-handler`)
+  - [x] CLI plugin configuration (`--input-loader-config`, `--detector-config`, `--output-handler-config`)
+  - [x] Config values accept JSON strings, YAML strings, or file paths
+  - [x] `DetectionContext` normalization API (`register_detection_context_converter()`, `normalize_detection_context()`)
+  - [x] CLI execution routed through `MeteorDetectionPipeline` for unified processing
+  - [x] Updated Plugin Author Guide with configuration file and CLI documentation
+
 ### Pending (Deferred from v1.x)
 The following features were originally planned for v1.x but have been deferred:
 
@@ -172,7 +192,7 @@ The following features were originally planned for v1.x but have been deferred:
 - Modular detection pipeline with swappable detectors
 - Custom filter and processor support
 - Third-party integration capabilities
-- Configuration file support for detector plugins
+- ~~Configuration file support for detector plugins~~ ✅ Implemented in v1.6.5
 
 ## Version 3.x - Intelligence and Learning
 
@@ -185,5 +205,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.3 (RuntimeParams Contract and Pipeline Normalization)
+**Current Status**: v1.6.5 (Pipeline Configuration and CLI Plugin Selection)
 **Next Focus**: v2.0 Architecture and Extensibility - Plugin architecture implementation

@@ -1,6 +1,6 @@
 # Version 1.5 Release Notes
 
-## Version 1.5.13 (2025-12-19)
+## Version 1.5.13 (2025-12-19) ⛄️
 
 ### 🌐 Internationalization (i18n)
 
@@ -154,7 +154,7 @@ New test files:
 
 ---
 
-## Version 1.5.12 (2025-12-18)
+## Version 1.5.12 (2025-12-18) 🔮
 
 ### 🛡️ Stability & Error Handling
 
@@ -386,7 +386,7 @@ New test files added:
 
 ---
 
-## Version 1.5.11 (2025-12-15)
+## Version 1.5.11 (2025-12-15) 📜
 
 ### 🔧 Cross-Package Consistency & Plugin Metadata
 
@@ -418,7 +418,7 @@ For detailed information on creating custom plugins, including complete examples
 
 ---
 
-## Version 1.5.10 (2025-12-11)
+## Version 1.5.10 (2025-12-11) ⛰️
 
 ### 🏗️ Plugin Architecture: ABC Migration
 
@@ -621,7 +621,7 @@ from meteor_core.outputs import BaseOutputHandler
 
 ---
 
-## Version 1.5.9 (2025-12-10)
+## Version 1.5.9 (2025-12-10) 👤
 
 ### 📦 PEP 621 Project Configuration
 
@@ -776,7 +776,7 @@ pip install black flake8 flake8-pyproject coverage pre-commit
 
 ---
 
-## Version 1.5.8 (2025-12-09)
+## Version 1.5.8 (2025-12-09) ♿️
 
 ### 🔍 Code Quality Improvements
 
@@ -922,7 +922,7 @@ Test files are excluded from flake8 checks by default to allow more flexible tes
 
 ---
 
-## Version 1.5.7 (2025-12-08)
+## Version 1.5.7 (2025-12-08) 🪡
 
 ### 📝 Progress metadata enrichment
 
@@ -967,7 +967,7 @@ Version 1.5.7 enriches `progress.json` with additional metadata to help users re
 
 ---
 
-## Version 1.5.6 (2025-12-06)
+## Version 1.5.6 (2025-12-06) ☃️
 
 ### 🧩 Input/Output Plugin Preparation
 
@@ -1002,7 +1002,7 @@ Version 1.5.6 refines the `meteor_core` interfaces so that input and output hand
 
 ---
 
-## Version 1.5.5 (2025-12-05)
+## Version 1.5.5 (2025-12-05) 👖
 
 ### 🏗️ Code Architecture Refactoring
 
@@ -1144,7 +1144,7 @@ This restructuring enables:
 
 ---
 
-## Version 1.5.4 (2025-12-03)
+## Version 1.5.4 (2025-12-03) 👩
 
 ### 🔆 ROI Display Improvement
 
@@ -1175,7 +1175,7 @@ Version 1.5.4 improves the ROI (Region of Interest) selection experience by brig
 
 ---
 
-## Version 1.5.3 (2025-12-02)
+## Version 1.5.3 (2025-12-02) 🪒
 
 ### 🐟 Fisheye Lens Correction
 
@@ -1339,7 +1339,7 @@ New test file `test_fisheye_v1x.py` with 27 test cases covering:
 
 ---
 
-## Version 1.5.2 (2025-12-01)
+## Version 1.5.2 (2025-12-01) ♥️️
 
 ### 🛡️ Sensor Override Validation
 
@@ -1534,7 +1534,7 @@ focal_factor, sensor_width, focal_length, pixel_pitch, _ = apply_sensor_preset(a
 
 ---
 
-## Version 1.5.1 (2025-11-30)
+## Version 1.5.1 (2025-11-30) 📷
 
 ### 📷 Medium Format Sensor Support
 

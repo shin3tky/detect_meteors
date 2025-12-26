@@ -2,11 +2,14 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.6.4)**:
+> **Current status (v1.6.5)**:
 >
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
 > - ✅ `on_detection_result` and `on_candidate_detected` hooks are invoked (v1.6.4)
+> - ✅ **Pipeline configuration files** (YAML/JSON) supported via `--config` (v1.6.5)
+> - ✅ **CLI plugin selection** with `--input-loader`, `--detector`, `--output-handler` (v1.6.5)
+> - ✅ **DetectionContext normalization API** publicly available (v1.6.5)
 > - ⚠️ Detector/runtime parameter contracts may still evolve
 > - ⚠️ `on_batch_complete` and `on_pipeline_complete` hooks reserved for future releases
 
@@ -14,8 +17,84 @@ This guide provides comprehensive instructions for developing custom plugins for
 
 ---
 
+## Architecture Overview
+
+Before diving into the details, it helps to understand the overall architecture. The plugin system is designed with **loose coupling** between three distinct layers, each with clearly defined responsibilities and data contracts.
+
+### Three-Layer Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           Plugin Architecture                                   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐          │
+│  │   Input Layer     │   │  Detection Layer  │   │   Output Layer    │          │
+│  │  (Input Loaders)  │──▶│    (Detectors)    │──▶│ (Output Handlers) │          │
+│  └───────────────────┘   └───────────────────┘   └───────────────────┘          │
+│          │                        │                        │                    │
+│          ▼                        ▼                        ▼                    │
+│   ┌─────────────┐         ┌───────────────┐        ┌─────────────┐              │
+│   │InputContext │         │DetectionResult│        │OutputResult │              │
+│   └─────────────┘         └───────────────┘        └─────────────┘              │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+The pipeline processes image pairs (current frame, previous frame) to detect meteor candidates:
+
+```
+filepath ──▶ Input Loader ──▶ InputContext
+                                    │
+                                    ▼
+                            ┌────────────────┐
+                            │DetectionContext│  (current + previous InputContext + ROI + params)
+                            └────────────────┘
+                                    │
+                                    ▼
+                              Detector
+                                    │
+                                    ▼
+                            ┌────────────────┐
+                            │DetectionResult │  (is_candidate, score, lines, debug_image, ...)
+                            └────────────────┘
+                                    │
+                                    ▼
+                            Output Handler
+                                    │
+                                    ▼
+                            ┌───────────────┐
+                            │ OutputResult  │  (saved, output_path, debug_path, ...)
+                            └───────────────┘
+```
+
+### Layer Responsibilities
+
+| Layer | Base Class | Input | Output | Responsibility |
+|-------|------------|-------|--------|----------------|
+| **Input** | `BaseInputLoader` | `filepath` | `InputContext` | Load images from various formats (CR2, ARW, DNG, TIFF, FITS, ...), extract metadata |
+| **Detection** | `BaseDetector` | `DetectionContext` | `DetectionResult` | Analyze image pairs to detect meteor candidates (frame differencing, Hough transform, ML, ...) |
+| **Output** | `BaseOutputHandler` | `DetectionResult` | `OutputResult` | Save results, generate reports, send notifications (file, cloud, Slack, database, ...) |
+
+### Benefits of Loose Coupling
+
+This architecture provides significant flexibility:
+
+- **Input Layer**: Detectors never need to know about file formats or image loading libraries. Whether you use rawpy, OpenCV, or a custom FITS reader, the detector simply receives a normalized `InputContext`.
+
+- **Detection Layer**: The entire detection algorithm (preprocessing → analysis → scoring) is encapsulated. You can replace the built-in Hough transform approach with deep learning, morphological analysis, or video-based detection—the input and output layers remain unchanged.
+
+- **Output Layer**: Storage destinations can be changed from local disk to cloud storage (S3, GCS), databases, or notification services (Slack, Discord) without affecting detection logic.
+
+Each layer communicates only through well-defined dataclasses (`InputContext`, `DetectionContext`, `DetectionResult`, `OutputResult`), ensuring that internal implementation changes don't break the pipeline.
+
+---
+
 ## Table of Contents
 
+0. [Architecture Overview](#architecture-overview)
 1. [Application Lifecycle](#1-application-lifecycle)
 2. [Extension Points](#2-extension-points)
 3. [Plugin Architecture](#3-plugin-architecture)
@@ -217,7 +296,7 @@ class DetectionContext:
 
 **Schema versioning**: The `schema_version` field enables future migration of detector plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing detectors to handle different versions gracefully. Current version is `1`.
 
-**Normalization point**: The pipeline normalizes `DetectionContext` internally before passing it to your `detect` method. This normalization is handled by a pipeline-internal function (`_normalize_detection_context`), so plugin authors do not need to call it directly. Unlike `InputContext`, `DetectionResult`, and `OutputResult`, there is no public `normalize_detection_context` function or converter registration API exposed by `meteor_core.schema`.
+**Normalization point**: The pipeline normalizes `DetectionContext` internally before passing it to your `detect` method. This uses the public API `meteor_core.schema.normalize_detection_context`, so plugin authors do not need to call it directly. If you need to handle legacy contexts in custom tooling, you can register converters via `meteor_core.schema.register_detection_context_converter`.
 
 `current_image` and `previous_image` are typically `numpy.ndarray` today, but can
 also be provided as `torch.Tensor` or `PIL.Image.Image` for ML-based detectors.
@@ -503,7 +582,138 @@ Plugins can define a `ConfigType` for typed configuration. See [5.1 Choosing Con
 not, `create_default()` raises a `TypeError` to avoid silently creating a
 misconfigured plugin.
 
-### 3.4 Plugin Discovery
+### 3.4 Pipeline Configuration and CLI Plugin Selection
+
+As of v1.6.5, users can configure the entire pipeline—including plugin selection—via configuration files or CLI arguments. This is a major step toward the v2.0 plugin architecture.
+
+#### Configuration Files (YAML/JSON)
+
+The CLI accepts a `--config` option to load pipeline settings from a YAML or JSON file. The file structure mirrors `PipelineConfig` fields:
+
+```yaml
+# config_examples/pipeline.yaml
+target_folder: ./rawfiles
+output_folder: ./candidates
+debug_folder: ./debug_masks
+
+params:
+  diff_threshold: 8
+  min_area: 10
+  min_aspect_ratio: 3.0
+
+# Plugin selection
+input_loader_name: raw
+input_loader_config:
+  binning: 1
+  normalize: true
+
+detector_name: hough
+detector_config:
+  use_probabilistic: true
+
+output_handler_name: file
+output_handler_config:
+  overwrite: false
+```
+
+**Plugin configuration keys**:
+
+| Key | Description |
+|-----|-------------|
+| `input_loader_name` | Plugin name (e.g., `"raw"`, `"tiff"`, `"fits"`) |
+| `input_loader_config` | Dict passed to plugin's `ConfigType` |
+| `detector_name` | Plugin name (e.g., `"hough"`, `"threshold"`) |
+| `detector_config` | Dict passed to plugin's `ConfigType` |
+| `output_handler_name` | Plugin name (e.g., `"file"`, `"slack"`) |
+| `output_handler_config` | Dict passed to plugin's `ConfigType` |
+
+The `*_config` dicts are coerced into each plugin's `ConfigType` using the standard coercion rules (see [3.3 Configuration Management](#33-configuration-management-configtype)).
+
+**Loading in Python**:
+
+```python
+from meteor_core import MeteorDetectionPipeline, load_pipeline_config
+
+config = load_pipeline_config("config_examples/pipeline.yaml")
+pipeline = MeteorDetectionPipeline(config)
+pipeline.run()
+```
+
+#### CLI Plugin Selection
+
+Users can also specify plugins directly via CLI arguments:
+
+```bash
+# Select plugins by name
+python detect_meteors_cli.py \
+    --input-loader raw \
+    --detector hough \
+    --output-handler file
+
+# Provide plugin configs as JSON strings
+python detect_meteors_cli.py \
+    --detector hough \
+    --detector-config '{"use_probabilistic": true}'
+
+# Or as YAML strings
+python detect_meteors_cli.py \
+    --output-handler slack \
+    --output-handler-config "webhook_url: https://hooks.slack.com/..."
+
+# Or as file paths
+python detect_meteors_cli.py \
+    --detector-config detector_settings.yaml
+```
+
+**CLI plugin options**:
+
+| Option | Description |
+|--------|-------------|
+| `--input-loader NAME` | Select input loader plugin |
+| `--input-loader-config VALUE` | JSON/YAML string or file path |
+| `--detector NAME` | Select detector plugin |
+| `--detector-config VALUE` | JSON/YAML string or file path |
+| `--output-handler NAME` | Select output handler plugin |
+| `--output-handler-config VALUE` | JSON/YAML string or file path |
+
+#### Configuration Precedence
+
+When multiple sources provide configuration, this precedence applies (highest to lowest):
+
+1. **CLI arguments** (`--detector`, `--detector-config`, etc.)
+2. **Configuration file** (`--config pipeline.yaml`)
+3. **Built-in defaults**
+
+This allows users to load a base configuration file and override specific settings via CLI.
+
+#### Plugin Author Considerations
+
+When developing plugins for configuration file support:
+
+1. **Use meaningful field names**: Your `ConfigType` fields become YAML/JSON keys. Use clear, documented names.
+2. **Provide sensible defaults**: All `ConfigType` fields should have defaults so users can omit optional settings.
+3. **Document required fields**: If any fields are required, document them clearly.
+4. **Validate early**: Use Pydantic validators or `__post_init__` to catch configuration errors at load time.
+
+Example with documented configuration:
+
+```python
+@dataclass
+class MyDetectorConfig:
+    """Configuration for MyDetector.
+    
+    YAML example:
+        detector_name: my_detector
+        detector_config:
+          sensitivity: 0.8
+          use_gpu: true
+    """
+    sensitivity: float = 0.5      # Detection sensitivity (0.0-1.0)
+    use_gpu: bool = False         # Enable GPU acceleration
+    model_path: str = ""          # Path to ML model (optional)
+```
+
+### 3.5 Plugin Discovery
 
 Plugins are discovered in this order (duplicates warn but don't overwrite):
 
@@ -693,7 +903,7 @@ class MyDetector(DataclassDetector[MyConfig]):
 
 **Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `current_image`, `previous_image`, and `roi_mask`). The pipeline uses this payload when invoking `on_detection_result()` to avoid transferring large image arrays.
 
-**Normalization**: Unlike `InputContext` and `OutputResult`, the normalization of `DetectionContext` is handled internally by the pipeline (via `_normalize_detection_context` in `meteor_core.pipeline`). Plugin authors do not need to call any normalization function for `DetectionContext`, and there is no public `normalize_detection_context()` or `register_detection_context_converter()` function exposed by `meteor_core.schema`.
+**Normalization**: The pipeline normalizes `DetectionContext` internally before passing it into `detect` using `meteor_core.schema.normalize_detection_context()`. Plugin authors typically don't need to call the function directly, but you can use it (and register converters with `register_detection_context_converter()`) in custom tooling that processes serialized contexts.
 
 ### 4.3 DetectionResult
 
@@ -865,27 +1075,41 @@ All four dataclasses include a `schema_version` field (currently `1`) to enable 
 | Dataclass | normalize function | converter registration |
 |-----------|-------------------|------------------------|
 | `InputContext` | `meteor_core.schema.normalize_input_context()` | `register_input_context_converter()` |
-| `DetectionContext` | Pipeline-internal only | Not exposed publicly |
+| `DetectionContext` | `meteor_core.schema.normalize_detection_context()` | `register_detection_context_converter()` |
 | `DetectionResult` | `meteor_core.schema.normalize_detection_result()` | `register_detection_result_converter()` |
 | `OutputResult` | `meteor_core.schema.normalize_output_result()` | `register_output_result_converter()` |
 
-> **Note**: `DetectionContext` normalization is handled internally by the pipeline (`_normalize_detection_context` in `meteor_core.pipeline`). Plugin authors do not need to call it directly, and there is no public converter registration function for `DetectionContext`.
+> **Note**: The pipeline still performs `DetectionContext` normalization internally, but the normalize/converter APIs are available publicly for tooling or custom flows.
 
 **How it works**:
 1. Plugins return dataclass instances with their implemented `schema_version`.
 2. The pipeline calls `normalize_*()` functions immediately after plugin methods return.
 3. If `schema_version` matches the current version, the instance passes through unchanged.
 4. If `schema_version` is older, registered converters upgrade the instance.
-5. If no converter exists for an older version, the pipeline raises `ValueError` (or `MeteorConfigError` for `DetectionContext`).
+5. If no converter exists for an older version, the pipeline raises `ValueError` (or `MeteorConfigError` when normalizing `DetectionContext` inside the pipeline).
 
 **Registering converters** (for backward compatibility):
 
 ```python
 from meteor_core.schema import (
+    DetectionContext,
+    DetectionResult,
     register_input_context_converter,
+    register_detection_context_converter,
     register_detection_result_converter,
     register_output_result_converter,
 )
+
+def upgrade_detection_context_v0_to_v1(context: DetectionContext) -> DetectionContext:
+    """Convert v0 DetectionContext to v1 format."""
+    return DetectionContext(
+        current_image=context.current_image,
+        previous_image=context.previous_image,
+        roi_mask=context.roi_mask,
+        runtime_params=context.runtime_params,
+        metadata=context.metadata,
+        schema_version=1,
+    )
 
 def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResult:
     """Convert v0 DetectionResult to v1 format."""
@@ -900,6 +1124,7 @@ def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResul
         schema_version=1,
     )
 
+register_detection_context_converter(0, upgrade_detection_context_v0_to_v1)
 register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
 ```
 

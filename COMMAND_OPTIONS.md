@@ -5,12 +5,29 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 ## Input/Output Options
 - **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan.
 - **`-o`/`--output`** (default: `candidates`): Destination folder for RAW files flagged as meteor candidates.
-- **`--debug-dir`** (default: `debug_masks`): Where to save generated mask and debug images.
+- **`--debug-dir`** (default: `debug_masks`): Where to save generated mask and debug images (used with `--debug-image`).
+- **`--debug-image`** (default: disabled): Save mask/debug images to `--debug-dir`.
+- **`--no-debug-image`** (default): Do not save mask/debug images.
+
+## Pipeline Configuration & Plugin Selection
+- **`--config`**: Load pipeline settings from a YAML/JSON configuration file (see `config_examples/pipeline.yaml`). Configuration files can be partial; omitted settings are filled with defaults.
+- **`--input-loader`**: Input loader plugin name (overrides `input_loader_name` in config).
+- **`--input-loader-config`**: Input loader config as a JSON/YAML string or file path.
+- **`--detector`**: Detector plugin name (overrides `detector_name` in config).
+- **`--detector-config`**: Detector config as a JSON/YAML string or file path.
+- **`--output-handler`**: Output handler plugin name (overrides `output_handler_name` in config).
+- **`--output-handler-config`**: Output handler config as a JSON/YAML string or file path.
+
+> **Note**: The CLI now runs through `MeteorDetectionPipeline`. The legacy path
+> remains for backward compatibility but is slated for deprecation.
 
 ## Detection Parameters
 - **`--diff-threshold`** (default: `8`): Pixel-difference threshold used to binarize frame-to-frame differences. **TIP**: Use `--auto-params` to optimize automatically based on ISO and NPF compliance.
 - **`--min-area`** (default: `10`): Smallest allowed contour area in pixels. **TIP**: Use `--auto-params` to optimize based on star trail length.
 - **`--min-aspect-ratio`** (default: `3.0`): Minimum ratio of a contour's long side to its short side.
+
+> **Legacy notice**: These parameter flags are mapped into `PipelineConfig.params` for backward compatibility.
+> They will be deprecated in favor of YAML/JSON configuration files over time.
 
 ## Hough Transform Parameters
 - **`--hough-threshold`** (default: `10`): Accumulator threshold for the probabilistic Hough transform.
@@ -57,8 +74,8 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 ## Performance Options
 - **`--workers`** (default: CPU count - 1): Number of parallel worker processes.
 - **`--batch-size`** (default: `10`): How many RAW files each worker processes at a time.
-- **`--auto-batch-size`**: Dynamically shrink batch size to stay within ~60% of available RAM.
-- **`--no-parallel`**: Force single-threaded execution.
+- **`--auto-batch-size` / `--no-auto-batch-size`**: Enable or disable auto-adjusted batch sizing to stay within ~60% of available RAM.
+- **`--parallel` / `--no-parallel`**: Explicitly enable or disable parallel processing (defaults to enabled, unless overridden by config).
 
 ## Utility Options
 - **`--profile`**: Print timing breakdowns after the run.

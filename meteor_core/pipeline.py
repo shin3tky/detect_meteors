@@ -18,7 +18,6 @@ import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import (
     Any,
-    Callable,
     Dict,
     List,
     Optional,
@@ -42,7 +41,6 @@ from .schema import (
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
-    DETECTION_CONTEXT_SCHEMA_VERSION,
     DetectionContext,
     DetectionParams,
     DetectionResult,
@@ -51,6 +49,7 @@ from .schema import (
     PipelineConfig,
     RuntimeParams,
     RUNTIME_PARAMS_SCHEMA_VERSION,
+    normalize_detection_context,
     normalize_detection_result,
     normalize_input_context,
     normalize_output_result,
@@ -74,31 +73,15 @@ from .utils import (
 # Module-level logger
 logger = logging.getLogger(__name__)
 
-# Pipeline-side DetectionContext schema conversions.
-_DETECTION_CONTEXT_CONVERTERS: Dict[
-    int, Callable[[DetectionContext], DetectionContext]
-] = {}
+# Scaling factor for uint16 normalization.
+_UINT16_MAX = float(np.iinfo(np.uint16).max)
 
 
 def _normalize_detection_context(context: DetectionContext) -> DetectionContext:
-    if context.schema_version == DETECTION_CONTEXT_SCHEMA_VERSION:
-        return context
-
-    converter = _DETECTION_CONTEXT_CONVERTERS.get(context.schema_version)
-    if converter is None:
-        raise MeteorConfigError(
-            "Unsupported DetectionContext schema_version "
-            f"{context.schema_version}; expected "
-            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
-        )
-
-    converted = converter(context)
-    if converted.schema_version != DETECTION_CONTEXT_SCHEMA_VERSION:
-        raise MeteorConfigError(
-            "DetectionContext converter did not return the expected schema_version "
-            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
-        )
-    return converted
+    try:
+        return normalize_detection_context(context)
+    except ValueError as exc:
+        raise MeteorConfigError(str(exc)) from exc
 
 
 def _normalize_input_context(
@@ -181,6 +164,58 @@ def _build_runtime_params(
         global_params=params,
         detector={detector_name: params},
     ).to_dict(include_schema_version=False)
+
+
+def _is_normalized_image(image: Any) -> bool:
+    """Return True when image values are normalized to [0, 1] float range."""
+    if not isinstance(image, np.ndarray):
+        return False
+    if not np.issubdtype(image.dtype, np.floating):
+        return False
+    try:
+        max_value = float(np.nanmax(image))
+    except (TypeError, ValueError):
+        return False
+    return max_value <= 1.0
+
+
+def _loader_normalizes(input_loader: Optional[BaseInputLoader]) -> bool:
+    """Return True if the loader config indicates normalized output."""
+    if input_loader is None:
+        return False
+    config = getattr(input_loader, "config", None)
+    if config is None:
+        return False
+    normalize_value = getattr(config, "normalize", None)
+    if normalize_value is None and isinstance(config, dict):
+        normalize_value = config.get("normalize")
+    return bool(normalize_value)
+
+
+def _apply_normalized_diff_threshold(
+    params: Dict[str, Any], normalized_input: bool
+) -> Dict[str, Any]:
+    """Scale diff_threshold when inputs are normalized to [0, 1]."""
+    if not normalized_input:
+        return params
+    diff_threshold = params.get("diff_threshold")
+    if diff_threshold is None:
+        return params
+    try:
+        diff_value = float(diff_threshold)
+    except (TypeError, ValueError):
+        return params
+    if diff_value <= 1:
+        return params
+    scaled = diff_value / _UINT16_MAX
+    updated = dict(params)
+    updated["diff_threshold"] = scaled
+    logger.debug(
+        "Input normalization detected; scaled diff_threshold from %s to %.6f",
+        diff_threshold,
+        scaled,
+    )
+    return updated
 
 
 def _resolve_detector(
@@ -449,6 +484,7 @@ class DetectionPipeline(Protocol):
         roi_polygon_cli: Optional[List[List[int]]] = None,
         resume: bool = True,
         profile: bool = False,
+        debug_image_enabled: bool = True,
     ) -> int:
         """Run the detection pipeline and return number of detected candidates.
 
@@ -457,6 +493,7 @@ class DetectionPipeline(Protocol):
             roi_polygon_cli: Pre-defined ROI polygon from command line.
             resume: Whether to resume from previous progress.
             profile: Whether to collect performance metrics.
+            debug_image_enabled: Whether to include debug images in results.
 
         Returns:
             Number of detected meteor candidates.
@@ -586,6 +623,7 @@ def process_image_batch(
     params: dict,
     input_loader: Optional[BaseInputLoader] = None,
     detector: Optional[BaseDetector] = None,
+    debug_image_enabled: bool = True,
 ) -> List[
     Tuple[
         bool,
@@ -608,6 +646,7 @@ def process_image_batch(
         params: Parameter dictionary
         input_loader: Optional input loader instance
         detector: Optional detector instance (defaults to HoughDetector)
+        debug_image_enabled: Whether to include debug images in results
 
     Returns:
         List of processing results for each image:
@@ -680,8 +719,10 @@ def process_image_batch(
             result = _normalize_detection_result(det.detect(context))
             context_payload = context.to_dict()
             debug_image = result.debug_image if result.is_candidate else None
-            if not result.is_candidate:
+            if not result.is_candidate or not debug_image_enabled:
                 result.debug_image = None
+                if not debug_image_enabled:
+                    debug_image = None
 
             results.append(
                 (
@@ -1522,10 +1563,12 @@ class MeteorDetectionPipeline:
                 context={"provided_type": type(config_or_target).__name__},
             )
 
-        # Store loader configuration
+        # Store loader configuration (explicit args take priority over config)
         self.input_loader = input_loader
-        self.input_loader_name = input_loader_name
-        self.input_loader_config = input_loader_config
+        self.input_loader_name = input_loader_name or self._config.input_loader_name
+        self.input_loader_config = (
+            input_loader_config or self._config.input_loader_config
+        )
 
         # Resolve detector: explicit argument > config > default
         # Note: We store the resolved detector, not the raw argument
@@ -1622,6 +1665,7 @@ class MeteorDetectionPipeline:
         roi_polygon_cli: Optional[List[List[int]]] = None,
         resume: bool = True,
         profile: bool = False,
+        debug_image_enabled: bool = True,
     ) -> int:
         """
         Run the full detection pipeline.
@@ -1722,8 +1766,12 @@ class MeteorDetectionPipeline:
         else:
             print(get_message("ui.pipeline.roi.skipped", locale=locale))
 
-        # Get params dict
+        # Get params dict (unscaled for progress tracking)
         params = self._config.params.to_dict()
+        normalized_input = _loader_normalizes(input_loader) or _is_normalized_image(
+            prev_context.image_data
+        )
+        runtime_params = _apply_normalized_diff_threshold(params, normalized_input)
 
         # Progress tracking setup
         params_for_hash = params.copy()
@@ -1794,24 +1842,26 @@ class MeteorDetectionPipeline:
                 detected_count = self._process_parallel(
                     image_pairs,
                     roi_mask,
-                    params,
+                    runtime_params,
                     roi_polygon,
                     resume_offset,
                     overall_total,
                     input_loader,
                     self.detector,
+                    debug_image_enabled,
                     locale=locale,
                 )
             else:
                 detected_count = self._process_sequential(
                     image_pairs,
                     roi_mask,
-                    params,
+                    runtime_params,
                     roi_polygon,
                     resume_offset,
                     overall_total,
                     input_loader,
                     self.detector,
+                    debug_image_enabled,
                     locale=locale,
                 )
         except KeyboardInterrupt:
@@ -1826,8 +1876,27 @@ class MeteorDetectionPipeline:
             self.progress_manager.save()
             return self.progress_manager.get_total_detected()
 
+        processing_elapsed = time.time() - t_process
+        total_processed = self.progress_manager.get_total_processed()
+        total_detected = self.progress_manager.get_total_detected()
+        try:
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "on_pipeline_complete elapsed=%.2fs processed=%s detected=%s",
+                    processing_elapsed,
+                    total_processed,
+                    total_detected,
+                )
+            self.output_handler.on_pipeline_complete(
+                total_processed,
+                total_detected,
+                processing_elapsed,
+            )
+        except Exception as exc:
+            logger.warning("on_pipeline_complete hook failed: %s", exc)
+
         if profile:
-            timing["processing"] = time.time() - t_process
+            timing["processing"] = processing_elapsed
             timing["total"] = time.time() - t_total
 
             print("\n\n" + get_message("ui.profile.header", locale=locale))
@@ -1888,10 +1957,12 @@ class MeteorDetectionPipeline:
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
         detector: Optional[BaseDetector],
+        debug_image_enabled: bool,
         locale: Optional[str] = None,
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
         locale = _resolve_locale(locale)
+        start_time = time.time()
         batches = [
             image_pairs[i : i + self._config.batch_size]
             for i in range(0, len(image_pairs), self._config.batch_size)
@@ -1925,7 +1996,13 @@ class MeteorDetectionPipeline:
                     flush=True,
                 )
                 future = executor.submit(
-                    process_image_batch, batch, roi_mask, params, input_loader, detector
+                    process_image_batch,
+                    batch,
+                    roi_mask,
+                    params,
+                    input_loader,
+                    detector,
+                    debug_image_enabled,
                 )
                 futures.append(future)
 
@@ -2071,6 +2148,26 @@ class MeteorDetectionPipeline:
                             prev_frame_index=ctx_prev_frame_index,
                         )
 
+                    try:
+                        if logger.isEnabledFor(logging.DEBUG):
+                            logger.debug(
+                                "on_batch_complete elapsed=%.2fs processed=%s detected=%s batch_size=%s",
+                                time.time() - start_time,
+                                self.progress_manager.get_total_processed(),
+                                self.progress_manager.get_total_detected(),
+                                len(batch_results),
+                            )
+                        self.output_handler.on_batch_complete(
+                            self.progress_manager.get_total_processed(),
+                            self.progress_manager.get_total_detected(),
+                            len(batch_results),
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "on_batch_complete hook failed for batch %s: %s",
+                            completed_batches,
+                            exc,
+                        )
                 except Exception as e:
                     print(
                         "\n"
@@ -2107,10 +2204,12 @@ class MeteorDetectionPipeline:
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
         detector: Optional[BaseDetector],
+        debug_image_enabled: bool,
         locale: Optional[str] = None,
     ) -> int:
         """Process images sequentially."""
         locale = _resolve_locale(locale)
+        start_time = time.time()
         for idx, pair in enumerate(image_pairs):
             current_index = resume_offset + idx + 1
             current_file = os.path.basename(pair[1])
@@ -2128,7 +2227,12 @@ class MeteorDetectionPipeline:
             )
 
             batch_results = process_image_batch(
-                [pair], roi_mask, params, input_loader, detector
+                [pair],
+                roi_mask,
+                params,
+                input_loader,
+                detector,
+                debug_image_enabled,
             )
 
             for result in batch_results:
@@ -2220,6 +2324,27 @@ class MeteorDetectionPipeline:
                     aspect_ratio,
                     frame_index=ctx_frame_index,
                     prev_frame_index=ctx_prev_frame_index,
+                )
+
+            try:
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "on_batch_complete elapsed=%.2fs processed=%s detected=%s batch_size=%s",
+                        time.time() - start_time,
+                        self.progress_manager.get_total_processed(),
+                        self.progress_manager.get_total_detected(),
+                        len(batch_results),
+                    )
+                self.output_handler.on_batch_complete(
+                    self.progress_manager.get_total_processed(),
+                    self.progress_manager.get_total_detected(),
+                    len(batch_results),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "on_batch_complete hook failed for %s: %s",
+                    current_file,
+                    exc,
                 )
 
         return self.progress_manager.get_total_detected()

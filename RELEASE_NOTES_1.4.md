@@ -1,6 +1,6 @@
 # Version 1.4 Release Notes
 
-## Version 1.4.2 (2025-11-25)
+## Version 1.4.2 (2025-11-25) 🙏
 
 ### Output File Protection and Safety Enhancements
 
@@ -14,7 +14,7 @@ These changes ensure safer operation during batch processing, protecting existin
 
 ---
 
-## Version 1.4.1 (2025-11-24)
+## Version 1.4.1 (2025-11-24) 🧍
 
 ### 🎉 NPF Rule-based Scientific Optimization - Milestone Release
 

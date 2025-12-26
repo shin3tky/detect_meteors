@@ -9,10 +9,15 @@
 
 import os
 import sys
+import json
 import shlex
 import argparse
 import logging
+import warnings
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
+
+import yaml
 
 from meteor_core import (
     VERSION,
@@ -20,6 +25,7 @@ from meteor_core import (
     MeteorError,
     MeteorLoadError,
     MeteorValidationError,
+    MeteorConfigError,
     format_error_for_user,
     save_diagnostic_report,
     get_message,
@@ -38,6 +44,8 @@ from meteor_core import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
     DEFAULT_FISHEYE_MODEL,
+    PipelineConfig,
+    DetectionParams,
     # Functions
     collect_files,
     extract_exif_metadata,
@@ -60,6 +68,9 @@ from meteor_core import (
     compute_params_hash,
     ProgressManager,
     DetectionResult,
+    MeteorDetectionPipeline,
+    load_pipeline_config,
+    SUPPORTED_CONFIG_EXTENSIONS,
 )
 from meteor_core.utils import _display_width, _pad_label
 
@@ -82,6 +93,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=default_locale,
         help=("Locale code for CLI messages (default: DETECT_METEORS_LOCALE or 'en')."),
     )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help=(
+            "Path to pipeline configuration file (YAML/JSON). "
+            f"Supported extensions: {', '.join(sorted(SUPPORTED_CONFIG_EXTENSIONS))}."
+        ),
+    )
 
     parser.add_argument(
         "-t", "--target", default=DEFAULT_TARGET_FOLDER, help="Input RAW image folder"
@@ -95,7 +115,58 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--debug-dir",
         default=DEFAULT_DEBUG_FOLDER,
-        help="Folder to save mask/debug images",
+        help="Folder to save mask/debug images (used with --debug-image)",
+    )
+    debug_image_group = parser.add_mutually_exclusive_group()
+    debug_image_group.add_argument(
+        "--debug-image",
+        dest="debug_image",
+        action="store_true",
+        help="Enable saving mask/debug images to --debug-dir",
+    )
+    debug_image_group.add_argument(
+        "--no-debug-image",
+        dest="debug_image",
+        action="store_false",
+        help="Disable saving mask/debug images to --debug-dir (default)",
+    )
+    parser.set_defaults(debug_image=False)
+
+    parser.add_argument(
+        "--input-loader",
+        type=str,
+        default=None,
+        help="Input loader plugin name (overrides config file if provided)",
+    )
+    parser.add_argument(
+        "--input-loader-config",
+        type=str,
+        default=None,
+        help="Input loader config (JSON/YAML string or file path)",
+    )
+    parser.add_argument(
+        "--detector",
+        type=str,
+        default=None,
+        help="Detector plugin name (overrides config file if provided)",
+    )
+    parser.add_argument(
+        "--detector-config",
+        type=str,
+        default=None,
+        help="Detector config (JSON/YAML string or file path)",
+    )
+    parser.add_argument(
+        "--output-handler",
+        type=str,
+        default=None,
+        help="Output handler plugin name (overrides config file if provided)",
+    )
+    parser.add_argument(
+        "--output-handler-config",
+        type=str,
+        default=None,
+        help="Output handler config (JSON/YAML string or file path)",
     )
 
     parser.add_argument(
@@ -158,14 +229,34 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=DEFAULT_BATCH_SIZE,
         help=f"Batch size (default: {DEFAULT_BATCH_SIZE})",
     )
-    parser.add_argument(
+    auto_batch_group = parser.add_mutually_exclusive_group()
+    auto_batch_group.add_argument(
         "--auto-batch-size",
+        dest="auto_batch_size",
         action="store_true",
         help="Auto-adjust batch size for memory",
     )
-    parser.add_argument(
-        "--no-parallel", action="store_true", help="Disable parallel processing"
+    auto_batch_group.add_argument(
+        "--no-auto-batch-size",
+        dest="auto_batch_size",
+        action="store_false",
+        help="Disable auto-adjusted batch size",
     )
+    parser.set_defaults(auto_batch_size=None)
+    parallel_group = parser.add_mutually_exclusive_group()
+    parallel_group.add_argument(
+        "--parallel",
+        dest="enable_parallel",
+        action="store_true",
+        help="Enable parallel processing",
+    )
+    parallel_group.add_argument(
+        "--no-parallel",
+        dest="enable_parallel",
+        action="store_false",
+        help="Disable parallel processing",
+    )
+    parser.set_defaults(enable_parallel=True)
     parser.add_argument("--profile", action="store_true", help="Display timing profile")
     parser.add_argument(
         "--verbose",
@@ -296,6 +387,239 @@ def _configure_logging(verbose: bool) -> None:
         "meteor_core.image_io",
     ):
         logging.getLogger(logger_name).setLevel(logging.DEBUG)
+
+
+def _flag_present(*flags: str) -> bool:
+    """Return True if any of the CLI flags were provided."""
+    return any(flag in sys.argv for flag in flags)
+
+
+def _parse_plugin_config(
+    value: Optional[str], arg_name: str
+) -> Optional[Dict[str, Any]]:
+    """Parse plugin configuration from a JSON/YAML string or file path."""
+    if value is None:
+        return None
+    if value == "":
+        return {}
+
+    path = Path(value)
+    if path.exists():
+        suffix = path.suffix.lower()
+        if suffix not in SUPPORTED_CONFIG_EXTENSIONS:
+            raise MeteorConfigError(
+                "Unsupported plugin configuration file format",
+                filepath=str(path),
+                config_key=arg_name,
+                context={"supported_extensions": sorted(SUPPORTED_CONFIG_EXTENSIONS)},
+            )
+        if suffix == ".json":
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                raise MeteorConfigError(
+                    "Invalid JSON plugin configuration",
+                    filepath=str(path),
+                    config_key=arg_name,
+                    original_error=exc,
+                ) from exc
+        else:
+            try:
+                data = yaml.safe_load(path.read_text(encoding="utf-8"))
+            except yaml.YAMLError as exc:
+                raise MeteorConfigError(
+                    "Invalid YAML plugin configuration",
+                    filepath=str(path),
+                    config_key=arg_name,
+                    original_error=exc,
+                ) from exc
+        data = data if data is not None else {}
+    else:
+        try:
+            data = json.loads(value)
+        except json.JSONDecodeError:
+            try:
+                data = yaml.safe_load(value)
+            except yaml.YAMLError as exc:
+                raise MeteorConfigError(
+                    "Invalid plugin configuration string",
+                    config_key=arg_name,
+                    original_error=exc,
+                ) from exc
+
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise MeteorConfigError(
+            "Plugin configuration must be a mapping",
+            config_key=arg_name,
+            context={"provided_type": type(data).__name__},
+        )
+    return data
+
+
+def _warn_legacy_param_flags() -> None:
+    legacy_flags = {
+        "--diff-threshold",
+        "--min-area",
+        "--min-aspect-ratio",
+        "--hough-threshold",
+        "--hough-min-line-length",
+        "--hough-max-line-gap",
+        "--min-line-score",
+    }
+    used = sorted(flag for flag in legacy_flags if flag in sys.argv)
+    if used:
+        warnings.warn(
+            "Legacy CLI detection parameter flags are deprecated and will be "
+            "replaced by pipeline configuration files. "
+            f"Flags detected: {', '.join(used)}",
+            UserWarning,
+            stacklevel=2,
+        )
+
+
+def _resolve_value(arg_value, base_value, *flags: str):
+    if flags and _flag_present(*flags):
+        return arg_value
+    return base_value
+
+
+def _build_pipeline_config(args) -> PipelineConfig:
+    base_config = load_pipeline_config(args.config) if args.config else None
+    base_params = base_config.params if base_config else None
+
+    params = DetectionParams(
+        diff_threshold=_resolve_value(
+            args.diff_threshold,
+            base_params.diff_threshold if base_params else args.diff_threshold,
+            "--diff-threshold",
+        ),
+        min_area=_resolve_value(
+            args.min_area,
+            base_params.min_area if base_params else args.min_area,
+            "--min-area",
+        ),
+        min_aspect_ratio=_resolve_value(
+            args.min_aspect_ratio,
+            base_params.min_aspect_ratio if base_params else args.min_aspect_ratio,
+            "--min-aspect-ratio",
+        ),
+        hough_threshold=_resolve_value(
+            args.hough_threshold,
+            base_params.hough_threshold if base_params else args.hough_threshold,
+            "--hough-threshold",
+        ),
+        hough_min_line_length=_resolve_value(
+            args.hough_min_line_length,
+            base_params.hough_min_line_length
+            if base_params
+            else args.hough_min_line_length,
+            "--hough-min-line-length",
+        ),
+        hough_max_line_gap=_resolve_value(
+            args.hough_max_line_gap,
+            base_params.hough_max_line_gap if base_params else args.hough_max_line_gap,
+            "--hough-max-line-gap",
+        ),
+        min_line_score=_resolve_value(
+            args.min_line_score,
+            base_params.min_line_score if base_params else args.min_line_score,
+            "--min-line-score",
+        ),
+    )
+
+    input_loader_config = (
+        _parse_plugin_config(args.input_loader_config, "input_loader_config")
+        if args.input_loader_config is not None
+        else (base_config.input_loader_config if base_config else None)
+    )
+    detector_config = (
+        _parse_plugin_config(args.detector_config, "detector_config")
+        if args.detector_config is not None
+        else (base_config.detector_config if base_config else None)
+    )
+    output_handler_config = (
+        _parse_plugin_config(args.output_handler_config, "output_handler_config")
+        if args.output_handler_config is not None
+        else (base_config.output_handler_config if base_config else None)
+    )
+
+    target_folder = _resolve_value(
+        args.target,
+        base_config.target_folder if base_config else args.target,
+        "-t",
+        "--target",
+    )
+    output_folder = _resolve_value(
+        args.output,
+        base_config.output_folder if base_config else args.output,
+        "-o",
+        "--output",
+    )
+    debug_folder = _resolve_value(
+        args.debug_dir,
+        base_config.debug_folder if base_config else args.debug_dir,
+        "--debug-dir",
+    )
+    num_workers = _resolve_value(
+        args.workers,
+        base_config.num_workers if base_config else args.workers,
+        "--workers",
+    )
+    batch_size = _resolve_value(
+        args.batch_size,
+        base_config.batch_size if base_config else args.batch_size,
+        "--batch-size",
+    )
+    auto_batch_size = _resolve_value(
+        args.auto_batch_size,
+        base_config.auto_batch_size if base_config else args.auto_batch_size,
+        "--auto-batch-size",
+        "--no-auto-batch-size",
+    )
+    enable_parallel = _resolve_value(
+        args.enable_parallel,
+        base_config.enable_parallel if base_config else args.enable_parallel,
+        "--parallel",
+        "--no-parallel",
+    )
+    progress_file = _resolve_value(
+        args.progress_file,
+        base_config.progress_file if base_config else args.progress_file,
+        "--progress-file",
+    )
+    output_overwrite = _resolve_value(
+        args.output_overwrite,
+        base_config.output_overwrite if base_config else args.output_overwrite,
+        "--output-overwrite",
+    )
+
+    pipeline_config = PipelineConfig(
+        target_folder=target_folder,
+        output_folder=output_folder,
+        debug_folder=debug_folder,
+        params=params,
+        num_workers=num_workers,
+        batch_size=batch_size,
+        auto_batch_size=auto_batch_size,
+        enable_parallel=enable_parallel,
+        progress_file=progress_file,
+        output_overwrite=output_overwrite,
+        input_loader_name=args.input_loader
+        if args.input_loader is not None
+        else (base_config.input_loader_name if base_config else None),
+        input_loader_config=input_loader_config,
+        detector_name=args.detector
+        if args.detector is not None
+        else (base_config.detector_name if base_config else None),
+        detector_config=detector_config,
+        output_handler_name=args.output_handler
+        if args.output_handler is not None
+        else (base_config.output_handler_name if base_config else None),
+        output_handler_config=output_handler_config,
+    )
+    return pipeline_config
 
 
 def validate_and_apply_sensor_preset(
@@ -635,7 +959,10 @@ def _init_worker_ignore_interrupt() -> None:
 
 
 def _validate_directories(
-    target_folder: str, output_folder: str, debug_folder: str
+    target_folder: str,
+    output_folder: str,
+    debug_folder: str,
+    debug_image_enabled: bool,
 ) -> None:
     """
     Validate and create directories for processing.
@@ -644,6 +971,7 @@ def _validate_directories(
         target_folder: Input folder with RAW files
         output_folder: Output folder for candidates
         debug_folder: Folder for debug images
+        debug_image_enabled: Whether to create the debug image folder
 
     Raises:
         MeteorValidationError: If target and output directories are the same.
@@ -670,7 +998,8 @@ def _validate_directories(
 
     try:
         os.makedirs(output_folder, exist_ok=True)
-        os.makedirs(debug_folder, exist_ok=True)
+        if debug_image_enabled:
+            os.makedirs(debug_folder, exist_ok=True)
     except OSError as e:
         raise MeteorLoadError(
             f"Failed to create output directory: {e}",
@@ -1232,6 +1561,7 @@ def _run_parallel_detection(
     output_folder,
     debug_folder,
     output_overwrite,
+    debug_image_enabled,
     num_workers,
     batch_size,
     resume_offset,
@@ -1250,6 +1580,7 @@ def _run_parallel_detection(
         output_folder: Output folder for candidates
         debug_folder: Folder for debug images
         output_overwrite: Whether to overwrite existing files
+        debug_image_enabled: Whether to save debug images to disk
         num_workers: Number of parallel workers
         batch_size: Batch size for processing
         resume_offset: Offset for progress display
@@ -1292,7 +1623,13 @@ def _run_parallel_detection(
                 flush=True,
             )
             future = executor.submit(
-                process_image_batch, batch, roi_mask, processing_params
+                process_image_batch,
+                batch,
+                roi_mask,
+                processing_params,
+                None,
+                None,
+                debug_image_enabled,
             )
             futures.append(future)
 
@@ -1373,6 +1710,8 @@ def _run_parallel_detection(
                     if is_candidate:
                         if line_score <= 0:
                             print()  # Move to new line if [LINE] wasn't printed
+                        if not debug_image_enabled:
+                            debug_img = None
                         saved = _save_candidate_file(
                             filepath,
                             filename,
@@ -1445,6 +1784,7 @@ def _run_sequential_detection(
     output_folder,
     debug_folder,
     output_overwrite,
+    debug_image_enabled,
     resume_offset,
     overall_total,
     record_result_callback,
@@ -1461,6 +1801,7 @@ def _run_sequential_detection(
         output_folder: Output folder for candidates
         debug_folder: Folder for debug images
         output_overwrite: Whether to overwrite existing files
+        debug_image_enabled: Whether to save debug images to disk
         resume_offset: Offset for progress display
         overall_total: Total number of files for progress display
         record_result_callback: Callback to record results (filename, is_candidate, score, lines, ratio, detection_result)
@@ -1487,7 +1828,14 @@ def _run_sequential_detection(
             flush=True,
         )
 
-        batch_results = process_image_batch([pair], roi_mask, processing_params)
+        batch_results = process_image_batch(
+            [pair],
+            roi_mask,
+            processing_params,
+            None,
+            None,
+            debug_image_enabled,
+        )
 
         for result in batch_results:
             (
@@ -1521,6 +1869,8 @@ def _run_sequential_detection(
                     print()
                     progress_line_active = False
 
+                if not debug_image_enabled:
+                    debug_img = None
                 saved = _save_candidate_file(
                     filepath,
                     filename,
@@ -1583,6 +1933,7 @@ def detect_meteors_advanced(
     target_folder: str,
     output_folder: str,
     debug_folder: str,
+    debug_image_enabled: bool,
     diff_threshold: int,
     min_area: int,
     min_aspect_ratio: float,
@@ -1624,7 +1975,9 @@ def detect_meteors_advanced(
     t_total = time.time()
 
     # Validate and create directories (raises MeteorError on failure)
-    _validate_directories(target_folder, output_folder, debug_folder)
+    _validate_directories(
+        target_folder, output_folder, debug_folder, debug_image_enabled
+    )
 
     # Collect files (raises MeteorLoadError if directory doesn't exist or is empty)
     print(
@@ -1802,6 +2155,7 @@ def detect_meteors_advanced(
                 output_folder=output_folder,
                 debug_folder=debug_folder,
                 output_overwrite=output_overwrite,
+                debug_image_enabled=debug_image_enabled,
                 num_workers=num_workers,
                 batch_size=batch_size,
                 resume_offset=resume_offset,
@@ -1818,6 +2172,7 @@ def detect_meteors_advanced(
                 output_folder=output_folder,
                 debug_folder=debug_folder,
                 output_overwrite=output_overwrite,
+                debug_image_enabled=debug_image_enabled,
                 resume_offset=resume_offset,
                 overall_total=overall_total,
                 record_result_callback=record_result,
@@ -2005,6 +2360,8 @@ def _run_main(args, cli_param_string: str):
     elif args.no_roi:
         enable_roi_selection = False
 
+    _warn_legacy_param_flags()
+
     # Determine user specifications
     user_specified_diff_threshold = "--diff-threshold" in sys.argv
     user_specified_min_area = "--min-area" in sys.argv
@@ -2019,39 +2376,65 @@ def _run_main(args, cli_param_string: str):
         preset,
     ) = validate_and_apply_sensor_preset(args, verbose=False, locale=locale)
 
-    detect_meteors_advanced(
-        target_folder=args.target,
-        output_folder=args.output,
-        debug_folder=args.debug_dir,
-        diff_threshold=args.diff_threshold,
-        min_area=args.min_area,
-        min_aspect_ratio=args.min_aspect_ratio,
-        hough_threshold=args.hough_threshold,
-        hough_min_line_length=args.hough_min_line_length,
-        hough_max_line_gap=args.hough_max_line_gap,
-        min_line_score=args.min_line_score,
+    pipeline_config = _build_pipeline_config(args)
+
+    if args.auto_params:
+        files = collect_files(pipeline_config.target_folder)
+        if len(files) < 2:
+            raise MeteorValidationError(
+                "Need at least 2 images for meteor detection",
+                parameter_name="target_folder",
+                provided_value=pipeline_config.target_folder,
+                expected="directory with at least 2 RAW files",
+                context={"files_found": len(files)},
+            )
+        prev_img = load_and_bin_raw_fast(files[0])
+        roi_mask, roi_polygon = _setup_roi(
+            prev_img, roi_polygon_cli, enable_roi_selection, locale=locale
+        )
+        (
+            diff_threshold,
+            min_area,
+            min_line_score,
+            _focal_length_value,
+        ) = _run_auto_params(
+            files=files,
+            prev_img=prev_img,
+            roi_mask=roi_mask,
+            diff_threshold=pipeline_config.params.diff_threshold,
+            min_area=pipeline_config.params.min_area,
+            min_line_score=pipeline_config.params.min_line_score,
+            user_specified_diff_threshold=user_specified_diff_threshold,
+            user_specified_min_area=user_specified_min_area,
+            user_specified_min_line_score=user_specified_min_line_score,
+            focal_length_mm=focal_length_value,
+            focal_factor=focal_factor_value,
+            sensor_width_mm=sensor_width_value,
+            pixel_pitch_um=pixel_pitch_value,
+            fisheye=args.fisheye,
+            locale=locale,
+        )
+        pipeline_config.params = DetectionParams(
+            diff_threshold=diff_threshold,
+            min_area=min_area,
+            min_aspect_ratio=pipeline_config.params.min_aspect_ratio,
+            hough_threshold=pipeline_config.params.hough_threshold,
+            hough_min_line_length=pipeline_config.params.hough_min_line_length,
+            hough_max_line_gap=pipeline_config.params.hough_max_line_gap,
+            min_line_score=min_line_score,
+        )
+        roi_polygon_cli = roi_polygon
+        enable_roi_selection = False
+
+    _print_processing_params(pipeline_config.params.to_dict(), locale=locale)
+
+    pipeline = MeteorDetectionPipeline(pipeline_config)
+    pipeline.run(
         enable_roi_selection=enable_roi_selection,
         roi_polygon_cli=roi_polygon_cli,
-        num_workers=args.workers,
-        batch_size=args.batch_size,
-        auto_batch_size=args.auto_batch_size,
-        enable_parallel=not args.no_parallel,
-        profile=args.profile,
-        validate_raw=args.validate_raw,
-        progress_file=args.progress_file,
         resume=not args.no_resume,
-        auto_params=args.auto_params,
-        user_specified_diff_threshold=user_specified_diff_threshold,
-        user_specified_min_area=user_specified_min_area,
-        user_specified_min_line_score=user_specified_min_line_score,
-        focal_length_mm=focal_length_value,
-        focal_factor=focal_factor_value,
-        sensor_width_mm=sensor_width_value,
-        pixel_pitch_um=pixel_pitch_value,
-        output_overwrite=args.output_overwrite,
-        fisheye=args.fisheye,
-        cli_param_string=cli_param_string,
-        locale=locale,
+        profile=args.profile,
+        debug_image_enabled=args.debug_image,
     )
 
 

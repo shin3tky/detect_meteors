@@ -100,6 +100,8 @@ from .image_io import (
     extract_exif_metadata,
 )
 
+from .config_io import load_pipeline_config, SUPPORTED_CONFIG_EXTENSIONS
+
 from .inputs.raw import RawImageLoader, RawLoaderConfig, create_raw_loader
 
 from .inputs.base import (
@@ -338,6 +340,9 @@ __all__ = [
     "save_progress",
     # Outputs - Backward compatibility (deprecated)
     "OutputWriter",
+    # Config IO
+    "load_pipeline_config",
+    "SUPPORTED_CONFIG_EXTENSIONS",
     # Pipeline
     "collect_files",
     "validate_raw_file",

@@ -1,0 +1,15 @@
+target_folder: ./rawfiles
+output_folder: ./candidates
+debug_folder: ./debug_masks
+params:
+  diff_threshold: 8
+  min_area: 10
+  min_aspect_ratio: 3.0
+input_loader_name: raw
+input_loader_config:
+  binning: 2
+  normalize: true
+detector_name: hough
+detector_config: {}
+output_handler_name: file
+output_handler_config: {}

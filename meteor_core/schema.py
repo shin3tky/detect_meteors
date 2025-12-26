@@ -22,7 +22,7 @@ ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
 # ==========================================
 # Version
 # ==========================================
-VERSION = "1.6.4"
+VERSION = "1.6.5"
 DETECTION_CONTEXT_SCHEMA_VERSION = 1
 DETECTION_RESULT_SCHEMA_VERSION = 1
 INPUT_CONTEXT_SCHEMA_VERSION = 1
@@ -33,6 +33,9 @@ RUNTIME_PARAMS_SCHEMA_VERSION = 1
 # Conversion Registries
 # ==========================================
 _INPUT_CONTEXT_CONVERTERS: Dict[int, Callable[["InputContext"], "InputContext"]] = {}
+_DETECTION_CONTEXT_CONVERTERS: Dict[
+    int, Callable[["DetectionContext"], "DetectionContext"]
+] = {}
 _DETECTION_RESULT_CONVERTERS: Dict[
     int, Callable[["DetectionResult"], "DetectionResult"]
 ] = {}
@@ -360,6 +363,8 @@ class PipelineConfig:
         enable_parallel: Whether to enable parallel processing.
         progress_file: Path to the progress tracking JSON file.
         output_overwrite: Whether to overwrite existing files in output folder.
+        input_loader_name: Name of input loader to use (e.g., "raw"). If None, uses default.
+        input_loader_config: Configuration dict for the input loader.
         detector_name: Name of detector to use (e.g., "hough"). If None, uses default.
         detector_config: Configuration dict for the detector. Structure depends on detector.
         output_handler_name: Name of output handler to use (e.g., "file"). If None, uses default.
@@ -389,6 +394,10 @@ class PipelineConfig:
     enable_parallel: bool = True
     progress_file: str = DEFAULT_PROGRESS_FILE
     output_overwrite: bool = False
+
+    # Input loader configuration
+    input_loader_name: Optional[str] = None
+    input_loader_config: Optional[Dict[str, Any]] = None
 
     # Detector configuration
     detector_name: Optional[str] = None
@@ -422,11 +431,25 @@ class PipelineConfig:
             "enable_parallel": self.enable_parallel,
             "progress_file": self.progress_file,
             "output_overwrite": self.output_overwrite,
+            "input_loader_name": self.input_loader_name,
+            "input_loader_config": self.input_loader_config,
             "detector_name": self.detector_name,
             "detector_config": self.detector_config,
             "output_handler_name": self.output_handler_name,
             "output_handler_config": self.output_handler_config,
         }
+
+    @staticmethod
+    def _merge_params(
+        base_params: DetectionParams, params_data: Any
+    ) -> DetectionParams | Any:
+        if params_data is None:
+            return base_params
+        if isinstance(params_data, dict):
+            merged = base_params.to_dict()
+            merged.update(params_data)
+            return DetectionParams(**merged)
+        return params_data
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "PipelineConfig":
@@ -438,11 +461,7 @@ class PipelineConfig:
         Returns:
             PipelineConfig instance.
         """
-        params_data = data.get("params", {})
-        if isinstance(params_data, dict):
-            params = DetectionParams(**params_data)
-        else:
-            params = params_data
+        params = cls._merge_params(DetectionParams(), data.get("params", {}))
 
         return cls(
             target_folder=data["target_folder"],
@@ -455,11 +474,51 @@ class PipelineConfig:
             enable_parallel=data.get("enable_parallel", True),
             progress_file=data.get("progress_file", DEFAULT_PROGRESS_FILE),
             output_overwrite=data.get("output_overwrite", False),
+            input_loader_name=data.get("input_loader_name"),
+            input_loader_config=data.get("input_loader_config"),
             detector_name=data.get("detector_name"),
             detector_config=data.get("detector_config"),
             output_handler_name=data.get("output_handler_name"),
             output_handler_config=data.get("output_handler_config"),
         )
+
+    @classmethod
+    def from_partial_dict(cls, data: Dict[str, Any]) -> "PipelineConfig":
+        """Create configuration from a partial dictionary, filling defaults."""
+        config = cls.with_defaults()
+        if "target_folder" in data:
+            config.target_folder = data["target_folder"]
+        if "output_folder" in data:
+            config.output_folder = data["output_folder"]
+        if "debug_folder" in data:
+            config.debug_folder = data["debug_folder"]
+        if "params" in data:
+            config.params = cls._merge_params(config.params, data.get("params"))
+        if "num_workers" in data:
+            config.num_workers = data["num_workers"]
+        if "batch_size" in data:
+            config.batch_size = data["batch_size"]
+        if "auto_batch_size" in data:
+            config.auto_batch_size = data["auto_batch_size"]
+        if "enable_parallel" in data:
+            config.enable_parallel = data["enable_parallel"]
+        if "progress_file" in data:
+            config.progress_file = data["progress_file"]
+        if "output_overwrite" in data:
+            config.output_overwrite = data["output_overwrite"]
+        if "input_loader_name" in data:
+            config.input_loader_name = data["input_loader_name"]
+        if "input_loader_config" in data:
+            config.input_loader_config = data["input_loader_config"]
+        if "detector_name" in data:
+            config.detector_name = data["detector_name"]
+        if "detector_config" in data:
+            config.detector_config = data["detector_config"]
+        if "output_handler_name" in data:
+            config.output_handler_name = data["output_handler_name"]
+        if "output_handler_config" in data:
+            config.output_handler_config = data["output_handler_config"]
+        return config
 
     @classmethod
     def with_defaults(
@@ -630,6 +689,22 @@ def register_input_context_converter(
     _INPUT_CONTEXT_CONVERTERS[version] = converter
 
 
+def register_detection_context_converter(
+    version: int, converter: Callable[[DetectionContext], DetectionContext]
+) -> None:
+    """Register a converter for legacy DetectionContext schema versions."""
+    if version == DETECTION_CONTEXT_SCHEMA_VERSION:
+        raise ValueError(
+            "Refusing to register DetectionContext converter for current schema_version "
+            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
+        )
+    if version in _DETECTION_CONTEXT_CONVERTERS:
+        raise ValueError(
+            f"DetectionContext converter already registered for {version}."
+        )
+    _DETECTION_CONTEXT_CONVERTERS[version] = converter
+
+
 def register_detection_result_converter(
     version: int, converter: Callable[[DetectionResult], DetectionResult]
 ) -> None:
@@ -675,6 +750,27 @@ def normalize_input_context(context: InputContext) -> InputContext:
         raise ValueError(
             "InputContext converter did not return the expected schema_version "
             f"{INPUT_CONTEXT_SCHEMA_VERSION}."
+        )
+    return converted
+
+
+def normalize_detection_context(context: DetectionContext) -> DetectionContext:
+    """Normalize DetectionContext to the current schema version."""
+    if context.schema_version == DETECTION_CONTEXT_SCHEMA_VERSION:
+        return context
+
+    converter = _DETECTION_CONTEXT_CONVERTERS.get(context.schema_version)
+    if converter is None:
+        raise ValueError(
+            "Unsupported DetectionContext schema_version "
+            f"{context.schema_version}; expected {DETECTION_CONTEXT_SCHEMA_VERSION}."
+        )
+
+    converted = converter(context)
+    if converted.schema_version != DETECTION_CONTEXT_SCHEMA_VERSION:
+        raise ValueError(
+            "DetectionContext converter did not return the expected schema_version "
+            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
         )
     return converted
 

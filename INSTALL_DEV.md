@@ -121,43 +121,71 @@ uv run coverage html
 
 ### Test Files Overview
 
+#### Core calculations and exceptions
+
 | File | Tests | Description |
 |------|-------|-------------|
-| `test_exceptions_v1x.py` | 70 | Exception hierarchy and diagnostic info |
 | `test_calculations_v1x.py` | 54 | NPF Rule, pixel pitch, star/meteor trail estimation |
-| `test_output_handler_registry_v1x.py` | 53 | Output handler registry |
-| `test_integration_v1x.py` | 44 | End-to-end meteor detection |
-| `test_sensor_presets_v1x.py` | 38 | Sensor type presets |
-| `test_loader_registry_v1x.py` | 30 | Input loader registry |
-| `test_detector_registry_v1x.py` | 30 | Detector registry |
-| `test_sensor_validation_v1x.py` | 27 | Sensor override validation |
-| `test_fisheye_v1x.py` | 27 | Fisheye lens correction |
-| `test_detector_plugin_v1x.py` | 26 | Detector plugin architecture |
-| `test_raw_loader_v1x.py` | 23 | RAW image loader |
-| `test_sensor_npf_integration_v1x.py` | 16 | Sensor/NPF integration |
-| `test_infrastructure_v1x.py` | 25 | ROI, progress, file collection |
-| `test_inputs_logging_v1x.py` | 8 | Logging configuration |
-| `test_memory_batch_size_v1x.py` | 6 | Memory-based batch sizing |
-| `test_i18n.py` | 5 | Localization lookup and pluralization |
-| `test_plugin_registry_base.py` | 4 | Plugin registry base class |
-| `test_plugin_contract_validation_v1x.py` | 3 | Plugin contract validation |
-| `test_cli_options_v1x.py` | 2 | CLI option parsing |
-| `test_discovery_parity.py` | 2 | Plugin discovery parity |
-| `test_registry_default_contracts_v1x.py` | 2 | Registry default contracts |
-| `test_image_io_helpers_v1x.py` | 3 | Image I/O helpers |
-| `test_plugin_contract_helpers_v1x.py` | 5 | Plugin contract helpers |
-| `test_roi_selector_helpers_v1x.py` | 2 | ROI selector helpers |
-| `test_utils_display_width_v1x.py` | 3 | Unicode display width helpers |
-| `test_utils_roi_hash_v1x.py` | 5 | ROI hash utilities |
-| `test_inputs_base_v1x.py` | 12 | Input loader base class |
-| `test_outputs_base_v1x.py` | 7 | Output handler base class |
-| `test_detectors_base_v1x.py` | 12 | Detector base class |
-| `test_roi_selector_ui_v1x.py` | 2 | ROI selector UI flow |
-| `test_pipeline_helpers_v1x.py` | 12 | Pipeline helpers |
-| `test_pipeline_execution_v1x.py` | 4 | Pipeline execution and results |
+| `test_exceptions_v1x.py` | 70 | Exception hierarchy and diagnostic info |
 | `test_schema_context_results_v1x.py` | 4 | Schema context/results helpers |
 
-**Total: 566 tests**
+#### Sensors, optics, and image corrections
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `test_fisheye_v1x.py` | 27 | Fisheye lens correction |
+| `test_sensor_npf_integration_v1x.py` | 16 | Sensor/NPF integration |
+| `test_sensor_presets_v1x.py` | 38 | Sensor type presets |
+| `test_sensor_validation_v1x.py` | 27 | Sensor override validation |
+
+#### Inputs, outputs, and image I/O
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `test_image_io_helpers_v1x.py` | 3 | Image I/O helpers |
+| `test_inputs_base_v1x.py` | 12 | Input loader base class |
+| `test_inputs_logging_v1x.py` | 8 | Logging configuration |
+| `test_loader_registry_v1x.py` | 30 | Input loader registry |
+| `test_output_handler_registry_v1x.py` | 53 | Output handler registry |
+| `test_outputs_base_v1x.py` | 7 | Output handler base class |
+| `test_raw_loader_v1x.py` | 23 | RAW image loader |
+
+#### Pipeline execution and integration
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `test_infrastructure_v1x.py` | 25 | ROI, progress, file collection |
+| `test_integration_v1x.py` | 44 | End-to-end meteor detection |
+| `test_memory_batch_size_v1x.py` | 6 | Memory-based batch sizing |
+| `test_pipeline_execution_v1x.py` | 4 | Pipeline execution and results |
+| `test_pipeline_helpers_v1x.py` | 12 | Pipeline helpers |
+
+#### Plugins, registries, and contracts
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `test_detector_plugin_v1x.py` | 26 | Detector plugin architecture |
+| `test_detector_registry_v1x.py` | 30 | Detector registry |
+| `test_detectors_base_v1x.py` | 12 | Detector base class |
+| `test_discovery_parity.py` | 2 | Plugin discovery parity |
+| `test_plugin_contract_helpers_v1x.py` | 5 | Plugin contract helpers |
+| `test_plugin_contract_validation_v1x.py` | 3 | Plugin contract validation |
+| `test_plugin_registry_base.py` | 4 | Plugin registry base class |
+| `test_registry_default_contracts_v1x.py` | 2 | Registry default contracts |
+
+#### CLI, config, localization, and utilities
+
+| File | Tests | Description |
+|------|-------|-------------|
+| `test_cli_options_v1x.py` | 4 | CLI option parsing |
+| `test_config_io_v1x.py` | 1 | Config file loading |
+| `test_i18n.py` | 5 | Localization lookup and pluralization |
+| `test_roi_selector_helpers_v1x.py` | 2 | ROI selector helpers |
+| `test_roi_selector_ui_v1x.py` | 2 | ROI selector UI flow |
+| `test_utils_display_width_v1x.py` | 3 | Unicode display width helpers |
+| `test_utils_roi_hash_v1x.py` | 5 | ROI hash utilities |
+
+**Total: 569 tests**
 
 ## Code Style
 
@@ -239,6 +267,7 @@ detect_meteors/
 │   ├── locales/                   # Translations
 │   └── templates/                 # Report templates and assets
 ├── candidates/                    # Default output folder for detections
+├── config_examples/               # Sample configuration files
 ├── debug_masks/                   # Debug output masks
 ├── rawfiles/                      # Sample/raw image inputs
 ├── tests/                         # Test suite
