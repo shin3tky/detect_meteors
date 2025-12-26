@@ -74,8 +74,8 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 ## Performance Options
 - **`--workers`** (default: CPU count - 1): Number of parallel worker processes.
 - **`--batch-size`** (default: `10`): How many RAW files each worker processes at a time.
-- **`--auto-batch-size`**: Dynamically shrink batch size to stay within ~60% of available RAM.
-- **`--no-parallel`**: Force single-threaded execution.
+- **`--auto-batch-size` / `--no-auto-batch-size`**: Enable or disable auto-adjusted batch sizing to stay within ~60% of available RAM.
+- **`--parallel` / `--no-parallel`**: Explicitly enable or disable parallel processing (defaults to enabled, unless overridden by config).
 
 ## Utility Options
 - **`--profile`**: Print timing breakdowns after the run.

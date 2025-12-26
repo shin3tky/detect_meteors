@@ -11,6 +11,7 @@ Version 1.6.5 introduces configuration file support and CLI plugin selection, en
 - **Pipeline configuration files**: Load all settings from YAML/JSON via `--config`
 - **CLI plugin selection**: `--input-loader`, `--detector`, `--output-handler` for runtime plugin choice
 - **CLI plugin configuration**: `--input-loader-config`, `--detector-config`, `--output-handler-config` for plugin-specific settings
+- **CLI performance toggles**: `--auto-batch-size`/`--no-auto-batch-size` and `--parallel`/`--no-parallel` allow explicit overrides when using config files
 - **DetectionContext normalization API**: Public `register_detection_context_converter()` and `normalize_detection_context()`
 - **Unified pipeline execution**: CLI now routed through `MeteorDetectionPipeline`
 - **Deprecation path**: Legacy parameter flags still work but are deprecated in favor of config files

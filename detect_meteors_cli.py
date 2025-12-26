@@ -229,14 +229,34 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=DEFAULT_BATCH_SIZE,
         help=f"Batch size (default: {DEFAULT_BATCH_SIZE})",
     )
-    parser.add_argument(
+    auto_batch_group = parser.add_mutually_exclusive_group()
+    auto_batch_group.add_argument(
         "--auto-batch-size",
+        dest="auto_batch_size",
         action="store_true",
         help="Auto-adjust batch size for memory",
     )
-    parser.add_argument(
-        "--no-parallel", action="store_true", help="Disable parallel processing"
+    auto_batch_group.add_argument(
+        "--no-auto-batch-size",
+        dest="auto_batch_size",
+        action="store_false",
+        help="Disable auto-adjusted batch size",
     )
+    parser.set_defaults(auto_batch_size=None)
+    parallel_group = parser.add_mutually_exclusive_group()
+    parallel_group.add_argument(
+        "--parallel",
+        dest="enable_parallel",
+        action="store_true",
+        help="Enable parallel processing",
+    )
+    parallel_group.add_argument(
+        "--no-parallel",
+        dest="enable_parallel",
+        action="store_false",
+        help="Disable parallel processing",
+    )
+    parser.set_defaults(enable_parallel=True)
     parser.add_argument("--profile", action="store_true", help="Display timing profile")
     parser.add_argument(
         "--verbose",
@@ -556,10 +576,12 @@ def _build_pipeline_config(args) -> PipelineConfig:
         args.auto_batch_size,
         base_config.auto_batch_size if base_config else args.auto_batch_size,
         "--auto-batch-size",
+        "--no-auto-batch-size",
     )
     enable_parallel = _resolve_value(
-        not args.no_parallel,
-        base_config.enable_parallel if base_config else not args.no_parallel,
+        args.enable_parallel,
+        base_config.enable_parallel if base_config else args.enable_parallel,
+        "--parallel",
         "--no-parallel",
     )
     progress_file = _resolve_value(
