@@ -293,7 +293,7 @@ class DetectionContext:
 
 **Schema versioning**: The `schema_version` field enables future migration of detector plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing detectors to handle different versions gracefully. Current version is `1`.
 
-**Normalization point**: The pipeline normalizes `DetectionContext` internally before passing it to your `detect` method. This normalization is handled by a pipeline-internal function (`_normalize_detection_context`), so plugin authors do not need to call it directly. Unlike `InputContext`, `DetectionResult`, and `OutputResult`, there is no public `normalize_detection_context` function or converter registration API exposed by `meteor_core.schema`.
+**Normalization point**: The pipeline normalizes `DetectionContext` internally before passing it to your `detect` method. This uses the public API `meteor_core.schema.normalize_detection_context`, so plugin authors do not need to call it directly. If you need to handle legacy contexts in custom tooling, you can register converters via `meteor_core.schema.register_detection_context_converter`.
 
 `current_image` and `previous_image` are typically `numpy.ndarray` today, but can
 also be provided as `torch.Tensor` or `PIL.Image.Image` for ML-based detectors.
@@ -769,7 +769,7 @@ class MyDetector(DataclassDetector[MyConfig]):
 
 **Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `current_image`, `previous_image`, and `roi_mask`). The pipeline uses this payload when invoking `on_detection_result()` to avoid transferring large image arrays.
 
-**Normalization**: Unlike `InputContext` and `OutputResult`, the normalization of `DetectionContext` is handled internally by the pipeline (via `_normalize_detection_context` in `meteor_core.pipeline`). Plugin authors do not need to call any normalization function for `DetectionContext`, and there is no public `normalize_detection_context()` or `register_detection_context_converter()` function exposed by `meteor_core.schema`.
+**Normalization**: The pipeline normalizes `DetectionContext` internally before passing it into `detect` using `meteor_core.schema.normalize_detection_context()`. Plugin authors typically don't need to call the function directly, but you can use it (and register converters with `register_detection_context_converter()`) in custom tooling that processes serialized contexts.
 
 ### 4.3 DetectionResult
 
@@ -941,27 +941,41 @@ All four dataclasses include a `schema_version` field (currently `1`) to enable 
 | Dataclass | normalize function | converter registration |
 |-----------|-------------------|------------------------|
 | `InputContext` | `meteor_core.schema.normalize_input_context()` | `register_input_context_converter()` |
-| `DetectionContext` | Pipeline-internal only | Not exposed publicly |
+| `DetectionContext` | `meteor_core.schema.normalize_detection_context()` | `register_detection_context_converter()` |
 | `DetectionResult` | `meteor_core.schema.normalize_detection_result()` | `register_detection_result_converter()` |
 | `OutputResult` | `meteor_core.schema.normalize_output_result()` | `register_output_result_converter()` |
 
-> **Note**: `DetectionContext` normalization is handled internally by the pipeline (`_normalize_detection_context` in `meteor_core.pipeline`). Plugin authors do not need to call it directly, and there is no public converter registration function for `DetectionContext`.
+> **Note**: The pipeline still performs `DetectionContext` normalization internally, but the normalize/converter APIs are available publicly for tooling or custom flows.
 
 **How it works**:
 1. Plugins return dataclass instances with their implemented `schema_version`.
 2. The pipeline calls `normalize_*()` functions immediately after plugin methods return.
 3. If `schema_version` matches the current version, the instance passes through unchanged.
 4. If `schema_version` is older, registered converters upgrade the instance.
-5. If no converter exists for an older version, the pipeline raises `ValueError` (or `MeteorConfigError` for `DetectionContext`).
+5. If no converter exists for an older version, the pipeline raises `ValueError` (or `MeteorConfigError` when normalizing `DetectionContext` inside the pipeline).
 
 **Registering converters** (for backward compatibility):
 
 ```python
 from meteor_core.schema import (
+    DetectionContext,
+    DetectionResult,
     register_input_context_converter,
+    register_detection_context_converter,
     register_detection_result_converter,
     register_output_result_converter,
 )
+
+def upgrade_detection_context_v0_to_v1(context: DetectionContext) -> DetectionContext:
+    """Convert v0 DetectionContext to v1 format."""
+    return DetectionContext(
+        current_image=context.current_image,
+        previous_image=context.previous_image,
+        roi_mask=context.roi_mask,
+        runtime_params=context.runtime_params,
+        metadata=context.metadata,
+        schema_version=1,
+    )
 
 def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResult:
     """Convert v0 DetectionResult to v1 format."""
@@ -976,6 +990,7 @@ def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResul
         schema_version=1,
     )
 
+register_detection_context_converter(0, upgrade_detection_context_v0_to_v1)
 register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
 ```
 

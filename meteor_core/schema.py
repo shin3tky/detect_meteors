@@ -33,6 +33,9 @@ RUNTIME_PARAMS_SCHEMA_VERSION = 1
 # Conversion Registries
 # ==========================================
 _INPUT_CONTEXT_CONVERTERS: Dict[int, Callable[["InputContext"], "InputContext"]] = {}
+_DETECTION_CONTEXT_CONVERTERS: Dict[
+    int, Callable[["DetectionContext"], "DetectionContext"]
+] = {}
 _DETECTION_RESULT_CONVERTERS: Dict[
     int, Callable[["DetectionResult"], "DetectionResult"]
 ] = {}
@@ -640,6 +643,22 @@ def register_input_context_converter(
     _INPUT_CONTEXT_CONVERTERS[version] = converter
 
 
+def register_detection_context_converter(
+    version: int, converter: Callable[[DetectionContext], DetectionContext]
+) -> None:
+    """Register a converter for legacy DetectionContext schema versions."""
+    if version == DETECTION_CONTEXT_SCHEMA_VERSION:
+        raise ValueError(
+            "Refusing to register DetectionContext converter for current schema_version "
+            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
+        )
+    if version in _DETECTION_CONTEXT_CONVERTERS:
+        raise ValueError(
+            f"DetectionContext converter already registered for {version}."
+        )
+    _DETECTION_CONTEXT_CONVERTERS[version] = converter
+
+
 def register_detection_result_converter(
     version: int, converter: Callable[[DetectionResult], DetectionResult]
 ) -> None:
@@ -685,6 +704,27 @@ def normalize_input_context(context: InputContext) -> InputContext:
         raise ValueError(
             "InputContext converter did not return the expected schema_version "
             f"{INPUT_CONTEXT_SCHEMA_VERSION}."
+        )
+    return converted
+
+
+def normalize_detection_context(context: DetectionContext) -> DetectionContext:
+    """Normalize DetectionContext to the current schema version."""
+    if context.schema_version == DETECTION_CONTEXT_SCHEMA_VERSION:
+        return context
+
+    converter = _DETECTION_CONTEXT_CONVERTERS.get(context.schema_version)
+    if converter is None:
+        raise ValueError(
+            "Unsupported DetectionContext schema_version "
+            f"{context.schema_version}; expected {DETECTION_CONTEXT_SCHEMA_VERSION}."
+        )
+
+    converted = converter(context)
+    if converted.schema_version != DETECTION_CONTEXT_SCHEMA_VERSION:
+        raise ValueError(
+            "DetectionContext converter did not return the expected schema_version "
+            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
         )
     return converted
 

@@ -18,7 +18,6 @@ import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import (
     Any,
-    Callable,
     Dict,
     List,
     Optional,
@@ -42,7 +41,6 @@ from .schema import (
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
-    DETECTION_CONTEXT_SCHEMA_VERSION,
     DetectionContext,
     DetectionParams,
     DetectionResult,
@@ -51,6 +49,7 @@ from .schema import (
     PipelineConfig,
     RuntimeParams,
     RUNTIME_PARAMS_SCHEMA_VERSION,
+    normalize_detection_context,
     normalize_detection_result,
     normalize_input_context,
     normalize_output_result,
@@ -77,31 +76,12 @@ logger = logging.getLogger(__name__)
 # Scaling factor for uint16 normalization.
 _UINT16_MAX = float(np.iinfo(np.uint16).max)
 
-# Pipeline-side DetectionContext schema conversions.
-_DETECTION_CONTEXT_CONVERTERS: Dict[
-    int, Callable[[DetectionContext], DetectionContext]
-] = {}
-
 
 def _normalize_detection_context(context: DetectionContext) -> DetectionContext:
-    if context.schema_version == DETECTION_CONTEXT_SCHEMA_VERSION:
-        return context
-
-    converter = _DETECTION_CONTEXT_CONVERTERS.get(context.schema_version)
-    if converter is None:
-        raise MeteorConfigError(
-            "Unsupported DetectionContext schema_version "
-            f"{context.schema_version}; expected "
-            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
-        )
-
-    converted = converter(context)
-    if converted.schema_version != DETECTION_CONTEXT_SCHEMA_VERSION:
-        raise MeteorConfigError(
-            "DetectionContext converter did not return the expected schema_version "
-            f"{DETECTION_CONTEXT_SCHEMA_VERSION}."
-        )
-    return converted
+    try:
+        return normalize_detection_context(context)
+    except ValueError as exc:
+        raise MeteorConfigError(str(exc)) from exc
 
 
 def _normalize_input_context(
