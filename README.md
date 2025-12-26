@@ -122,6 +122,17 @@ output_handler_name: file
 
 **Example file**: [`config_examples/pipeline.yaml`](config_examples/pipeline.yaml)
 
+**Usage (CLI)**
+
+```bash
+python detect_meteors_cli.py --config config_examples/pipeline.yaml
+```
+
+You can override plugin selections via CLI (e.g., `--input-loader`, `--detector`,
+`--output-handler`) and provide plugin configs as JSON/YAML strings or file paths.
+Legacy parameter flags (e.g., `--diff-threshold`) are still mapped into
+`PipelineConfig.params` but will be deprecated in favor of config files.
+
 **Usage (Python)**
 
 ```python

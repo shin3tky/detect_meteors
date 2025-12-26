@@ -74,6 +74,9 @@ from .utils import (
 # Module-level logger
 logger = logging.getLogger(__name__)
 
+# Scaling factor for uint16 normalization.
+_UINT16_MAX = float(np.iinfo(np.uint16).max)
+
 # Pipeline-side DetectionContext schema conversions.
 _DETECTION_CONTEXT_CONVERTERS: Dict[
     int, Callable[[DetectionContext], DetectionContext]
@@ -181,6 +184,58 @@ def _build_runtime_params(
         global_params=params,
         detector={detector_name: params},
     ).to_dict(include_schema_version=False)
+
+
+def _is_normalized_image(image: Any) -> bool:
+    """Return True when image values are normalized to [0, 1] float range."""
+    if not isinstance(image, np.ndarray):
+        return False
+    if not np.issubdtype(image.dtype, np.floating):
+        return False
+    try:
+        max_value = float(np.nanmax(image))
+    except (TypeError, ValueError):
+        return False
+    return max_value <= 1.0
+
+
+def _loader_normalizes(input_loader: Optional[BaseInputLoader]) -> bool:
+    """Return True if the loader config indicates normalized output."""
+    if input_loader is None:
+        return False
+    config = getattr(input_loader, "config", None)
+    if config is None:
+        return False
+    normalize_value = getattr(config, "normalize", None)
+    if normalize_value is None and isinstance(config, dict):
+        normalize_value = config.get("normalize")
+    return bool(normalize_value)
+
+
+def _apply_normalized_diff_threshold(
+    params: Dict[str, Any], normalized_input: bool
+) -> Dict[str, Any]:
+    """Scale diff_threshold when inputs are normalized to [0, 1]."""
+    if not normalized_input:
+        return params
+    diff_threshold = params.get("diff_threshold")
+    if diff_threshold is None:
+        return params
+    try:
+        diff_value = float(diff_threshold)
+    except (TypeError, ValueError):
+        return params
+    if diff_value <= 1:
+        return params
+    scaled = diff_value / _UINT16_MAX
+    updated = dict(params)
+    updated["diff_threshold"] = scaled
+    logger.debug(
+        "Input normalization detected; scaled diff_threshold from %s to %.6f",
+        diff_threshold,
+        scaled,
+    )
+    return updated
 
 
 def _resolve_detector(
@@ -449,6 +504,7 @@ class DetectionPipeline(Protocol):
         roi_polygon_cli: Optional[List[List[int]]] = None,
         resume: bool = True,
         profile: bool = False,
+        debug_image_enabled: bool = True,
     ) -> int:
         """Run the detection pipeline and return number of detected candidates.
 
@@ -457,6 +513,7 @@ class DetectionPipeline(Protocol):
             roi_polygon_cli: Pre-defined ROI polygon from command line.
             resume: Whether to resume from previous progress.
             profile: Whether to collect performance metrics.
+            debug_image_enabled: Whether to include debug images in results.
 
         Returns:
             Number of detected meteor candidates.
@@ -1628,6 +1685,7 @@ class MeteorDetectionPipeline:
         roi_polygon_cli: Optional[List[List[int]]] = None,
         resume: bool = True,
         profile: bool = False,
+        debug_image_enabled: bool = True,
     ) -> int:
         """
         Run the full detection pipeline.
@@ -1728,8 +1786,12 @@ class MeteorDetectionPipeline:
         else:
             print(get_message("ui.pipeline.roi.skipped", locale=locale))
 
-        # Get params dict
+        # Get params dict (unscaled for progress tracking)
         params = self._config.params.to_dict()
+        normalized_input = _loader_normalizes(input_loader) or _is_normalized_image(
+            prev_context.image_data
+        )
+        runtime_params = _apply_normalized_diff_threshold(params, normalized_input)
 
         # Progress tracking setup
         params_for_hash = params.copy()
@@ -1800,24 +1862,26 @@ class MeteorDetectionPipeline:
                 detected_count = self._process_parallel(
                     image_pairs,
                     roi_mask,
-                    params,
+                    runtime_params,
                     roi_polygon,
                     resume_offset,
                     overall_total,
                     input_loader,
                     self.detector,
+                    debug_image_enabled,
                     locale=locale,
                 )
             else:
                 detected_count = self._process_sequential(
                     image_pairs,
                     roi_mask,
-                    params,
+                    runtime_params,
                     roi_polygon,
                     resume_offset,
                     overall_total,
                     input_loader,
                     self.detector,
+                    debug_image_enabled,
                     locale=locale,
                 )
         except KeyboardInterrupt:
@@ -1913,6 +1977,7 @@ class MeteorDetectionPipeline:
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
         detector: Optional[BaseDetector],
+        debug_image_enabled: bool,
         locale: Optional[str] = None,
     ) -> int:
         """Process images in parallel using ProcessPoolExecutor."""
@@ -1951,7 +2016,13 @@ class MeteorDetectionPipeline:
                     flush=True,
                 )
                 future = executor.submit(
-                    process_image_batch, batch, roi_mask, params, input_loader, detector
+                    process_image_batch,
+                    batch,
+                    roi_mask,
+                    params,
+                    input_loader,
+                    detector,
+                    debug_image_enabled,
                 )
                 futures.append(future)
 
@@ -2153,6 +2224,7 @@ class MeteorDetectionPipeline:
         overall_total: int,
         input_loader: Optional[BaseInputLoader],
         detector: Optional[BaseDetector],
+        debug_image_enabled: bool,
         locale: Optional[str] = None,
     ) -> int:
         """Process images sequentially."""
@@ -2175,7 +2247,12 @@ class MeteorDetectionPipeline:
             )
 
             batch_results = process_image_batch(
-                [pair], roi_mask, params, input_loader, detector
+                [pair],
+                roi_mask,
+                params,
+                input_loader,
+                detector,
+                debug_image_enabled,
             )
 
             for result in batch_results:

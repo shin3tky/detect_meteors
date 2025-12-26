@@ -15,11 +15,18 @@ _detect_meteors_cli_completion() {
     # All command-line options
     opts="--version -h --help
           --locale
+          --config
           -t --target
           -o --output
           --debug-dir
           --debug-image
           --no-debug-image
+          --input-loader
+          --input-loader-config
+          --detector
+          --detector-config
+          --output-handler
+          --output-handler-config
           --diff-threshold
           --min-area
           --min-aspect-ratio
@@ -57,6 +64,11 @@ _detect_meteors_cli_completion() {
         -t|--target|-o|--output|--debug-dir)
             # Complete with directories
             COMPREPLY=( $(compgen -d -- "${cur}") )
+            return 0
+            ;;
+        --config|--input-loader-config|--detector-config|--output-handler-config)
+            # Complete with config files
+            COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
             ;;
         --progress-file)

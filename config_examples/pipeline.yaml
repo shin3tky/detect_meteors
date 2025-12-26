@@ -7,7 +7,7 @@ params:
   min_aspect_ratio: 3.0
 input_loader_name: raw
 input_loader_config:
-  binning: 1
+  binning: 2
   normalize: true
 detector_name: hough
 detector_config: {}
