@@ -19,7 +19,10 @@ class HookRegistry(PluginRegistryBase[BaseHook]):
 
     @classmethod
     def _discover_internal(cls) -> Dict[str, Type[BaseHook]]:
-        return {}
+        # Keep plugin directory path in sync with meteor_core.hooks.discovery.PLUGIN_DIR
+        from .discovery import _discover_handlers_internal
+
+        return _discover_handlers_internal()
 
     @classmethod
     def _is_valid_plugin(cls, plugin_cls: Type[BaseHook]) -> bool:
