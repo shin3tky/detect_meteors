@@ -220,8 +220,20 @@ class PluginRegistryBase(Generic[PluginType]):
         """List all available plugin names."""
 
         discovered = cls.discover()
-        all_names = set(discovered.keys()) | set(cls._custom.keys())
-        return sorted(all_names)
+        available: List[str] = []
+        seen = set()
+
+        for name in discovered.keys():
+            if name not in seen:
+                available.append(name)
+                seen.add(name)
+
+        for name in cls._custom.keys():
+            if name not in seen:
+                available.append(name)
+                seen.add(name)
+
+        return available
 
     # ========================================
     # Internal Methods
