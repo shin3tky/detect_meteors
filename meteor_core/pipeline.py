@@ -57,6 +57,7 @@ from .schema import (
 from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
+from .hooks import HookRegistry
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, DetectorRegistry
 from .utils import _display_width, _pad_label
@@ -1705,6 +1706,26 @@ class MeteorDetectionPipeline:
             )
         )
         files = collect_files(self._config.target_folder)
+
+        hooks = HookRegistry.create_all()
+        normalized_files = [os.path.normpath(os.path.abspath(path)) for path in files]
+        filtered_files = []
+        for filepath in normalized_files:
+            keep = True
+            for hook in hooks:
+                try:
+                    if not hook.on_file_found(filepath):
+                        keep = False
+                        break
+                except Exception as exc:
+                    logger.warning(
+                        "on_file_found hook failed for %s: %s",
+                        filepath,
+                        exc,
+                    )
+            if keep:
+                filtered_files.append(filepath)
+        files = filtered_files
 
         if len(files) < 2:
             print(get_message("ui.pipeline.need_two_images", locale=locale))

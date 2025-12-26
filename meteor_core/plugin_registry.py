@@ -9,6 +9,7 @@ _PLUGIN_KIND_GENERIC = "plugin"
 _PLUGIN_KIND_INPUT = "input loader"
 _PLUGIN_KIND_OUTPUT = "output handler"
 _PLUGIN_KIND_DETECTOR = "detector"
+_PLUGIN_KIND_HOOK = "hook"
 
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "_PLUGIN_KIND_INPUT",
     "_PLUGIN_KIND_OUTPUT",
     "_PLUGIN_KIND_DETECTOR",
+    "_PLUGIN_KIND_HOOK",
 ]

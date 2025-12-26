@@ -187,6 +187,29 @@ arrays.
 
 ---
 
+### 1.4 File Discovery Hook (Pipeline)
+
+The pipeline calls the file discovery hook immediately after collecting files
+from the input directory. This allows you to exclude files **before**
+`InputLoader.load()` runs.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_file_found` | `(filepath: str) -> bool` | Return `True` to keep, `False` to drop |
+
+**Notes**:
+- `filepath` is an **absolute, normalized** path.
+- Files rejected by the hook are removed from the pipeline.
+- Useful for excluding specific extensions or path patterns.
+
+**Registration**:
+- Register hooks via `meteor_core.hooks.HookRegistry.register(MyHook)`.
+- Registered hooks are invoked in order during pipeline execution.
+- Hooks follow the same config patterns as other plugins, using dataclass
+  or Pydantic-based `ConfigType` definitions.
+
+---
+
 ## 2. Extension Points
 
 The plugin system provides three extension points:

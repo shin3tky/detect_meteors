@@ -125,6 +125,13 @@ from .roi_selector import (
     create_full_roi_mask,
 )
 
+from .hooks import (
+    BaseHook,
+    DataclassHook,
+    PydanticHook,
+    HookRegistry,
+)
+
 from .utils import (
     parse_focal_factor,
     get_sensor_preset,
@@ -281,6 +288,11 @@ __all__ = [
     "select_roi",
     "create_roi_mask_from_polygon",
     "create_full_roi_mask",
+    # Hooks
+    "BaseHook",
+    "DataclassHook",
+    "PydanticHook",
+    "HookRegistry",
     # Utils
     "parse_focal_factor",
     "get_sensor_preset",
