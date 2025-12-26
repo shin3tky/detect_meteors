@@ -438,6 +438,7 @@ class PipelineConfig:
     enable_parallel: bool = True
     progress_file: str = DEFAULT_PROGRESS_FILE
     output_overwrite: bool = False
+    hook_error_mode: str = "raise"
 
     # Input loader configuration
     input_loader_name: Optional[str] = None
@@ -460,6 +461,10 @@ class PipelineConfig:
             raise ValueError(f"num_workers must be >= 1, got {self.num_workers}")
         if self.batch_size < 1:
             raise ValueError(f"batch_size must be >= 1, got {self.batch_size}")
+        if self.hook_error_mode not in {"warn", "raise"}:
+            raise ValueError(
+                f"hook_error_mode must be 'warn' or 'raise', got {self.hook_error_mode}"
+            )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary.
@@ -484,6 +489,7 @@ class PipelineConfig:
             "detector_config": self.detector_config,
             "output_handler_name": self.output_handler_name,
             "output_handler_config": self.output_handler_config,
+            "hook_error_mode": self.hook_error_mode,
             "hooks": [hook.to_dict() for hook in self.hooks]
             if self.hooks is not None
             else None,
@@ -530,6 +536,7 @@ class PipelineConfig:
             detector_config=data.get("detector_config"),
             output_handler_name=data.get("output_handler_name"),
             output_handler_config=data.get("output_handler_config"),
+            hook_error_mode=data.get("hook_error_mode", "raise"),
             hooks=normalize_hook_configs(data.get("hooks")),
         )
 
@@ -569,6 +576,8 @@ class PipelineConfig:
             config.output_handler_name = data["output_handler_name"]
         if "output_handler_config" in data:
             config.output_handler_config = data["output_handler_config"]
+        if "hook_error_mode" in data:
+            config.hook_error_mode = data["hook_error_mode"]
         if "hooks" in data:
             config.hooks = normalize_hook_configs(data.get("hooks"))
         return config
