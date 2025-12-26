@@ -1526,10 +1526,12 @@ class MeteorDetectionPipeline:
                 context={"provided_type": type(config_or_target).__name__},
             )
 
-        # Store loader configuration
+        # Store loader configuration (explicit args take priority over config)
         self.input_loader = input_loader
-        self.input_loader_name = input_loader_name
-        self.input_loader_config = input_loader_config
+        self.input_loader_name = input_loader_name or self._config.input_loader_name
+        self.input_loader_config = (
+            input_loader_config or self._config.input_loader_config
+        )
 
         # Resolve detector: explicit argument > config > default
         # Note: We store the resolved detector, not the raw argument

@@ -1741,6 +1741,23 @@ OutputHandlerRegistry.register(SlackNotificationHandler)
 
 Use this decision tree to select the right configuration approach:
 
+### 3.4 Pipeline Configuration Files (YAML/JSON)
+
+The CLI can ingest YAML/JSON configuration files and load them through
+`PipelineConfig.from_dict`. The file is a top-level object with keys matching
+`PipelineConfig`, including plugin selection and configuration:
+
+- `input_loader_name` / `input_loader_config`
+- `detector_name` / `detector_config`
+- `output_handler_name` / `output_handler_config`
+
+When users provide `*_config` mappings, the registries coerce them into the
+plugin `ConfigType` via the standard config coercion rules. Make sure your
+plugin `ConfigType` fields match the expected keys, and document any required
+settings so they can be supplied in the config file.
+
+Example config file: `config_examples/pipeline.yaml`
+
 ```
 Need configuration?
         │

@@ -87,6 +87,51 @@ List all presets: `python detect_meteors_cli.py --list-sensor-types`
   - Optional debug masks with `--debug-image` and `--debug-dir`
   - `progress.json` for resumable processing
 
+## Configuration Files (YAML/JSON)
+
+The CLI can load pipeline settings from a configuration file. The file must be a
+JSON or YAML object whose keys align with `PipelineConfig`.
+
+**Top-level keys**
+
+- `target_folder`, `output_folder`, `debug_folder` (required paths)
+- `params` (detection parameters)
+- `num_workers`, `batch_size`, `auto_batch_size`, `enable_parallel`
+- `progress_file`, `output_overwrite`
+- `input_loader_name`, `input_loader_config`
+- `detector_name`, `detector_config`
+- `output_handler_name`, `output_handler_config`
+
+**Example (YAML)**
+
+```yaml
+target_folder: ./rawfiles
+output_folder: ./candidates
+debug_folder: ./debug_masks
+params:
+  diff_threshold: 8
+  min_area: 10
+  min_aspect_ratio: 3.0
+input_loader_name: raw
+input_loader_config:
+  binning: 1
+  normalize: true
+detector_name: hough
+output_handler_name: file
+```
+
+**Example file**: [`config_examples/pipeline.yaml`](config_examples/pipeline.yaml)
+
+**Usage (Python)**
+
+```python
+from meteor_core import MeteorDetectionPipeline, load_pipeline_config
+
+config = load_pipeline_config("config_examples/pipeline.yaml")
+pipeline = MeteorDetectionPipeline(config)
+pipeline.run()
+```
+
 ## Resumable Processing
 
 - Interrupt with Ctrl-C anytime

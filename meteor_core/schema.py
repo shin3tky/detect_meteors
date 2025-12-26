@@ -360,6 +360,8 @@ class PipelineConfig:
         enable_parallel: Whether to enable parallel processing.
         progress_file: Path to the progress tracking JSON file.
         output_overwrite: Whether to overwrite existing files in output folder.
+        input_loader_name: Name of input loader to use (e.g., "raw"). If None, uses default.
+        input_loader_config: Configuration dict for the input loader.
         detector_name: Name of detector to use (e.g., "hough"). If None, uses default.
         detector_config: Configuration dict for the detector. Structure depends on detector.
         output_handler_name: Name of output handler to use (e.g., "file"). If None, uses default.
@@ -389,6 +391,10 @@ class PipelineConfig:
     enable_parallel: bool = True
     progress_file: str = DEFAULT_PROGRESS_FILE
     output_overwrite: bool = False
+
+    # Input loader configuration
+    input_loader_name: Optional[str] = None
+    input_loader_config: Optional[Dict[str, Any]] = None
 
     # Detector configuration
     detector_name: Optional[str] = None
@@ -422,6 +428,8 @@ class PipelineConfig:
             "enable_parallel": self.enable_parallel,
             "progress_file": self.progress_file,
             "output_overwrite": self.output_overwrite,
+            "input_loader_name": self.input_loader_name,
+            "input_loader_config": self.input_loader_config,
             "detector_name": self.detector_name,
             "detector_config": self.detector_config,
             "output_handler_name": self.output_handler_name,
@@ -455,6 +463,8 @@ class PipelineConfig:
             enable_parallel=data.get("enable_parallel", True),
             progress_file=data.get("progress_file", DEFAULT_PROGRESS_FILE),
             output_overwrite=data.get("output_overwrite", False),
+            input_loader_name=data.get("input_loader_name"),
+            input_loader_config=data.get("input_loader_config"),
             detector_name=data.get("detector_name"),
             detector_config=data.get("detector_config"),
             output_handler_name=data.get("output_handler_name"),
