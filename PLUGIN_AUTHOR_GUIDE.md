@@ -210,6 +210,28 @@ from the input directory. This allows you to exclude files **before**
 
 ---
 
+### 1.5 Image Load Hook (Pipeline)
+
+The pipeline calls the image load hook immediately after an `InputContext` is
+normalized (per frame) and before detection begins. This allows you to
+transform image data or enrich metadata for downstream detectors/output hooks.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_image_loaded` | `(context: InputContext) -> InputContext` | Return updated context (image/metadata/loader info) |
+
+**Notes**:
+- `InputContext.metadata["frame_role"]` is set to `"current"` or `"previous"` to
+  indicate which frame is being processed.
+- You may return a new `InputContext` to replace `image_data` or metadata.
+- If the hook raises an exception, the pipeline logs a warning and continues.
+
+**Registration**:
+- Register hooks via `meteor_core.hooks.HookRegistry.register(MyHook)`.
+- Registered hooks are invoked in order for each frame.
+
+---
+
 ## 2. Extension Points
 
 The plugin system provides three extension points:

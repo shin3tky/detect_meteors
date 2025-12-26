@@ -219,6 +219,43 @@ def _apply_normalized_diff_threshold(
     return updated
 
 
+def _ensure_frame_role(context: InputContext, role: str) -> InputContext:
+    metadata = context.metadata if isinstance(context.metadata, dict) else {}
+    if metadata.get("frame_role") == role:
+        return context
+    updated_metadata = dict(metadata)
+    updated_metadata["frame_role"] = role
+    return InputContext(
+        image_data=context.image_data,
+        filepath=context.filepath,
+        metadata=updated_metadata,
+        loader_info=context.loader_info,
+        schema_version=context.schema_version,
+    )
+
+
+def _apply_image_loaded_hooks(
+    context: InputContext, hooks: List[Any], role: str
+) -> InputContext:
+    context = _ensure_frame_role(context, role)
+    for hook in hooks:
+        try:
+            context = _normalize_input_context(
+                hook.on_image_loaded(context),
+                filepath=context.filepath,
+            )
+        except Exception as exc:
+            logger.warning(
+                "on_image_loaded hook failed for %s (%s): %s",
+                context.filepath,
+                role,
+                exc,
+            )
+        else:
+            context = _ensure_frame_role(context, role)
+    return context
+
+
 def _resolve_detector(
     detector: Optional[BaseDetector] = None,
     detector_name: Optional[str] = None,
@@ -675,6 +712,7 @@ def process_image_batch(
     loader = _resolve_input_loader(input_loader)
     det = _resolve_detector(detector=detector)
     runtime_params = _build_runtime_params(params, det)
+    hooks = HookRegistry.create_all()
 
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
@@ -691,6 +729,16 @@ def process_image_batch(
             prev_context = _normalize_input_context(
                 loader.load(prev_file),
                 filepath=prev_file,
+            )
+            curr_context = _apply_image_loaded_hooks(
+                curr_context,
+                hooks,
+                role="current",
+            )
+            prev_context = _apply_image_loaded_hooks(
+                prev_context,
+                hooks,
+                role="previous",
             )
 
             # Delegate detection to the detector

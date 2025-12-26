@@ -9,6 +9,7 @@ import logging
 from typing import Dict, Generic, Type, TypeVar
 
 from ..plugin_contract import require_plugin_name
+from ..schema import InputContext
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,17 @@ class BaseHook(ABC, Generic[ConfigType]):
         Returns:
             True to keep the file, False to drop it.
         """
+
+    def on_image_loaded(self, context: InputContext) -> InputContext:
+        """Hook called after an image is loaded and normalized.
+
+        Args:
+            context: InputContext bundle for the loaded image.
+
+        Returns:
+            Updated InputContext (default: unchanged).
+        """
+        return context
 
     def get_info(self) -> Dict[str, str]:
         return {
