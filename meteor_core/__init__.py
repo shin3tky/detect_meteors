@@ -73,6 +73,7 @@ from .schema import (
     DetectionContext,
     InputContext,
     PipelineConfig,
+    HookConfig,
     ExifData,
     NPFMetrics,
     DetectionResult,
@@ -80,6 +81,7 @@ from .schema import (
     ROIData,
     ProgressData,
     OptimizationInfo,
+    normalize_hook_configs,
 )
 
 from .exceptions import (
@@ -245,6 +247,7 @@ __all__ = [
     "DetectionContext",
     "InputContext",
     "PipelineConfig",
+    "HookConfig",
     "ExifData",
     "NPFMetrics",
     "DetectionResult",
@@ -252,6 +255,7 @@ __all__ = [
     "ROIData",
     "ProgressData",
     "OptimizationInfo",
+    "normalize_hook_configs",
     # Exceptions
     "DiagnosticInfo",
     "MeteorError",

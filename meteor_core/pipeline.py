@@ -47,6 +47,7 @@ from .schema import (
     InputContext,
     OutputResult,
     PipelineConfig,
+    HookConfig,
     RuntimeParams,
     RUNTIME_PARAMS_SCHEMA_VERSION,
     normalize_detection_context,
@@ -298,6 +299,25 @@ def _apply_output_saved_hooks(
                 filename,
                 exc,
             )
+
+
+def _resolve_hooks(
+    hook_configs: Optional[List[HookConfig]],
+) -> List[Any]:
+    if hook_configs is None:
+        return HookRegistry.create_all()
+    instances: List[Any] = []
+    for hook in hook_configs:
+        try:
+            instances.append(HookRegistry.create(hook.name, hook.config))
+        except Exception as exc:
+            raise MeteorConfigError(
+                "Invalid hook configuration",
+                config_key="hooks",
+                plugin_name=hook.name,
+                original_error=exc,
+            ) from exc
+    return instances
 
 
 def _resolve_detector(
@@ -706,6 +726,7 @@ def process_image_batch(
     input_loader: Optional[BaseInputLoader] = None,
     detector: Optional[BaseDetector] = None,
     debug_image_enabled: bool = True,
+    hook_configs: Optional[List[HookConfig]] = None,
 ) -> List[
     Tuple[
         bool,
@@ -756,7 +777,7 @@ def process_image_batch(
     loader = _resolve_input_loader(input_loader)
     det = _resolve_detector(detector=detector)
     runtime_params = _build_runtime_params(params, det)
-    hooks = HookRegistry.create_all()
+    hooks = _resolve_hooks(hook_configs)
 
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
@@ -1805,7 +1826,7 @@ class MeteorDetectionPipeline:
         )
         files = collect_files(self._config.target_folder)
 
-        hooks = HookRegistry.create_all()
+        hooks = _resolve_hooks(self._config.hooks)
         normalized_files = [os.path.normpath(os.path.abspath(path)) for path in files]
         filtered_files = []
         for filepath in normalized_files:
@@ -2082,7 +2103,7 @@ class MeteorDetectionPipeline:
         """Process images in parallel using ProcessPoolExecutor."""
         locale = _resolve_locale(locale)
         start_time = time.time()
-        hooks = HookRegistry.create_all()
+        hooks = _resolve_hooks(self._config.hooks)
         batches = [
             image_pairs[i : i + self._config.batch_size]
             for i in range(0, len(image_pairs), self._config.batch_size)
@@ -2123,6 +2144,7 @@ class MeteorDetectionPipeline:
                     input_loader,
                     detector,
                     debug_image_enabled,
+                    self._config.hooks,
                 )
                 futures.append(future)
 
@@ -2335,7 +2357,7 @@ class MeteorDetectionPipeline:
         """Process images sequentially."""
         locale = _resolve_locale(locale)
         start_time = time.time()
-        hooks = HookRegistry.create_all()
+        hooks = _resolve_hooks(self._config.hooks)
         for idx, pair in enumerate(image_pairs):
             current_index = resume_offset + idx + 1
             current_file = os.path.basename(pair[1])
@@ -2359,6 +2381,7 @@ class MeteorDetectionPipeline:
                 input_loader,
                 detector,
                 debug_image_enabled,
+                self._config.hooks,
             )
 
             for result in batch_results:

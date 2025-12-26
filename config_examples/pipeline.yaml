@@ -13,3 +13,6 @@ detector_name: hough
 detector_config: {}
 output_handler_name: file
 output_handler_config: {}
+hooks:
+  - name: allow_all_files
+    config: {}
