@@ -10,7 +10,7 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--no-debug-image`** (default): Do not save mask/debug images.
 
 ## Pipeline Configuration & Plugin Selection
-- **`--config`**: Load pipeline settings from a YAML/JSON configuration file (see `config_examples/pipeline.yaml`).
+- **`--config`**: Load pipeline settings from a YAML/JSON configuration file (see `config_examples/pipeline.yaml`). Configuration files can be partial; omitted settings are filled with defaults.
 - **`--input-loader`**: Input loader plugin name (overrides `input_loader_name` in config).
 - **`--input-loader-config`**: Input loader config as a JSON/YAML string or file path.
 - **`--detector`**: Detector plugin name (overrides `detector_name` in config).

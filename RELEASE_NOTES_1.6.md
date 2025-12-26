@@ -8,7 +8,7 @@ Version 1.6.5 introduces configuration file support and CLI plugin selection, en
 
 ### Highlights
 
-- **Pipeline configuration files**: Load all settings from YAML/JSON via `--config`
+- **Pipeline configuration files**: Load all settings from YAML/JSON via `--config` (partial configs are allowed; omitted fields use defaults)
 - **CLI plugin selection**: `--input-loader`, `--detector`, `--output-handler` for runtime plugin choice
 - **CLI plugin configuration**: `--input-loader-config`, `--detector-config`, `--output-handler-config` for plugin-specific settings
 - **CLI performance toggles**: `--auto-batch-size`/`--no-auto-batch-size` and `--parallel`/`--no-parallel` allow explicit overrides when using config files
@@ -36,7 +36,7 @@ Benefits:
 
 ### Configuration File Format
 
-Create a YAML or JSON file with `PipelineConfig` fields:
+Create a YAML or JSON file with `PipelineConfig` fields. You can omit any fields you don't need; defaults will be applied for missing values.
 
 ```yaml
 # pipeline.yaml

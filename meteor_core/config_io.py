@@ -68,7 +68,7 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
             filepath=str(config_path),
         )
     try:
-        return PipelineConfig.from_dict(data)
+        return PipelineConfig.from_partial_dict(data)
     except (TypeError, ValueError, KeyError) as exc:
         raise MeteorConfigError(
             "Invalid pipeline configuration",

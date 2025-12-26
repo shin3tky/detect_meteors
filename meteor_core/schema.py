@@ -439,6 +439,18 @@ class PipelineConfig:
             "output_handler_config": self.output_handler_config,
         }
 
+    @staticmethod
+    def _merge_params(
+        base_params: DetectionParams, params_data: Any
+    ) -> DetectionParams | Any:
+        if params_data is None:
+            return base_params
+        if isinstance(params_data, dict):
+            merged = base_params.to_dict()
+            merged.update(params_data)
+            return DetectionParams(**merged)
+        return params_data
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "PipelineConfig":
         """Create configuration from dictionary.
@@ -449,11 +461,7 @@ class PipelineConfig:
         Returns:
             PipelineConfig instance.
         """
-        params_data = data.get("params", {})
-        if isinstance(params_data, dict):
-            params = DetectionParams(**params_data)
-        else:
-            params = params_data
+        params = cls._merge_params(DetectionParams(), data.get("params", {}))
 
         return cls(
             target_folder=data["target_folder"],
@@ -473,6 +481,44 @@ class PipelineConfig:
             output_handler_name=data.get("output_handler_name"),
             output_handler_config=data.get("output_handler_config"),
         )
+
+    @classmethod
+    def from_partial_dict(cls, data: Dict[str, Any]) -> "PipelineConfig":
+        """Create configuration from a partial dictionary, filling defaults."""
+        config = cls.with_defaults()
+        if "target_folder" in data:
+            config.target_folder = data["target_folder"]
+        if "output_folder" in data:
+            config.output_folder = data["output_folder"]
+        if "debug_folder" in data:
+            config.debug_folder = data["debug_folder"]
+        if "params" in data:
+            config.params = cls._merge_params(config.params, data.get("params"))
+        if "num_workers" in data:
+            config.num_workers = data["num_workers"]
+        if "batch_size" in data:
+            config.batch_size = data["batch_size"]
+        if "auto_batch_size" in data:
+            config.auto_batch_size = data["auto_batch_size"]
+        if "enable_parallel" in data:
+            config.enable_parallel = data["enable_parallel"]
+        if "progress_file" in data:
+            config.progress_file = data["progress_file"]
+        if "output_overwrite" in data:
+            config.output_overwrite = data["output_overwrite"]
+        if "input_loader_name" in data:
+            config.input_loader_name = data["input_loader_name"]
+        if "input_loader_config" in data:
+            config.input_loader_config = data["input_loader_config"]
+        if "detector_name" in data:
+            config.detector_name = data["detector_name"]
+        if "detector_config" in data:
+            config.detector_config = data["detector_config"]
+        if "output_handler_name" in data:
+            config.output_handler_name = data["output_handler_name"]
+        if "output_handler_config" in data:
+            config.output_handler_config = data["output_handler_config"]
+        return config
 
     @classmethod
     def with_defaults(
