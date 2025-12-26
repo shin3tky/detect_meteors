@@ -73,18 +73,14 @@ class HookRegistry(PluginRegistryBase[BaseHook]):
 
     @classmethod
     def create_all(cls) -> List[BaseHook]:
-        """Instantiate all registered hooks."""
+        """Instantiate all registered hooks.
+
+        Raises:
+            Exception: Propagates hook creation failures to the caller.
+        """
         instances: List[BaseHook] = []
         for name in cls.list_available():
-            try:
-                instances.append(cls.create(name))
-            except Exception as exc:
-                logger.warning(
-                    "Failed to instantiate hook '%s' (%s): %s",
-                    name,
-                    type(exc).__name__,
-                    exc,
-                )
+            instances.append(cls.create(name))
         return instances
 
 
