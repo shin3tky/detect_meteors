@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import is_dataclass
 import importlib.util
 import logging
@@ -32,7 +32,6 @@ class BaseHook(ABC, Generic[ConfigType]):
     name: str = "BaseHook"
     version: str = "1.0.0"
 
-    @abstractmethod
     def on_file_found(self, filepath: str) -> bool:
         """Hook called for each discovered file path.
 
@@ -42,6 +41,7 @@ class BaseHook(ABC, Generic[ConfigType]):
         Returns:
             True to keep the file, False to drop it.
         """
+        return True
 
     def on_image_loaded(self, context: InputContext) -> InputContext:
         """Hook called after an image is loaded and normalized.
