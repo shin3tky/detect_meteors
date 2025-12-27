@@ -204,21 +204,47 @@ The following features were originally planned for v1.x but have been deferred:
 
 2026 1Q-
 
-- [ ] Implementation of plugin architecture (building on v1.5.5 modular structure)
-- [ ] Modular detection pipeline with swappable detectors
-- [ ] Custom filter and processor support
-- [ ] Third-party integration capabilities
-- [x] Configuration file support for detector plugins (Implemented in v1.6.5)
+### Plugin/Hook Foundation (Already in v1.5.6–v1.6.6)
+- [x] Input/Detector/Output plugin contracts and discovery via entry points + plugin dirs
+- [x] Pipeline configuration files and CLI plugin selection/configuration
+- [x] Hook registry and lifecycle hooks (file filter, image transform, result adjust, post-save)
+
+### Pipeline Modularity
+- [ ] Swappable detector stacks (multi-detector chaining and fallback order)
+- [ ] Pluggable pre/post processors (noise reduction, masking, ROI transforms)
+- [ ] Pipeline presets and profiles (named configs with overrides)
+- [ ] Versioned pipeline schemas with migration helpers
+
+### Plugin Ecosystem Expansion
+- [ ] SDK templates and validation tooling for third-party plugins
+- [ ] Compatibility matrix for plugin contract versions
+- [ ] Plugin capability discovery (declared features/requirements)
+- [ ] Distribution guidelines and example plugin gallery
+
+### Integration & Interop
+- [ ] Output adapters for popular annotation formats (COCO, YOLO, CSV/Parquet)
+- [ ] Remote storage integration hooks (S3/GCS/Azure)
+- [ ] Batch orchestration helpers (multiprocessing, queue-based workers)
 
 ## Version 3.x - Intelligence and Learning
 
 2026 2Q-
 
-- [ ] Integration of Machine Learning-based detection
-- [ ] Training on labeled meteor datasets
-- [ ] Advanced pattern recognition
-- [ ] Adaptive learning from user feedback
-- [ ] Detecting aircrafts and satellites
+### ML-based Detection
+- [ ] Baseline ML detector integration (optional, non-default)
+- [ ] Labeled dataset ingestion pipeline and annotation tooling
+- [ ] Train/evaluate CLI workflow with reproducible configs
+- [ ] Model registry and versioned model selection
+
+### Intelligent Post-processing
+- [ ] Advanced pattern recognition (meteor vs. noise discrimination)
+- [ ] Adaptive learning from user feedback (false-positive suppression)
+- [ ] Multi-object classification (meteors, aircraft, satellites)
+
+### Performance & Deployment
+- [ ] Accelerated inference options (ONNX, GPU backends)
+- [ ] Streaming/near-real-time detection mode
+- [ ] Edge-friendly lightweight model variants
 
 ---
 
