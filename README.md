@@ -6,8 +6,6 @@
 
 Automatically detect meteors in RAW astrophotography images using frame-to-frame difference analysis.
 
-**Note:** Detection compares consecutive RAW images. The first image is skipped—please check it manually.
-
 ## Motivation
 
 During meteor shower events, manually reviewing thousands of RAW images to find meteors is tedious and time-consuming. This tool automates the initial detection process, allowing astrophotographers to quickly identify candidate images for further review.
@@ -59,6 +57,11 @@ python detect_meteors_cli.py --auto-params --sensor-type FF
 # With fisheye lens
 python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
 ```
+
+> [!IMPORTANT]
+> Detection is based on frame-to-frame differences.  
+> If you provide **N** RAW files, the tool analyzes **N−1** consecutive pairs (the **first frame is used as the baseline** and is not scored).  
+> This is why “100 inputs → 99 processed” is expected—please review the first frame manually.
 
 ### Step 3: Review Candidates
 
