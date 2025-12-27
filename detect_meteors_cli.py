@@ -669,6 +669,7 @@ def _build_pipeline_config(args) -> PipelineConfig:
         enable_parallel=enable_parallel,
         progress_file=progress_file,
         output_overwrite=output_overwrite,
+        hook_error_mode=base_config.hook_error_mode if base_config else "raise",
         input_loader_name=args.input_loader
         if args.input_loader is not None
         else (base_config.input_loader_name if base_config else None),
