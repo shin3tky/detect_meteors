@@ -345,8 +345,11 @@ def _apply_output_saved_hooks(
 
 def _resolve_hooks(
     hook_configs: Optional[List[HookConfig]],
+    hook_error_mode: str = "raise",
 ) -> List[Any]:
     if hook_configs is None:
+        if hook_error_mode == "warn":
+            return HookRegistry.create_all(skip_on_error=True)
         return HookRegistry.create_all()
     instances: List[Any] = []
     for hook in hook_configs:
@@ -820,7 +823,7 @@ def process_image_batch(
     loader = _resolve_input_loader(input_loader)
     det = _resolve_detector(detector=detector)
     runtime_params = _build_runtime_params(params, det)
-    hooks = _resolve_hooks(hook_configs)
+    hooks = _resolve_hooks(hook_configs, hook_error_mode=hook_error_mode)
 
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
@@ -1874,7 +1877,10 @@ class MeteorDetectionPipeline:
         )
         files = collect_files(self._config.target_folder)
 
-        hooks = _resolve_hooks(self._config.hooks)
+        hooks = _resolve_hooks(
+            self._config.hooks,
+            hook_error_mode=self._config.hook_error_mode,
+        )
         normalized_files = [os.path.normpath(os.path.abspath(path)) for path in files]
         filtered_files = []
         for filepath in normalized_files:
@@ -2160,7 +2166,10 @@ class MeteorDetectionPipeline:
         """Process images in parallel using ProcessPoolExecutor."""
         locale = _resolve_locale(locale)
         start_time = time.time()
-        hooks = _resolve_hooks(self._config.hooks)
+        hooks = _resolve_hooks(
+            self._config.hooks,
+            hook_error_mode=self._config.hook_error_mode,
+        )
         batches = [
             image_pairs[i : i + self._config.batch_size]
             for i in range(0, len(image_pairs), self._config.batch_size)
@@ -2428,7 +2437,10 @@ class MeteorDetectionPipeline:
         """Process images sequentially."""
         locale = _resolve_locale(locale)
         start_time = time.time()
-        hooks = _resolve_hooks(self._config.hooks)
+        hooks = _resolve_hooks(
+            self._config.hooks,
+            hook_error_mode=self._config.hook_error_mode,
+        )
         for idx, pair in enumerate(image_pairs):
             current_index = resume_offset + idx + 1
             current_file = os.path.basename(pair[1])

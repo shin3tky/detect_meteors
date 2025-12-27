@@ -72,15 +72,28 @@ class HookRegistry(PluginRegistryBase[BaseHook]):
         return instance
 
     @classmethod
-    def create_all(cls) -> List[BaseHook]:
+    def create_all(cls, skip_on_error: bool = False) -> List[BaseHook]:
         """Instantiate all registered hooks.
+
+        Args:
+            skip_on_error: When True, log and skip hooks that fail to create.
 
         Raises:
             Exception: Propagates hook creation failures to the caller.
         """
         instances: List[BaseHook] = []
         for name in cls.list_available():
-            instances.append(cls.create(name))
+            try:
+                instances.append(cls.create(name))
+            except Exception as exc:
+                if not skip_on_error:
+                    raise
+                logger.warning(
+                    "Skipping hook '%s' after creation failure: %s: %s",
+                    name,
+                    type(exc).__name__,
+                    exc,
+                )
         return instances
 
 

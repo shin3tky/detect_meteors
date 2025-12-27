@@ -284,6 +284,19 @@ worker processes) via the standard plugin discovery mechanisms.
   )
   ```
 
+**Hook configuration defaults**:
+- When `PipelineConfig.hooks` is `None`, the pipeline instantiates **all
+  discovered hooks** with **no per-hook config** (equivalent to calling each
+  hook with `ConfigType()` defaults).
+- Hooks whose `ConfigType` requires constructor arguments (or whose `__init__`
+  requires a config instance) will fail to instantiate in this mode. Provide an
+  explicit hook list with config, or ensure defaults are available.
+
+**Hook design guideline**:
+- For hook authors, **prefer `ConfigType` definitions that can be constructed
+  with no arguments**. This keeps `hooks=None` (and “load all hooks”) usable by
+  default and reduces configuration friction for users.
+
 **Future enhancement ideas**:
 - Consider extending `HookRegistry` with a way to **distribute a temporary plugin
   directory to workers** (e.g., passing a path that workers add to discovery).

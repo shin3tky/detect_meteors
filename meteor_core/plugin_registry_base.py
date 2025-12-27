@@ -261,6 +261,13 @@ class PluginRegistryBase(Generic[PluginType]):
                     )
                     return result
                 except TypeError as exc:
+                    extra_hint = ""
+                    if cls._plugin_kind == "hook":
+                        extra_hint = (
+                            " If you are relying on PipelineConfig.hooks=None to load "
+                            "all hooks, ensure the hook ConfigType can be instantiated "
+                            "with defaults or provide an explicit hook config."
+                        )
                     logger.error(
                         "_coerce_config(%s): failed to create default %s - %s",
                         plugin_name,
@@ -271,6 +278,7 @@ class PluginRegistryBase(Generic[PluginType]):
                         f"Failed to create default config for {cls._plugin_kind} "
                         f"'{plugin_name}': {config_type.__name__} "
                         f"requires arguments. Provide a config dict or instance."
+                        f"{extra_hint}"
                     ) from exc
                 except Exception as exc:
                     logger.error(
