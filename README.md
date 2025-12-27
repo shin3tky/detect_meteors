@@ -24,7 +24,7 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 ## Requirements
 
-- Python 3.12+
+- Python 3.12, 3.13
 - macOS, Windows, or Linux
 - Dependencies: `numpy`, `opencv-python`, `rawpy`, `psutil`, `pillow`, `pydantic`, `pyyaml`
 
