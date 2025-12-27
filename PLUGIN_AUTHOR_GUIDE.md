@@ -109,7 +109,63 @@ Each layer communicates only through well-defined dataclasses (`InputContext`, `
 
 Understanding the detection pipeline lifecycle is essential for effective plugin development.
 
-### 1.1 Pipeline Overview
+### 1.1 Pipeline + Hook Overview
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                 Detection Pipeline (with Hook insertion points)              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐            │
+│  │ 1. Initialize│───▶│ 2. Collect   │───▶│ 3. ROI Selection     │            │
+│  │    Pipeline  │    │    Files     │    │    (if enabled)      │            │
+│  └──────────────┘    └──────────────┘    └──────────────────────┘            │
+│         │                  │                      │                          │
+│         │                  │                      ▼                          │
+│         │                  │          ┌──────────────────────┐               │
+│         │                  │          │ 4. Process Batches   │               │
+│         │                  │          │    (parallel/seq)    │               │
+│         │                  │          └──────────────────────┘               │
+│         │                  │                      │                          │
+│         │                  │                      ▼                          │
+│  ┌──────────────────────┐  │   ┌─────────────────────────────┐               │
+│  │ Hook: on_file_found  │◀─┘   │ Hook: on_image_loaded       │               │
+│  └──────────────────────┘      └─────────────────────────────┘               │
+│                                        │                                     │
+│                                        ▼                                     │
+│                               ┌────────────────┐                             │
+│                               │ Detector       │                             │
+│                               └────────────────┘                             │
+│                                        │                                     │
+│                                        ▼                                     │
+│                               ┌─────────────────────────────┐                │
+│                               │ Hook: on_detection_complete │                │
+│                               └─────────────────────────────┘                │
+│                                        │                                     │
+│                                        ▼                                     │
+│                               ┌────────────────┐                             │
+│                               │ Output Handler │                             │
+│                               └────────────────┘                             │
+│                                        │                                     │
+│                                        ▼                                     │
+│                               ┌─────────────────────────────┐                │
+│                               │ Hook: on_output_saved       │                │
+│                               └─────────────────────────────┘                │
+│                                        │                                     │
+│                                        ▼                                     │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐            │
+│  │ 6. Finalize  │◀───│ 5. Save      │◀───│ Results              │            │
+│  │    & Report  │    │    Results   │    └──────────────────────┘            │
+│  └──────────────┘    └──────────────┘                                        │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+This diagram highlights *where* hooks are inserted relative to the pipeline.
+The next section explains the pipeline flow in detail, followed by a focused
+breakdown of each hook.
+
+### 1.2 Pipeline Steps
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -130,7 +186,7 @@ Understanding the detection pipeline lifecycle is essential for effective plugin
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 Processing Flow Detail
+### 1.3 Processing Flow Detail
 
 ```
 For each image pair (current, previous):
@@ -168,7 +224,7 @@ For each image pair (current, previous):
     └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1.3 Lifecycle Events (Output Handler Only)
+### 1.4 Hook Overview (Output Handler Only)
 
 Output Handlers define lifecycle hooks. The pipeline now invokes per-frame hooks
 (`on_detection_result`, `on_candidate_detected`), while batch/pipeline hooks are
@@ -187,7 +243,7 @@ arrays.
 
 ---
 
-### 1.4 Hook Discovery (Pipeline)
+### 1.5 Hook Discovery (Pipeline)
 
 Hooks are discovered (and therefore available to both the main process and any
 worker processes) via the standard plugin discovery mechanisms. Runtime
@@ -202,7 +258,7 @@ discovery for production usage and multiprocessing.
 
 ---
 
-### 1.5 File Discovery Hook (Pipeline)
+### 1.6 File Discovery Hook (Pipeline)
 
 The pipeline calls the file discovery hook immediately after collecting files
 from the input directory. This allows you to exclude files **before**
@@ -228,7 +284,7 @@ from the input directory. This allows you to exclude files **before**
 
 ---
 
-### 1.6 Image Load Hook (Pipeline)
+### 1.7 Image Load Hook (Pipeline)
 
 The pipeline calls the image load hook immediately after an `InputContext` is
 normalized (per frame) and before detection begins. This allows you to
@@ -253,7 +309,7 @@ transform image data or enrich metadata for downstream detectors/output hooks.
 
 ---
 
-### 1.7 Detection Result Hook (Pipeline)
+### 1.8 Detection Result Hook (Pipeline)
 
 The pipeline calls the detection result hook immediately after the detector
 returns and the `DetectionResult` is normalized, but before debug image handling
@@ -279,7 +335,7 @@ attach metadata for downstream consumers.
 
 ---
 
-### 1.8 Output Saved Hook (Pipeline)
+### 1.9 Output Saved Hook (Pipeline)
 
 The pipeline calls the output saved hook immediately after an output handler
 returns a normalized `OutputResult`. This allows you to record metrics,
