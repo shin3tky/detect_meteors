@@ -187,7 +187,22 @@ arrays.
 
 ---
 
-### 1.4 File Discovery Hook (Pipeline)
+### 1.4 Hook Discovery (Pipeline)
+
+Hooks are discovered (and therefore available to both the main process and any
+worker processes) via the standard plugin discovery mechanisms. Runtime
+registration with `HookRegistry.register()` is process-local, so prefer
+discovery for production usage and multiprocessing.
+
+**Discovery options**:
+- **Entry points**: register the hook class under the `detect_meteors.hook`
+  entry point group.
+- **Local plugin directory**: place a `*.py` file defining your hook class in
+  `~/.detect_meteors/hook_plugins`.
+
+---
+
+### 1.5 File Discovery Hook (Pipeline)
 
 The pipeline calls the file discovery hook immediately after collecting files
 from the input directory. This allows you to exclude files **before**
@@ -203,14 +218,17 @@ from the input directory. This allows you to exclude files **before**
 - Useful for excluding specific extensions or path patterns.
 
 **Registration**:
-- Register hooks via `meteor_core.hooks.HookRegistry.register(MyHook)`.
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
 - Registered hooks are invoked in order during pipeline execution.
 - Hooks follow the same config patterns as other plugins, using dataclass
   or Pydantic-based `ConfigType` definitions.
 
 ---
 
-### 1.5 Image Load Hook (Pipeline)
+### 1.6 Image Load Hook (Pipeline)
 
 The pipeline calls the image load hook immediately after an `InputContext` is
 normalized (per frame) and before detection begins. This allows you to
@@ -227,12 +245,15 @@ transform image data or enrich metadata for downstream detectors/output hooks.
 - If the hook raises an exception, the pipeline logs a warning and continues.
 
 **Registration**:
-- Register hooks via `meteor_core.hooks.HookRegistry.register(MyHook)`.
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
 - Registered hooks are invoked in order for each frame.
 
 ---
 
-### 1.6 Detection Result Hook (Pipeline)
+### 1.7 Detection Result Hook (Pipeline)
 
 The pipeline calls the detection result hook immediately after the detector
 returns and the `DetectionResult` is normalized, but before debug image handling
@@ -250,12 +271,15 @@ attach metadata for downstream consumers.
 - If the hook raises an exception, the pipeline logs a warning and continues.
 
 **Registration**:
-- Register hooks via `meteor_core.hooks.HookRegistry.register(MyHook)`.
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
 - Registered hooks are invoked in order for each frame.
 
 ---
 
-### 1.7 Output Saved Hook (Pipeline)
+### 1.8 Output Saved Hook (Pipeline)
 
 The pipeline calls the output saved hook immediately after an output handler
 returns a normalized `OutputResult`. This allows you to record metrics,
@@ -271,7 +295,10 @@ telemetry, or notifications based on what was saved.
 - If the hook raises an exception, the pipeline logs a warning and continues.
 
 **Registration**:
-- Register hooks via `meteor_core.hooks.HookRegistry.register(MyHook)`.
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
 - Registered hooks are invoked in order for each candidate save attempt.
 
 ---
