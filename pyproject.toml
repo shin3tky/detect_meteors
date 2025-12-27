@@ -15,7 +15,7 @@ version = "1.6.6"
 description = "Automated meteor detection in RAW astrophotography images using frame-to-frame difference analysis"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 authors = [
     { name = "Shinichi Morita", email = "shin3tky@gmail.com" }
 ]
@@ -39,8 +39,9 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: End Users/Desktop",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Astronomy",
     "Topic :: Scientific/Engineering :: Image Processing",
     "Topic :: Multimedia :: Graphics :: Graphics Conversion",
@@ -60,8 +61,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff==0.14.10",
-    "pre-commit>=4.5.0",
-    "coverage>=7.6.0",
+    "pre-commit>=4.5.1",
+    "coverage>=7.13.0",
 ]
 
 [project.urls]
