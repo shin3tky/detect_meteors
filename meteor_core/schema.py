@@ -466,6 +466,8 @@ class PipelineConfig:
             raise ValueError(
                 f"hook_error_mode must be 'warn' or 'raise', got {self.hook_error_mode}"
             )
+        if self.hooks is not None:
+            self.hooks = normalize_hook_configs(self.hooks)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary.

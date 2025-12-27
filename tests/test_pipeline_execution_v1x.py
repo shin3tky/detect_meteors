@@ -292,5 +292,19 @@ class TestPipelineRun(unittest.TestCase):
             self.assertEqual(len(handler.saved_candidates), 1)
 
 
+class TestPipelineConfigHooks(unittest.TestCase):
+    def test_hooks_normalized_in_post_init(self):
+        config = PipelineConfig(
+            target_folder="rawfiles",
+            output_folder="candidates",
+            debug_folder="debug_masks",
+            params=DetectionParams(),
+            hooks=["dummy_hook"],
+        )
+
+        self.assertIsInstance(config.hooks[0], HookConfig)
+        self.assertEqual(config.hooks[0].name, "dummy_hook")
+
+
 if __name__ == "__main__":
     unittest.main()
