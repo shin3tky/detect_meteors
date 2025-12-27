@@ -21,6 +21,7 @@ from meteor_core.schema import (  # noqa: E402
     DetectionContext,
     DetectionParams,
     DetectionResult,
+    HookConfig,
     InputContext,
     OutputResult,
     PipelineConfig,
@@ -195,6 +196,7 @@ class TestProcessImageBatch(unittest.TestCase):
                 params={"diff_threshold": 8},
                 input_loader=loader,
                 detector=detector,
+                hook_configs=[HookConfig(name=DummyImageLoadedHook.plugin_name)],
             )
         finally:
             HookRegistry.unregister(DummyImageLoadedHook.plugin_name)
@@ -223,6 +225,7 @@ class TestProcessImageBatch(unittest.TestCase):
                 params={"diff_threshold": 8},
                 input_loader=loader,
                 detector=detector,
+                hook_configs=[HookConfig(name=DummyDetectionCompleteHook.plugin_name)],
             )
         finally:
             HookRegistry.unregister(DummyDetectionCompleteHook.plugin_name)

@@ -413,7 +413,7 @@ class PipelineConfig:
         detector_config: Configuration dict for the detector. Structure depends on detector.
         output_handler_name: Name of output handler to use (e.g., "file"). If None, uses default.
         output_handler_config: Configuration dict for the output handler.
-        hooks: Ordered list of hooks to run (each with name/config). None uses all registered.
+        hooks: Ordered list of hooks to run (each with name/config). None skips hooks.
 
     Example:
         >>> config = PipelineConfig(

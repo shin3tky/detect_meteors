@@ -348,9 +348,7 @@ def _resolve_hooks(
     hook_error_mode: str = "raise",
 ) -> List[Any]:
     if hook_configs is None:
-        if hook_error_mode == "warn":
-            return HookRegistry.create_all(skip_on_error=True)
-        return HookRegistry.create_all()
+        return []
     instances: List[Any] = []
     for hook in hook_configs:
         try:

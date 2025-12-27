@@ -264,9 +264,9 @@ class PluginRegistryBase(Generic[PluginType]):
                     extra_hint = ""
                     if cls._plugin_kind == "hook":
                         extra_hint = (
-                            " If you are relying on PipelineConfig.hooks=None to load "
-                            "all hooks, ensure the hook ConfigType can be instantiated "
-                            "with defaults or provide an explicit hook config."
+                            " If you want hooks to run, ensure the hook ConfigType can "
+                            "be instantiated with defaults or provide an explicit hook "
+                            "config."
                         )
                     logger.error(
                         "_coerce_config(%s): failed to create default %s - %s",
