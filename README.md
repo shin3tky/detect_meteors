@@ -160,17 +160,18 @@ pipeline.run()
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.5 📓
+## What's New in v1.6.6 🪝
 
-- **Pipeline configuration files**: Load all pipeline settings from YAML/JSON files via `--config`
-  - Supports paths, detection params, plugin selections, and worker settings
-  - Example: [`config_examples/pipeline.yaml`](config_examples/pipeline.yaml)
-- **CLI plugin configuration**: Select plugins and provide plugin-specific configs via CLI
-  - `--input-loader`, `--detector`, `--output-handler` for plugin selection
-  - `--input-loader-config`, `--detector-config`, `--output-handler-config` for settings
-- **DetectionContext normalization API**: Public converter registration and normalization
-  - Consistent with `InputContext`, `DetectionResult`, and `OutputResult` APIs
-- **Unified pipeline execution**: CLI now routed through `MeteorDetectionPipeline`
+- **Pipeline hook system**: Extensible architecture for intercepting pipeline stages
+  - `on_file_found`: Filter files before loading
+  - `on_image_loaded`: Transform images or enrich metadata
+  - `on_detection_complete`: Adjust detection results
+  - `on_output_saved`: Receive notifications after saving
+- **HookRegistry**: Centralized hook discovery and management
+  - Entry point discovery: `detect_meteors.hook`
+  - Plugin directory: `~/.detect_meteors/hook_plugins/`
+- **CLI hook options**: `--hooks` and `--hook-config` for hook configuration
+- **PipelineConfig**: `hooks` and `hook_error_mode` fields for programmatic control
 
 For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
 

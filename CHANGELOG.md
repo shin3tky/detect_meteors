@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.6.6 - 2025-12-27 - 🧱 Lego Build Day
+- **Pipeline hook system**: Extensible hook architecture for intercepting pipeline stages.
+  - `on_file_found(filepath) -> bool`: Filter files before loading (return `False` to skip).
+  - `on_image_loaded(context) -> InputContext`: Transform image data or enrich metadata after loading.
+  - `on_detection_complete(result, context) -> DetectionResult`: Adjust detection results (scoring, flags).
+  - `on_output_saved(result) -> None`: Receive notifications after output handler saves.
+- **HookRegistry**: Centralized hook discovery and management (`meteor_core.hooks.HookRegistry`).
+  - Entry point discovery: `detect_meteors.hook` group.
+  - Plugin directory discovery: `~/.detect_meteors/hook_plugins/`.
+  - Runtime registration: `HookRegistry.register(MyHook)` for tests and single-process runs.
+- **Hook base classes**: `BaseHook`, `DataclassHook`, `PydanticHook` for typed hook configurations.
+- **CLI hook options**: Specify hooks and their configurations via command line.
+  - `--hooks`: Comma-separated hook plugin names (execution order).
+  - `--hook-config`: Hook configurations as JSON/YAML string or file path.
+- **PipelineConfig hook support**: Configure hooks programmatically.
+  - `hooks`: Ordered list of `HookConfig` (name + optional config dict).
+  - `hook_error_mode`: Control hook error behavior (`"raise"` or `"warn"`).
+- **Multiprocessing-safe**: Hooks discovered via entry points or plugin directory work across worker processes.
+- **Updated Plugin Author Guide**: Comprehensive hook documentation with lifecycle diagrams, registration patterns, and examples.
+
+
 ## v1.6.5 - 2025-12-26 - 📓 Thank-you Note Day
 - **Pipeline configuration file support**: Load pipeline settings from YAML/JSON files via `--config`.
   - All `PipelineConfig` fields supported: paths, params, plugin selections, worker settings.

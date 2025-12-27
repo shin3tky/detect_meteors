@@ -2,14 +2,15 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.6.5)**:
+> **Current status (v1.6.6)**:
 >
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
-> - ✅ `on_detection_result` and `on_candidate_detected` hooks are invoked (v1.6.4)
+> - ✅ `on_detection_result` and `on_candidate_detected` output handler hooks are invoked (v1.6.4)
 > - ✅ **Pipeline configuration files** (YAML/JSON) supported via `--config` (v1.6.5)
 > - ✅ **CLI plugin selection** with `--input-loader`, `--detector`, `--output-handler` (v1.6.5)
-> - ✅ **DetectionContext normalization API** publicly available (v1.6.5)
+> - ✅ **Pipeline hook system** with `on_file_found`, `on_image_loaded`, `on_detection_complete`, `on_output_saved` (v1.6.6)
+> - ✅ **HookRegistry** for centralized hook discovery and management (v1.6.6)
 > - ⚠️ Detector/runtime parameter contracts may still evolve
 > - ⚠️ `on_batch_complete` and `on_pipeline_complete` hooks reserved for future releases
 
