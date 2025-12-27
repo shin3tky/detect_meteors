@@ -27,6 +27,8 @@ _detect_meteors_cli_completion() {
           --detector-config
           --output-handler
           --output-handler-config
+          --hooks
+          --hook-config
           --diff-threshold
           --min-area
           --min-aspect-ratio
@@ -66,7 +68,7 @@ _detect_meteors_cli_completion() {
             COMPREPLY=( $(compgen -d -- "${cur}") )
             return 0
             ;;
-        --config|--input-loader-config|--detector-config|--output-handler-config)
+        --config|--input-loader-config|--detector-config|--output-handler-config|--hook-config)
             # Complete with config files
             COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0

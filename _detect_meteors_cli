@@ -32,6 +32,8 @@ _detect_meteors_cli() {
         '--detector-config[Detector config (JSON/YAML string or file path)]:config:_files'
         '--output-handler[Output handler plugin name]:name:_message -r "e.g., file"'
         '--output-handler-config[Output handler config (JSON/YAML string or file path)]:config:_files'
+        '--hooks[Comma-separated hook plugin names (execution order)]:names:_message -r "e.g., allow_all_files"'
+        '--hook-config[Hook config (JSON/YAML list or mapping, or file path)]:config:_files'
         
         # Detection parameters
         '--diff-threshold[Threshold for difference binarization (default: 8)]:threshold:(5 8 10 15 20)'

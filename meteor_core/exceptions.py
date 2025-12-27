@@ -565,6 +565,33 @@ class MeteorValidationError(MeteorError):
         )
 
 
+class MeteorHookError(MeteorError):
+    """Exception raised when a pipeline hook fails.
+
+    This exception wraps unexpected errors from hook callbacks so callers can
+    distinguish hook failures from other pipeline errors.
+    """
+
+    def __init__(
+        self,
+        message: str = "Hook execution failed",
+        *,
+        hook_name: Optional[str] = None,
+        filepath: Optional[str] = None,
+        original_error: Optional[BaseException] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        ctx = context.copy() if context else {}
+        if hook_name:
+            ctx["hook_name"] = hook_name
+        super().__init__(
+            message,
+            filepath=filepath,
+            original_error=original_error,
+            context=ctx,
+        )
+
+
 class MeteorConfigError(MeteorError):
     """Exception raised when configuration is invalid.
 

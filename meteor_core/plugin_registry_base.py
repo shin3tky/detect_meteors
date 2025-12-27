@@ -220,8 +220,20 @@ class PluginRegistryBase(Generic[PluginType]):
         """List all available plugin names."""
 
         discovered = cls.discover()
-        all_names = set(discovered.keys()) | set(cls._custom.keys())
-        return sorted(all_names)
+        available: List[str] = []
+        seen = set()
+
+        for name in discovered.keys():
+            if name not in seen:
+                available.append(name)
+                seen.add(name)
+
+        for name in cls._custom.keys():
+            if name not in seen:
+                available.append(name)
+                seen.add(name)
+
+        return available
 
     # ========================================
     # Internal Methods
@@ -249,6 +261,13 @@ class PluginRegistryBase(Generic[PluginType]):
                     )
                     return result
                 except TypeError as exc:
+                    extra_hint = ""
+                    if cls._plugin_kind == "hook":
+                        extra_hint = (
+                            " If you want hooks to run, ensure the hook ConfigType can "
+                            "be instantiated with defaults or provide an explicit hook "
+                            "config."
+                        )
                     logger.error(
                         "_coerce_config(%s): failed to create default %s - %s",
                         plugin_name,
@@ -259,6 +278,7 @@ class PluginRegistryBase(Generic[PluginType]):
                         f"Failed to create default config for {cls._plugin_kind} "
                         f"'{plugin_name}': {config_type.__name__} "
                         f"requires arguments. Provide a config dict or instance."
+                        f"{extra_hint}"
                     ) from exc
                 except Exception as exc:
                     logger.error(

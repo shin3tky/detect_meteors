@@ -73,6 +73,7 @@ from .schema import (
     DetectionContext,
     InputContext,
     PipelineConfig,
+    HookConfig,
     ExifData,
     NPFMetrics,
     DetectionResult,
@@ -80,6 +81,7 @@ from .schema import (
     ROIData,
     ProgressData,
     OptimizationInfo,
+    normalize_hook_configs,
 )
 
 from .exceptions import (
@@ -88,6 +90,7 @@ from .exceptions import (
     MeteorLoadError,
     MeteorUnsupportedFormatError,
     MeteorValidationError,
+    MeteorHookError,
     MeteorConfigError,
     format_error_for_user,
     save_diagnostic_report,
@@ -123,6 +126,13 @@ from .roi_selector import (
     select_roi,
     create_roi_mask_from_polygon,
     create_full_roi_mask,
+)
+
+from .hooks import (
+    BaseHook,
+    DataclassHook,
+    PydanticHook,
+    HookRegistry,
 )
 
 from .utils import (
@@ -238,6 +248,7 @@ __all__ = [
     "DetectionContext",
     "InputContext",
     "PipelineConfig",
+    "HookConfig",
     "ExifData",
     "NPFMetrics",
     "DetectionResult",
@@ -245,12 +256,14 @@ __all__ = [
     "ROIData",
     "ProgressData",
     "OptimizationInfo",
+    "normalize_hook_configs",
     # Exceptions
     "DiagnosticInfo",
     "MeteorError",
     "MeteorLoadError",
     "MeteorUnsupportedFormatError",
     "MeteorValidationError",
+    "MeteorHookError",
     "MeteorConfigError",
     "format_error_for_user",
     "save_diagnostic_report",
@@ -281,6 +294,11 @@ __all__ = [
     "select_roi",
     "create_roi_mask_from_polygon",
     "create_full_roi_mask",
+    # Hooks
+    "BaseHook",
+    "DataclassHook",
+    "PydanticHook",
+    "HookRegistry",
     # Utils
     "parse_focal_factor",
     "get_sensor_preset",

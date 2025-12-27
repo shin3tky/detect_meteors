@@ -17,6 +17,8 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--detector-config`**: Detector config as a JSON/YAML string or file path.
 - **`--output-handler`**: Output handler plugin name (overrides `output_handler_name` in config).
 - **`--output-handler-config`**: Output handler config as a JSON/YAML string or file path.
+- **`--hooks`**: Comma-separated hook plugin names (execution order, overrides `hooks` in config). Omit this flag (or set `hooks: null` in config) to skip hooks entirely.
+- **`--hook-config`**: Hook config as a JSON/YAML list or mapping (or file path) keyed by hook name.
 
 > **Note**: The CLI now runs through `MeteorDetectionPipeline`. The legacy path
 > remains for backward compatibility but is slated for deprecation.

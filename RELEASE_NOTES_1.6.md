@@ -1,5 +1,206 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.6 (2025-12-27) 🧱
+
+### 🪝 Pipeline Hook System
+
+Version 1.6.6 introduces a comprehensive hook system that allows plugins to intercept and modify pipeline execution at key stages. This enables advanced use cases like file filtering, image preprocessing, detection result adjustment, and post-save notifications—all without modifying the core pipeline code.
+
+### Highlights
+
+- **Pipeline hooks**: Four hook points covering the entire detection lifecycle
+- **HookRegistry**: Centralized discovery and management of hook plugins
+- **Multiprocessing-safe**: Hooks discovered via entry points or plugin directories work across worker processes
+- **Configurable error handling**: `hook_error_mode` controls whether hook errors stop the pipeline or just warn
+- **CLI integration**: `--hooks` and `--hook-config` for runtime hook configuration
+
+### Why This Change?
+
+Hooks provide a clean extension point for cross-cutting concerns that don't fit neatly into loaders, detectors, or output handlers:
+
+| Use Case | Hook | Description |
+|----------|------|-------------|
+| **File filtering** | `on_file_found` | Skip files by pattern, extension, or metadata |
+| **Image preprocessing** | `on_image_loaded` | Apply calibration, noise reduction, or format conversion |
+| **Result adjustment** | `on_detection_complete` | Adjust scores, filter false positives, add metadata |
+| **Notifications** | `on_output_saved` | Send alerts, log metrics, trigger downstream processes |
+
+Benefits:
+1. **Separation of concerns**: Keep auxiliary logic out of core plugins
+2. **Composable**: Multiple hooks can be chained in order
+3. **Reusable**: Same hook can be used across different pipeline configurations
+4. **Testable**: Hooks can be unit tested independently
+
+### Hook Lifecycle
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                 Detection Pipeline (with Hook insertion points)              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. Collect Files ──▶ Hook: on_file_found ──▶ Filter files                   │
+│                                                                              │
+│  2. Load Image ──────▶ Hook: on_image_loaded ──▶ Transform/enrich            │
+│                                                                              │
+│  3. Detect ──────────▶ Hook: on_detection_complete ──▶ Adjust results        │
+│                                                                              │
+│  4. Save Output ─────▶ Hook: on_output_saved ──▶ Notify/log                  │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Hook API Reference
+
+| Hook | Signature | Returns | Description |
+|------|-----------|---------|-------------|
+| `on_file_found` | `(filepath: str)` | `bool` | Return `True` to keep, `False` to skip |
+| `on_image_loaded` | `(context: InputContext)` | `InputContext` | Return updated context |
+| `on_detection_complete` | `(result: DetectionResult, context: DetectionContext)` | `DetectionResult` | Return updated result |
+| `on_output_saved` | `(result: OutputResult)` | `None` | Read-only notification |
+
+### Creating a Hook
+
+```python
+from dataclasses import dataclass
+from meteor_core.hooks import DataclassHook, HookRegistry
+from meteor_core.schema import InputContext, DetectionResult, DetectionContext
+
+@dataclass
+class MyHookConfig:
+    min_score_threshold: float = 50.0
+
+class ScoreFilterHook(DataclassHook[MyHookConfig]):
+    plugin_name = "score_filter"
+    name = "Score Filter Hook"
+    version = "1.0.0"
+    ConfigType = MyHookConfig
+
+    def on_detection_complete(
+        self,
+        result: DetectionResult,
+        context: DetectionContext,
+    ) -> DetectionResult:
+        # Adjust is_candidate based on custom threshold
+        if result.score < self.config.min_score_threshold:
+            return DetectionResult(
+                is_candidate=False,
+                score=result.score,
+                lines=result.lines,
+                aspect_ratio=result.aspect_ratio,
+                debug_image=result.debug_image,
+                extras={**result.extras, "filtered_by": "score_filter"},
+            )
+        return result
+
+# Register for runtime use (single-process only)
+HookRegistry.register(ScoreFilterHook)
+```
+
+### Hook Discovery
+
+Hooks are discovered via three mechanisms:
+
+| Method | Location | Multiprocessing |
+|--------|----------|-----------------|
+| **Entry points** | `detect_meteors.hook` group in `pyproject.toml` | ✅ Yes |
+| **Plugin directory** | `~/.detect_meteors/hook_plugins/*.py` | ✅ Yes |
+| **Runtime registration** | `HookRegistry.register(MyHook)` | ❌ Single-process only |
+
+**Entry point example** (`pyproject.toml`):
+```toml
+[project.entry-points."detect_meteors.hook"]
+my_hook = "my_package.hooks:MyHook"
+```
+
+### CLI Usage
+
+```bash
+# Specify hooks by name (comma-separated, in execution order)
+python detect_meteors_cli.py --hooks score_filter,logger_hook
+
+# Provide hook configuration
+python detect_meteors_cli.py \
+    --hooks score_filter \
+    --hook-config '{"score_filter": {"min_score_threshold": 75.0}}'
+
+# Or via file
+python detect_meteors_cli.py \
+    --hooks score_filter \
+    --hook-config hooks_config.yaml
+```
+
+### Python API
+
+```python
+from meteor_core.schema import PipelineConfig, HookConfig
+
+config = PipelineConfig(
+    target_folder="./raw",
+    output_folder="./candidates",
+    debug_folder="./debug",
+    hooks=[
+        HookConfig(name="score_filter", config={"min_score_threshold": 75.0}),
+        HookConfig(name="logger_hook"),
+    ],
+    hook_error_mode="warn",  # or "raise" (default)
+)
+```
+
+### Error Handling
+
+The `hook_error_mode` setting controls behavior when hooks raise exceptions:
+
+| Mode | Behavior |
+|------|----------|
+| `"raise"` (default) | Stop pipeline on hook error |
+| `"warn"` | Log warning and continue (recommended for production) |
+
+### Schema Changes
+
+**HookConfig** (new dataclass):
+```python
+@dataclass
+class HookConfig:
+    name: str                                    # Hook plugin name
+    config: Optional[Dict[str, Any]] = None      # Hook-specific configuration
+```
+
+**PipelineConfig additions**:
+```python
+@dataclass
+class PipelineConfig:
+    # ... existing fields ...
+    hooks: Optional[List[HookConfig]] = None     # Ordered hook list (None = skip hooks)
+    hook_error_mode: str = "raise"               # "raise" or "warn"
+```
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `meteor_core/hooks/__init__.py` | New package for hook infrastructure |
+| `meteor_core/hooks/base.py` | `BaseHook`, `DataclassHook`, `PydanticHook` base classes |
+| `meteor_core/hooks/registry.py` | `HookRegistry` for hook discovery and management |
+| `meteor_core/hooks/discovery.py` | Hook discovery mechanisms |
+| `meteor_core/schema.py` | Added `HookConfig`, `hooks`, `hook_error_mode` to `PipelineConfig` |
+| `meteor_core/pipeline.py` | Hook invocation at pipeline stages |
+| `detect_meteors_cli.py` | Added `--hooks`, `--hook-config` options |
+| `COMMAND_OPTIONS.md` | Documented new CLI options |
+| `PLUGIN_AUTHOR_GUIDE.md` | Comprehensive hook documentation |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.6.5 and earlier:
+
+- **CLI**: All existing flags work unchanged
+- **Runtime**: No changes to detection behavior
+- **API**: Existing code works unchanged; hooks are opt-in
+- **Plugins**: Existing plugins work unchanged
+
+When `hooks` is `None` (the default), the pipeline behaves exactly as before with no hook overhead.
+
+---
+
 ## Version 1.6.5 (2025-12-26) 📓
 
 ### 🔧 Pipeline Configuration Files and CLI Plugin Selection
@@ -1112,7 +1313,18 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
-### v1.6.5 (Latest) 📓
+### v1.6.6 (Latest) 🪝
+- **Version**: 1.6.6
+- **Release Date**: 2025-12-27
+- **Major Changes**:
+  - Pipeline hook system with four hook points (`on_file_found`, `on_image_loaded`, `on_detection_complete`, `on_output_saved`)
+  - HookRegistry for centralized hook discovery and management
+  - Hook base classes (`BaseHook`, `DataclassHook`, `PydanticHook`)
+  - CLI options (`--hooks`, `--hook-config`) for hook configuration
+  - PipelineConfig fields (`hooks`, `hook_error_mode`) for programmatic control
+  - Multiprocessing-safe hook discovery via entry points and plugin directory
+
+### v1.6.5 📓
 - **Version**: 1.6.5
 - **Release Date**: 2025-12-26
 - **Major Changes**:
@@ -1175,6 +1387,6 @@ This release only affects the development toolchain. Users who install the packa
 
 **Status**: Production Ready  
 **Compatibility**: Fully backward compatible with v1.5.x  
-**Recommendation**: Use configuration files (`--config`) for reproducible pipeline setups; plugin authors should document ConfigType fields for config file users and implement lifecycle hooks for enhanced observability
+**Recommendation**: Use pipeline hooks for cross-cutting concerns like file filtering, preprocessing, and notifications; use configuration files (`--config`) for reproducible setups
 
-Happy meteor hunting! 🌠📓
+Happy meteor hunting! 🌠🪝

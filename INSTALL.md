@@ -78,7 +78,9 @@ python detect_meteors_cli.py --help
 ### Optional: Alias + completion (bash/zsh)
 
 If you prefer `uv run ...` but still want shell completion, add an alias and
-explicitly attach the provided completion function to that alias.
+explicitly attach the provided completion function to that alias. The repository
+currently ships a **bash** completion script only; zsh users can load it via
+`bashcompinit` as shown below.
 
 **Bash (`~/.bashrc`)**
 
@@ -86,7 +88,7 @@ explicitly attach the provided completion function to that alias.
 # detect_meteors alias
 alias detect_meteors='uv run python /path/to/detect_meteors_cli.py'
 
-# Load completion script (adjust path if needed)
+# Load bash completion script (adjust path if needed)
 source /path/to/detect_meteors_cli_completion.bash
 
 # Attach completion to the alias
@@ -96,13 +98,13 @@ complete -F _detect_meteors_cli_completion detect_meteors
 **Zsh (`~/.zshrc`)**
 
 ```zsh
-# Enable bash-style completion for the provided script
+# Enable bash-style completion for the provided bash script
 autoload -U +X bashcompinit && bashcompinit
 
 # detect_meteors alias
 alias detect_meteors='uv run python /path/to/detect_meteors_cli.py'
 
-# Load completion script (adjust path if needed)
+# Load bash completion script (adjust path if needed)
 source /path/to/detect_meteors_cli_completion.bash
 
 # Attach completion to the alias

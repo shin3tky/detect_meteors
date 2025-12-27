@@ -22,7 +22,7 @@ ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
 # ==========================================
 # Version
 # ==========================================
-VERSION = "1.6.5"
+VERSION = "1.6.6"
 DETECTION_CONTEXT_SCHEMA_VERSION = 1
 DETECTION_RESULT_SCHEMA_VERSION = 1
 INPUT_CONTEXT_SCHEMA_VERSION = 1
@@ -346,6 +346,49 @@ class InputContext:
 
 
 @dataclass
+class HookConfig:
+    """Configuration for an individual pipeline hook."""
+
+    name: str
+    config: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "config": self.config,
+        }
+
+
+def _normalize_hook_config_item(item: Any) -> HookConfig:
+    if isinstance(item, HookConfig):
+        return item
+    if isinstance(item, str):
+        return HookConfig(name=item)
+    if isinstance(item, dict):
+        if "name" in item:
+            return HookConfig(
+                name=item["name"],
+                config=item.get("config"),
+            )
+        if len(item) == 1:
+            name, config = next(iter(item.items()))
+            return HookConfig(name=name, config=config)
+    raise ValueError(f"Invalid hook config entry: {item!r}")
+
+
+def normalize_hook_configs(hooks_data: Any) -> Optional[List[HookConfig]]:
+    if hooks_data is None:
+        return None
+    if isinstance(hooks_data, list):
+        return [_normalize_hook_config_item(item) for item in hooks_data]
+    if isinstance(hooks_data, dict):
+        return [
+            HookConfig(name=name, config=config) for name, config in hooks_data.items()
+        ]
+    raise TypeError(f"hooks must be a list or mapping, got {type(hooks_data).__name__}")
+
+
+@dataclass
 class PipelineConfig:
     """Configuration for MeteorDetectionPipeline.
 
@@ -363,12 +406,14 @@ class PipelineConfig:
         enable_parallel: Whether to enable parallel processing.
         progress_file: Path to the progress tracking JSON file.
         output_overwrite: Whether to overwrite existing files in output folder.
+        hook_error_mode: Behavior when hooks raise exceptions. Default is "raise".
         input_loader_name: Name of input loader to use (e.g., "raw"). If None, uses default.
         input_loader_config: Configuration dict for the input loader.
         detector_name: Name of detector to use (e.g., "hough"). If None, uses default.
         detector_config: Configuration dict for the detector. Structure depends on detector.
         output_handler_name: Name of output handler to use (e.g., "file"). If None, uses default.
         output_handler_config: Configuration dict for the output handler.
+        hooks: Ordered list of hooks to run (each with name/config). None skips hooks.
 
     Example:
         >>> config = PipelineConfig(
@@ -394,6 +439,7 @@ class PipelineConfig:
     enable_parallel: bool = True
     progress_file: str = DEFAULT_PROGRESS_FILE
     output_overwrite: bool = False
+    hook_error_mode: str = "raise"
 
     # Input loader configuration
     input_loader_name: Optional[str] = None
@@ -407,12 +453,21 @@ class PipelineConfig:
     output_handler_name: Optional[str] = None
     output_handler_config: Optional[Dict[str, Any]] = None
 
+    # Hook configuration
+    hooks: Optional[List[HookConfig]] = None
+
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         if self.num_workers < 1:
             raise ValueError(f"num_workers must be >= 1, got {self.num_workers}")
         if self.batch_size < 1:
             raise ValueError(f"batch_size must be >= 1, got {self.batch_size}")
+        if self.hook_error_mode not in {"warn", "raise"}:
+            raise ValueError(
+                f"hook_error_mode must be 'warn' or 'raise', got {self.hook_error_mode}"
+            )
+        if self.hooks is not None:
+            self.hooks = normalize_hook_configs(self.hooks)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary.
@@ -437,6 +492,10 @@ class PipelineConfig:
             "detector_config": self.detector_config,
             "output_handler_name": self.output_handler_name,
             "output_handler_config": self.output_handler_config,
+            "hook_error_mode": self.hook_error_mode,
+            "hooks": [hook.to_dict() for hook in self.hooks]
+            if self.hooks is not None
+            else None,
         }
 
     @staticmethod
@@ -480,6 +539,8 @@ class PipelineConfig:
             detector_config=data.get("detector_config"),
             output_handler_name=data.get("output_handler_name"),
             output_handler_config=data.get("output_handler_config"),
+            hook_error_mode=data.get("hook_error_mode", "raise"),
+            hooks=normalize_hook_configs(data.get("hooks")),
         )
 
     @classmethod
@@ -518,6 +579,10 @@ class PipelineConfig:
             config.output_handler_name = data["output_handler_name"]
         if "output_handler_config" in data:
             config.output_handler_config = data["output_handler_config"]
+        if "hook_error_mode" in data:
+            config.hook_error_mode = data["hook_error_mode"]
+        if "hooks" in data:
+            config.hooks = normalize_hook_configs(data.get("hooks"))
         return config
 
     @classmethod

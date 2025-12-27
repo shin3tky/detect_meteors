@@ -177,6 +177,19 @@
   - [x] CLI execution routed through `MeteorDetectionPipeline` for unified processing
   - [x] Updated Plugin Author Guide with configuration file and CLI documentation
 
+### Pipeline Hook System
+- [x] **v1.6.6** - Pipeline hooks for extensible processing
+  - [x] `on_file_found(filepath) -> bool` hook for file filtering before loading
+  - [x] `on_image_loaded(context) -> InputContext` hook for image transformation/metadata enrichment
+  - [x] `on_detection_complete(result, context) -> DetectionResult` hook for result adjustment
+  - [x] `on_output_saved(result) -> None` hook for post-save notifications
+  - [x] `HookRegistry` for centralized hook discovery and management
+  - [x] Hook discovery via entry points (`detect_meteors.hook`) and plugin directory (`~/.detect_meteors/hook_plugins/`)
+  - [x] `BaseHook`, `DataclassHook`, `PydanticHook` base classes for typed configurations
+  - [x] CLI options (`--hooks`, `--hook-config`) for runtime hook configuration
+  - [x] `PipelineConfig.hooks` and `hook_error_mode` for programmatic control
+  - [x] Updated Plugin Author Guide with comprehensive hook documentation
+
 ### Pending (Deferred from v1.x)
 The following features were originally planned for v1.x but have been deferred:
 
@@ -205,5 +218,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.5 (Pipeline Configuration and CLI Plugin Selection)
+**Current Status**: v1.6.6 (Pipeline Hook System)
 **Next Focus**: v2.0 Architecture and Extensibility - Plugin architecture implementation

@@ -31,7 +31,12 @@ from typing import (
 import cv2
 import numpy as np
 
-from .exceptions import MeteorConfigError, MeteorError, MeteorLoadError
+from .exceptions import (
+    MeteorConfigError,
+    MeteorError,
+    MeteorHookError,
+    MeteorLoadError,
+)
 from .i18n import DEFAULT_LOCALE, get_message
 from .schema import (
     EXTENSIONS,
@@ -47,6 +52,7 @@ from .schema import (
     InputContext,
     OutputResult,
     PipelineConfig,
+    HookConfig,
     RuntimeParams,
     RUNTIME_PARAMS_SCHEMA_VERSION,
     normalize_detection_context,
@@ -57,6 +63,7 @@ from .schema import (
 from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
+from .hooks import HookRegistry
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, DetectorRegistry
 from .utils import _display_width, _pad_label
@@ -123,6 +130,29 @@ def _normalize_output_result(result: OutputResult | bool) -> OutputResult:
         return normalize_output_result(result)
     except ValueError as exc:
         raise MeteorConfigError(str(exc)) from exc
+
+
+def _handle_hook_exception(
+    exc: Exception,
+    *,
+    hook_name: str,
+    hook_error_mode: str,
+    message: str,
+    message_args: Tuple[Any, ...],
+    filepath: Optional[str] = None,
+    context: Optional[Dict[str, Any]] = None,
+) -> None:
+    if hook_error_mode == "warn":
+        logger.warning(message, *message_args)
+        return
+    logger.error(message, *message_args)
+    raise MeteorHookError(
+        f"{hook_name} hook failed",
+        filepath=filepath,
+        original_error=exc,
+        context=context,
+        hook_name=hook_name,
+    ) from exc
 
 
 # Lazy initialization to avoid circular imports
@@ -216,6 +246,121 @@ def _apply_normalized_diff_threshold(
         scaled,
     )
     return updated
+
+
+def _ensure_frame_role(context: InputContext, role: str) -> InputContext:
+    metadata = context.metadata if isinstance(context.metadata, dict) else {}
+    if metadata.get("frame_role") == role:
+        return context
+    updated_metadata = dict(metadata)
+    updated_metadata["frame_role"] = role
+    return InputContext(
+        image_data=context.image_data,
+        filepath=context.filepath,
+        metadata=updated_metadata,
+        loader_info=context.loader_info,
+        schema_version=context.schema_version,
+    )
+
+
+def _apply_image_loaded_hooks(
+    context: InputContext,
+    hooks: List[Any],
+    role: str,
+    hook_error_mode: str,
+) -> InputContext:
+    context = _ensure_frame_role(context, role)
+    for hook in hooks:
+        try:
+            context = _normalize_input_context(
+                hook.on_image_loaded(context),
+                filepath=context.filepath,
+            )
+        except Exception as exc:
+            _handle_hook_exception(
+                exc,
+                hook_name="on_image_loaded",
+                hook_error_mode=hook_error_mode,
+                message="on_image_loaded hook failed for %s (%s): %s",
+                message_args=(context.filepath, role, exc),
+                filepath=context.filepath,
+                context={"frame_role": role},
+            )
+        else:
+            context = _ensure_frame_role(context, role)
+    return context
+
+
+def _apply_detection_complete_hooks(
+    result: DetectionResult,
+    context: DetectionContext,
+    hooks: List[Any],
+    filename: str,
+    hook_error_mode: str,
+) -> DetectionResult:
+    for hook in hooks:
+        try:
+            result = _normalize_detection_result(
+                hook.on_detection_complete(result, context)
+            )
+        except Exception as exc:
+            _handle_hook_exception(
+                exc,
+                hook_name="on_detection_complete",
+                hook_error_mode=hook_error_mode,
+                message="on_detection_complete hook failed for %s: %s",
+                message_args=(filename, exc),
+                filepath=filename,
+            )
+    return result
+
+
+def _apply_output_saved_hooks(
+    result: OutputResult,
+    hooks: List[Any],
+    filename: str,
+    hook_error_mode: str,
+) -> None:
+    snapshot = OutputResult(
+        saved=result.saved,
+        output_path=result.output_path,
+        debug_path=result.debug_path,
+        handler_info=dict(result.handler_info),
+        metrics=dict(result.metrics),
+        schema_version=result.schema_version,
+    )
+    for hook in hooks:
+        try:
+            hook.on_output_saved(snapshot)
+        except Exception as exc:
+            _handle_hook_exception(
+                exc,
+                hook_name="on_output_saved",
+                hook_error_mode=hook_error_mode,
+                message="on_output_saved hook failed for %s: %s",
+                message_args=(filename, exc),
+                filepath=filename,
+            )
+
+
+def _resolve_hooks(
+    hook_configs: Optional[List[HookConfig]],
+    hook_error_mode: str = "raise",
+) -> List[Any]:
+    if hook_configs is None:
+        return []
+    instances: List[Any] = []
+    for hook in hook_configs:
+        try:
+            instances.append(HookRegistry.create(hook.name, hook.config))
+        except Exception as exc:
+            raise MeteorConfigError(
+                "Invalid hook configuration",
+                config_key="hooks",
+                plugin_name=hook.name,
+                original_error=exc,
+            ) from exc
+    return instances
 
 
 def _resolve_detector(
@@ -624,6 +769,8 @@ def process_image_batch(
     input_loader: Optional[BaseInputLoader] = None,
     detector: Optional[BaseDetector] = None,
     debug_image_enabled: bool = True,
+    hook_configs: Optional[List[HookConfig]] = None,
+    hook_error_mode: str = "raise",
 ) -> List[
     Tuple[
         bool,
@@ -674,6 +821,7 @@ def process_image_batch(
     loader = _resolve_input_loader(input_loader)
     det = _resolve_detector(detector=detector)
     runtime_params = _build_runtime_params(params, det)
+    hooks = _resolve_hooks(hook_configs, hook_error_mode=hook_error_mode)
 
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
@@ -690,6 +838,18 @@ def process_image_batch(
             prev_context = _normalize_input_context(
                 loader.load(prev_file),
                 filepath=prev_file,
+            )
+            curr_context = _apply_image_loaded_hooks(
+                curr_context,
+                hooks,
+                role="current",
+                hook_error_mode=hook_error_mode,
+            )
+            prev_context = _apply_image_loaded_hooks(
+                prev_context,
+                hooks,
+                role="previous",
+                hook_error_mode=hook_error_mode,
             )
 
             # Delegate detection to the detector
@@ -717,6 +877,13 @@ def process_image_batch(
             )
             context = _normalize_detection_context(context)
             result = _normalize_detection_result(det.detect(context))
+            result = _apply_detection_complete_hooks(
+                result,
+                context,
+                hooks,
+                filename,
+                hook_error_mode=hook_error_mode,
+            )
             context_payload = context.to_dict()
             debug_image = result.debug_image if result.is_candidate else None
             if not result.is_candidate or not debug_image_enabled:
@@ -746,6 +913,8 @@ def process_image_batch(
                     len(result.lines),
                 )
 
+        except MeteorHookError:
+            raise
         except MeteorError as e:
             logger.error(
                 "Error processing %s: %s",
@@ -1706,6 +1875,32 @@ class MeteorDetectionPipeline:
         )
         files = collect_files(self._config.target_folder)
 
+        hooks = _resolve_hooks(
+            self._config.hooks,
+            hook_error_mode=self._config.hook_error_mode,
+        )
+        normalized_files = [os.path.normpath(os.path.abspath(path)) for path in files]
+        filtered_files = []
+        for filepath in normalized_files:
+            keep = True
+            for hook in hooks:
+                try:
+                    if not hook.on_file_found(filepath):
+                        keep = False
+                        break
+                except Exception as exc:
+                    _handle_hook_exception(
+                        exc,
+                        hook_name="on_file_found",
+                        hook_error_mode=self._config.hook_error_mode,
+                        message="on_file_found hook failed for %s: %s",
+                        message_args=(filepath, exc),
+                        filepath=filepath,
+                    )
+            if keep:
+                filtered_files.append(filepath)
+        files = filtered_files
+
         if len(files) < 2:
             print(get_message("ui.pipeline.need_two_images", locale=locale))
             return 0
@@ -1893,7 +2088,13 @@ class MeteorDetectionPipeline:
                 processing_elapsed,
             )
         except Exception as exc:
-            logger.warning("on_pipeline_complete hook failed: %s", exc)
+            _handle_hook_exception(
+                exc,
+                hook_name="on_pipeline_complete",
+                hook_error_mode=self._config.hook_error_mode,
+                message="on_pipeline_complete hook failed: %s",
+                message_args=(exc,),
+            )
 
         if profile:
             timing["processing"] = processing_elapsed
@@ -1963,6 +2164,10 @@ class MeteorDetectionPipeline:
         """Process images in parallel using ProcessPoolExecutor."""
         locale = _resolve_locale(locale)
         start_time = time.time()
+        hooks = _resolve_hooks(
+            self._config.hooks,
+            hook_error_mode=self._config.hook_error_mode,
+        )
         batches = [
             image_pairs[i : i + self._config.batch_size]
             for i in range(0, len(image_pairs), self._config.batch_size)
@@ -2003,6 +2208,8 @@ class MeteorDetectionPipeline:
                     input_loader,
                     detector,
                     debug_image_enabled,
+                    self._config.hooks,
+                    self._config.hook_error_mode,
                 )
                 futures.append(future)
 
@@ -2089,10 +2296,13 @@ class MeteorDetectionPipeline:
                                     filepath,
                                 )
                             except Exception as exc:
-                                logger.warning(
-                                    "on_detection_result hook failed for %s: %s",
-                                    filename,
+                                _handle_hook_exception(
                                     exc,
+                                    hook_name="on_detection_result",
+                                    hook_error_mode=self._config.hook_error_mode,
+                                    message="on_detection_result hook failed for %s: %s",
+                                    message_args=(filename, exc),
+                                    filepath=filepath,
                                 )
 
                         if is_candidate:
@@ -2102,6 +2312,12 @@ class MeteorDetectionPipeline:
                                 filepath, filename, debug_img, roi_polygon
                             )
                             output_result = _normalize_output_result(output_result)
+                            _apply_output_saved_hooks(
+                                output_result,
+                                hooks,
+                                filename,
+                                self._config.hook_error_mode,
+                            )
                             if output_result.saved:
                                 print(
                                     get_message(
@@ -2127,10 +2343,13 @@ class MeteorDetectionPipeline:
                                     aspect_ratio=aspect_ratio,
                                 )
                             except Exception as exc:
-                                logger.warning(
-                                    "on_candidate_detected hook failed for %s: %s",
-                                    filename,
+                                _handle_hook_exception(
                                     exc,
+                                    hook_name="on_candidate_detected",
+                                    hook_error_mode=self._config.hook_error_mode,
+                                    message="on_candidate_detected hook failed for %s: %s",
+                                    message_args=(filename, exc),
+                                    filepath=filepath,
                                 )
 
                         # Extract frame indices from detection context
@@ -2163,12 +2382,18 @@ class MeteorDetectionPipeline:
                             len(batch_results),
                         )
                     except Exception as exc:
-                        logger.warning(
-                            "on_batch_complete hook failed for batch %s: %s",
-                            completed_batches,
+                        _handle_hook_exception(
                             exc,
+                            hook_name="on_batch_complete",
+                            hook_error_mode=self._config.hook_error_mode,
+                            message="on_batch_complete hook failed for batch %s: %s",
+                            message_args=(completed_batches, exc),
                         )
                 except Exception as e:
+                    if self._config.hook_error_mode == "raise" and isinstance(
+                        e, MeteorHookError
+                    ):
+                        raise
                     print(
                         "\n"
                         + get_message(
@@ -2210,6 +2435,10 @@ class MeteorDetectionPipeline:
         """Process images sequentially."""
         locale = _resolve_locale(locale)
         start_time = time.time()
+        hooks = _resolve_hooks(
+            self._config.hooks,
+            hook_error_mode=self._config.hook_error_mode,
+        )
         for idx, pair in enumerate(image_pairs):
             current_index = resume_offset + idx + 1
             current_file = os.path.basename(pair[1])
@@ -2233,6 +2462,8 @@ class MeteorDetectionPipeline:
                 input_loader,
                 detector,
                 debug_image_enabled,
+                self._config.hooks,
+                self._config.hook_error_mode,
             )
 
             for result in batch_results:
@@ -2268,10 +2499,13 @@ class MeteorDetectionPipeline:
                             filepath,
                         )
                     except Exception as exc:
-                        logger.warning(
-                            "on_detection_result hook failed for %s: %s",
-                            filename,
+                        _handle_hook_exception(
                             exc,
+                            hook_name="on_detection_result",
+                            hook_error_mode=self._config.hook_error_mode,
+                            message="on_detection_result hook failed for %s: %s",
+                            message_args=(filename, exc),
+                            filepath=filepath,
                         )
 
                 if is_candidate:
@@ -2280,6 +2514,12 @@ class MeteorDetectionPipeline:
                         filepath, filename, debug_img, roi_polygon
                     )
                     output_result = _normalize_output_result(output_result)
+                    _apply_output_saved_hooks(
+                        output_result,
+                        hooks,
+                        filename,
+                        self._config.hook_error_mode,
+                    )
                     if output_result.saved:
                         print(
                             get_message(
@@ -2305,10 +2545,13 @@ class MeteorDetectionPipeline:
                             aspect_ratio=aspect_ratio,
                         )
                     except Exception as exc:
-                        logger.warning(
-                            "on_candidate_detected hook failed for %s: %s",
-                            filename,
+                        _handle_hook_exception(
                             exc,
+                            hook_name="on_candidate_detected",
+                            hook_error_mode=self._config.hook_error_mode,
+                            message="on_candidate_detected hook failed for %s: %s",
+                            message_args=(filename, exc),
+                            filepath=filepath,
                         )
 
                 # Extract frame indices from detection context
@@ -2341,10 +2584,12 @@ class MeteorDetectionPipeline:
                     len(batch_results),
                 )
             except Exception as exc:
-                logger.warning(
-                    "on_batch_complete hook failed for %s: %s",
-                    current_file,
+                _handle_hook_exception(
                     exc,
+                    hook_name="on_batch_complete",
+                    hook_error_mode=self._config.hook_error_mode,
+                    message="on_batch_complete hook failed for %s: %s",
+                    message_args=(current_file, exc),
                 )
 
         return self.progress_manager.get_total_detected()

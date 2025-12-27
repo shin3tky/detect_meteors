@@ -15,7 +15,7 @@ import argparse
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -45,7 +45,9 @@ from meteor_core import (
     DEFAULT_PROGRESS_FILE,
     DEFAULT_FISHEYE_MODEL,
     PipelineConfig,
+    HookConfig,
     DetectionParams,
+    normalize_hook_configs,
     # Functions
     collect_files,
     extract_exif_metadata,
@@ -167,6 +169,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="Output handler config (JSON/YAML string or file path)",
+    )
+    parser.add_argument(
+        "--hooks",
+        type=str,
+        default=None,
+        help="Comma-separated hook plugin names (execution order)",
+    )
+    parser.add_argument(
+        "--hook-config",
+        type=str,
+        default=None,
+        help="Hook config (JSON/YAML list or mapping, or file path)",
     )
 
     parser.add_argument(
@@ -394,10 +408,7 @@ def _flag_present(*flags: str) -> bool:
     return any(flag in sys.argv for flag in flags)
 
 
-def _parse_plugin_config(
-    value: Optional[str], arg_name: str
-) -> Optional[Dict[str, Any]]:
-    """Parse plugin configuration from a JSON/YAML string or file path."""
+def _parse_config_payload(value: Optional[str], arg_name: str) -> Any:
     if value is None:
         return None
     if value == "":
@@ -408,7 +419,7 @@ def _parse_plugin_config(
         suffix = path.suffix.lower()
         if suffix not in SUPPORTED_CONFIG_EXTENSIONS:
             raise MeteorConfigError(
-                "Unsupported plugin configuration file format",
+                "Unsupported configuration file format",
                 filepath=str(path),
                 config_key=arg_name,
                 context={"supported_extensions": sorted(SUPPORTED_CONFIG_EXTENSIONS)},
@@ -418,7 +429,7 @@ def _parse_plugin_config(
                 data = json.loads(path.read_text(encoding="utf-8"))
             except json.JSONDecodeError as exc:
                 raise MeteorConfigError(
-                    "Invalid JSON plugin configuration",
+                    "Invalid JSON configuration",
                     filepath=str(path),
                     config_key=arg_name,
                     original_error=exc,
@@ -428,30 +439,49 @@ def _parse_plugin_config(
                 data = yaml.safe_load(path.read_text(encoding="utf-8"))
             except yaml.YAMLError as exc:
                 raise MeteorConfigError(
-                    "Invalid YAML plugin configuration",
+                    "Invalid YAML configuration",
                     filepath=str(path),
                     config_key=arg_name,
                     original_error=exc,
                 ) from exc
-        data = data if data is not None else {}
-    else:
-        try:
-            data = json.loads(value)
-        except json.JSONDecodeError:
-            try:
-                data = yaml.safe_load(value)
-            except yaml.YAMLError as exc:
-                raise MeteorConfigError(
-                    "Invalid plugin configuration string",
-                    config_key=arg_name,
-                    original_error=exc,
-                ) from exc
+        return data if data is not None else {}
 
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        try:
+            return yaml.safe_load(value)
+        except yaml.YAMLError as exc:
+            raise MeteorConfigError(
+                "Invalid configuration string",
+                config_key=arg_name,
+                original_error=exc,
+            ) from exc
+
+
+def _parse_plugin_config(
+    value: Optional[str], arg_name: str
+) -> Optional[Dict[str, Any]]:
+    """Parse plugin configuration from a JSON/YAML string or file path."""
+    data = _parse_config_payload(value, arg_name)
     if data is None:
-        return {}
+        return None
     if not isinstance(data, dict):
         raise MeteorConfigError(
             "Plugin configuration must be a mapping",
+            config_key=arg_name,
+            context={"provided_type": type(data).__name__},
+        )
+    return data
+
+
+def _parse_hook_config(value: Optional[str], arg_name: str) -> Any:
+    data = _parse_config_payload(value, arg_name)
+    if data is None:
+        return None
+    if not isinstance(data, (list, dict)):
+        raise MeteorConfigError(
+            "Hook configuration must be a list or mapping",
             config_key=arg_name,
             context={"provided_type": type(data).__name__},
         )
@@ -483,6 +513,28 @@ def _resolve_value(arg_value, base_value, *flags: str):
     if flags and _flag_present(*flags):
         return arg_value
     return base_value
+
+
+def _parse_hook_names(value: Optional[str]) -> Optional[List[str]]:
+    if value is None:
+        return None
+    names = [name.strip() for name in value.split(",") if name.strip()]
+    return names
+
+
+def _build_hook_configs(
+    hook_names: Optional[List[str]],
+    hook_config_data: Optional[Any],
+) -> Optional[List[HookConfig]]:
+    if hook_names is None and hook_config_data is None:
+        return None
+    configs = normalize_hook_configs(hook_config_data)
+    config_map = {config.name: config.config for config in configs or []}
+    if hook_names is not None:
+        return [
+            HookConfig(name=name, config=config_map.get(name)) for name in hook_names
+        ]
+    return configs
 
 
 def _build_pipeline_config(args) -> PipelineConfig:
@@ -594,6 +646,17 @@ def _build_pipeline_config(args) -> PipelineConfig:
         base_config.output_overwrite if base_config else args.output_overwrite,
         "--output-overwrite",
     )
+    hook_names = _parse_hook_names(args.hooks)
+    hook_config_data = (
+        _parse_hook_config(args.hook_config, "hook_config")
+        if args.hook_config is not None
+        else None
+    )
+    hooks = (
+        _build_hook_configs(hook_names, hook_config_data)
+        if hook_names is not None or hook_config_data is not None
+        else (base_config.hooks if base_config else None)
+    )
 
     pipeline_config = PipelineConfig(
         target_folder=target_folder,
@@ -606,6 +669,7 @@ def _build_pipeline_config(args) -> PipelineConfig:
         enable_parallel=enable_parallel,
         progress_file=progress_file,
         output_overwrite=output_overwrite,
+        hook_error_mode=base_config.hook_error_mode if base_config else "raise",
         input_loader_name=args.input_loader
         if args.input_loader is not None
         else (base_config.input_loader_name if base_config else None),
@@ -618,6 +682,7 @@ def _build_pipeline_config(args) -> PipelineConfig:
         if args.output_handler is not None
         else (base_config.output_handler_name if base_config else None),
         output_handler_config=output_handler_config,
+        hooks=hooks,
     )
     return pipeline_config
 

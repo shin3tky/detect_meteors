@@ -21,12 +21,16 @@ from meteor_core.schema import (  # noqa: E402
     DetectionContext,
     DetectionParams,
     DetectionResult,
+    HookConfig,
     InputContext,
     OutputResult,
     PipelineConfig,
 )
 from meteor_core.detectors.base import BaseDetector  # noqa: E402
+from dataclasses import dataclass
+
 from meteor_core.outputs.base import BaseOutputHandler  # noqa: E402
+from meteor_core.hooks import DataclassHook, HookRegistry  # noqa: E402
 
 
 class DummyInputLoader:
@@ -77,6 +81,60 @@ class DummyOutputHandler(BaseOutputHandler):
         return "debug.png"
 
 
+@dataclass
+class DummyImageLoadedConfig:
+    """Configuration for DummyImageLoadedHook."""
+
+
+class DummyImageLoadedHook(DataclassHook[DummyImageLoadedConfig]):
+    plugin_name = "dummy_image_loaded"
+    name = "Dummy Image Loaded Hook"
+    ConfigType = DummyImageLoadedConfig
+
+    def on_file_found(self, filepath: str) -> bool:
+        return True
+
+    def on_image_loaded(self, context: InputContext) -> InputContext:
+        metadata = dict(context.metadata)
+        metadata["hook_called"] = True
+        metadata["hook_role"] = metadata.get("frame_role")
+        return InputContext(
+            image_data=context.image_data,
+            filepath=context.filepath,
+            metadata=metadata,
+            loader_info=context.loader_info,
+        )
+
+
+@dataclass
+class DummyDetectionCompleteConfig:
+    """Configuration for DummyDetectionCompleteHook."""
+
+
+class DummyDetectionCompleteHook(DataclassHook[DummyDetectionCompleteConfig]):
+    plugin_name = "dummy_detection_complete"
+    name = "Dummy Detection Complete Hook"
+    ConfigType = DummyDetectionCompleteConfig
+
+    def on_file_found(self, filepath: str) -> bool:
+        return True
+
+    def on_detection_complete(
+        self,
+        result: DetectionResult,
+        context: DetectionContext,
+    ) -> DetectionResult:
+        return DetectionResult(
+            is_candidate=False,
+            score=0.0,
+            lines=[],
+            aspect_ratio=result.aspect_ratio,
+            debug_image="modified",
+            extras={"hooked": True},
+            metrics=result.metrics,
+        )
+
+
 class TestNormalizeDetectionContext(unittest.TestCase):
     def test_normalize_detection_context_unsupported_version(self):
         context = DetectionContext(
@@ -121,6 +179,61 @@ class TestProcessImageBatch(unittest.TestCase):
         self.assertEqual(results[0][1], "a.CR2")
         self.assertFalse(results[1][0])
         self.assertEqual(results[1][1], "c.CR2")
+
+    def test_process_image_batch_calls_image_loaded_hook(self):
+        img = np.zeros((2, 2), dtype=np.uint8)
+        img_map = {
+            "a.CR2": img,
+            "b.CR2": img,
+        }
+        loader = DummyInputLoader(img_map)
+        detector = DummyDetector()
+        HookRegistry.register(DummyImageLoadedHook)
+        try:
+            results = process_image_batch(
+                [(1, "a.CR2", "b.CR2")],
+                roi_mask=np.ones((2, 2), dtype=np.uint8),
+                params={"diff_threshold": 8},
+                input_loader=loader,
+                detector=detector,
+                hook_configs=[HookConfig(name=DummyImageLoadedHook.plugin_name)],
+            )
+        finally:
+            HookRegistry.unregister(DummyImageLoadedHook.plugin_name)
+
+        context_payload = results[0][8]
+        self.assertTrue(context_payload["metadata"]["current"]["hook_called"])
+        self.assertTrue(context_payload["metadata"]["previous"]["hook_called"])
+        self.assertEqual(context_payload["metadata"]["current"]["hook_role"], "current")
+        self.assertEqual(
+            context_payload["metadata"]["previous"]["hook_role"], "previous"
+        )
+
+    def test_process_image_batch_calls_detection_complete_hook(self):
+        img = np.zeros((2, 2), dtype=np.uint8)
+        img_map = {
+            "a.CR2": img,
+            "b.CR2": img,
+        }
+        loader = DummyInputLoader(img_map)
+        detector = DummyDetector()
+        HookRegistry.register(DummyDetectionCompleteHook)
+        try:
+            results = process_image_batch(
+                [(1, "a.CR2", "b.CR2")],
+                roi_mask=np.ones((2, 2), dtype=np.uint8),
+                params={"diff_threshold": 8},
+                input_loader=loader,
+                detector=detector,
+                hook_configs=[HookConfig(name=DummyDetectionCompleteHook.plugin_name)],
+            )
+        finally:
+            HookRegistry.unregister(DummyDetectionCompleteHook.plugin_name)
+
+        self.assertFalse(results[0][0])
+        self.assertEqual(results[0][3], 0.0)
+        self.assertIsNone(results[0][4])
+        self.assertEqual(results[0][7].extras.get("hooked"), True)
 
 
 class TestPipelineRun(unittest.TestCase):
@@ -177,6 +290,20 @@ class TestPipelineRun(unittest.TestCase):
             detected = pipeline.run(enable_roi_selection=False, resume=False)
             self.assertEqual(detected, 1)
             self.assertEqual(len(handler.saved_candidates), 1)
+
+
+class TestPipelineConfigHooks(unittest.TestCase):
+    def test_hooks_normalized_in_post_init(self):
+        config = PipelineConfig(
+            target_folder="rawfiles",
+            output_folder="candidates",
+            debug_folder="debug_masks",
+            params=DetectionParams(),
+            hooks=["dummy_hook"],
+        )
+
+        self.assertIsInstance(config.hooks[0], HookConfig)
+        self.assertEqual(config.hooks[0].name, "dummy_hook")
 
 
 if __name__ == "__main__":

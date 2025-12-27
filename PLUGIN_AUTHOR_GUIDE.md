@@ -2,14 +2,15 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.6.5)**:
+> **Current status (v1.6.6)**:
 >
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
-> - ✅ `on_detection_result` and `on_candidate_detected` hooks are invoked (v1.6.4)
+> - ✅ `on_detection_result` and `on_candidate_detected` output handler hooks are invoked (v1.6.4)
 > - ✅ **Pipeline configuration files** (YAML/JSON) supported via `--config` (v1.6.5)
 > - ✅ **CLI plugin selection** with `--input-loader`, `--detector`, `--output-handler` (v1.6.5)
-> - ✅ **DetectionContext normalization API** publicly available (v1.6.5)
+> - ✅ **Pipeline hook system** with `on_file_found`, `on_image_loaded`, `on_detection_complete`, `on_output_saved` (v1.6.6)
+> - ✅ **HookRegistry** for centralized hook discovery and management (v1.6.6)
 > - ⚠️ Detector/runtime parameter contracts may still evolve
 > - ⚠️ `on_batch_complete` and `on_pipeline_complete` hooks reserved for future releases
 
@@ -109,7 +110,63 @@ Each layer communicates only through well-defined dataclasses (`InputContext`, `
 
 Understanding the detection pipeline lifecycle is essential for effective plugin development.
 
-### 1.1 Pipeline Overview
+### 1.1 Pipeline + Hook Overview
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                 Detection Pipeline (with Hook insertion points)              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐            │
+│  │ 1. Initialize│───▶│ 2. Collect   │───▶│ 3. ROI Selection     │            │
+│  │    Pipeline  │    │    Files     │    │    (if enabled)      │            │
+│  └──────────────┘    └──────────────┘    └──────────────────────┘            │
+│         │                  │                      │                          │
+│         │                  │                      ▼                          │
+│         │                  │          ┌──────────────────────┐               │
+│         │                  │          │ 4. Process Batches   │               │
+│         │                  │          │    (parallel/seq)    │               │
+│         │                  │          └──────────────────────┘               │
+│         │                  │                      │                          │
+│         │                  │                      ▼                          │
+│  ┌──────────────────────┐  │   ┌─────────────────────────────┐               │
+│  │ Hook: on_file_found  │◀─┘   │ Hook: on_image_loaded       │               │
+│  └──────────────────────┘      └─────────────────────────────┘               │
+│                                        │                                     │
+│                                        ▼                                     │
+│                               ┌────────────────┐                             │
+│                               │ Detector       │                             │
+│                               └────────────────┘                             │
+│                                        │                                     │
+│                                        ▼                                     │
+│                               ┌─────────────────────────────┐                │
+│                               │ Hook: on_detection_complete │                │
+│                               └─────────────────────────────┘                │
+│                                        │                                     │
+│                                        ▼                                     │
+│                               ┌────────────────┐                             │
+│                               │ Output Handler │                             │
+│                               └────────────────┘                             │
+│                                        │                                     │
+│                                        ▼                                     │
+│                               ┌─────────────────────────────┐                │
+│                               │ Hook: on_output_saved       │                │
+│                               └─────────────────────────────┘                │
+│                                        │                                     │
+│                                        ▼                                     │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐            │
+│  │ 6. Finalize  │◀───│ 5. Save      │◀───│ Results              │            │
+│  │    & Report  │    │    Results   │    └──────────────────────┘            │
+│  └──────────────┘    └──────────────┘                                        │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+This diagram highlights *where* hooks are inserted relative to the pipeline.
+The next section explains the pipeline flow in detail, followed by a focused
+breakdown of each hook.
+
+### 1.2 Pipeline Steps
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -130,7 +187,7 @@ Understanding the detection pipeline lifecycle is essential for effective plugin
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.2 Processing Flow Detail
+### 1.3 Processing Flow Detail
 
 ```
 For each image pair (current, previous):
@@ -168,7 +225,7 @@ For each image pair (current, previous):
     └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1.3 Lifecycle Events (Output Handler Only)
+### 1.4 Hook Overview (Output Handler Only)
 
 Output Handlers define lifecycle hooks. The pipeline now invokes per-frame hooks
 (`on_detection_result`, `on_candidate_detected`), while batch/pipeline hooks are
@@ -184,6 +241,176 @@ arrays.
 | `on_pipeline_complete` | Not invoked | Final summary, cleanup, reporting |
 
 **Important**: Input Loaders and Detectors do **not** receive lifecycle events.
+
+---
+
+### 1.5 Hook Discovery (Pipeline)
+
+Hooks are discovered (and therefore available to both the main process and any
+worker processes) via the standard plugin discovery mechanisms.
+
+> **Important:** Runtime registration with `HookRegistry.register()` is
+> **single-process only** and **does not propagate to worker processes**. Use
+> discovery for production usage and multiprocessing.
+
+**Discovery options**:
+- **Entry points**: register the hook class under the `detect_meteors.hook`
+  entry point group.
+- **Local plugin directory**: place a `*.py` file defining your hook class in
+  `~/.detect_meteors/hook_plugins`.
+
+**Multiprocessing usage example**:
+- Install your hook as an entry point (`detect_meteors.hook`) **or** drop a file
+  into `~/.detect_meteors/hook_plugins` so every worker discovers it at startup.
+  For example, package `MyHook` under the `detect_meteors.hook` entry point,
+  or place `my_hook.py` in `~/.detect_meteors/hook_plugins` when running with
+  `num_workers > 1`.
+
+**Dynamic switching via config**:
+- If you need to toggle hooks at runtime, switch them through config rather than
+  runtime registration. Use `PipelineConfig.hooks` to specify the ordered list:
+
+  ```python
+  from meteor_core.schema import PipelineConfig, DetectionParams
+
+  config = PipelineConfig(
+      target_folder="./raw",
+      output_folder="./candidates",
+      debug_folder="./debug",
+      params=DetectionParams(),
+      hooks=[
+          {"name": "my_hook", "config": {"mode": "strict"}},
+          "other_hook",
+      ],
+  )
+  ```
+
+**Hook configuration defaults**:
+- When `PipelineConfig.hooks` is `None`, the pipeline **skips hooks entirely**.
+- Provide an explicit hook list to run hooks, and include per-hook config when
+  `ConfigType` requires constructor arguments.
+
+**Hook design guideline**:
+- For hook authors, **prefer `ConfigType` definitions that can be constructed
+  with no arguments**. This keeps hooks easier to configure and reduces
+  configuration friction for users.
+
+**Future enhancement ideas**:
+- Consider extending `HookRegistry` with a way to **distribute a temporary plugin
+  directory to workers** (e.g., passing a path that workers add to discovery).
+- Consider adding an **environment-variable-based plugin search path** (see
+  `meteor_core/hooks/discovery.py` and the `PLUGIN_DIR` default) to support
+  runtime-configurable discovery roots.
+
+---
+
+### 1.6 File Discovery Hook (Pipeline)
+
+The pipeline calls the file discovery hook immediately after collecting files
+from the input directory. This allows you to exclude files **before**
+`InputLoader.load()` runs.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_file_found` | `(filepath: str) -> bool` | Return `True` to keep, `False` to drop |
+
+**Notes**:
+- `filepath` is an **absolute, normalized** path.
+- Files rejected by the hook are removed from the pipeline.
+- Useful for excluding specific extensions or path patterns.
+
+**Registration**:
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
+- Registered hooks are invoked in order during pipeline execution.
+- Hooks follow the same config patterns as other plugins, using dataclass
+  or Pydantic-based `ConfigType` definitions.
+
+---
+
+### 1.7 Image Load Hook (Pipeline)
+
+The pipeline calls the image load hook immediately after an `InputContext` is
+normalized (per frame) and before detection begins. This allows you to
+transform image data or enrich metadata for downstream detectors/output hooks.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_image_loaded` | `(context: InputContext) -> InputContext` | Return updated context (image/metadata/loader info) |
+
+**Notes**:
+- `InputContext.metadata["frame_role"]` is set to `"current"` or `"previous"` to
+  indicate which frame is being processed.
+- You may return a new `InputContext` to replace `image_data` or metadata.
+- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
+  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
+  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
+  pipeline moving while still surfacing errors.
+
+**Registration**:
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
+- Registered hooks are invoked in order for each frame.
+
+---
+
+### 1.8 Detection Result Hook (Pipeline)
+
+The pipeline calls the detection result hook immediately after the detector
+returns and the `DetectionResult` is normalized, but before debug image handling
+and output processing. This allows you to adjust scoring, candidate flags, or
+attach metadata for downstream consumers.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_detection_complete` | `(result: DetectionResult, context: DetectionContext) -> DetectionResult` | Return updated detection result |
+
+**Notes**:
+- The returned `DetectionResult` is used to determine `is_candidate`, `score`,
+  and `debug_image` for downstream logic.
+- You may return a new `DetectionResult` to override lines or extras.
+- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
+  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
+  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
+  pipeline moving while still surfacing errors.
+
+**Registration**:
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
+- Registered hooks are invoked in order for each frame.
+
+---
+
+### 1.9 Output Saved Hook (Pipeline)
+
+The pipeline calls the output saved hook immediately after an output handler
+returns a normalized `OutputResult`. This allows you to record metrics,
+telemetry, or notifications based on what was saved.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_output_saved` | `(result: OutputResult) -> None` | Read-only notification when the output handler returns |
+
+**Notes**:
+- The hook receives a snapshot of `OutputResult`; mutations do **not** affect
+  downstream control flow (`saved`/paths are not altered).
+- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
+  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
+  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
+  pipeline moving while still surfacing errors.
+
+**Registration**:
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
+- Registered hooks are invoked in order for each candidate save attempt.
 
 ---
 
