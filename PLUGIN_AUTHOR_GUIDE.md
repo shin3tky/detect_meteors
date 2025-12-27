@@ -246,15 +246,50 @@ arrays.
 ### 1.5 Hook Discovery (Pipeline)
 
 Hooks are discovered (and therefore available to both the main process and any
-worker processes) via the standard plugin discovery mechanisms. Runtime
-registration with `HookRegistry.register()` is process-local, so prefer
-discovery for production usage and multiprocessing.
+worker processes) via the standard plugin discovery mechanisms.
+
+> **Important:** Runtime registration with `HookRegistry.register()` is
+> **single-process only** and **does not propagate to worker processes**. Use
+> discovery for production usage and multiprocessing.
 
 **Discovery options**:
 - **Entry points**: register the hook class under the `detect_meteors.hook`
   entry point group.
 - **Local plugin directory**: place a `*.py` file defining your hook class in
   `~/.detect_meteors/hook_plugins`.
+
+**Multiprocessing usage example**:
+- Install your hook as an entry point (`detect_meteors.hook`) **or** drop a file
+  into `~/.detect_meteors/hook_plugins` so every worker discovers it at startup.
+  For example, package `MyHook` under the `detect_meteors.hook` entry point,
+  or place `my_hook.py` in `~/.detect_meteors/hook_plugins` when running with
+  `num_workers > 1`.
+
+**Dynamic switching via config**:
+- If you need to toggle hooks at runtime, switch them through config rather than
+  runtime registration. Use `PipelineConfig.hooks` to specify the ordered list:
+
+  ```python
+  from meteor_core.schema import PipelineConfig, DetectionParams
+
+  config = PipelineConfig(
+      target_folder="./raw",
+      output_folder="./candidates",
+      debug_folder="./debug",
+      params=DetectionParams(),
+      hooks=[
+          {"name": "my_hook", "config": {"mode": "strict"}},
+          "other_hook",
+      ],
+  )
+  ```
+
+**Future enhancement ideas**:
+- Consider extending `HookRegistry` with a way to **distribute a temporary plugin
+  directory to workers** (e.g., passing a path that workers add to discovery).
+- Consider adding an **environment-variable-based plugin search path** (see
+  `meteor_core/hooks/discovery.py` and the `PLUGIN_DIR` default) to support
+  runtime-configurable discovery roots.
 
 ---
 
