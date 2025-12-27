@@ -406,6 +406,7 @@ class PipelineConfig:
         enable_parallel: Whether to enable parallel processing.
         progress_file: Path to the progress tracking JSON file.
         output_overwrite: Whether to overwrite existing files in output folder.
+        hook_error_mode: Behavior when hooks raise exceptions. Default is "raise".
         input_loader_name: Name of input loader to use (e.g., "raw"). If None, uses default.
         input_loader_config: Configuration dict for the input loader.
         detector_name: Name of detector to use (e.g., "hough"). If None, uses default.

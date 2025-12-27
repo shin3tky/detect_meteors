@@ -298,7 +298,10 @@ transform image data or enrich metadata for downstream detectors/output hooks.
 - `InputContext.metadata["frame_role"]` is set to `"current"` or `"previous"` to
   indicate which frame is being processed.
 - You may return a new `InputContext` to replace `image_data` or metadata.
-- If the hook raises an exception, the pipeline logs a warning and continues.
+- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
+  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
+  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
+  pipeline moving while still surfacing errors.
 
 **Registration**:
 - Hooks should be made available through discovery (entry points or
@@ -324,7 +327,10 @@ attach metadata for downstream consumers.
 - The returned `DetectionResult` is used to determine `is_candidate`, `score`,
   and `debug_image` for downstream logic.
 - You may return a new `DetectionResult` to override lines or extras.
-- If the hook raises an exception, the pipeline logs a warning and continues.
+- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
+  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
+  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
+  pipeline moving while still surfacing errors.
 
 **Registration**:
 - Hooks should be made available through discovery (entry points or
@@ -348,7 +354,10 @@ telemetry, or notifications based on what was saved.
 **Notes**:
 - The hook receives a snapshot of `OutputResult`; mutations do **not** affect
   downstream control flow (`saved`/paths are not altered).
-- If the hook raises an exception, the pipeline logs a warning and continues.
+- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
+  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
+  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
+  pipeline moving while still surfacing errors.
 
 **Registration**:
 - Hooks should be made available through discovery (entry points or
