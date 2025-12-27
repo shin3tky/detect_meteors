@@ -2,6 +2,8 @@
 
 ## Version 1.x - Foundation and Auto-Parameter Optimization
 
+-2025 4Q
+
 ### Core Detection System
 - [x] **v1.0.1** - Initial release with manual parameter configuration
 - [x] **v1.0.2** - Enhanced help descriptions for Hough transform parameters
@@ -200,21 +202,23 @@ The following features were originally planned for v1.x but have been deferred:
 
 ## Version 2.x - Architecture and Extensibility
 
-- 2026 1Q-
-- Implementation of plugin architecture (building on v1.5.5 modular structure)
-- Modular detection pipeline with swappable detectors
-- Custom filter and processor support
-- Third-party integration capabilities
-- ~~Configuration file support for detector plugins~~ ✅ Implemented in v1.6.5
+2026 1Q-
+
+- [ ] Implementation of plugin architecture (building on v1.5.5 modular structure)
+- [ ] Modular detection pipeline with swappable detectors
+- [ ] Custom filter and processor support
+- [ ] Third-party integration capabilities
+- [x] Configuration file support for detector plugins (Implemented in v1.6.5)
 
 ## Version 3.x - Intelligence and Learning
 
-- 2026 2Q-
-- Integration of Machine Learning-based detection
-- Training on labeled meteor datasets
-- Advanced pattern recognition
-- Adaptive learning from user feedback
-- Detecting aircrafts and satellites
+2026 2Q-
+
+- [ ] Integration of Machine Learning-based detection
+- [ ] Training on labeled meteor datasets
+- [ ] Advanced pattern recognition
+- [ ] Adaptive learning from user feedback
+- [ ] Detecting aircrafts and satellites
 
 ---
 
