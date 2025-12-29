@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.6.7 - 2025-12-29 - 🎂 shin3tky's Birthday
+- **Roadmap breakdown**: Detailed v2.0/v3.0 roadmap with categorized milestones.
+  - v2.x "Architecture and Extensibility": Pipeline Modularity, Plugin Ecosystem Expansion, Integration & Interop.
+  - v3.x "Intelligence and Learning": ML-based Detection, Intelligent Post-processing, Performance & Deployment.
+- **Python version clarification**: Explicitly supported Python versions are 3.12 and 3.13.
+- **Documentation**: Updated ROADMAP.md with detailed breakdown of future versions.
+
+
 ## v1.6.6 - 2025-12-27 - 🧱 Lego Build Day
 - **Pipeline hook system**: Extensible hook architecture for intercepting pipeline stages.
   - `on_file_found(filepath) -> bool`: Filter files before loading (return `False` to skip).

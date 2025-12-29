@@ -1,5 +1,100 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.7 (2025-12-29) 🎂
+
+### 📋 Roadmap Breakdown and Python Version Clarification
+
+Version 1.6.7 provides a detailed breakdown of the v2.0 and v3.0 roadmaps, organizing future development into clear categories. This release also clarifies the supported Python versions.
+
+### Highlights
+
+- **Roadmap breakdown**: v2.0/v3.0 milestones organized into categorized sub-roadmaps
+- **Python version clarification**: Explicitly supported versions are Python 3.12 and 3.13
+
+### Why This Change?
+
+As v1.6.x nears completion and v2.0 development approaches, a clearer roadmap helps contributors and users understand the project's direction:
+
+| Version | Focus | Categories |
+|---------|-------|------------|
+| **v2.x** | Architecture and Extensibility | Pipeline Modularity, Plugin Ecosystem, Integration & Interop |
+| **v3.x** | Intelligence and Learning | ML-based Detection, Intelligent Post-processing, Performance & Deployment |
+
+### Roadmap v2.x: Architecture and Extensibility (2026 Q1-)
+
+The v2.x series focuses on making the pipeline fully modular and building a healthy plugin ecosystem:
+
+**Pipeline Modularity**
+- Swappable detector stacks (multi-detector chaining and fallback order)
+- Pluggable pre/post processors (noise reduction, masking, ROI transforms)
+- Pipeline presets and profiles (named configs with overrides)
+- Versioned pipeline schemas with migration helpers
+
+**Plugin Ecosystem Expansion**
+- SDK templates and validation tooling for third-party plugins
+- Compatibility matrix for plugin contract versions
+- Plugin capability discovery (declared features/requirements)
+- Distribution guidelines and example plugin gallery
+
+**Integration & Interop**
+- Output adapters for popular annotation formats (COCO, YOLO, CSV/Parquet)
+- Remote storage integration hooks (S3/GCS/Azure)
+- Batch orchestration helpers (multiprocessing, queue-based workers)
+
+### Roadmap v3.x: Intelligence and Learning (2026 Q2-)
+
+The v3.x series introduces machine learning capabilities for improved detection accuracy:
+
+**ML-based Detection**
+- Baseline ML detector integration (optional, non-default)
+- Labeled dataset ingestion pipeline and annotation tooling
+- Train/evaluate CLI workflow with reproducible configs
+- Model registry and versioned model selection
+
+**Intelligent Post-processing**
+- Advanced pattern recognition (meteor vs. noise discrimination)
+- Adaptive learning from user feedback (false-positive suppression)
+- Multi-object classification (meteors, aircraft, satellites)
+
+**Performance & Deployment**
+- Accelerated inference options (ONNX, GPU backends)
+- Streaming/near-real-time detection mode
+- Edge-friendly lightweight model variants
+
+### Python Version Support
+
+This release clarifies the supported Python versions:
+
+| Python Version | Status |
+|----------------|--------|
+| 3.11 and earlier | ❌ Not supported |
+| 3.12 | ✅ Supported |
+| 3.13 | ✅ Supported |
+| 3.14+ | ❌ Not yet supported |
+
+The `pyproject.toml` specifies `requires-python = ">=3.12,<3.14"`.
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `ROADMAP.md` | Detailed breakdown of v2.x and v3.x milestones |
+| `CHANGELOG.md` | Added v1.6.7 entry |
+| `README.md` | Updated "What's New" section |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.6.6 and earlier:
+
+- **CLI**: No changes
+- **Runtime**: No changes to detection behavior
+- **API**: No changes
+- **Plugins**: No changes
+
+This is a documentation-only release with no code changes.
+
+---
+
 ## Version 1.6.6 (2025-12-27) 🧱
 
 ### 🪝 Pipeline Hook System
@@ -1313,7 +1408,15 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
-### v1.6.6 (Latest) 🪝
+### v1.6.7 (Latest) 🎂
+- **Version**: 1.6.7
+- **Release Date**: 2025-12-29
+- **Major Changes**:
+  - Detailed v2.0/v3.0 roadmap breakdown with categorized milestones
+  - Python version clarification (3.12, 3.13 explicitly supported)
+  - Documentation-only release
+
+### v1.6.6 🧱
 - **Version**: 1.6.6
 - **Release Date**: 2025-12-27
 - **Major Changes**:
@@ -1387,6 +1490,7 @@ This release only affects the development toolchain. Users who install the packa
 
 **Status**: Production Ready  
 **Compatibility**: Fully backward compatible with v1.5.x  
+**Python**: 3.12, 3.13  
 **Recommendation**: Use pipeline hooks for cross-cutting concerns like file filtering, preprocessing, and notifications; use configuration files (`--config`) for reproducible setups
 
-Happy meteor hunting! 🌠🪝
+Happy meteor hunting! 🌠🎂

@@ -155,9 +155,12 @@ Use the `--fisheye` flag when:
 ### Supported Projection Model
 
 Currently, only **equisolid angle projection** is implemented. This covers most common fisheye lenses including:
-- Olympus M.ZUIKO 8mm F1.8 Fisheye PRO
-- Samyang/Rokinon 8mm F2.8 Fisheye
+- OM SYSTEM M.ZUIKO DIGITAL ED 8mm F1.8 Fisheye PRO
 - Canon EF 8-15mm F4L Fisheye USM
 - Nikon AF-S Fisheye NIKKOR 8-15mm f/3.5-4.5E ED
+- Sigma 15mm F1.4 DG DN DIAGONAL FISHEYE ART
+- TTArtisan 11mm f/2.8 Fisheye
+- TTArtisan 7.5mm f/2 C Fisheye
+- Samyang 7.5 mm f/3.5 Fish-Eye
 
 Future versions may add support for other projection models (equidistant, stereographic).

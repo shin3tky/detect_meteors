@@ -14,6 +14,9 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
+>[!NOTE]
+>**Quadrantids**: Peak around **2026-01-04 (midnight, predawn)** - short active period and sharp peak.
+
 ## Features
 
 - **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata and scientifically tunes detection parameters
@@ -24,7 +27,7 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 ## Requirements
 
-- Python 3.12+
+- Python 3.12, 3.13
 - macOS, Windows, or Linux
 - Dependencies: `numpy`, `opencv-python`, `rawpy`, `psutil`, `pillow`, `pydantic`, `pyyaml`
 
@@ -163,18 +166,12 @@ pipeline.run()
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.6 🪝
+## What's New in v1.6.7 🎂
 
-- **Pipeline hook system**: Extensible architecture for intercepting pipeline stages
-  - `on_file_found`: Filter files before loading
-  - `on_image_loaded`: Transform images or enrich metadata
-  - `on_detection_complete`: Adjust detection results
-  - `on_output_saved`: Receive notifications after saving
-- **HookRegistry**: Centralized hook discovery and management
-  - Entry point discovery: `detect_meteors.hook`
-  - Plugin directory: `~/.detect_meteors/hook_plugins/`
-- **CLI hook options**: `--hooks` and `--hook-config` for hook configuration
-- **PipelineConfig**: `hooks` and `hook_error_mode` fields for programmatic control
+- **Roadmap breakdown**: Detailed v2.0/v3.0 roadmap with categorized milestones
+  - v2.x: Pipeline Modularity, Plugin Ecosystem Expansion, Integration & Interop
+  - v3.x: ML-based Detection, Intelligent Post-processing, Performance & Deployment
+- **Python version clarification**: Explicitly supported versions are Python 3.12 and 3.13
 
 For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
 
