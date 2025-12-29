@@ -14,6 +14,9 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
+>[!NOTE]
+>**Quadrantids**: Peak around **2026-01-04 (midnight, predawn)** - short active period and sharp peak.
+
 ## Features
 
 - **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata and scientifically tunes detection parameters
