@@ -341,9 +341,9 @@ When redistributing, include the [NOTICE](NOTICE) file.
 
 ## Resources
 
-- [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) - Plugin development
-- [README.md](README.md) - User documentation
-- [CHANGELOG.md](CHANGELOG.md) - Release history
+- [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) — Plugin development
+- [README.md](README.md) — User documentation
+- [CHANGELOG.md](CHANGELOG.md) — Release history
 - [Ruff Documentation](https://docs.astral.sh/ruff/)
 - [uv Documentation](https://docs.astral.sh/uv/)
 - [Pre-commit Documentation](https://pre-commit.com/)
