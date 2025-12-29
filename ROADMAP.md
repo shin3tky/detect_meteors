@@ -248,5 +248,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.6 (Pipeline Hook System)
-**Next Focus**: v2.0 Architecture and Extensibility - Plugin architecture implementation
+**Current Status**: v1.6.7 (Roadmap Breakdown)
+**Next Focus**: v2.0 Architecture and Extensibility - Pipeline modularity and plugin ecosystem
