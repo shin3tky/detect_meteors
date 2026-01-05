@@ -86,7 +86,7 @@ def _load_catalog(locale: str) -> Dict[str, str]:
     return _flatten_messages(raw_catalog)
 
 
-def _coerce_number(value: Any) -> Number | None:
+def _coerce_number(value: Any) -> int | Number | None:
     if isinstance(value, Number):
         return value
     try:
