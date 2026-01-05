@@ -13,3 +13,10 @@ repos:
         entry: .venv/bin/ruff format
         language: system
         types: [python]
+
+      - id: ty-check
+        name: ty check
+        entry: .venv/bin/ty check
+        language: system
+        types: [python]
+        pass_filenames: false
