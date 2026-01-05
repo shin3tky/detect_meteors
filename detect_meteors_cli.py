@@ -40,6 +40,7 @@ from meteor_core import (
     DEFAULT_HOUGH_MAX_LINE_GAP,
     DEFAULT_MIN_LINE_SCORE,
     DEFAULT_ENABLE_ROI_SELECTION,
+    MAX_NUM_WORKERS,
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
@@ -233,9 +234,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--workers",
-        type=int,
+        type=_validate_workers,
         default=DEFAULT_NUM_WORKERS,
-        help=f"Number of workers (default: {DEFAULT_NUM_WORKERS})",
+        help=(
+            "Number of workers "
+            f"(default: {DEFAULT_NUM_WORKERS}, max: {MAX_NUM_WORKERS})"
+        ),
     )
     parser.add_argument(
         "--batch-size",
@@ -406,6 +410,21 @@ def _configure_logging(verbose: bool) -> None:
 def _flag_present(*flags: str) -> bool:
     """Return True if any of the CLI flags were provided."""
     return any(flag in sys.argv for flag in flags)
+
+
+def _validate_workers(value: str) -> int:
+    """Validate --workers argument against allowed bounds."""
+    try:
+        count = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"--workers must be an integer between 1 and {MAX_NUM_WORKERS}"
+        ) from exc
+    if count < 1 or count > MAX_NUM_WORKERS:
+        raise argparse.ArgumentTypeError(
+            f"--workers must be between 1 and {MAX_NUM_WORKERS}"
+        )
+    return count
 
 
 def _parse_config_payload(value: Optional[str], arg_name: str) -> Any:

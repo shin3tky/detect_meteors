@@ -87,7 +87,8 @@ DEFAULT_HOUGH_MAX_LINE_GAP = 5
 DEFAULT_MIN_LINE_SCORE = 80.0
 
 DEFAULT_ENABLE_ROI_SELECTION = True
-DEFAULT_NUM_WORKERS = max(1, mp.cpu_count() - 1)
+MAX_NUM_WORKERS = max(1, mp.cpu_count())
+DEFAULT_NUM_WORKERS = min(max(1, mp.cpu_count() - 1), MAX_NUM_WORKERS)
 DEFAULT_BATCH_SIZE = 10  # Batch processing size
 AUTO_BATCH_MEMORY_FRACTION = 0.6  # Portion of free RAM to use when auto-sizing batches
 
@@ -458,8 +459,11 @@ class PipelineConfig:
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
-        if self.num_workers < 1:
-            raise ValueError(f"num_workers must be >= 1, got {self.num_workers}")
+        if self.num_workers < 1 or self.num_workers > MAX_NUM_WORKERS:
+            raise ValueError(
+                "num_workers must be between 1 and "
+                f"{MAX_NUM_WORKERS}, got {self.num_workers}"
+            )
         if self.batch_size < 1:
             raise ValueError(f"batch_size must be >= 1, got {self.batch_size}")
         if self.hook_error_mode not in {"warn", "raise"}:
