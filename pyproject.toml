@@ -190,12 +190,12 @@ unresolved-attribute = "ignore"     # 53 occurrences - Dynamic attributes
 no-matching-overload = "ignore"     # 18 occurrences - Overload resolution
 
 # -----------------------------------------------
-# Medium priority - ignore for now
+# Medium priority
 # -----------------------------------------------
 invalid-method-override = "warn"
 too-many-positional-arguments = "warn"
 call-non-callable = "warn"
-invalid-assignment = "ignore"
+invalid-assignment = "warn"
 
 # -----------------------------------------------
 # Default-enabled rules - ignore for Phase 1
