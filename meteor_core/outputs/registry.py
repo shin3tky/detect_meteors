@@ -23,7 +23,7 @@ defaults exist to avoid silently skipping required values.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Protocol, Type, Union, cast
 
 from ..plugin_registry import _PLUGIN_KIND_OUTPUT
 from ..plugin_registry_base import PluginRegistryBase
@@ -32,6 +32,10 @@ from .base import BaseOutputHandler, _is_valid_output_handler
 
 # Module-level logger for registry operations
 logger = logging.getLogger(__name__)
+
+
+class _HandlerFactory(Protocol):
+    def __call__(self, config: Any) -> BaseOutputHandler: ...
 
 
 class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
@@ -124,7 +128,8 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
             raise
 
         try:
-            instance = handler_cls(coerced_config)
+            handler_factory = cast(_HandlerFactory, handler_cls)
+            instance = handler_factory(coerced_config)
         except Exception as exc:
             logger.error(
                 "Failed to instantiate output handler '%s' (%s): %s: %s",
@@ -200,7 +205,8 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
         )
 
         try:
-            instance = handler_cls(coerced_config)
+            handler_factory = cast(_HandlerFactory, handler_cls)
+            instance = handler_factory(coerced_config)
         except Exception as exc:
             logger.error(
                 "Failed to instantiate default output handler '%s' (%s): %s: %s",

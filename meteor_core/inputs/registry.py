@@ -23,7 +23,7 @@ method raises to avoid silently constructing an incomplete instance.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Protocol, Type, Union, cast
 
 from ..plugin_registry import _PLUGIN_KIND_INPUT
 from ..plugin_registry_base import PluginRegistryBase
@@ -32,6 +32,10 @@ from .base import BaseInputLoader, _is_valid_input_loader
 
 # Module-level logger for registry operations
 logger = logging.getLogger(__name__)
+
+
+class _LoaderFactory(Protocol):
+    def __call__(self, config: Any) -> BaseInputLoader: ...
 
 
 class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
@@ -121,7 +125,8 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
             raise
 
         try:
-            instance = loader_cls(coerced_config)
+            loader_factory = cast(_LoaderFactory, loader_cls)
+            instance = loader_factory(coerced_config)
         except Exception as exc:
             logger.error(
                 "Failed to instantiate input loader '%s' (%s): %s: %s",
@@ -180,7 +185,8 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
             )
 
         try:
-            instance = loader_cls(coerced_config)
+            loader_factory = cast(_LoaderFactory, loader_cls)
+            instance = loader_factory(coerced_config)
         except Exception as exc:
             logger.error(
                 "Failed to instantiate default input loader '%s' (%s): %s: %s",

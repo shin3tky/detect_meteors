@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Protocol, Type, Union, cast
 
 from ..plugin_registry import _PLUGIN_KIND_HOOK
 from ..plugin_registry_base import PluginRegistryBase
 from .base import BaseHook, _is_valid_hook
 
 logger = logging.getLogger(__name__)
+
+
+class _HookFactory(Protocol):
+    def __call__(self, config: Any) -> BaseHook: ...
 
 
 class HookRegistry(PluginRegistryBase[BaseHook]):
@@ -50,7 +54,8 @@ class HookRegistry(PluginRegistryBase[BaseHook]):
             if coerced_config is None and _can_instantiate_without_config(hook_cls):
                 instance = hook_cls()
             else:
-                instance = hook_cls(coerced_config)
+                hook_factory = cast(_HookFactory, hook_cls)
+                instance = hook_factory(coerced_config)
         except Exception as exc:
             logger.error(
                 "Failed to instantiate hook '%s' (%s): %s: %s",
