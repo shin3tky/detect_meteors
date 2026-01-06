@@ -20,9 +20,13 @@ For new code, use:
 
 import logging
 import warnings
+from typing import List, Optional
+
+import numpy as np
 
 from .file_handler import FileOutputHandler, FileOutputConfig
 from .progress import ProgressManager, load_progress, save_progress
+from ..schema import OutputResult
 
 # Module-level logger
 logger = logging.getLogger(__name__)
@@ -107,14 +111,24 @@ class OutputWriter(FileOutputHandler):
         """Get output overwrite setting."""
         return self.config.output_overwrite
 
-    def save_candidate(self, *args, **kwargs) -> bool:
-        """Save a meteor candidate file and return success status.
+    def save_candidate(
+        self,
+        source_path: str,
+        filename: str,
+        debug_image: Optional[np.ndarray] = None,
+        roi_polygon: Optional[List[List[int]]] = None,
+    ) -> OutputResult:
+        """Save a meteor candidate file.
 
-        This overrides FileOutputHandler.save_candidate to preserve legacy
-        OutputWriter behavior where the return value was a simple boolean.
+        Returns the full OutputResult. For legacy boolean checks, inspect
+        ``result.saved``.
         """
-        result = super().save_candidate(*args, **kwargs)
-        return result.saved
+        return super().save_candidate(
+            source_path,
+            filename,
+            debug_image=debug_image,
+            roi_polygon=roi_polygon,
+        )
 
 
 __all__ = [

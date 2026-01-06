@@ -68,6 +68,7 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
     """
 
     _plugin_kind = _PLUGIN_KIND_DETECTOR
+    _is_valid_plugin = staticmethod(_is_valid_detector)
 
     @classmethod
     def _discover_internal(cls) -> Dict[str, Type[BaseDetector]]:
@@ -76,10 +77,6 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
         from .discovery import _discover_handlers_internal
 
         return _discover_handlers_internal()
-
-    @classmethod
-    def _is_valid_plugin(cls, detector_cls: Type[BaseDetector]) -> bool:
-        return _is_valid_detector(detector_cls)
 
     # ========================================
     # Instantiation

@@ -65,6 +65,7 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
     """
 
     _plugin_kind = _PLUGIN_KIND_OUTPUT
+    _is_valid_plugin = staticmethod(_is_valid_output_handler)
 
     @classmethod
     def _discover_internal(cls) -> Dict[str, Type[BaseOutputHandler]]:
@@ -73,10 +74,6 @@ class OutputHandlerRegistry(PluginRegistryBase[BaseOutputHandler]):
         from .discovery import _discover_handlers_internal
 
         return _discover_handlers_internal()
-
-    @classmethod
-    def _is_valid_plugin(cls, handler_cls: Type[BaseOutputHandler]) -> bool:
-        return _is_valid_output_handler(handler_cls)
 
     # ========================================
     # Instantiation

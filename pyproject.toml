@@ -192,7 +192,7 @@ no-matching-overload = "ignore"     # 18 occurrences - Overload resolution
 # -----------------------------------------------
 # Medium priority - ignore for now
 # -----------------------------------------------
-invalid-method-override = "ignore"
+invalid-method-override = "warn"
 too-many-positional-arguments = "ignore"
 call-non-callable = "ignore"
 invalid-assignment = "ignore"
@@ -221,4 +221,3 @@ include = ["meteor_core", "meteor_core.*"]
 
 [tool.setuptools.package-data]
 "meteor_core" = ["templates/*.md.j2", "locales/**/*.yaml"]
-

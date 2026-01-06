@@ -17,6 +17,7 @@ class HookRegistry(PluginRegistryBase[BaseHook]):
     """Registry for pipeline hook plugins."""
 
     _plugin_kind = _PLUGIN_KIND_HOOK
+    _is_valid_plugin = staticmethod(_is_valid_hook)
 
     @classmethod
     def _discover_internal(cls) -> Dict[str, Type[BaseHook]]:
@@ -24,10 +25,6 @@ class HookRegistry(PluginRegistryBase[BaseHook]):
         from .discovery import _discover_handlers_internal
 
         return _discover_handlers_internal()
-
-    @classmethod
-    def _is_valid_plugin(cls, plugin_cls: Type[BaseHook]) -> bool:
-        return _is_valid_hook(plugin_cls)
 
     @classmethod
     def create(

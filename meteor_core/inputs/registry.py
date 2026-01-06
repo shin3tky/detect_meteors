@@ -62,6 +62,7 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
     """
 
     _plugin_kind = _PLUGIN_KIND_INPUT
+    _is_valid_plugin = staticmethod(_is_valid_input_loader)
 
     @classmethod
     def _discover_internal(cls) -> Dict[str, Type[BaseInputLoader]]:
@@ -70,10 +71,6 @@ class LoaderRegistry(PluginRegistryBase[BaseInputLoader]):
         from .discovery import _discover_handlers_internal
 
         return _discover_handlers_internal()
-
-    @classmethod
-    def _is_valid_plugin(cls, loader_cls: Type[BaseInputLoader]) -> bool:
-        return _is_valid_input_loader(loader_cls)
 
     # ========================================
     # Instantiation
