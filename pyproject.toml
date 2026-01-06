@@ -194,7 +194,7 @@ no-matching-overload = "ignore"     # 18 occurrences - Overload resolution
 # -----------------------------------------------
 invalid-method-override = "warn"
 too-many-positional-arguments = "warn"
-call-non-callable = "ignore"
+call-non-callable = "warn"
 invalid-assignment = "ignore"
 
 # -----------------------------------------------
