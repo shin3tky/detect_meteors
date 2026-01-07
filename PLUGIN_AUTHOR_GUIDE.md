@@ -2796,6 +2796,8 @@ class MyPluginConfig:
 #### Step 3: Implement the Plugin Class
 
 ```python
+from meteor_core.schema import InputContext
+
 class MyPlugin(DataclassInputLoader[MyPluginConfig]):
     plugin_name = "my_plugin"  # Required
     name = "My Plugin"         # Optional
@@ -2804,7 +2806,7 @@ class MyPlugin(DataclassInputLoader[MyPluginConfig]):
 
     def load(self, filepath: str) -> InputContext:
         # Implementation
-        pass
+        ...
 ```
 
 #### Step 4: Register the Plugin
@@ -2827,7 +2829,7 @@ my_plugin = "my_package:MyPlugin"
 # Save as ~/.detect_meteors/input_plugins/my_plugin.py
 ```
 
-### 6.2 Testing Your Plugin
+### 7.2 Testing Your Plugin
 
 #### Unit Test Example
 
@@ -2877,7 +2879,7 @@ def test_plugin_in_pipeline():
     assert loader.config.option1 == "test"
 ```
 
-### 6.3 Debugging Tips
+### 7.3 Debugging Tips
 
 **Enable verbose logging**:
 ```python
