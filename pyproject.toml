@@ -11,7 +11,7 @@
 # ==========================================
 [project]
 name = "detect-meteors"
-version = "1.6.6"
+version = "1.6.8"
 description = "Automated meteor detection in RAW astrophotography images using frame-to-frame difference analysis"
 readme = "README.md"
 license = "Apache-2.0"
