@@ -192,7 +192,7 @@ no-matching-overload = "ignore"     # 18 occurrences - Overload resolution
 # -----------------------------------------------
 # Medium priority
 # -----------------------------------------------
-invalid-method-override = "warn"
+invalid-method-override = "error"
 too-many-positional-arguments = "warn"
 call-non-callable = "warn"
 invalid-assignment = "warn"
