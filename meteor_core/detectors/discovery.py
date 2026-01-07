@@ -14,7 +14,7 @@ import inspect
 import logging
 import warnings
 from pathlib import Path
-from typing import Dict, Iterable, Type
+from typing import Dict, Iterable, Type, cast
 
 try:  # pragma: no cover - fallback for older Python
     from importlib import metadata
@@ -55,7 +55,7 @@ def _iter_entry_points() -> Iterable[metadata.EntryPoint]:
 
 def _add_detector(
     registry: Dict[str, Type[BaseDetector]],
-    detector_cls: Type[BaseDetector],
+    detector_cls: type,
     origin: str,
 ) -> None:
     """Add a detector class to the registry if valid.
@@ -96,6 +96,8 @@ def _add_detector(
                 stacklevel=3,
             )
         return
+
+    detector_cls = cast(Type[BaseDetector], detector_cls)
 
     # Get plugin_name from the class
     plugin_name = getattr(detector_cls, "plugin_name", "")

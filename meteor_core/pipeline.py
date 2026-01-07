@@ -66,7 +66,7 @@ from .inputs.base import supports_metadata_extraction
 from .hooks import HookRegistry
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, DetectorRegistry
-from .utils import _display_width, _pad_label
+from .utils import _display_width, _pad_label, ensure_numpy
 from .outputs import (
     BaseOutputHandler,
     OutputHandlerRegistry,
@@ -1927,7 +1927,8 @@ class MeteorDetectionPipeline:
 
         if profile:
             timing["first_load"] = time.time() - t_load
-        prev_img = prev_context.image_data
+        prev_img = ensure_numpy(prev_context.image_data)
+        prev_context.image_data = prev_img
         height, width = prev_img.shape
 
         # ROI setup

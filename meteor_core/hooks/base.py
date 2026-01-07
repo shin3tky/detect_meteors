@@ -172,7 +172,7 @@ class PydanticHook(BaseHook[ConfigType], Generic[ConfigType]):
         )
 
 
-def _is_valid_hook(cls: type[BaseHook]) -> bool:
+def _is_valid_hook(cls: type) -> bool:
     try:
         require_plugin_name(cls, kind="hook")
     except ValueError:

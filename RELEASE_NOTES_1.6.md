@@ -1,5 +1,240 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.8 (2026-01-07) 🌿
+
+### 🔍 Static Type Checking with ty
+
+Version 1.6.8 introduces Astral's `ty` type checker to the development toolchain, establishing a foundation for robust plugin development. This release resolves type-checking issues across all plugin registries, improving stability for third-party plugin authors.
+
+### Highlights
+
+- **ty type checker integration**: Rust-based static type checker from Astral (creators of Ruff and uv)
+- **Plugin type safety**: Resolved type-checking issues across detector, hook, input, and output registries
+- **Worker limit configuration**: `MAX_NUM_WORKERS` constant with validation in pipeline and CLI
+- **CI optimization**: Switched to `ubuntu-slim` for faster GitHub Actions builds
+
+### Why This Change?
+
+As the plugin ecosystem matures toward v2.0, type safety becomes critical for plugin authors:
+
+| Aspect | Before (v1.6.7) | After (v1.6.8) |
+|--------|-----------------|----------------|
+| **Type checking** | Runtime only | Static analysis with ty |
+| **Plugin registries** | Generic typing issues | Typed factory casts |
+| **Method overrides** | Potential conflicts | Validator callable pattern |
+| **Pre-commit hooks** | Ruff only | Ruff + ty |
+
+Benefits:
+1. **Early error detection**: Type errors caught before runtime
+2. **Plugin author confidence**: Clear type contracts for custom plugins
+3. **IDE support**: Better autocomplete and error highlighting
+4. **Documentation**: Types serve as inline documentation
+
+### ty Configuration
+
+The `ty` type checker is configured in `pyproject.toml` with graduated rule enforcement:
+
+**Error-level rules** (must be fixed):
+| Rule | Description |
+|------|-------------|
+| `invalid-return-type` | Return type doesn't match declaration |
+| `invalid-method-override` | Override signature incompatible with base |
+
+**Warning-level rules** (should be reviewed):
+| Rule | Description |
+|------|-------------|
+| `invalid-assignment` | Assigned value doesn't match declared type |
+| `call-non-callable` | Attempting to call a non-callable object |
+| `too-many-positional-arguments` | More positional args than parameters |
+| `invalid-argument-type` | Argument type doesn't match parameter |
+
+### Plugin Registry Improvements
+
+All plugin registries now use typed factory casts and validator callables:
+
+```python
+# Before: Generic typing issues in registries
+class DetectorRegistry(PluginRegistryBase):
+    def _validate_plugin(self, plugin_class):
+        # Potential type conflicts with base class
+        ...
+
+# After: Typed factory pattern
+class DetectorRegistry(PluginRegistryBase[Type[BaseDetector]]):
+    def __init__(self):
+        super().__init__(validator=self._validate_detector)
+    
+    def _validate_detector(self, plugin_class: type) -> bool:
+        # Clean validation without override conflicts
+        return issubclass(plugin_class, BaseDetector)
+```
+
+**Changes across registries**:
+
+| Registry | Changes |
+|----------|---------|
+| `DetectorRegistry` | Typed factory casts, validator callable |
+| `LoaderRegistry` | Typed factory casts, validator callable |
+| `OutputHandlerRegistry` | Typed factory casts, validator callable |
+| `HookRegistry` | Typed factory casts, hook validation typing |
+
+### OutputWriter Alignment
+
+`OutputWriter.save_candidate` now returns `OutputResult` with explicit parameters, aligning with `BaseOutputHandler`:
+
+```python
+# Before: Implicit return type
+def save_candidate(self, source_path, filename, ...) -> OutputResult:
+    # ... save logic ...
+    return OutputResult(saved=True, output_path=dest_path)
+
+# After: Explicit parameter alignment with base class
+def save_candidate(
+    self,
+    source_path: str,
+    filename: str,
+    output_folder: str,
+    score: float,
+    aspect_ratio: float,
+    debug_image: Optional[np.ndarray] = None,
+    debug_folder: Optional[str] = None,
+) -> OutputResult:
+    # Full signature matches BaseOutputHandler
+    ...
+```
+
+### ROI Selection Type Safety
+
+ROI selection now enforces numpy-backed image data:
+
+```python
+# Pipeline ensures numpy array before ROI selection
+from meteor_core.utils import ensure_numpy
+
+image_data = ensure_numpy(input_context.image_data)
+roi_mask = select_roi(image_data)  # Guaranteed np.ndarray
+```
+
+### i18n Locale Handling
+
+Locale handling now accepts optional locales with normalization:
+
+```python
+# Before: Strict locale matching
+def get_message(key: str, locale: str) -> str:
+    ...
+
+# After: Optional locale with fallback normalization
+def get_message(key: str, locale: Optional[str] = None) -> str:
+    normalized_locale = normalize_locale(locale)  # "en_US" -> "en"
+    ...
+```
+
+### MAX_NUM_WORKERS Configuration
+
+New constant exported from `meteor_core`:
+
+```python
+from meteor_core import MAX_NUM_WORKERS
+
+# Default: 16 (reasonable limit for most systems)
+# Pipeline config validation enforces this limit
+# CLI --workers help text displays the limit
+```
+
+**Validation in PipelineConfig**:
+```python
+@dataclass
+class PipelineConfig:
+    num_workers: int = 4
+    
+    def __post_init__(self):
+        if self.num_workers > MAX_NUM_WORKERS:
+            raise MeteorConfigError(
+                f"num_workers ({self.num_workers}) exceeds MAX_NUM_WORKERS ({MAX_NUM_WORKERS})"
+            )
+```
+
+### Development Workflow
+
+#### Running ty
+
+```bash
+# Run ty type checker
+uv run ty check
+
+# Run via pre-commit
+uv run pre-commit run ty-check --all-files
+```
+
+#### Pre-commit Configuration
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      # ... ruff hooks ...
+      - id: ty-check
+        name: ty type check
+        entry: .venv/bin/ty check
+        language: system
+        types: [python]
+        pass_filenames: false
+```
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `pyproject.toml` | Added `[tool.ty]` configuration, updated dependencies |
+| `.pre-commit-config.yaml` | Added ty-check hook |
+| `meteor_core/detectors/registry.py` | Typed factory casts, validator callable |
+| `meteor_core/inputs/registry.py` | Typed factory casts, validator callable |
+| `meteor_core/outputs/registry.py` | Typed factory casts, validator callable |
+| `meteor_core/hooks/registry.py` | Typed factory casts, hook validation typing |
+| `meteor_core/outputs/writer.py` | `save_candidate` return type alignment |
+| `meteor_core/pipeline.py` | ROI numpy enforcement, MAX_NUM_WORKERS validation |
+| `meteor_core/i18n.py` | Optional locale handling with normalization |
+| `meteor_core/__init__.py` | Export `MAX_NUM_WORKERS` |
+| `.github/workflows/python-test.yml` | Changed to `ubuntu-slim` |
+| `CHANGELOG.md` | Added v1.6.8 entry |
+| `README.md` | Updated "What's New" section |
+
+### Backward Compatibility
+
+✅ **Fully backward compatible** with v1.6.7 and earlier:
+
+- **CLI**: No changes to command-line interface
+- **Runtime**: No changes to detection behavior
+- **API**: All existing code works unchanged
+- **Plugins**: Existing plugins work unchanged; type improvements are internal
+
+### Migration Guide for Plugin Authors
+
+**No migration required.** This release improves internal type safety without changing public APIs.
+
+**Recommended for plugin authors**:
+
+1. **Run ty on your plugins** to catch type errors early:
+   ```bash
+   uv add ty --dev
+   uv run ty check your_plugin/
+   ```
+
+2. **Use explicit type hints** in your plugin implementations:
+   ```python
+   from meteor_core.schema import DetectionContext, DetectionResult
+   
+   def detect(self, context: DetectionContext) -> DetectionResult:
+       # ty will validate your implementation
+       ...
+   ```
+
+3. **Match base class signatures exactly** when overriding methods to avoid `invalid-method-override` errors.
+
+---
+
 ## Version 1.6.7 (2025-12-29) 🎂
 
 ### 📋 Roadmap Breakdown and Python Version Clarification
@@ -1408,7 +1643,16 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
-### v1.6.7 (Latest) 🎂
+### v1.6.8 (Latest) 🌿
+- **Version**: 1.6.8
+- **Release Date**: 2026-01-07
+- **Major Changes**:
+  - Static type checking with ty (Astral's Rust-based type checker)
+  - Plugin type safety improvements across all registries
+  - MAX_NUM_WORKERS constant with pipeline/CLI validation
+  - CI optimization with ubuntu-slim runner
+
+### v1.6.7 🎂
 - **Version**: 1.6.7
 - **Release Date**: 2025-12-29
 - **Major Changes**:
@@ -1493,4 +1737,4 @@ This release only affects the development toolchain. Users who install the packa
 **Python**: 3.12, 3.13  
 **Recommendation**: Use pipeline hooks for cross-cutting concerns like file filtering, preprocessing, and notifications; use configuration files (`--config`) for reproducible setups
 
-Happy meteor hunting! 🌠🎂
+Happy meteor hunting! 🌠🌿

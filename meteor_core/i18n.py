@@ -13,7 +13,7 @@ from importlib import resources
 from logging import Logger
 from numbers import Number
 from string import Template
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Mapping, cast
 
 import yaml
 
@@ -86,11 +86,11 @@ def _load_catalog(locale: str) -> Dict[str, str]:
     return _flatten_messages(raw_catalog)
 
 
-def _coerce_number(value: Any) -> int | Number | None:
+def _coerce_number(value: Any) -> Number | None:
     if isinstance(value, Number):
         return value
     try:
-        return int(str(value))
+        return cast(Number, int(str(value)))
     except (TypeError, ValueError):
         return None
 
@@ -208,7 +208,7 @@ def _format_template(template: str, params: Mapping[str, Any], locale: str) -> s
 def get_message(
     key: str,
     *,
-    locale: str = DEFAULT_LOCALE,
+    locale: str | None = DEFAULT_LOCALE,
     params: Mapping[str, Any] | None = None,
     **kwargs: Any,
 ) -> str:
@@ -219,8 +219,9 @@ def get_message(
         merged_params.update(params)
     merged_params.update(kwargs)
 
+    resolved_locale = _normalize_locale(locale)
     template: str | None = None
-    for candidate in _candidate_locales(locale):
+    for candidate in _candidate_locales(resolved_locale):
         catalog = _load_catalog(candidate)
         if key in catalog:
             template = catalog[key]
@@ -229,14 +230,14 @@ def get_message(
     if template is None:
         template = key
 
-    return _format_template(template, merged_params, locale)
+    return _format_template(template, merged_params, resolved_locale)
 
 
 def log_warning(
     logger: Logger,
     key: str,
     *,
-    locale: str = DEFAULT_LOCALE,
+    locale: str | None = DEFAULT_LOCALE,
     params: Mapping[str, Any] | None = None,
     **kwargs: Any,
 ) -> None:

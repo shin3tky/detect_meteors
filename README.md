@@ -14,8 +14,6 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
->[!NOTE]
->**Quadrantids**: Peak around **2026-01-04 (predawn)** - short active period and sharp peak.
 
 ## Features
 
@@ -166,12 +164,13 @@ pipeline.run()
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.7 🎂
+## What's New in v1.6.8 🌿
 
-- **Roadmap breakdown**: Detailed v2.0/v3.0 roadmap with categorized milestones
-  - v2.x: Pipeline Modularity, Plugin Ecosystem Expansion, Integration & Interop
-  - v3.x: ML-based Detection, Intelligent Post-processing, Performance & Deployment
-- **Python version clarification**: Explicitly supported versions are Python 3.12 and 3.13
+- **Static type checking with ty**: Integrated Astral's `ty` type checker for plugin development stability
+  - Pre-commit hook integration for automatic type checking
+  - Graduated rule enforcement (errors vs warnings)
+- **Plugin type safety**: Resolved type-checking issues across all plugin registries
+- **Worker limit configuration**: `MAX_NUM_WORKERS` constant with pipeline/CLI validation
 
 For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
 

@@ -192,6 +192,15 @@
   - [x] `PipelineConfig.hooks` and `hook_error_mode` for programmatic control
   - [x] Updated Plugin Author Guide with comprehensive hook documentation
 
+### Static Type Checking
+- [x] **v1.6.8** - ty type checker integration for plugin stability
+  - [x] Astral's `ty` type checker configuration in `pyproject.toml`
+  - [x] Pre-commit hook integration for automatic type checking
+  - [x] Graduated rule enforcement (error vs warning levels)
+  - [x] Plugin registry type safety improvements (detector, hook, input, output)
+  - [x] Typed factory casts and validator callable pattern
+  - [x] `MAX_NUM_WORKERS` constant with pipeline/CLI validation
+
 ### Pending (Deferred from v1.x)
 The following features were originally planned for v1.x but have been deferred:
 
@@ -248,5 +257,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.7 (Roadmap Breakdown)
+**Current Status**: v1.6.8 (Static Type Checking)
 **Next Focus**: v2.0 Architecture and Extensibility - Pipeline modularity and plugin ecosystem

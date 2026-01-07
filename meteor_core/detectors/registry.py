@@ -23,7 +23,7 @@ method raises when that contract is not met.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Protocol, Type, Union, cast
 
 from ..plugin_registry import _PLUGIN_KIND_DETECTOR
 from ..plugin_registry_base import PluginRegistryBase
@@ -32,6 +32,10 @@ from .base import BaseDetector, _is_valid_detector
 
 # Module-level logger for registry operations
 logger = logging.getLogger(__name__)
+
+
+class _DetectorFactory(Protocol):
+    def __call__(self, config: Any) -> BaseDetector: ...
 
 
 class DetectorRegistry(PluginRegistryBase[BaseDetector]):
@@ -68,6 +72,7 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
     """
 
     _plugin_kind = _PLUGIN_KIND_DETECTOR
+    _is_valid_plugin = staticmethod(_is_valid_detector)
 
     @classmethod
     def _discover_internal(cls) -> Dict[str, Type[BaseDetector]]:
@@ -76,10 +81,6 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
         from .discovery import _discover_handlers_internal
 
         return _discover_handlers_internal()
-
-    @classmethod
-    def _is_valid_plugin(cls, detector_cls: Type[BaseDetector]) -> bool:
-        return _is_valid_detector(detector_cls)
 
     # ========================================
     # Instantiation
@@ -130,7 +131,8 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
             raise
 
         try:
-            instance = detector_cls(coerced_config)
+            detector_factory = cast(_DetectorFactory, detector_cls)
+            instance = detector_factory(coerced_config)
         except Exception as exc:
             logger.error(
                 "Failed to instantiate detector '%s' (%s): %s: %s",
@@ -198,7 +200,8 @@ class DetectorRegistry(PluginRegistryBase[BaseDetector]):
             )
 
         try:
-            instance = detector_cls(coerced_config)
+            detector_factory = cast(_DetectorFactory, detector_cls)
+            instance = detector_factory(coerced_config)
         except Exception as exc:
             logger.error(
                 "Failed to instantiate default detector '%s' (%s): %s: %s",

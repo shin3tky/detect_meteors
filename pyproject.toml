@@ -11,7 +11,7 @@
 # ==========================================
 [project]
 name = "detect-meteors"
-version = "1.6.6"
+version = "1.6.8"
 description = "Automated meteor detection in RAW astrophotography images using frame-to-frame difference analysis"
 readme = "README.md"
 license = "Apache-2.0"
@@ -53,7 +53,7 @@ dependencies = [
     "opencv-python>=4.12.0",
     "rawpy>=0.25.1",
     "psutil>=7.2.1",
-    "pillow>=12.0.0",
+    "pillow>=12.1.0",
     "pydantic>=2.12.5",
     "pyyaml>=6.0.3",
 ]
@@ -61,7 +61,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff==0.14.10",
-    "ty>=0.0.8",
+    "ty>=0.0.9",
     "pre-commit>=4.5.1",
     "coverage>=7.13.1",
 ]
@@ -177,25 +177,25 @@ include = ["meteor_core", "detect_meteors_cli.py"]
 # -----------------------------------------------
 # Note: unresolved-import demoted to warn for optional deps (torch)
 unresolved-import = "warn"
-invalid-return-type = "warn"
+invalid-return-type = "error"
 invalid-base = "error"
 
 # -----------------------------------------------
 # High-noise rules - ignore for Phase 1
 # These require significant refactoring to fix
 # -----------------------------------------------
-invalid-argument-type = "ignore"    # 116 occurrences - Optional narrowing
+invalid-argument-type = "warn"
 not-subscriptable = "ignore"        # 78 occurrences - Union type access
 unresolved-attribute = "ignore"     # 53 occurrences - Dynamic attributes
 no-matching-overload = "ignore"     # 18 occurrences - Overload resolution
 
 # -----------------------------------------------
-# Medium priority - ignore for now
+# Medium priority
 # -----------------------------------------------
-invalid-method-override = "ignore"
-too-many-positional-arguments = "ignore"
-call-non-callable = "ignore"
-invalid-assignment = "ignore"
+invalid-method-override = "error"
+too-many-positional-arguments = "warn"
+call-non-callable = "warn"
+invalid-assignment = "warn"
 
 # -----------------------------------------------
 # Default-enabled rules - ignore for Phase 1
@@ -210,7 +210,7 @@ include = ["tests/**"]
 
 [tool.ty.overrides.rules]
 unresolved-import = "warn"
-invalid-return-type = "warn"
+invalid-return-type = "error"
 invalid-base = "warn"
 
 # ==========================================
@@ -221,4 +221,3 @@ include = ["meteor_core", "meteor_core.*"]
 
 [tool.setuptools.package-data]
 "meteor_core" = ["templates/*.md.j2", "locales/**/*.yaml"]
-

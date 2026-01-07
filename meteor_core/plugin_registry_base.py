@@ -11,7 +11,18 @@ from __future__ import annotations
 import logging
 import warnings
 from dataclasses import is_dataclass
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from .plugin_registry import _PLUGIN_KIND_GENERIC
 
@@ -19,6 +30,10 @@ from .plugin_registry import _PLUGIN_KIND_GENERIC
 logger = logging.getLogger(__name__)
 
 PluginType = TypeVar("PluginType")
+
+
+def _invalid_plugin(_: type) -> bool:
+    raise NotImplementedError
 
 
 class PluginRegistryBase(Generic[PluginType]):
@@ -62,9 +77,7 @@ class PluginRegistryBase(Generic[PluginType]):
     def _discover_internal(cls) -> Dict[str, Type[PluginType]]:
         raise NotImplementedError
 
-    @classmethod
-    def _is_valid_plugin(cls, plugin_cls: Type[PluginType]) -> bool:
-        raise NotImplementedError
+    _is_valid_plugin: ClassVar[Callable[[type], bool]] = staticmethod(_invalid_plugin)
 
     @classmethod
     def discover(cls, force: bool = False) -> Dict[str, Type[PluginType]]:

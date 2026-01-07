@@ -85,6 +85,20 @@ uv run ruff format .             # Format
 uv run ruff format --check .     # Check format without changing
 ```
 
+### Type Checking
+
+This project uses [ty](https://docs.astral.sh/ty/) for type checking:
+
+```bash
+# Run type checker
+uv run ty check
+
+# Check specific file or directory
+uv run ty check meteor_core/
+```
+
+Type checking rules are configured in `pyproject.toml` under `[tool.ty]`.
+
 ## Running Tests
 
 ### Using the Test Runner
@@ -157,7 +171,7 @@ uv run coverage html
 | `test_infrastructure_v1x.py` | 25 | ROI, progress, file collection |
 | `test_integration_v1x.py` | 44 | End-to-end meteor detection |
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch sizing |
-| `test_pipeline_execution_v1x.py` | 4 | Pipeline execution and results |
+| `test_pipeline_execution_v1x.py` | 7 | Pipeline execution and results |
 | `test_pipeline_helpers_v1x.py` | 12 | Pipeline helpers |
 
 #### Plugins, registries, and contracts
@@ -185,7 +199,7 @@ uv run coverage html
 | `test_utils_display_width_v1x.py` | 3 | Unicode display width helpers |
 | `test_utils_roi_hash_v1x.py` | 5 | ROI hash utilities |
 
-**Total: 569 tests**
+**Total: 572 tests**
 
 ## Code Style
 
