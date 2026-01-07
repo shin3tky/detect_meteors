@@ -18,7 +18,7 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 ## Features
 
 - **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata and scientifically tunes detection parameters
-- **Scientifically validated**: 100% detection rate on real-world test dataset (OM Digital OM-1, 1000+ RAW images)
+- **Field-tested**: 100% detection rate on real-world test dataset (OM Digital OM-1, 1000+ RAW images)
 - **RAW format support**: Works with any format supported by [`rawpy`](https://github.com/letmaik/rawpy)
 - **Intelligent processing**: ROI cropping, Hough transform line detection, resumable batch processing
 - **High performance**: ~0.18 sec/image with multi-core parallel processing
