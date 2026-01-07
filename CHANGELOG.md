@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.6.8 - 2026-01-07 - 🌿 Festival of Seven Herbs
+- **Static type checking with ty**: Integrated Astral's `ty` type checker for enhanced plugin development stability.
+  - Added `ty` configuration in `pyproject.toml` with graduated rule enforcement.
+  - Pre-commit hook integration for automatic type checking.
+  - Error-level rules: `invalid-return-type`, `invalid-method-override`.
+  - Warning-level rules: `invalid-assignment`, `call-non-callable`, `too-many-positional-arguments`, `invalid-argument-type`.
+- **Plugin type safety improvements**: Resolved type-checking issues across all plugin registries.
+  - Typed factory casts in detector, hook, input, and output registries.
+  - Validator callables pattern to avoid method override conflicts.
+  - `OutputWriter.save_candidate` return type aligned with `BaseOutputHandler`.
+  - ROI selection enforces numpy-backed image data.
+  - i18n locale handling accepts optional locales with normalization.
+- **Worker limit configuration**: Added `MAX_NUM_WORKERS` constant (exported from `meteor_core`).
+  - Pipeline config validation enforces maximum worker count.
+  - CLI `--workers` help text displays the enforced limit.
+- **CI improvement**: Switched GitHub Actions runner from `ubuntu-latest` to `ubuntu-slim` for faster builds.
+- **Dependency updates**: Updated `pillow` and `ty` packages.
+
+
 ## v1.6.7 - 2025-12-29 - 🎂 shin3tky's Birthday
 - **Roadmap breakdown**: Detailed v2.0/v3.0 roadmap with categorized milestones.
   - v2.x "Architecture and Extensibility": Pipeline Modularity, Plugin Ecosystem Expansion, Integration & Interop.
