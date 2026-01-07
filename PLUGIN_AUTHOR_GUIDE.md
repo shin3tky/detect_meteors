@@ -2,7 +2,7 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.6.6)**:
+> **Current status (v1.6.8)**:
 >
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
@@ -11,6 +11,8 @@
 > - ✅ **CLI plugin selection** with `--input-loader`, `--detector`, `--output-handler` (v1.6.5)
 > - ✅ **Pipeline hook system** with `on_file_found`, `on_image_loaded`, `on_detection_complete`, `on_output_saved` (v1.6.6)
 > - ✅ **HookRegistry** for centralized hook discovery and management (v1.6.6)
+> - ✅ **Static type checking with ty** integrated in development toolchain (v1.6.8)
+> - ✅ **MAX_NUM_WORKERS** constant for worker limit validation (v1.6.8)
 > - ⚠️ Detector/runtime parameter contracts may still evolve
 > - ⚠️ `on_batch_complete` and `on_pipeline_complete` hooks reserved for future releases
 
@@ -2607,6 +2609,159 @@ class MyHandler(DataclassOutputHandler[MyConfig]):
         with self._lock:
             self._count += 1
 ```
+
+### 6.7 Type Safety with ty
+
+As of v1.6.8, the project uses [ty](https://docs.astral.sh/ty/) (Astral's Rust-based type checker) for static type analysis. Plugin authors are encouraged to use ty to catch type errors early.
+
+#### Running ty on Your Plugin
+
+```bash
+# Install ty (if not already installed)
+uv add ty --dev
+
+# Run type checker on your plugin
+uv run ty check your_plugin/
+
+# Or via pre-commit
+uv run pre-commit run ty-check --all-files
+```
+
+#### Type Hints Best Practices
+
+**Do**:
+- Use explicit type hints for all public methods:
+  ```python
+  from meteor_core.schema import DetectionContext, DetectionResult
+  
+  def detect(self, context: DetectionContext) -> DetectionResult:
+      # ty will validate your implementation
+      ...
+  ```
+
+- Match base class signatures exactly to avoid `invalid-method-override` errors:
+  ```python
+  # Good: Exact signature match
+  def save_candidate(
+      self,
+      source_path: str,
+      filename: str,
+      debug_image: Optional[np.ndarray] = None,
+      roi_polygon: Optional[List[List[int]]] = None,
+  ) -> OutputResult:
+      ...
+  ```
+
+- Import types from `meteor_core.schema` for contract compliance:
+  ```python
+  from meteor_core.schema import (
+      InputContext,
+      DetectionContext,
+      DetectionResult,
+      OutputResult,
+      RuntimeParams,
+  )
+  ```
+
+**Don't**:
+- Omit return type annotations for public methods
+- Use incompatible parameter types when overriding base class methods
+- Ignore ty errors—they often indicate real issues
+
+#### Common ty Errors and Fixes
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `invalid-return-type` | Return type doesn't match declaration | Check return statement matches declared type |
+| `invalid-method-override` | Override signature incompatible with base | Match base class parameter types exactly |
+| `invalid-assignment` | Assigned value doesn't match declared type | Use correct type or add type narrowing |
+| `call-non-callable` | Attempting to call non-callable | Ensure object is callable before calling |
+
+#### Example: Type-Safe Detector
+
+```python
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple, Any
+
+import numpy as np
+
+from meteor_core.detectors import DataclassDetector
+from meteor_core.schema import DetectionContext, DetectionResult
+from meteor_core.utils import ensure_numpy
+
+
+@dataclass
+class MyDetectorConfig:
+    threshold: float = 0.5
+
+
+class MyDetector(DataclassDetector[MyDetectorConfig]):
+    plugin_name = "my_detector"
+    ConfigType = MyDetectorConfig
+
+    def detect(self, context: DetectionContext) -> DetectionResult:
+        # Type-safe image conversion
+        current: np.ndarray = ensure_numpy(context.current_image)
+        previous: np.ndarray = ensure_numpy(context.previous_image)
+
+        # Type-safe parameter extraction
+        global_params, detector_params = self.split_runtime_params(
+            context.runtime_params
+        )
+
+        # ... detection logic ...
+
+        return DetectionResult(
+            is_candidate=True,
+            score=85.0,
+            lines=[(10, 20, 100, 120)],
+            aspect_ratio=3.5,
+            debug_image=None,
+            extras={},
+            metrics={"duration_ms": 15.2},
+        )
+
+    def compute_line_score(
+        self,
+        mask: np.ndarray,
+        hough_params: Dict[str, int],
+    ) -> Tuple[float, List[Tuple[int, int, int, int]]]:
+        # Implementation with correct return type
+        return 0.0, []
+```
+
+### 6.8 Worker Limit Configuration
+
+As of v1.6.8, the `MAX_NUM_WORKERS` constant is exported from `meteor_core` and enforced in `PipelineConfig`:
+
+```python
+from meteor_core import MAX_NUM_WORKERS
+
+# Default: 16 (reasonable limit for most systems)
+print(f"Maximum workers allowed: {MAX_NUM_WORKERS}")
+```
+
+**PipelineConfig validation**:
+
+When creating a `PipelineConfig`, the `num_workers` value is validated against `MAX_NUM_WORKERS`:
+
+```python
+from meteor_core.schema import PipelineConfig
+from meteor_core.exceptions import MeteorConfigError
+
+# This will raise MeteorConfigError if num_workers > MAX_NUM_WORKERS
+config = PipelineConfig(
+    target_folder="./raw",
+    output_folder="./candidates",
+    num_workers=32,  # Raises if > MAX_NUM_WORKERS
+)
+```
+
+**Plugin author considerations**:
+
+- Do not assume unlimited worker processes are available
+- Design plugins to be stateless or thread-safe (see [6.6 Thread Safety](#66-thread-safety))
+- Use `MAX_NUM_WORKERS` when documenting performance recommendations
 
 ---
 
