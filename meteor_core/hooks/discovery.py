@@ -14,7 +14,7 @@ import inspect
 import logging
 import warnings
 from pathlib import Path
-from typing import Dict, Iterable, Type
+from typing import Dict, Iterable, Type, cast
 
 try:  # pragma: no cover - fallback for older Python
     from importlib import metadata
@@ -53,7 +53,7 @@ def _iter_entry_points() -> Iterable[metadata.EntryPoint]:
 
 def _add_hook(
     registry: Dict[str, Type[BaseHook]],
-    hook_cls: Type[BaseHook],
+    hook_cls: type,
     origin: str,
 ) -> None:
     """Add a hook class to the registry if valid.
@@ -94,6 +94,8 @@ def _add_hook(
                 stacklevel=3,
             )
         return
+
+    hook_cls = cast(Type[BaseHook], hook_cls)
 
     # Get plugin_name from the class
     plugin_name = getattr(hook_cls, "plugin_name", "")

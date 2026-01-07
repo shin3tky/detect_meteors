@@ -184,7 +184,7 @@ invalid-base = "error"
 # High-noise rules - ignore for Phase 1
 # These require significant refactoring to fix
 # -----------------------------------------------
-invalid-argument-type = "ignore"    # 116 occurrences - Optional narrowing
+invalid-argument-type = "warn"    # 116 occurrences - Optional narrowing
 not-subscriptable = "ignore"        # 78 occurrences - Union type access
 unresolved-attribute = "ignore"     # 53 occurrences - Dynamic attributes
 no-matching-overload = "ignore"     # 18 occurrences - Overload resolution
