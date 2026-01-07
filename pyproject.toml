@@ -177,7 +177,7 @@ include = ["meteor_core", "detect_meteors_cli.py"]
 # -----------------------------------------------
 # Note: unresolved-import demoted to warn for optional deps (torch)
 unresolved-import = "warn"
-invalid-return-type = "warn"
+invalid-return-type = "error"
 invalid-base = "error"
 
 # -----------------------------------------------
@@ -210,7 +210,7 @@ include = ["tests/**"]
 
 [tool.ty.overrides.rules]
 unresolved-import = "warn"
-invalid-return-type = "warn"
+invalid-return-type = "error"
 invalid-base = "warn"
 
 # ==========================================
