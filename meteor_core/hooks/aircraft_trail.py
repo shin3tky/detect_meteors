@@ -1,4 +1,9 @@
-"""Hook for aircraft light trail metadata."""
+"""Hook for aircraft light trail metadata.
+
+This module aggregates heuristics for tracking consecutive line detections that
+look like aircraft light trails. The hook maintains lightweight state across
+frames and annotates detection results with likelihood evidence.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +17,23 @@ from ..schema import DetectionContext, DetectionResult
 
 @dataclass
 class _TrackState:
+    """Track state for a candidate aircraft trail.
+
+    Attributes:
+        track_id: Unique identifier for the track.
+        last_start: The most recent line start point (x, y).
+        last_end: The most recent line end point (x, y).
+        last_angle_deg: The most recent line angle in degrees.
+        last_midpoint: The most recent line midpoint (x, y).
+        last_frame_index: Frame index of the most recent observation.
+        frames: Number of frames matched to this track.
+        last_speed: Last observed midpoint speed in pixels per frame.
+        last_start_distance: Last start-point distance to the previous line.
+        last_end_distance: Last end-point distance to the previous line.
+        last_angle_diff: Last angular difference in degrees to the previous line.
+        last_speed_variance: Last normalized speed variance to the previous line.
+    """
+
     track_id: str
     last_start: Tuple[float, float]
     last_end: Tuple[float, float]
@@ -28,7 +50,17 @@ class _TrackState:
 
 @dataclass(frozen=True)
 class AircraftTrailConfig:
-    """Configuration defaults for aircraft light trail analysis."""
+    """Configuration defaults for aircraft light trail analysis.
+
+    Attributes:
+        min_track_frames: Minimum frames before continuity reaches full weight.
+        max_start_distance_px: Max start-point distance allowed for matching.
+        max_end_distance_px: Max end-point distance allowed for matching.
+        max_angle_diff_deg: Max angle difference allowed for matching.
+        max_speed_variance: Max normalized speed variance allowed for matching.
+        likelihood_threshold: Minimum likelihood considered as aircraft trail.
+        track_ttl_frames: Frames to keep inactive tracks before expiration.
+    """
 
     min_track_frames: int = 3
     max_start_distance_px: float = 6.0
@@ -40,7 +72,7 @@ class AircraftTrailConfig:
 
 
 class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
-    """Hook placeholder for aircraft light trail analysis."""
+    """Annotate detections with aircraft trail likelihood metadata."""
 
     plugin_name = "aircraft_trail"
     name = "Aircraft Trail"
@@ -48,6 +80,11 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
     ConfigType = AircraftTrailConfig
 
     def __init__(self, config: AircraftTrailConfig) -> None:
+        """Initialize the hook state.
+
+        Args:
+            config: Configuration values for track matching and scoring.
+        """
         super().__init__(config)
         self._tracks: Dict[str, _TrackState] = {}
         self._track_counter = 0
@@ -57,6 +94,15 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
         result: DetectionResult,
         context: DetectionContext,
     ) -> DetectionResult:
+        """Attach aircraft trail metadata to a detection result.
+
+        Args:
+            result: Detection output containing line candidates.
+            context: Context metadata for the detection pass.
+
+        Returns:
+            The updated detection result with aircraft trail metadata.
+        """
         frame_index = None
         if context.metadata and isinstance(context.metadata, dict):
             frame_index = context.metadata.get("frame_index")
@@ -112,6 +158,11 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
         return result
 
     def _expire_tracks(self, frame_index: int) -> None:
+        """Remove tracks that are too old for the current frame.
+
+        Args:
+            frame_index: Current frame index for TTL evaluation.
+        """
         ttl = self.config.track_ttl_frames
         expired = [
             track_id
@@ -129,6 +180,18 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
         midpoint: Tuple[float, float],
         frame_index: int,
     ) -> Optional[_TrackState]:
+        """Find the best matching track for the current line observation.
+
+        Args:
+            start: Line start point (x, y).
+            end: Line end point (x, y).
+            angle_deg: Line angle in degrees.
+            midpoint: Line midpoint (x, y).
+            frame_index: Current frame index.
+
+        Returns:
+            The matched track, or None if no track qualifies.
+        """
         best_track: Optional[_TrackState] = None
         best_score = float("inf")
         for track in self._tracks.values():
@@ -193,6 +256,18 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
         midpoint: Tuple[float, float],
         frame_index: int,
     ) -> _TrackState:
+        """Create a new track from the current line observation.
+
+        Args:
+            start: Line start point (x, y).
+            end: Line end point (x, y).
+            angle_deg: Line angle in degrees.
+            midpoint: Line midpoint (x, y).
+            frame_index: Current frame index.
+
+        Returns:
+            The newly created track.
+        """
         self._track_counter += 1
         track_id = f"air-{self._track_counter:04d}"
         track = _TrackState(
@@ -212,10 +287,26 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
 def _select_primary_line(
     lines: list[Tuple[int, int, int, int]],
 ) -> Tuple[int, int, int, int]:
+    """Select the longest line from a list of line candidates.
+
+    Args:
+        lines: Sequence of line endpoints (x1, y1, x2, y2).
+
+    Returns:
+        The line with the greatest length.
+    """
     return max(lines, key=_line_length)
 
 
 def _line_length(line: Tuple[int, int, int, int]) -> float:
+    """Compute the Euclidean length of a line.
+
+    Args:
+        line: Line endpoints (x1, y1, x2, y2).
+
+    Returns:
+        The line length in pixels.
+    """
     x1, y1, x2, y2 = line
     return math.hypot(x2 - x1, y2 - y1)
 
@@ -223,6 +314,15 @@ def _line_length(line: Tuple[int, int, int, int]) -> float:
 def _line_geometry(
     line: Tuple[int, int, int, int],
 ) -> Tuple[Tuple[float, float], Tuple[float, float], float, Tuple[float, float]]:
+    """Return geometric properties derived from a line.
+
+    Args:
+        line: Line endpoints (x1, y1, x2, y2).
+
+    Returns:
+        A tuple containing the start point, end point, angle in degrees, and
+        midpoint.
+    """
     x1, y1, x2, y2 = line
     start = (float(x1), float(y1))
     end = (float(x2), float(y2))
@@ -232,6 +332,14 @@ def _line_geometry(
 
 
 def _normalize_angle_deg(angle_deg: float) -> float:
+    """Normalize an angle into the [0, 180) range.
+
+    Args:
+        angle_deg: Angle in degrees.
+
+    Returns:
+        Normalized angle in degrees.
+    """
     angle = angle_deg % 180.0
     if angle < 0:
         angle += 180.0
@@ -239,6 +347,15 @@ def _normalize_angle_deg(angle_deg: float) -> float:
 
 
 def _angle_diff_deg(angle_a: float, angle_b: float) -> float:
+    """Compute the minimal angle difference between two angles.
+
+    Args:
+        angle_a: First angle in degrees.
+        angle_b: Second angle in degrees.
+
+    Returns:
+        The smallest absolute difference in degrees.
+    """
     diff = abs(angle_a - angle_b)
     if diff > 90.0:
         diff = 180.0 - diff
@@ -251,6 +368,18 @@ def _endpoint_distance(
     curr_start: Tuple[float, float],
     curr_end: Tuple[float, float],
 ) -> Tuple[float, float]:
+    """Compute the best-matching endpoint distances between two lines.
+
+    Args:
+        prev_start: Previous line start point (x, y).
+        prev_end: Previous line end point (x, y).
+        curr_start: Current line start point (x, y).
+        curr_end: Current line end point (x, y).
+
+    Returns:
+        A tuple of distances (start_distance, end_distance) using the endpoint
+        pairing that minimizes total distance.
+    """
     direct_start = math.hypot(
         curr_start[0] - prev_start[0], curr_start[1] - prev_start[1]
     )
@@ -267,6 +396,16 @@ def _speed_variance(
     midpoint: Tuple[float, float],
     frame_index: int,
 ) -> Tuple[Optional[float], Optional[float]]:
+    """Compute normalized speed variance from the previous track observation.
+
+    Args:
+        track: Track state being updated.
+        midpoint: Current line midpoint (x, y).
+        frame_index: Current frame index.
+
+    Returns:
+        A tuple containing the normalized speed variance and the computed speed.
+    """
     frame_delta = frame_index - track.last_frame_index
     if frame_delta <= 0:
         return None, None
@@ -285,6 +424,15 @@ def _speed_variance(
 def _speed_consistency(
     track: _TrackState, config: AircraftTrailConfig
 ) -> Optional[float]:
+    """Convert speed variance into a normalized consistency score.
+
+    Args:
+        track: Track state with speed variance metadata.
+        config: Configuration with maximum speed variance threshold.
+
+    Returns:
+        Consistency score in the range [0, 1], or None if unavailable.
+    """
     if track.last_speed_variance is None:
         return None
     if config.max_speed_variance <= 0:
@@ -293,6 +441,15 @@ def _speed_consistency(
 
 
 def _compute_likelihood(track: _TrackState, config: AircraftTrailConfig) -> float:
+    """Compute the likelihood that a track is an aircraft trail.
+
+    Args:
+        track: Track state to score.
+        config: Configuration values for weighting thresholds.
+
+    Returns:
+        Likelihood score in the range [0, 1].
+    """
     continuity = min(1.0, track.frames / max(1, config.min_track_frames))
     angle_score = 0.0
     start_score = 0.0
