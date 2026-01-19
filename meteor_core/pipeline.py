@@ -2366,6 +2366,7 @@ class MeteorDetectionPipeline:
                             aspect_ratio,
                             frame_index=ctx_frame_index,
                             prev_frame_index=ctx_prev_frame_index,
+                            detection_result=detection_result,
                         )
 
                     try:
@@ -2568,6 +2569,7 @@ class MeteorDetectionPipeline:
                     aspect_ratio,
                     frame_index=ctx_frame_index,
                     prev_frame_index=ctx_prev_frame_index,
+                    detection_result=detection_result,
                 )
 
             try:
