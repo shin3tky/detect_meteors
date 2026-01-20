@@ -5,15 +5,17 @@ Aircraft trail hook tests (v1.x).
 import os
 import sys
 import importlib.machinery
+import importlib.util
 import tempfile
 import types
 import unittest
 
 import numpy as np
 
-cv2_stub = types.SimpleNamespace()
-cv2_stub.__spec__ = importlib.machinery.ModuleSpec("cv2", None)
-sys.modules.setdefault("cv2", cv2_stub)
+if importlib.util.find_spec("cv2") is None:
+    cv2_stub = types.SimpleNamespace()
+    cv2_stub.__spec__ = importlib.machinery.ModuleSpec("cv2", None)
+    sys.modules.setdefault("cv2", cv2_stub)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
