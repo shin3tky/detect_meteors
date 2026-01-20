@@ -73,6 +73,9 @@ Documentation = "https://github.com/shin3tky/detect_meteors#readme"
 Issues = "https://github.com/shin3tky/detect_meteors/issues"
 Changelog = "https://github.com/shin3tky/detect_meteors/blob/main/CHANGELOG.md"
 
+[project.entry-points."detect_meteors.hook"]
+aircraft_trail = "meteor_core.hooks.aircraft_trail:AircraftTrailHook"
+
 # ==========================================
 # Ruff - Linter and Formatter
 # ==========================================
