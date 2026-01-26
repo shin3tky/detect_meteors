@@ -105,7 +105,8 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
         """
         frame_index = None
         if context.metadata and isinstance(context.metadata, dict):
-            frame_index = context.metadata.get("frame_index")
+            current_meta = context.metadata.get("current", {})
+            frame_index = current_meta.get("frame_index")
 
         if not result.lines:
             result.extras["aircraft"] = {
