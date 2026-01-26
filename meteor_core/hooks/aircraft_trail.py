@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .base import DataclassHook
 from ..schema import DetectionContext, DetectionResult
@@ -286,7 +286,7 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
 
 
 def _select_primary_line(
-    lines: list[Tuple[int, int, int, int]],
+    lines: List[Tuple[int, int, int, int]],
 ) -> Tuple[int, int, int, int]:
     """Select the longest line from a list of line candidates.
 
