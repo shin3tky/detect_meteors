@@ -79,11 +79,12 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
     version = "1.0.0"
     ConfigType = AircraftTrailConfig
 
-    def __init__(self, config: AircraftTrailConfig) -> None:
+    def __init__(self, config: Optional[AircraftTrailConfig] = None) -> None:
         """Initialize the hook state.
 
         Args:
             config: Configuration values for track matching and scoring.
+                If None, default configuration is used.
         """
         super().__init__(config)
         self._tracks: Dict[str, _TrackState] = {}
