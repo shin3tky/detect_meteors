@@ -22,7 +22,7 @@ ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
 # ==========================================
 # Version
 # ==========================================
-VERSION = "1.7.0"
+VERSION = "1.6.10"
 DETECTION_CONTEXT_SCHEMA_VERSION = 1
 DETECTION_RESULT_SCHEMA_VERSION = 1
 INPUT_CONTEXT_SCHEMA_VERSION = 1
@@ -720,6 +720,91 @@ class DetectionResult:
             "metrics": self.metrics,
             "schema_version": self.schema_version,
         }
+
+
+SORTED_DETECTION_SCHEMA_VERSION = 1
+
+
+@dataclass
+class SortedDetection:
+    """Lightweight detection record for sorted hook processing.
+
+    This dataclass provides a memory-efficient representation of detection
+    results for use in ``on_batch_results_sorted`` and ``on_all_detections_sorted``
+    hooks. It excludes image data and debug images to minimize memory usage
+    when processing large batches.
+
+    Attributes:
+        frame_index: 0-based index of the current frame.
+        prev_frame_index: 0-based index of the previous frame used for differencing.
+        filename: Base filename of the processed image.
+        filepath: Full path to the processed image file.
+        is_candidate: Whether this detection is marked as a meteor candidate.
+        score: Detection confidence score from the detector.
+        aspect_ratio: Maximum aspect ratio of detected contours.
+        lines: Detected line segments as (x1, y1, x2, y2) tuples.
+        extras: Detector-specific or hook-added auxiliary data.
+        schema_version: Schema version for future migration support.
+    """
+
+    frame_index: int
+    prev_frame_index: int
+    filename: str
+    filepath: str
+    is_candidate: bool
+    score: float
+    aspect_ratio: float
+    lines: List[Tuple[int, int, int, int]]
+    extras: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = SORTED_DETECTION_SCHEMA_VERSION
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize to dictionary for JSON/logging."""
+        return {
+            "frame_index": self.frame_index,
+            "prev_frame_index": self.prev_frame_index,
+            "filename": self.filename,
+            "filepath": self.filepath,
+            "is_candidate": self.is_candidate,
+            "score": self.score,
+            "aspect_ratio": self.aspect_ratio,
+            "lines": self.lines,
+            "extras": self.extras,
+            "schema_version": self.schema_version,
+        }
+
+    @classmethod
+    def from_detection_result(
+        cls,
+        result: DetectionResult,
+        frame_index: int,
+        prev_frame_index: int,
+        filename: str,
+        filepath: str,
+    ) -> "SortedDetection":
+        """Create a SortedDetection from a DetectionResult.
+
+        Args:
+            result: The detection result to convert.
+            frame_index: 0-based index of the current frame.
+            prev_frame_index: 0-based index of the previous frame.
+            filename: Base filename of the processed image.
+            filepath: Full path to the processed image file.
+
+        Returns:
+            A new SortedDetection instance.
+        """
+        return cls(
+            frame_index=frame_index,
+            prev_frame_index=prev_frame_index,
+            filename=filename,
+            filepath=filepath,
+            is_candidate=result.is_candidate,
+            score=result.score,
+            aspect_ratio=result.aspect_ratio,
+            lines=list(result.lines),
+            extras=dict(result.extras),
+        )
 
 
 @dataclass

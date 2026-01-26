@@ -8,11 +8,14 @@ frames and annotates detection results with likelihood evidence.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 import math
 from typing import Dict, List, Optional, Tuple
 
 from .base import DataclassHook
-from ..schema import DetectionContext, DetectionResult
+from ..schema import DetectionContext, DetectionResult, SortedDetection
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -86,59 +89,112 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
             config: Configuration values for track matching and scoring.
                 If None, default configuration is used.
         """
+        if config is None:
+            config = AircraftTrailConfig()
         super().__init__(config)
         self._tracks: Dict[str, _TrackState] = {}
         self._track_counter = 0
+        logger.debug(
+            "AircraftTrailHook initialized with config: "
+            "min_track_frames=%d, max_angle_diff_deg=%.1f, track_ttl_frames=%d",
+            self.config.min_track_frames,
+            self.config.max_angle_diff_deg,
+            self.config.track_ttl_frames,
+        )
 
     def on_detection_complete(
         self,
         result: DetectionResult,
         context: DetectionContext,
     ) -> DetectionResult:
-        """Attach aircraft trail metadata to a detection result.
+        """Pass through detection result unchanged.
+
+        Aircraft trail analysis is performed in on_all_detections_sorted
+        where frame order is guaranteed. This hook is a no-op.
 
         Args:
             result: Detection output containing line candidates.
             context: Context metadata for the detection pass.
 
         Returns:
-            The updated detection result with aircraft trail metadata.
+            The detection result unchanged.
         """
-        frame_index = None
-        if context.metadata and isinstance(context.metadata, dict):
-            current_meta = context.metadata.get("current", {})
-            frame_index = current_meta.get("frame_index")
+        return result
 
-        if not result.lines:
-            result.extras["aircraft"] = {
-                "likelihood": 0.0,
-                "track_id": None,
-                "evidence": {
-                    "track_frames": 0,
-                    "angle_diff_deg": None,
-                    "start_distance_px": None,
-                    "end_distance_px": None,
-                    "speed_consistency": None,
-                },
-            }
-            return result
+    def on_all_detections_sorted(
+        self,
+        detections: List[SortedDetection],
+    ) -> List[SortedDetection]:
+        """Analyze all detections for aircraft trail patterns.
 
-        line = _select_primary_line(result.lines)
+        This hook processes all detections sorted by frame index, enabling
+        reliable cross-frame tracking even in parallel processing mode.
+
+        Args:
+            detections: List of ALL SortedDetection objects from the pipeline,
+                sorted by frame_index in ascending order.
+
+        Returns:
+            List of updated SortedDetection objects with aircraft metadata.
+
+        Note:
+            This hook follows the "never raise" policy for pipeline hooks.
+            Errors are logged and the hook attempts to continue processing.
+            If a fatal error occurs, the input is returned unchanged.
+        """
+        logger.debug(
+            "Starting aircraft trail analysis for %d detections",
+            len(detections),
+        )
+
+        try:
+            # Reset state for this analysis pass
+            self._tracks.clear()
+            self._track_counter = 0
+
+            for detection in detections:
+                try:
+                    self._process_single_detection(detection)
+                except Exception as exc:
+                    # Log error but continue processing other detections
+                    logger.warning(
+                        "Error processing detection at frame %d (%s): %s",
+                        detection.frame_index,
+                        detection.filename,
+                        exc,
+                    )
+                    # Set default metadata for failed detection
+                    self._set_default_metadata(detection)
+
+            logger.debug(
+                "Aircraft trail analysis complete: %d tracks created",
+                len(self._tracks),
+            )
+            return detections
+
+        except Exception as exc:
+            # Fatal error - log and return input unchanged
+            logger.error(
+                "Fatal error in aircraft trail analysis, returning input unchanged: %s",
+                exc,
+                exc_info=True,
+            )
+            return detections
+
+    def _process_single_detection(self, detection: SortedDetection) -> None:
+        """Process a single detection and update its aircraft metadata.
+
+        Args:
+            detection: The detection to process.
+        """
+        frame_index = detection.frame_index
+
+        if not detection.lines:
+            self._set_default_metadata(detection)
+            return
+
+        line = _select_primary_line(detection.lines)
         start, end, angle_deg, midpoint = _line_geometry(line)
-
-        if frame_index is None:
-            result.extras["aircraft"] = {
-                "likelihood": 0.0,
-                "track_id": None,
-                "evidence": {
-                    "track_frames": 1,
-                    "angle_diff_deg": None,
-                    "start_distance_px": None,
-                    "end_distance_px": None,
-                    "speed_consistency": None,
-                },
-            }
-            return result
 
         self._expire_tracks(frame_index)
         track = self._match_track(start, end, angle_deg, midpoint, frame_index)
@@ -146,7 +202,7 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
             track = self._create_track(start, end, angle_deg, midpoint, frame_index)
 
         likelihood = _compute_likelihood(track, self.config)
-        result.extras["aircraft"] = {
+        detection.extras["aircraft"] = {
             "likelihood": likelihood,
             "track_id": track.track_id,
             "evidence": {
@@ -157,7 +213,24 @@ class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
                 "speed_consistency": _speed_consistency(track, self.config),
             },
         }
-        return result
+
+    def _set_default_metadata(self, detection: SortedDetection) -> None:
+        """Set default aircraft metadata for a detection.
+
+        Args:
+            detection: The detection to update with default metadata.
+        """
+        detection.extras["aircraft"] = {
+            "likelihood": 0.0,
+            "track_id": None,
+            "evidence": {
+                "track_frames": 0,
+                "angle_diff_deg": None,
+                "start_distance_px": None,
+                "end_distance_px": None,
+                "speed_consistency": None,
+            },
+        }
 
     def _expire_tracks(self, frame_index: int) -> None:
         """Remove tracks that are too old for the current frame.

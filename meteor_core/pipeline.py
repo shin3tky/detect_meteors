@@ -54,6 +54,7 @@ from .schema import (
     PipelineConfig,
     HookConfig,
     RuntimeParams,
+    SortedDetection,
     RUNTIME_PARAMS_SCHEMA_VERSION,
     normalize_detection_context,
     normalize_detection_result,
@@ -341,6 +342,206 @@ def _apply_output_saved_hooks(
                 message_args=(filename, exc),
                 filepath=filename,
             )
+
+
+def _apply_batch_results_sorted_hooks(
+    detections: List[SortedDetection],
+    hooks: List[Any],
+    hook_error_mode: str,
+) -> List[SortedDetection]:
+    """Apply on_batch_results_sorted hooks to a batch of detections.
+
+    Args:
+        detections: List of SortedDetection objects from the current batch.
+        hooks: List of hook instances.
+        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
+
+    Returns:
+        Updated list of SortedDetection objects.
+    """
+    # Sort by frame_index before passing to hooks
+    sorted_detections = sorted(detections, key=lambda d: d.frame_index)
+
+    for hook in hooks:
+        try:
+            sorted_detections = hook.on_batch_results_sorted(sorted_detections)
+        except Exception as exc:
+            _handle_hook_exception(
+                exc,
+                hook_name="on_batch_results_sorted",
+                hook_error_mode=hook_error_mode,
+                message="on_batch_results_sorted hook failed: %s",
+                message_args=(exc,),
+            )
+
+    return sorted_detections
+
+
+def _apply_all_detections_sorted_hooks(
+    detections: List[SortedDetection],
+    hooks: List[Any],
+    hook_error_mode: str,
+) -> List[SortedDetection]:
+    """Apply on_all_detections_sorted hooks to all detections.
+
+    Args:
+        detections: List of ALL SortedDetection objects from the pipeline.
+        hooks: List of hook instances.
+        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
+
+    Returns:
+        Updated list of SortedDetection objects.
+    """
+    # Sort by frame_index before passing to hooks
+    sorted_detections = sorted(detections, key=lambda d: d.frame_index)
+
+    for hook in hooks:
+        try:
+            sorted_detections = hook.on_all_detections_sorted(sorted_detections)
+        except Exception as exc:
+            _handle_hook_exception(
+                exc,
+                hook_name="on_all_detections_sorted",
+                hook_error_mode=hook_error_mode,
+                message="on_all_detections_sorted hook failed: %s",
+                message_args=(exc,),
+            )
+
+    return sorted_detections
+
+
+def _apply_batch_results_sorted_hooks(
+    detections: List[SortedDetection],
+    hooks: List[Any],
+    hook_error_mode: str,
+) -> List[SortedDetection]:
+    """Apply on_batch_results_sorted hooks to a batch of detections.
+
+    Args:
+        detections: List of SortedDetection objects, sorted by frame_index.
+        hooks: List of hook instances.
+        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
+
+    Returns:
+        List of updated SortedDetection objects.
+    """
+    for hook in hooks:
+        try:
+            detections = hook.on_batch_results_sorted(detections)
+        except Exception as exc:
+            _handle_hook_exception(
+                exc,
+                hook_name="on_batch_results_sorted",
+                hook_error_mode=hook_error_mode,
+                message="on_batch_results_sorted hook failed: %s",
+                message_args=(exc,),
+            )
+    return detections
+
+
+def _apply_all_detections_sorted_hooks(
+    detections: List[SortedDetection],
+    hooks: List[Any],
+    hook_error_mode: str,
+) -> List[SortedDetection]:
+    """Apply on_all_detections_sorted hooks to all detections.
+
+    Args:
+        detections: List of ALL SortedDetection objects from the pipeline,
+            sorted by frame_index.
+        hooks: List of hook instances.
+        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
+
+    Returns:
+        List of updated SortedDetection objects.
+    """
+    for hook in hooks:
+        try:
+            detections = hook.on_all_detections_sorted(detections)
+        except Exception as exc:
+            _handle_hook_exception(
+                exc,
+                hook_name="on_all_detections_sorted",
+                hook_error_mode=hook_error_mode,
+                message="on_all_detections_sorted hook failed: %s",
+                message_args=(exc,),
+            )
+    return detections
+
+
+def _build_sorted_detections_from_batch(
+    batch_results: List[
+        Tuple[
+            bool,
+            str,
+            str,
+            float,
+            Optional[Any],
+            float,
+            int,
+            Optional[DetectionResult],
+            Optional[Dict[str, Any]],
+        ]
+    ],
+) -> List[SortedDetection]:
+    """Convert batch results to SortedDetection objects.
+
+    Args:
+        batch_results: Raw batch results from process_image_batch.
+
+    Returns:
+        List of SortedDetection objects sorted by frame_index.
+    """
+    detections = []
+    for result in batch_results:
+        (
+            is_candidate,
+            filename,
+            filepath,
+            line_score,
+            _debug_img,
+            aspect_ratio,
+            _num_lines,
+            detection_result,
+            detection_context_payload,
+        ) = result
+
+        # Extract frame indices
+        frame_index = None
+        prev_frame_index = None
+        if detection_context_payload and isinstance(detection_context_payload, dict):
+            metadata = detection_context_payload.get("metadata", {})
+            frame_index = metadata.get("frame_index")
+            prev_frame_index = metadata.get("prev_frame_index")
+
+        # Skip results without valid frame_index
+        if frame_index is None:
+            logger.warning("Skipping detection without frame_index: %s", filename)
+            continue
+
+        # Build SortedDetection
+        lines = detection_result.lines if detection_result else []
+        extras = dict(detection_result.extras) if detection_result else {}
+
+        detections.append(
+            SortedDetection(
+                frame_index=frame_index,
+                prev_frame_index=prev_frame_index
+                if prev_frame_index is not None
+                else frame_index - 1,
+                filename=filename,
+                filepath=filepath,
+                is_candidate=is_candidate,
+                score=line_score,
+                aspect_ratio=aspect_ratio,
+                lines=list(lines),
+                extras=extras,
+            )
+        )
+
+    # Sort by frame_index
+    detections.sort(key=lambda d: d.frame_index)
+    return detections
 
 
 def _resolve_hooks(
@@ -1758,6 +1959,9 @@ class MeteorDetectionPipeline:
         )
         self.progress_manager = ProgressManager(self._config.progress_file)
 
+        # Storage for sorted detections (used by on_all_detections_sorted hook)
+        self._all_sorted_detections: List[SortedDetection] = []
+
         logger.info(
             "Pipeline initialized: target=%s, workers=%d, batch_size=%d",
             self._config.target_folder,
@@ -1851,6 +2055,9 @@ class MeteorDetectionPipeline:
         locale = _resolve_locale(None)
         timing = {}
         t_total = time.time()
+
+        # Reset sorted detections for this run
+        self._all_sorted_detections = []
         input_loader = _resolve_input_loader(
             self.input_loader, self.input_loader_name, self.input_loader_config
         )
@@ -2095,6 +2302,20 @@ class MeteorDetectionPipeline:
                 hook_error_mode=self._config.hook_error_mode,
                 message="on_pipeline_complete hook failed: %s",
                 message_args=(exc,),
+            )
+
+        # Apply on_all_detections_sorted hooks
+        if self._all_sorted_detections:
+            # Sort all detections by frame_index (may be out of order in parallel mode)
+            self._all_sorted_detections.sort(key=lambda d: d.frame_index)
+            self._all_sorted_detections = _apply_all_detections_sorted_hooks(
+                self._all_sorted_detections,
+                hooks,
+                self._config.hook_error_mode,
+            )
+            logger.debug(
+                "on_all_detections_sorted completed: %d detections processed",
+                len(self._all_sorted_detections),
             )
 
         if profile:
@@ -2369,6 +2590,17 @@ class MeteorDetectionPipeline:
                             detection_result=detection_result,
                         )
 
+                    # Apply on_batch_results_sorted hooks
+                    batch_sorted_detections = _build_sorted_detections_from_batch(
+                        batch_results
+                    )
+                    batch_sorted_detections = _apply_batch_results_sorted_hooks(
+                        batch_sorted_detections,
+                        hooks,
+                        self._config.hook_error_mode,
+                    )
+                    self._all_sorted_detections.extend(batch_sorted_detections)
+
                     try:
                         if logger.isEnabledFor(logging.DEBUG):
                             logger.debug(
@@ -2571,6 +2803,15 @@ class MeteorDetectionPipeline:
                     prev_frame_index=ctx_prev_frame_index,
                     detection_result=detection_result,
                 )
+
+            # Apply on_batch_results_sorted hooks
+            batch_sorted_detections = _build_sorted_detections_from_batch(batch_results)
+            batch_sorted_detections = _apply_batch_results_sorted_hooks(
+                batch_sorted_detections,
+                hooks,
+                self._config.hook_error_mode,
+            )
+            self._all_sorted_detections.extend(batch_sorted_detections)
 
             try:
                 if logger.isEnabledFor(logging.DEBUG):
