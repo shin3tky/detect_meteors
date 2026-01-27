@@ -2318,6 +2318,12 @@ class MeteorDetectionPipeline:
                 len(self._all_sorted_detections),
             )
 
+            # Update progress.json with extras from sorted detections
+            # (e.g., aircraft metadata added by AircraftTrailHook)
+            self.progress_manager.update_extras_from_sorted_detections(
+                self._all_sorted_detections
+            )
+
         if profile:
             timing["processing"] = processing_elapsed
             timing["total"] = time.time() - t_total

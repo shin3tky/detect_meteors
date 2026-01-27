@@ -465,6 +465,56 @@ class ProgressManager:
 
         return dict(aircraft_payload)
 
+    def update_extras_from_sorted_detections(
+        self,
+        sorted_detections: List[Any],
+    ) -> int:
+        """Update detected_details with extras from sorted detections.
+
+        This method is called after on_all_detections_sorted hooks have
+        processed the sorted detections. It merges any new extras metadata
+        (such as aircraft trail analysis) into the progress data.
+
+        Args:
+            sorted_detections: List of SortedDetection objects with updated
+                extras from hooks.
+
+        Returns:
+            Number of entries updated.
+        """
+        updated_count = 0
+        for detection in sorted_detections:
+            filename = getattr(detection, "filename", None)
+            if not filename:
+                continue
+
+            # Only update if this file is in detected_details
+            entry = self._detected_details_map.get(filename)
+            if not entry:
+                continue
+
+            extras = getattr(detection, "extras", None)
+            aircraft_metadata = self._extract_aircraft_metadata(extras)
+            if aircraft_metadata is not None:
+                entry["aircraft"] = aircraft_metadata
+                updated_count += 1
+                logger.debug(
+                    "Updated aircraft metadata for %s: likelihood=%.2f, track_id=%s",
+                    filename,
+                    aircraft_metadata.get("likelihood", 0.0),
+                    aircraft_metadata.get("track_id"),
+                )
+
+        if updated_count > 0:
+            self._sync_detected_details_list()
+            self.save()
+            logger.info(
+                "Updated aircraft metadata for %d detections from sorted hooks",
+                updated_count,
+            )
+
+        return updated_count
+
     def filter_existing_files(self, existing_basenames: Set[str]) -> None:
         """
         Filter progress data to only include files that still exist.
