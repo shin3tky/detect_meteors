@@ -391,49 +391,68 @@ def _line_geometry(
 ) -> Tuple[Tuple[float, float], Tuple[float, float], float, Tuple[float, float]]:
     """Return geometric properties derived from a line.
 
+    The endpoints are normalized to ensure consistent ordering: the point
+    with smaller y-coordinate (or smaller x if y is equal) becomes the start.
+    This ensures the angle direction is meaningful for tracking.
+
     Args:
         line: Line endpoints (x1, y1, x2, y2).
 
     Returns:
-        A tuple containing the start point, end point, angle in degrees, and
-        midpoint.
+        A tuple containing the normalized start point, end point, angle in
+        degrees (0-360), and midpoint.
     """
     x1, y1, x2, y2 = line
-    start = (float(x1), float(y1))
-    end = (float(x2), float(y2))
-    angle_deg = _normalize_angle_deg(math.degrees(math.atan2(y2 - y1, x2 - x1)))
+    p1 = (float(x1), float(y1))
+    p2 = (float(x2), float(y2))
+
+    # Normalize endpoint order: start is the point with smaller y (top),
+    # or smaller x if y is equal (left)
+    if p1[1] > p2[1] or (p1[1] == p2[1] and p1[0] > p2[0]):
+        start, end = p2, p1
+    else:
+        start, end = p1, p2
+
+    # Compute angle from normalized start to end (0-360 range)
+    dx = end[0] - start[0]
+    dy = end[1] - start[1]
+    angle_deg = _normalize_angle_deg(math.degrees(math.atan2(dy, dx)))
+
     midpoint = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
     return start, end, angle_deg, midpoint
 
 
 def _normalize_angle_deg(angle_deg: float) -> float:
-    """Normalize an angle into the [0, 180) range.
+    """Normalize an angle into the [0, 360) range.
 
     Args:
         angle_deg: Angle in degrees.
 
     Returns:
-        Normalized angle in degrees.
+        Normalized angle in degrees within [0, 360).
     """
-    angle = angle_deg % 180.0
+    angle = angle_deg % 360.0
     if angle < 0:
-        angle += 180.0
+        angle += 360.0
     return angle
 
 
 def _angle_diff_deg(angle_a: float, angle_b: float) -> float:
     """Compute the minimal angle difference between two angles.
 
+    Both angles are expected to be in the [0, 360) range. The function
+    returns the smallest absolute difference, accounting for wrap-around.
+
     Args:
-        angle_a: First angle in degrees.
-        angle_b: Second angle in degrees.
+        angle_a: First angle in degrees (0-360).
+        angle_b: Second angle in degrees (0-360).
 
     Returns:
-        The smallest absolute difference in degrees.
+        The smallest absolute difference in degrees (0-180).
     """
     diff = abs(angle_a - angle_b)
-    if diff > 90.0:
-        diff = 180.0 - diff
+    if diff > 180.0:
+        diff = 360.0 - diff
     return diff
 
 
