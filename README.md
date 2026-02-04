@@ -164,13 +164,13 @@ pipeline.run()
 | [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.8 🌿
+## What's New in v1.6.10
 
-- **Static type checking with ty**: Integrated Astral's `ty` type checker for plugin development stability
-  - Pre-commit hook integration for automatic type checking
-  - Graduated rule enforcement (errors vs warnings)
-- **Plugin type safety**: Resolved type-checking issues across all plugin registries
-- **Worker limit configuration**: `MAX_NUM_WORKERS` constant with pipeline/CLI validation
+- **Sorted detection hooks**: New pipeline hooks for temporally-ordered detection analysis
+  - `on_batch_results_sorted`: Per-batch hook with frame-order guarantee
+  - `on_all_detections_sorted`: Post-pipeline hook for cross-frame analysis
+- **SortedDetection dataclass**: Lightweight, memory-efficient container for sorted hooks
+- **AircraftTrailHook improvements**: Enhanced robustness with error handling, logging, and 360° angle normalization
 
 For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
 

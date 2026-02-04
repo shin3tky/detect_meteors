@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.6.10 - 2026-02-04
+- **Sorted detection hooks**: New pipeline hooks for temporally-ordered detection analysis.
+  - `on_batch_results_sorted(detections) -> List[SortedDetection]`: Per-batch hook with frame-order guarantee.
+  - `on_all_detections_sorted(detections) -> List[SortedDetection]`: Post-pipeline hook for cross-frame analysis.
+  - Pipeline accumulates `SortedDetection` objects and sorts by `frame_index` after completion.
+- **SortedDetection dataclass**: Lightweight detection container for sorted hooks.
+  - Memory-efficient design: excludes `debug_image`, `current_image`, `previous_image`, `roi_mask`.
+  - Fields: `frame_index`, `prev_frame_index`, `filename`, `filepath`, `is_candidate`, `score`, `aspect_ratio`, `lines`, `extras`.
+  - Factory method: `SortedDetection.from_detection_result()` for easy conversion.
+  - Mutable `extras` dict for hook-added metadata.
+- **AircraftTrailHook improvements**: Enhanced robustness and tracking accuracy.
+  - Error handling: Per-detection try-except with logging, graceful degradation on errors.
+  - Logging: Debug-level initialization and completion messages, warning-level error reports.
+  - 360° angle normalization: Direction-aware tracking with consistent endpoint ordering.
+  - Refactored to use `on_all_detections_sorted` for reliable cross-frame tracking.
+- **Updated Plugin Author Guide**: Comprehensive documentation for sorted detection hooks, `SortedDetection` dataclass, and hook selection guidance.
+
+
 ## v1.6.8 - 2026-01-07 - 🌿 Festival of Seven Herbs
 - **Static type checking with ty**: Integrated Astral's `ty` type checker for enhanced plugin development stability.
   - Added `ty` configuration in `pyproject.toml` with graduated rule enforcement.
