@@ -10,7 +10,6 @@ import tempfile
 import types
 import unittest
 
-import numpy as np
 
 if importlib.util.find_spec("cv2") is None:
     cv2_stub = types.SimpleNamespace()
@@ -24,41 +23,41 @@ from meteor_core.hooks.aircraft_trail import (  # noqa: E402
     AircraftTrailHook,
 )
 from meteor_core.outputs import ProgressManager  # noqa: E402
-from meteor_core.schema import DetectionContext, DetectionResult  # noqa: E402
+from meteor_core.schema import DetectionResult, SortedDetection  # noqa: E402
 
 
 class TestAircraftTrailHook(unittest.TestCase):
     """Tests for the aircraft trail hook metadata output."""
 
-    def _make_context(self, frame_index: int) -> DetectionContext:
-        image = np.zeros((4, 4), dtype=np.uint8)
-        return DetectionContext(
-            current_image=image,
-            previous_image=image,
-            roi_mask=np.ones((4, 4), dtype=np.uint8),
-            runtime_params={"diff_threshold": 8},
-            metadata={"frame_index": frame_index},
+    def _make_sorted_detection(
+        self,
+        frame_index: int,
+        lines: list[tuple[int, int, int, int]],
+        *,
+        is_candidate: bool = True,
+        score: float = 1.0,
+        aspect_ratio: float = 1.0,
+    ) -> SortedDetection:
+        return SortedDetection(
+            frame_index=frame_index,
+            prev_frame_index=frame_index - 1,
+            filename=f"frame_{frame_index}.CR2",
+            filepath=f"/tmp/frame_{frame_index}.CR2",
+            is_candidate=is_candidate,
+            score=score,
+            aspect_ratio=aspect_ratio,
+            lines=list(lines),
         )
 
     def test_hook_attaches_and_updates_metadata(self):
         hook = AircraftTrailHook(AircraftTrailConfig())
-        result1 = DetectionResult(
-            is_candidate=True,
-            score=1.0,
-            lines=[(0, 0, 10, 0)],
-            aspect_ratio=1.0,
-            debug_image=None,
-        )
-        result2 = DetectionResult(
-            is_candidate=True,
-            score=1.0,
-            lines=[(1, 0, 11, 0)],
-            aspect_ratio=1.0,
-            debug_image=None,
-        )
+        detections = [
+            self._make_sorted_detection(1, [(0, 0, 10, 0)]),
+            self._make_sorted_detection(2, [(1, 0, 11, 0)]),
+        ]
 
-        first = hook.on_detection_complete(result1, self._make_context(1))
-        second = hook.on_detection_complete(result2, self._make_context(2))
+        updated = hook.on_all_detections_sorted(detections)
+        first, second = sorted(updated, key=lambda detection: detection.frame_index)
 
         self.assertIn("aircraft", first.extras)
         self.assertIn("aircraft", second.extras)
@@ -74,15 +73,9 @@ class TestAircraftTrailHook(unittest.TestCase):
 
     def test_hook_handles_missing_lines(self):
         hook = AircraftTrailHook(AircraftTrailConfig())
-        result = DetectionResult(
-            is_candidate=False,
-            score=0.0,
-            lines=[],
-            aspect_ratio=1.0,
-            debug_image=None,
-        )
+        detections = [self._make_sorted_detection(1, [], is_candidate=False, score=0.0)]
 
-        updated = hook.on_detection_complete(result, self._make_context(1))
+        updated = hook.on_all_detections_sorted(detections)[0]
 
         self.assertIn("aircraft", updated.extras)
         self.assertEqual(updated.extras["aircraft"]["likelihood"], 0.0)
