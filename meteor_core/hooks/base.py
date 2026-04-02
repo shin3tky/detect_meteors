@@ -6,10 +6,16 @@ from abc import ABC
 from dataclasses import is_dataclass
 import importlib.util
 import logging
-from typing import Dict, Generic, Type, TypeVar
+from typing import Dict, Generic, List, Type, TypeVar
 
 from ..plugin_contract import require_plugin_name
-from ..schema import DetectionContext, DetectionResult, InputContext, OutputResult
+from ..schema import (
+    DetectionContext,
+    DetectionResult,
+    InputContext,
+    OutputResult,
+    SortedDetection,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +83,63 @@ class BaseHook(ABC, Generic[ConfigType]):
             result: Normalized OutputResult from the output handler.
         """
         return None
+
+    def on_batch_results_sorted(
+        self,
+        detections: List[SortedDetection],
+    ) -> List[SortedDetection]:
+        """Hook called after each batch with results sorted by frame index.
+
+        This hook receives detection results from a single batch, sorted by
+        ``frame_index`` in ascending order. It is suitable for lightweight,
+        batch-local analysis that does not require global frame continuity.
+
+        .. note::
+            In parallel processing mode, different batches may be processed
+            by different workers. This hook is called once per batch in each
+            worker process.
+
+        Args:
+            detections: List of SortedDetection objects from the current batch,
+                sorted by frame_index in ascending order.
+
+        Returns:
+            List of updated SortedDetection objects in the same order.
+            Default implementation returns the input unchanged.
+        """
+        return detections
+
+    def on_all_detections_sorted(
+        self,
+        detections: List[SortedDetection],
+    ) -> List[SortedDetection]:
+        """Hook called after pipeline completion with ALL detections sorted.
+
+        This hook receives all detection results from the entire pipeline run,
+        sorted by ``frame_index`` in ascending order. It runs in the main
+        process after all workers have completed, guaranteeing global frame
+        order across all batches.
+
+        This is suitable for stateful analysis requiring consecutive frame
+        access, such as:
+
+        - Aircraft trail tracking across frames
+        - Temporal filtering and smoothing
+        - Multi-frame event correlation
+
+        .. warning::
+            This hook processes all detections in memory. For very large
+            datasets (10,000+ frames), consider memory usage implications.
+
+        Args:
+            detections: List of ALL SortedDetection objects from the pipeline,
+                sorted by frame_index in ascending order.
+
+        Returns:
+            List of updated SortedDetection objects in the same order.
+            Default implementation returns the input unchanged.
+        """
+        return detections
 
     def get_info(self) -> Dict[str, str]:
         return {

@@ -2,7 +2,7 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.6.8)**:
+> **Current status (v1.6.10)**:
 >
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
@@ -13,6 +13,8 @@
 > - ✅ **HookRegistry** for centralized hook discovery and management (v1.6.6)
 > - ✅ **Static type checking with ty** integrated in development toolchain (v1.6.8)
 > - ✅ **MAX_NUM_WORKERS** constant for worker limit validation (v1.6.8)
+> - ✅ **Sorted detection hooks** with `on_batch_results_sorted`, `on_all_detections_sorted` for stateful analysis (v1.6.10)
+> - ✅ **SortedDetection** lightweight dataclass for memory-efficient sorted hook processing (v1.6.10)
 > - ⚠️ Detector/runtime parameter contracts may still evolve
 > - ⚠️ `on_batch_complete` and `on_pipeline_complete` hooks reserved for future releases
 
@@ -156,10 +158,20 @@ Understanding the detection pipeline lifecycle is essential for effective plugin
 │                               └─────────────────────────────┘                │
 │                                        │                                     │
 │                                        ▼                                     │
+│                      ┌─────────────────────────────────────┐                 │
+│                      │ Hook: on_batch_results_sorted       │  (per batch)    │
+│                      └─────────────────────────────────────┘                 │
+│                                        │                                     │
+│                                        ▼                                     │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐            │
 │  │ 6. Finalize  │◀───│ 5. Save      │◀───│ Results              │            │
 │  │    & Report  │    │    Results   │    └──────────────────────┘            │
 │  └──────────────┘    └──────────────┘                                        │
+│         │                                                                    │
+│         ▼                                                                    │
+│  ┌─────────────────────────────────────┐                                     │
+│  │ Hook: on_all_detections_sorted      │  (after pipeline complete)          │
+│  └─────────────────────────────────────┘                                     │
 │                                                                              │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -227,20 +239,36 @@ For each image pair (current, previous):
     └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1.4 Hook Overview (Output Handler Only)
+### 1.4 Hook Overview
 
-Output Handlers define lifecycle hooks. The pipeline now invokes per-frame hooks
-(`on_detection_result`, `on_candidate_detected`), while batch/pipeline hooks are
-reserved for future releases. The `on_detection_result` hook receives a
-serialized context payload (from `DetectionContext.to_dict()`), not raw image
-arrays.
+The pipeline provides two categories of hooks:
+
+**Output Handler Hooks** (defined on `BaseOutputHandler`):
+
+Output Handlers define lifecycle hooks for per-frame and batch-level events.
+The `on_detection_result` hook receives a serialized context payload (from
+`DetectionContext.to_dict()`), not raw image arrays.
 
 | Event | Current Status | Intended Use Case |
 |-------|----------------|-------------------|
 | `on_detection_result` | Invoked | Per-frame inspection, logging, telemetry |
 | `on_candidate_detected` | Invoked | Real-time notifications (Slack, webhook) |
-| `on_batch_complete` | Not invoked | Progress reporting, metrics collection |
-| `on_pipeline_complete` | Not invoked | Final summary, cleanup, reporting |
+| `on_batch_complete` | Invoked | Progress reporting, metrics collection |
+| `on_pipeline_complete` | Invoked | Final summary, cleanup, reporting |
+
+**Pipeline Hooks** (defined on `BaseHook`):
+
+Pipeline hooks provide insertion points for cross-cutting concerns like
+filtering, transformation, and analysis.
+
+| Event | Current Status | Intended Use Case |
+|-------|----------------|-------------------|
+| `on_file_found` | Invoked | Filter files before loading |
+| `on_image_loaded` | Invoked | Transform images or enrich metadata |
+| `on_detection_complete` | Invoked | Adjust scoring, attach metadata |
+| `on_output_saved` | Invoked | Record metrics, telemetry |
+| `on_batch_results_sorted` | Invoked (v1.6.10) | Batch-local analysis with frame order |
+| `on_all_detections_sorted` | Invoked (v1.6.10) | Cross-frame analysis (e.g., aircraft trails) |
 
 **Important**: Input Loaders and Detectors do **not** receive lifecycle events.
 
@@ -413,6 +441,195 @@ telemetry, or notifications based on what was saved.
 - Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
   suitable for tests or single-process runs.
 - Registered hooks are invoked in order for each candidate save attempt.
+
+---
+
+### 1.10 Batch Results Sorted Hook (Pipeline)
+
+The pipeline calls the batch results sorted hook after each batch completes
+processing. Results within the batch are sorted by `frame_index` in ascending
+order before the hook is invoked.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_batch_results_sorted` | `(detections: List[SortedDetection]) -> List[SortedDetection]` | Process batch results sorted by frame index |
+
+**Notes**:
+- The hook receives a list of `SortedDetection` objects (lightweight dataclass
+  without image data) sorted by `frame_index`.
+- In parallel processing mode, different batches may be processed by different
+  workers. This hook is called once per batch in each worker process.
+- Suitable for **batch-local analysis** that does not require global frame
+  continuity across the entire pipeline run.
+- The hook can modify `SortedDetection.extras` to attach analysis results.
+- Return the list of `SortedDetection` objects (modified or unchanged).
+
+**SortedDetection dataclass**:
+
+```python
+@dataclass
+class SortedDetection:
+    """Lightweight detection record for sorted hook processing."""
+
+    frame_index: int                                    # 0-based index of current frame
+    prev_frame_index: int                               # 0-based index of previous frame
+    filename: str                                       # Base filename
+    filepath: str                                       # Full path to image file
+    is_candidate: bool                                  # Whether marked as candidate
+    score: float                                        # Detection confidence score
+    aspect_ratio: float                                 # Max contour aspect ratio
+    lines: List[Tuple[int, int, int, int]]              # Detected line segments
+    extras: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = 1                             # SORTED_DETECTION_SCHEMA_VERSION
+```
+
+**Why SortedDetection instead of DetectionResult?**
+
+`SortedDetection` is a memory-efficient representation that excludes:
+- `debug_image`: Large image arrays not needed for analysis
+- Image data from `DetectionContext`
+
+This allows the pipeline to collect all detections in memory without excessive
+memory consumption, enabling the `on_all_detections_sorted` hook to process
+thousands of frames.
+
+**Example usage**:
+
+```python
+from meteor_core.hooks import DataclassHook
+from meteor_core.schema import SortedDetection
+from typing import List
+
+class MyBatchAnalyzer(DataclassHook[MyConfig]):
+    plugin_name = "my_batch_analyzer"
+
+    def on_batch_results_sorted(
+        self,
+        detections: List[SortedDetection],
+    ) -> List[SortedDetection]:
+        """Analyze detections within each batch."""
+        for detection in detections:
+            # Batch-local analysis (no cross-batch state)
+            brightness = self._estimate_brightness(detection)
+            detection.extras["brightness_estimate"] = brightness
+        return detections
+```
+
+**Registration**:
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
+
+---
+
+### 1.11 All Detections Sorted Hook (Pipeline)
+
+The pipeline calls the all detections sorted hook **after pipeline completion**
+with ALL detection results sorted by `frame_index` in ascending order. This
+hook runs in the **main process** after all worker processes have completed,
+guaranteeing global frame order across all batches.
+
+| Hook | Signature | Description |
+|------|-----------|-------------|
+| `on_all_detections_sorted` | `(detections: List[SortedDetection]) -> List[SortedDetection]` | Process all detections sorted by frame index |
+
+**Notes**:
+- The hook receives ALL `SortedDetection` objects from the entire pipeline run,
+  sorted by `frame_index` in ascending order.
+- Runs in the **main process** (not in worker processes), so stateful analysis
+  with instance variables is safe.
+- Suitable for **cross-frame analysis** requiring consecutive frame access:
+  - Aircraft trail tracking across frames
+  - Temporal filtering and smoothing
+  - Multi-frame event correlation
+- The hook can modify `SortedDetection.extras` to attach analysis results.
+
+**When to use `on_all_detections_sorted` vs `on_batch_results_sorted`**:
+
+| Use Case | Recommended Hook |
+|----------|------------------|
+| Batch-local statistics | `on_batch_results_sorted` |
+| Per-frame feature extraction | `on_batch_results_sorted` |
+| Cross-frame tracking (e.g., aircraft trails) | `on_all_detections_sorted` |
+| Temporal filtering requiring frame order | `on_all_detections_sorted` |
+| Analysis requiring global context | `on_all_detections_sorted` |
+
+**Memory considerations**:
+
+This hook processes all detections in memory. For very large datasets (10,000+
+frames), consider memory usage implications. The `SortedDetection` dataclass is
+designed to be lightweight (~200 bytes per detection), so 10,000 frames would
+require approximately 2MB of memory for the detection list.
+
+**Example: Aircraft Trail Detection**
+
+The built-in `aircraft_trail` hook demonstrates the `on_all_detections_sorted`
+pattern for cross-frame tracking:
+
+```python
+from dataclasses import dataclass
+from typing import Dict, List, Optional
+from meteor_core.hooks import DataclassHook
+from meteor_core.schema import SortedDetection
+
+@dataclass
+class AircraftTrailConfig:
+    """Configuration for aircraft trail detection."""
+    angle_tolerance_deg: float = 15.0
+    max_frame_gap: int = 3
+    min_track_frames: int = 3
+
+class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
+    """Detect aircraft trails by tracking lines across consecutive frames."""
+
+    plugin_name = "aircraft_trail"
+    ConfigType = AircraftTrailConfig
+
+    def __init__(self, config: Optional[AircraftTrailConfig] = None):
+        super().__init__(config)
+        self._tracks: Dict[int, "_TrackState"] = {}
+        self._track_counter = 0
+
+    def on_all_detections_sorted(
+        self,
+        detections: List[SortedDetection],
+    ) -> List[SortedDetection]:
+        """Analyze all detections for aircraft trail patterns.
+
+        Since this hook runs in the main process with globally sorted
+        detections, we can reliably track lines across consecutive frames.
+        """
+        # Reset state for this analysis pass
+        self._tracks.clear()
+        self._track_counter = 0
+
+        for detection in detections:
+            if not detection.lines:
+                detection.extras["aircraft"] = {"likelihood": 0.0, "track_id": None}
+                continue
+
+            # Match or create track based on line geometry
+            track = self._match_or_create_track(detection)
+            likelihood = self._compute_likelihood(track)
+
+            detection.extras["aircraft"] = {
+                "likelihood": likelihood,
+                "track_id": track.track_id,
+                "evidence": {
+                    "track_frames": track.frames,
+                    "angle_consistency": track.angle_consistency,
+                },
+            }
+
+        return detections
+```
+
+**Registration**:
+- Hooks should be made available through discovery (entry points or
+  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
+- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
+  suitable for tests or single-process runs.
 
 ---
 
@@ -1295,7 +1512,123 @@ def save_candidate(
 
 **Serialization**: `result.to_dict()` returns a JSON-serializable dict.
 
-### 4.5 Schema Versioning and Normalization
+### 4.5 SortedDetection
+
+`SortedDetection` is a lightweight dataclass for sorted hook processing, designed
+to minimize memory usage when collecting all detections for cross-frame analysis.
+
+**Import**: `from meteor_core.schema import SortedDetection`
+
+```python
+@dataclass
+class SortedDetection:
+    """Lightweight detection record for sorted hook processing."""
+
+    frame_index: int                                    # 0-based index of current frame
+    prev_frame_index: int                               # 0-based index of previous frame
+    filename: str                                       # Base filename
+    filepath: str                                       # Full path to image file
+    is_candidate: bool                                  # Whether marked as candidate
+    score: float                                        # Detection confidence score
+    aspect_ratio: float                                 # Max contour aspect ratio
+    lines: List[Tuple[int, int, int, int]]              # Detected line segments
+    extras: Dict[str, Any] = field(default_factory=dict)
+    schema_version: int = SORTED_DETECTION_SCHEMA_VERSION  # Currently 1
+
+    def to_dict(self) -> Dict[str, Any]: ...
+
+    @classmethod
+    def from_detection_result(
+        cls,
+        result: DetectionResult,
+        frame_index: int,
+        prev_frame_index: int,
+        filename: str,
+        filepath: str,
+    ) -> "SortedDetection": ...
+```
+
+**Fields**:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `frame_index` | `int` | — | 0-based index of the current frame in the sequence. |
+| `prev_frame_index` | `int` | — | 0-based index of the previous frame used for differencing. |
+| `filename` | `str` | — | Base filename of the processed image (e.g., `"IMG_0001.CR2"`). |
+| `filepath` | `str` | — | Full absolute path to the processed image file. |
+| `is_candidate` | `bool` | — | `True` if this detection is marked as a meteor candidate. |
+| `score` | `float` | — | Detection confidence score from the detector. |
+| `aspect_ratio` | `float` | — | Maximum aspect ratio of detected contours. |
+| `lines` | `List[Tuple[int, int, int, int]]` | — | Detected line segments as `(x1, y1, x2, y2)` tuples. |
+| `extras` | `Dict[str, Any]` | `{}` | Detector-specific or hook-added auxiliary data. |
+| `schema_version` | `int` | `1` | Contract version for future migrations. |
+
+**Why SortedDetection?**
+
+`SortedDetection` excludes large data that would consume excessive memory when
+collecting thousands of detections:
+
+| Excluded Data | Reason |
+|--------------|--------|
+| `debug_image` | Large BGR image arrays (~megabytes each) |
+| `current_image` / `previous_image` | Raw frame data from `DetectionContext` |
+| `roi_mask` | Binary mask array |
+| `metrics` | Diagnostics not needed for cross-frame analysis |
+
+This design allows the pipeline to store ~10,000 detections in ~2MB of memory,
+enabling efficient cross-frame analysis in the `on_all_detections_sorted` hook.
+
+**Factory method**:
+
+Use `SortedDetection.from_detection_result()` to create instances from
+`DetectionResult` objects:
+
+```python
+from meteor_core.schema import SortedDetection, DetectionResult
+
+# After detection completes
+detection_result: DetectionResult = detector.detect(context)
+
+sorted_detection = SortedDetection.from_detection_result(
+    result=detection_result,
+    frame_index=42,
+    prev_frame_index=41,
+    filename="IMG_0042.CR2",
+    filepath="/path/to/IMG_0042.CR2",
+)
+```
+
+**Usage in hooks**:
+
+```python
+from meteor_core.hooks import DataclassHook
+from meteor_core.schema import SortedDetection
+from typing import List
+
+class MyAnalyzer(DataclassHook[MyConfig]):
+    plugin_name = "my_analyzer"
+
+    def on_all_detections_sorted(
+        self,
+        detections: List[SortedDetection],
+    ) -> List[SortedDetection]:
+        for detection in detections:
+            # Access detection data
+            frame_idx = detection.frame_index
+            lines = detection.lines
+            score = detection.score
+
+            # Add analysis results to extras
+            detection.extras["my_analysis"] = {
+                "computed_value": self._analyze(detection),
+            }
+
+        return detections
+```
+
+**Serialization**: `detection.to_dict()` returns a JSON-serializable dict.
+
+### 4.6 Schema Versioning and Normalization
 
 All four dataclasses include a `schema_version` field (currently `1`) to enable forward-compatible evolution of the plugin system.
 

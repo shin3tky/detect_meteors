@@ -66,7 +66,9 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
         )
 
     # Check file permissions
-    if not os.access(filepath, os.R_OK):
+    mode = os.stat(filepath).st_mode
+    has_read_bits = bool(mode & 0o444)
+    if not os.access(filepath, os.R_OK) or not has_read_bits:
         logger.error(
             "Permission denied: %s",
             filepath,

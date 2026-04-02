@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
 from ..exceptions import MeteorProgressError
-from ..schema import VERSION
+from ..schema import DetectionResult, VERSION
 from ..i18n import log_warning
 
 # Module-level logger for progress tracking diagnostics
@@ -382,6 +382,8 @@ class ProgressManager:
         ratio: float = 0.0,
         frame_index: Optional[int] = None,
         prev_frame_index: Optional[int] = None,
+        detection_result: Optional[DetectionResult] = None,
+        extras: Optional[Dict[str, Any]] = None,
     ) -> int:
         """
         Record the result of processing a file.
@@ -394,6 +396,8 @@ class ProgressManager:
             ratio: Aspect ratio of detected meteor candidate.
             frame_index: Frame index of the current image in the sequence.
             prev_frame_index: Frame index of the previous image in the sequence.
+            detection_result: Optional detection result to source extras metadata.
+            extras: Optional extras dictionary to persist metadata.
 
         Returns:
             Current total detected count.
@@ -416,6 +420,11 @@ class ProgressManager:
                 entry["frame_index"] = frame_index
             if prev_frame_index is not None:
                 entry["prev_frame_index"] = prev_frame_index
+            aircraft_metadata = self._extract_aircraft_metadata(
+                extras or (detection_result.extras if detection_result else None)
+            )
+            if aircraft_metadata is not None:
+                entry["aircraft"] = aircraft_metadata
             self._sync_detected_details_list()
             logger.debug(
                 "Recorded candidate: %s (score=%.2f, lines=%d, ratio=%.2f, "
@@ -434,6 +443,77 @@ class ProgressManager:
         self.progress_data["total_detected"] = len(self.detected_set)
         self.save()
         return self.progress_data["total_detected"]
+
+    @staticmethod
+    def _extract_aircraft_metadata(
+        extras: Optional[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        """Extract aircraft metadata from extras when available.
+
+        Args:
+            extras: Optional extras dictionary from a detection result.
+
+        Returns:
+            The aircraft metadata dictionary if present, otherwise None.
+        """
+        if not extras or not isinstance(extras, dict):
+            return None
+
+        aircraft_payload = extras.get("aircraft")
+        if not isinstance(aircraft_payload, dict):
+            return None
+
+        return dict(aircraft_payload)
+
+    def update_extras_from_sorted_detections(
+        self,
+        sorted_detections: List[Any],
+    ) -> int:
+        """Update detected_details with extras from sorted detections.
+
+        This method is called after on_all_detections_sorted hooks have
+        processed the sorted detections. It merges any new extras metadata
+        (such as aircraft trail analysis) into the progress data.
+
+        Args:
+            sorted_detections: List of SortedDetection objects with updated
+                extras from hooks.
+
+        Returns:
+            Number of entries updated.
+        """
+        updated_count = 0
+        for detection in sorted_detections:
+            filename = getattr(detection, "filename", None)
+            if not filename:
+                continue
+
+            # Only update if this file is in detected_details
+            entry = self._detected_details_map.get(filename)
+            if not entry:
+                continue
+
+            extras = getattr(detection, "extras", None)
+            aircraft_metadata = self._extract_aircraft_metadata(extras)
+            if aircraft_metadata is not None:
+                entry["aircraft"] = aircraft_metadata
+                updated_count += 1
+                logger.debug(
+                    "Updated aircraft metadata for %s: likelihood=%.2f, track_id=%s",
+                    filename,
+                    aircraft_metadata.get("likelihood", 0.0),
+                    aircraft_metadata.get("track_id"),
+                )
+
+        if updated_count > 0:
+            self._sync_detected_details_list()
+            self.save()
+            logger.info(
+                "Updated aircraft metadata for %d detections from sorted hooks",
+                updated_count,
+            )
+
+        return updated_count
 
     def filter_existing_files(self, existing_basenames: Set[str]) -> None:
         """

@@ -11,7 +11,7 @@
 # ==========================================
 [project]
 name = "detect-meteors"
-version = "1.6.9"
+version = "1.6.10"
 description = "Automated meteor detection in RAW astrophotography images using frame-to-frame difference analysis"
 readme = "README.md"
 license = "Apache-2.0"
@@ -51,19 +51,19 @@ classifiers = [
 dependencies = [
     "numpy>=2.2.6",
     "opencv-python>=4.12.0",
-    "rawpy>=0.25.1",
-    "psutil>=7.2.1",
-    "pillow>=12.1.0",
+    "rawpy==0.25.1",
+    "psutil>=7.2.2",
+    "pillow>=12.1.1",
     "pydantic>=2.12.5",
     "pyyaml>=6.0.3",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "ruff==0.14.11",
-    "ty>=0.0.11",
+    "ruff==0.15.4",
+    "ty>=0.0.20",
     "pre-commit>=4.5.1",
-    "coverage>=7.13.1",
+    "coverage>=7.13.4",
 ]
 
 [project.urls]
@@ -72,6 +72,9 @@ Repository = "https://github.com/shin3tky/detect_meteors.git"
 Documentation = "https://github.com/shin3tky/detect_meteors#readme"
 Issues = "https://github.com/shin3tky/detect_meteors/issues"
 Changelog = "https://github.com/shin3tky/detect_meteors/blob/main/CHANGELOG.md"
+
+[project.entry-points."detect_meteors.hook"]
+aircraft_trail = "meteor_core.hooks.aircraft_trail:AircraftTrailHook"
 
 # ==========================================
 # Ruff - Linter and Formatter

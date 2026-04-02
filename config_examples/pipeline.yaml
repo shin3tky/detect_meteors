@@ -16,3 +16,6 @@ output_handler_config: {}
 hooks:
   - name: allow_all_files
     config: {}
+  - name: aircraft_trail
+    config:
+      min_track_frames: 3

@@ -22,6 +22,7 @@ except ImportError:  # pragma: no cover
     import importlib_metadata as metadata  # type: ignore
 
 from .base import BaseHook, _is_valid_hook
+from .aircraft_trail import AircraftTrailHook
 from .file_found import AllowAllFilesFoundHook
 
 # Module-level logger for discovery diagnostics
@@ -223,6 +224,7 @@ def _discover_handlers_internal(
     # 1. Register built-in hooks first
     logger.debug("Phase 1: Registering built-in hooks")
     _add_hook(registry, AllowAllFilesFoundHook, "built-in AllowAllFilesFoundHook")
+    _add_hook(registry, AircraftTrailHook, "built-in AircraftTrailHook")
 
     # 2. Register hooks from entry points (sorted for determinism)
     logger.debug(
