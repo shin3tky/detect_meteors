@@ -1005,7 +1005,7 @@ LoaderRegistry.discover()
 
 ### 3.3 Configuration Management (ConfigType)
 
-Plugins can define a `ConfigType` for typed configuration. See [5.1 Choosing ConfigType](#51-choosing-configtype) for guidance on when to use dataclass vs Pydantic.
+Plugins can define a `ConfigType` for typed configuration. See [6.1 Choosing ConfigType](#61-choosing-configtype) for guidance on when to use dataclass vs Pydantic.
 
 **Coercion Rules**:
 | Input | ConfigType | Result |
