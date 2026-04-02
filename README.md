@@ -14,6 +14,8 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
+> [!TIP]
+> 🌠 **Lyrids are coming — April 21-22, 2026!** The Lyrids meteor shower peaks on the night of April 21-22, 2026. Don't miss this opportunity to capture stunning meteors! See [April 2026 details](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#april-2026) for viewing conditions and tips.
 
 ## Features
 
