@@ -1,0 +1,40 @@
+# .github/dependabot.yml
+# Keep dependencies up to date automatically.
+# - Python dependencies (uv: pyproject.toml / uv.lock)
+# - GitHub Actions versions used in .github/workflows
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates
+
+version: 2
+
+updates:
+  # Python dependencies managed by uv
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 10
+    groups:
+      # Bundle minor/patch bumps into a single weekly PR to cut down on
+      # review noise. Major version bumps are left out of the group so
+      # each one gets its own PR and a closer look before merging.
+      python-dependencies:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Versions of the GitHub Actions used in .github/workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    groups:
+      github-actions:
+        update-types:
+          - "minor"
+          - "patch"

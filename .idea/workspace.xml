@@ -5,11 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="c91b85a3-c377-4e77-af88-82eb91cf71a5" name="変更" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/pyLspTools.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/detect_meteors.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/detect-meteors.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.github/dependabot.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -84,7 +80,7 @@
       <workItem from="1775136470112" duration="24000" />
       <workItem from="1775136503586" duration="926000" />
       <workItem from="1790299200137" duration="70000" />
-      <workItem from="1790299301720" duration="418000" />
+      <workItem from="1790299301720" duration="658000" />
     </task>
     <servers />
   </component>
