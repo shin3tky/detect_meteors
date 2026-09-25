@@ -14,7 +14,7 @@ import multiprocessing as mp
 
 if TYPE_CHECKING:
     import numpy as np
-    import torch
+    import torch  # ty: ignore[unresolved-import]  # optional dependency, not installed by default
     from PIL import Image
 
 ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
