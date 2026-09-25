@@ -1252,15 +1252,18 @@ def estimate_diff_threshold_from_samples(
     diff_array = np.array(diff_values, dtype=np.float32)
 
     # Calculate statistics
-    mean_diff = np.mean(diff_array)
-    std_diff = np.std(diff_array)
-    median_diff = np.median(diff_array)
+    # float() keeps these as plain Python floats (np.mean/np.std/np.median
+    # return numpy scalar types such as np.float32, which downstream type
+    # signatures expect as `float`).
+    mean_diff = float(np.mean(diff_array))
+    std_diff = float(np.std(diff_array))
+    median_diff = float(np.median(diff_array))
 
     # Percentiles
-    p90 = np.percentile(diff_array, 90)
-    p95 = np.percentile(diff_array, 95)
-    p98 = np.percentile(diff_array, 98)
-    p99 = np.percentile(diff_array, 99)
+    p90 = float(np.percentile(diff_array, 90))
+    p95 = float(np.percentile(diff_array, 95))
+    p98 = float(np.percentile(diff_array, 98))
+    p99 = float(np.percentile(diff_array, 99))
 
     # Multiple estimation methods
     # Method 1: 98th percentile (works well for peaked distributions)
@@ -1779,9 +1782,12 @@ class MeteorDetectionPipeline:
        ... )
        >>> pipeline = MeteorDetectionPipeline(config)
 
-    2. Legacy API (backward compatible): Pass individual arguments
+    2. Legacy API (backward compatible): Pass individual arguments.
+       ``target_folder`` is positional-only here; use
+       :func:`create_default_pipeline` instead if you want to pass it
+       as a keyword argument.
        >>> pipeline = MeteorDetectionPipeline(
-       ...     target_folder="./raw",
+       ...     "./raw",
        ...     output_folder="./candidates",
        ...     debug_folder="./debug",
        ...     params=DetectionParams(),
@@ -1792,6 +1798,10 @@ class MeteorDetectionPipeline:
     def __init__(
         self,
         config: PipelineConfig,
+        # Positional-only: the implementation's single dispatch parameter is
+        # named `config_or_target` (shared with the legacy overload below),
+        # so it cannot also be called as `config=...`.
+        /,
         *,
         input_loader: Optional[BaseInputLoader] = None,
         input_loader_name: Optional[str] = None,
@@ -1806,6 +1816,8 @@ class MeteorDetectionPipeline:
     def __init__(
         self,
         target_folder: str,
+        # Positional-only: see the note on the `config` overload above.
+        /,
         output_folder: str,
         debug_folder: str,
         params: DetectionParams,

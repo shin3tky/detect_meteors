@@ -410,7 +410,7 @@ class ProgressManager:
             self.detected_set.add(filename)
             if filename not in self.progress_data["detected_files"]:
                 self.progress_data["detected_files"].append(filename)
-            entry = self._detected_details_map.get(filename)
+            entry: Optional[Dict[str, Any]] = self._detected_details_map.get(filename)
             if not entry:
                 entry = {"filename": filename}
                 self._detected_details_map[filename] = entry
