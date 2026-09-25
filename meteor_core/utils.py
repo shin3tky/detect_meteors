@@ -32,7 +32,7 @@ from .i18n import DEFAULT_LOCALE, get_message
 
 _HAS_TORCH = importlib.util.find_spec("torch") is not None
 if _HAS_TORCH:
-    import torch
+    import torch  # ty: ignore[unresolved-import]  # optional dependency, not installed by default
 else:
     torch = None  # type: ignore[assignment]
 
