@@ -446,15 +446,15 @@ my_hook = "my_package.hooks:MyHook"
 
 ```bash
 # Specify hooks by name (comma-separated, in execution order)
-python detect_meteors_cli.py --hooks score_filter,logger_hook
+uv run python detect_meteors_cli.py --hooks score_filter,logger_hook
 
 # Provide hook configuration
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --hooks score_filter \
     --hook-config '{"score_filter": {"min_score_threshold": 75.0}}'
 
 # Or via file
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --hooks score_filter \
     --hook-config hooks_config.yaml
 ```
@@ -606,10 +606,10 @@ output_handler_config:
 
 ```bash
 # Load entire configuration from file
-python detect_meteors_cli.py --config pipeline.yaml
+uv run python detect_meteors_cli.py --config pipeline.yaml
 
 # Override specific settings via CLI
-python detect_meteors_cli.py --config pipeline.yaml --detector threshold
+uv run python detect_meteors_cli.py --config pipeline.yaml --detector threshold
 ```
 
 ### CLI Plugin Selection
@@ -618,23 +618,23 @@ Select and configure plugins directly from the command line:
 
 ```bash
 # Select plugins by name
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --input-loader raw \
     --detector hough \
     --output-handler file
 
 # Provide plugin configs as JSON strings
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --detector hough \
     --detector-config '{"use_probabilistic": true}'
 
 # Or as YAML strings
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --output-handler slack \
     --output-handler-config "webhook_url: https://hooks.slack.com/..."
 
 # Or as file paths
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --detector-config my_detector_settings.yaml
 ```
 
@@ -662,10 +662,10 @@ This allows loading a base configuration and overriding specific settings:
 
 ```bash
 # Load base config, override detector
-python detect_meteors_cli.py --config base.yaml --detector threshold
+uv run python detect_meteors_cli.py --config base.yaml --detector threshold
 
 # Load base config, override detection threshold
-python detect_meteors_cli.py --config base.yaml --diff-threshold 12
+uv run python detect_meteors_cli.py --config base.yaml --diff-threshold 12
 ```
 
 ### Python API
@@ -729,10 +729,10 @@ No immediate migration required. All existing CLI flags continue to work:
 
 ```bash
 # These still work (but are deprecated)
-python detect_meteors_cli.py --diff-threshold 8 --min-area 10
+uv run python detect_meteors_cli.py --diff-threshold 8 --min-area 10
 
 # Recommended: Use config files for complex setups
-python detect_meteors_cli.py --config pipeline.yaml
+uv run python detect_meteors_cli.py --config pipeline.yaml
 ```
 
 **For plugin authors**:

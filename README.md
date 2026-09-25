@@ -40,7 +40,7 @@ See [INSTALL.md](INSTALL.md) for detailed installation instructions.
 ### Step 1: Check EXIF Metadata
 
 ```bash
-python detect_meteors_cli.py --show-exif
+uv run python detect_meteors_cli.py --show-exif
 ```
 
 Verify focal length is detected. If missing, you'll need to specify it with `--focal-length`.
@@ -49,16 +49,16 @@ Verify focal length is detected. If missing, you'll need to specify it with `--f
 
 ```bash
 # Micro Four Thirds camera
-python detect_meteors_cli.py --auto-params --sensor-type MFT
+uv run python detect_meteors_cli.py --auto-params --sensor-type MFT
 
 # APS-C camera (Sony/Nikon/Fuji)
-python detect_meteors_cli.py --auto-params --sensor-type APS-C
+uv run python detect_meteors_cli.py --auto-params --sensor-type APS-C
 
 # Full Frame camera
-python detect_meteors_cli.py --auto-params --sensor-type FF
+uv run python detect_meteors_cli.py --auto-params --sensor-type FF
 
 # With fisheye lens
-python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
+uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
 ```
 
 > [!IMPORTANT]
@@ -83,7 +83,7 @@ Check the `candidates/` folder for detected meteor images.
 | `MF44X33` | Medium Format 44×33mm |
 | `MF54X40` | Medium Format 54×40mm |
 
-List all presets: `python detect_meteors_cli.py --list-sensor-types`
+List all presets: `uv run python detect_meteors_cli.py --list-sensor-types`
 
 ## Inputs and Outputs
 
@@ -131,7 +131,7 @@ output_handler_name: file
 **Usage (CLI)**
 
 ```bash
-python detect_meteors_cli.py --config config_examples/pipeline.yaml
+uv run python detect_meteors_cli.py --config config_examples/pipeline.yaml
 ```
 
 You can override plugin selections via CLI (e.g., `--input-loader`, `--detector`,

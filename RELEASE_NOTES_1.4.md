@@ -411,10 +411,10 @@ Each adjustment shows:
 **Command-line Options**:
 ```bash
 # Option 1: Sensor width (recommended)
-python detect_meteors_cli.py --auto-params --sensor-width 17.3
+uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3
 
 # Option 2: Direct pixel pitch
-python detect_meteors_cli.py --auto-params --pixel-pitch 3.30
+uv run python detect_meteors_cli.py --auto-params --pixel-pitch 3.30
 ```
 
 **Priority Order**:
@@ -439,7 +439,7 @@ SENSOR_WIDTHS = {
 ### Simplest Usage (Fully Automatic with EXIF)
 
 ```bash
-python detect_meteors_cli.py --auto-params
+uv run python detect_meteors_cli.py --auto-params
 ```
 
 **What happens**:
@@ -452,7 +452,7 @@ python detect_meteors_cli.py --auto-params
 
 ```bash
 # Micro Four Thirds
-python detect_meteors_cli.py --auto-params --sensor-width 17.3
+uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3
 ```
 
 **Benefits**:
@@ -463,7 +463,7 @@ python detect_meteors_cli.py --auto-params --sensor-width 17.3
 ### NPF Analysis Only
 
 ```bash
-python detect_meteors_cli.py --show-npf --sensor-width 17.3
+uv run python detect_meteors_cli.py --show-npf --sensor-width 17.3
 ```
 
 **Output**:
@@ -476,7 +476,7 @@ python detect_meteors_cli.py --show-npf --sensor-width 17.3
 ### With Pre-defined ROI
 
 ```bash
-python detect_meteors_cli.py --auto-params \
+uv run python detect_meteors_cli.py --auto-params \
   --roi "100,100;3900,100;3900,2900;100,2900" \
   --sensor-width 17.3
 ```
@@ -485,7 +485,7 @@ python detect_meteors_cli.py --auto-params \
 
 ```bash
 # Override specific parameters
-python detect_meteors_cli.py --auto-params \
+uv run python detect_meteors_cli.py --auto-params \
   --sensor-width 17.3 \
   --diff-threshold 12 \
   --min-area 15
@@ -599,14 +599,14 @@ cp detect_meteors_cli.py detect_meteors_cli_v1.3.1_backup.py
 # Use new v1.4.1 file
 
 # Same command works, but now with NPF optimization
-python detect_meteors_cli.py --auto-params
+uv run python detect_meteors_cli.py --auto-params
 ```
 
 ### New Recommended Usage
 
 ```bash
 # Add sensor information for best results
-python detect_meteors_cli.py --auto-params --sensor-width [your_sensor_mm]
+uv run python detect_meteors_cli.py --auto-params --sensor-width [your_sensor_mm]
 ```
 
 ## Known Limitations
@@ -696,12 +696,12 @@ Special thanks to the astrophotography community for sharing best practices on e
 
 | Feature | Command | Example |
 |---------|---------|---------|
-| Fully automatic | `--auto-params` | `python detect_meteors_cli.py --auto-params` |
-| With sensor width | `--auto-params --sensor-width MM` | `python detect_meteors_cli.py --auto-params --sensor-width 17.3` |
-| With sensor type | `--auto-params --focal-factor TYPE` | `python detect_meteors_cli.py --auto-params --focal-factor MFT` |
-| NPF analysis only | `--show-npf --sensor-width MM` | `python detect_meteors_cli.py --show-npf --sensor-width 17.3` |
-| EXIF only | `--show-exif` | `python detect_meteors_cli.py --show-exif` |
-| Manual override | `--auto-params --PARAM VALUE` | `python detect_meteors_cli.py --auto-params --diff-threshold 12` |
+| Fully automatic | `--auto-params` | `uv run python detect_meteors_cli.py --auto-params` |
+| With sensor width | `--auto-params --sensor-width MM` | `uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3` |
+| With sensor type | `--auto-params --focal-factor TYPE` | `uv run python detect_meteors_cli.py --auto-params --focal-factor MFT` |
+| NPF analysis only | `--show-npf --sensor-width MM` | `uv run python detect_meteors_cli.py --show-npf --sensor-width 17.3` |
+| EXIF only | `--show-exif` | `uv run python detect_meteors_cli.py --show-exif` |
+| Manual override | `--auto-params --PARAM VALUE` | `uv run python detect_meteors_cli.py --auto-params --diff-threshold 12` |
 
 ---
 

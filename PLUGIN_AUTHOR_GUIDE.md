@@ -1091,23 +1091,23 @@ Users can also specify plugins directly via CLI arguments:
 
 ```bash
 # Select plugins by name
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --input-loader raw \
     --detector hough \
     --output-handler file
 
 # Provide plugin configs as JSON strings
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --detector hough \
     --detector-config '{"use_probabilistic": true}'
 
 # Or as YAML strings
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --output-handler slack \
     --output-handler-config "webhook_url: https://hooks.slack.com/..."
 
 # Or as file paths
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
     --detector-config detector_settings.yaml
 ```
 

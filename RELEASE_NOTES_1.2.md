@@ -112,19 +112,19 @@ By selecting the **lowest value** among three methods:
 ### Basic Usage (No Change)
 
 ```bash
-python detect_meteors_cli.py --auto-params
+uv run python detect_meteors_cli.py --auto-params
 ```
 
 ### Execution Example
 
 ```bash
 # v1.2.0 behavior
-$ python detect_meteors_cli.py --auto-params
+$ uv run python detect_meteors_cli.py --auto-params
 ✓ Estimated threshold (μ + 3σ): 25
 Complete! 0 candidates extracted  # Missed meteors
 
 # v1.2.1 behavior
-$ python detect_meteors_cli.py --auto-params
+$ uv run python detect_meteors_cli.py --auto-params
 ✓ Selected threshold: 15 (minimum of all methods)
 Complete! 3 candidates extracted  # Successfully detected!
 ```
@@ -160,7 +160,7 @@ cp detect_meteors_cli.py detect_meteors_cli.py.bak
 # Use the new version
 
 # Command-line options remain unchanged
-python detect_meteors_cli.py --auto-params
+uv run python detect_meteors_cli.py --auto-params
 ```
 
 No changes to command-line options.
