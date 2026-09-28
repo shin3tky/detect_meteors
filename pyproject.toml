@@ -60,8 +60,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff==0.16.8",
-    "ty==0.0.83",
+    "ruff==0.16.9",
+    "ty==0.0.84",
     "pre-commit==4.6.2",
     "coverage==7.16.1",
 ]
