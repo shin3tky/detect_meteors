@@ -1,2 +1,6 @@
 *
 !.gitignore
+
+# Keep the reproducible aircraft/meteor validation sample in Git.
+!2024GEMINI_AIRCRAFT/
+!2024GEMINI_AIRCRAFT/**
