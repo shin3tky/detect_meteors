@@ -42,6 +42,11 @@ See [INSTALL.md](docs/INSTALL.md) for detailed installation instructions.
 
 ## Quick Start
 
+### Step 0: Prepare Images
+
+Place the RAW images you want to analyze directly in the `rawfiles/` directory at the project root. Create the directory if it does not exist.
+Files are processed in filename order, so use filenames that preserve the shooting sequence.
+
 ### Step 1: Check EXIF Metadata
 
 ```bash
