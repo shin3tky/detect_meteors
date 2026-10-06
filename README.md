@@ -4,7 +4,7 @@
 
 [![tests](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml/badge.svg)](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml)
 
-Automatically detect meteors in RAW astrophotography images using frame-to-frame difference analysis.
+Automatically extract meteor candidates from consecutive RAW astrophotography images using frame-to-frame difference analysis. Review the candidates manually to confirm meteors.
 
 ## Motivation
 
@@ -20,7 +20,7 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 ## Features
 
 - **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata and scientifically tunes detection parameters
-- **Field-tested**: 100% detection rate on real-world test dataset (OM Digital OM-1, 1000+ RAW images)
+- **Field-tested**: Reported 100% detection rate on the project's real-world test dataset (OM Digital OM-1, 1000+ RAW images); results depend on shooting conditions and parameters
 - **RAW format support**: Works with any format supported by [`rawpy`](https://github.com/letmaik/rawpy)
 - **Intelligent processing**: ROI cropping, Hough transform line detection, resumable batch processing
 - **High performance**: ~0.18 sec/image with multi-core parallel processing
@@ -88,25 +88,38 @@ List all presets: `uv run python detect_meteors_cli.py --list-sensor-types`
 ## Inputs and Outputs
 
 - **Input**: Directory of RAW images (default: `rawfiles/`)
+  - Files are sorted by filename, not EXIF capture time. Use filenames that preserve the shooting sequence.
+  - The built-in RAW loader averages each 2×2 block of sensor pixels into one `uint16` pixel; only `binning: 2` is supported.
 - **Output**: 
   - Candidate images in `candidates/` (or custom `-o` path)
   - Optional debug masks with `--debug-image` and `--debug-dir`
   - `progress.json` for resumable processing
 
+The default `hough` detector computes the absolute difference between adjacent
+frames, thresholds it, applies the ROI and a morphological opening, then checks
+contour area/aspect ratio and the summed length of Hough line segments. These
+are candidate-selection heuristics; ML classification is planned in the roadmap.
+ROI coordinates and detection lengths/areas refer to the binned image.
+
 ## Configuration Files (YAML/JSON)
 
 The CLI can load pipeline settings from a configuration file. The file must be a
 JSON or YAML object whose keys align with `PipelineConfig`.
+Partial configurations are supported by the CLI and `load_pipeline_config()`;
+omitted fields use built-in defaults. Relative paths are resolved from the
+current working directory, not from the configuration file's directory.
 
 **Top-level keys**
 
-- `target_folder`, `output_folder`, `debug_folder` (required paths)
+- `target_folder`, `output_folder`, `debug_folder` (default: `rawfiles`, `candidates`, `debug_masks`)
 - `params` (detection parameters)
 - `num_workers`, `batch_size`, `auto_batch_size`, `enable_parallel`
 - `progress_file`, `output_overwrite`
 - `input_loader_name`, `input_loader_config`
 - `detector_name`, `detector_config`
 - `output_handler_name`, `output_handler_config`
+- `hooks` (ordered list of hook names/configurations; default: no hooks)
+- `hook_error_mode` (`raise` or `warn`; default: `raise`)
 
 **Example (YAML)**
 
@@ -120,11 +133,22 @@ params:
   min_aspect_ratio: 3.0
 input_loader_name: raw
 input_loader_config:
-  binning: 1
+  binning: 2
   normalize: true
 detector_name: hough
 output_handler_name: file
 ```
+
+The RAW loader defaults to `normalize: false`; `true` returns `float32` pixels
+in [0, 1], and the pipeline scales `diff_threshold` accordingly. The built-in
+Hough detector uses `params` for its thresholds and accepts an empty
+`detector_config`. The file output handler uses `output_overwrite`, not
+`overwrite`, for overwrite control.
+
+When `output_handler_name: file` is explicitly selected, set output paths and
+overwrite behavior in `output_handler_config`; its own defaults are used for
+omitted fields. To inherit the top-level `output_folder`, `debug_folder`, and
+`output_overwrite`, omit `output_handler_name` and use the default file handler.
 
 **Example file**: [`config_examples/pipeline.yaml`](config_examples/pipeline.yaml)
 
@@ -154,6 +178,23 @@ pipeline.run()
 - Interrupt with Ctrl-C anytime
 - Resume by running the same command again
 - Use `--no-resume` for a fresh start
+
+### Aircraft Trail Analysis (Optional)
+
+Enable the built-in hook to annotate candidates with aircraft trail likelihood:
+
+```bash
+uv run python detect_meteors_cli.py --hooks aircraft_trail --no-roi
+```
+
+The hook tracks line geometry in frame order after processing completes and
+writes an `aircraft` block into candidate entries in `progress.json`'s
+`detected_details`. It preserves candidate decisions, scores, and copied RAW
+files. The likelihood is a heuristic score, not a calibrated probability.
+On resume, analysis covers only frames processed in the current invocation;
+cross-frame tracks are not restored from previous progress. See the
+[implementation notes](docs/aircraft_light_trails_hook_design.md) for configuration
+and limitations.
 
 ## Documentation
 

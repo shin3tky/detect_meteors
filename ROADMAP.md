@@ -209,6 +209,15 @@ The following features were originally planned for v1.x but have been deferred:
 - [ ] Declination support with GPS coordinate extraction
 - [ ] Advanced quality metrics (focus quality, atmospheric transparency)
 
+### Sorted Detection Analysis
+- [x] **v1.6.10** - Frame-ordered hooks and aircraft trail metadata
+  - [x] `SortedDetection` records without image payloads
+  - [x] `on_batch_results_sorted` for analysis within each result batch
+  - [x] `on_all_detections_sorted` for analysis across the current run
+  - [x] Sorted hooks executed in the main process, including parallel runs
+  - [x] Built-in `aircraft_trail` hook with geometric tracking and likelihood/evidence metadata in `progress.json`
+  - [x] Aircraft analysis preserves candidate decisions and scores
+
 ## Version 2.x - Architecture and Extensibility
 
 2026 1Q-
@@ -248,7 +257,7 @@ The following features were originally planned for v1.x but have been deferred:
 ### Intelligent Post-processing
 - [ ] Advanced pattern recognition (meteor vs. noise discrimination)
 - [ ] Adaptive learning from user feedback (false-positive suppression)
-- [ ] Multi-object classification (meteors, aircraft, satellites)
+- [ ] Multi-object classification (meteors, aircraft, satellites); the existing aircraft hook supplies auxiliary heuristics only
 
 ### Performance & Deployment
 - [ ] Accelerated inference options (ONNX, GPU backends)
@@ -257,5 +266,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.8 (Static Type Checking)
+**Current Status**: v1.6.10 (Sorted Detection Hooks and Aircraft Trail Metadata)
 **Next Focus**: v2.0 Architecture and Extensibility - Pipeline modularity and plugin ecosystem

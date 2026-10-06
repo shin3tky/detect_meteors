@@ -16,7 +16,7 @@
 > - ✅ **Sorted detection hooks** with `on_batch_results_sorted`, `on_all_detections_sorted` for stateful analysis (v1.6.10)
 > - ✅ **SortedDetection** lightweight dataclass for memory-efficient sorted hook processing (v1.6.10)
 > - ⚠️ Detector/runtime parameter contracts may still evolve
-> - ⚠️ `on_batch_complete` and `on_pipeline_complete` hooks reserved for future releases
+> - ✅ `on_batch_complete` and `on_pipeline_complete` output handler hooks are invoked by `MeteorDetectionPipeline`
 
 This guide provides comprehensive instructions for developing custom plugins for Detect Meteors CLI.
 
@@ -457,12 +457,17 @@ order before the hook is invoked.
 **Notes**:
 - The hook receives a list of `SortedDetection` objects (lightweight dataclass
   without image data) sorted by `frame_index`.
-- In parallel processing mode, different batches may be processed by different
-  workers. This hook is called once per batch in each worker process.
+- This hook runs in the main process after candidate output and progress have
+  been recorded. In parallel mode, it runs once per completed worker batch;
+  batches arrive in completion order, not necessarily frame order. In sequential
+  mode, each batch contains one frame pair.
 - Suitable for **batch-local analysis** that does not require global frame
   continuity across the entire pipeline run.
 - The hook can modify `SortedDetection.extras` to attach analysis results.
 - Return the list of `SortedDetection` objects (modified or unchanged).
+- Updates to candidate flags/scores do not change already saved files or counts.
+  Extras remain available to the final sorted hook; the built-in progress writer
+  persists only the `aircraft` namespace after final analysis.
 
 **SortedDetection dataclass**:
 
@@ -535,8 +540,10 @@ guaranteeing global frame order across all batches.
 | `on_all_detections_sorted` | `(detections: List[SortedDetection]) -> List[SortedDetection]` | Process all detections sorted by frame index |
 
 **Notes**:
-- The hook receives ALL `SortedDetection` objects from the entire pipeline run,
-  sorted by `frame_index` in ascending order.
+- The hook receives successful detections processed in the current invocation,
+  including non-candidates, sorted by `frame_index` in ascending order. Failed
+  frame pairs without a frame index are omitted. On resume, previously processed
+  frames are not reconstructed from `progress.json`.
 - Runs in the **main process** (not in worker processes), so stateful analysis
   with instance variables is safe.
 - Suitable for **cross-frame analysis** requiring consecutive frame access:
@@ -544,6 +551,11 @@ guaranteeing global frame order across all batches.
   - Temporal filtering and smoothing
   - Multi-frame event correlation
 - The hook can modify `SortedDetection.extras` to attach analysis results.
+- It runs after `OutputHandler.on_pipeline_complete()` and is skipped when
+  processing exits via Ctrl-C. Candidate output and counts are already recorded;
+  changing `is_candidate` or `score` here does not revise them. The built-in
+  `ProgressManager` merges only `extras["aircraft"]` into existing candidate
+  entries in `detected_details`; other extras require custom persistence.
 
 **When to use `on_all_detections_sorted` vs `on_batch_results_sorted`**:
 
@@ -557,73 +569,32 @@ guaranteeing global frame order across all batches.
 
 **Memory considerations**:
 
-This hook processes all detections in memory. For very large datasets (10,000+
-frames), consider memory usage implications. The `SortedDetection` dataclass is
-designed to be lightweight (~200 bytes per detection), so 10,000 frames would
-require approximately 2MB of memory for the detection list.
+This hook processes all detections in memory. `SortedDetection` excludes image
+arrays, but its memory usage depends on the number of line segments and the size
+of `extras` as well as Python object overhead. Account for these variable payloads
+when processing large datasets.
 
 **Example: Aircraft Trail Detection**
 
-The built-in `aircraft_trail` hook demonstrates the `on_all_detections_sorted`
-pattern for cross-frame tracking:
+The built-in `aircraft_trail` hook uses `on_all_detections_sorted` for cross-frame
+tracking. Enable it through the pipeline configuration:
 
 ```python
-from dataclasses import dataclass
-from typing import Dict, List, Optional
-from meteor_core.hooks import DataclassHook
-from meteor_core.schema import SortedDetection
+from meteor_core import MeteorDetectionPipeline
+from meteor_core.schema import HookConfig, PipelineConfig
 
-@dataclass
-class AircraftTrailConfig:
-    """Configuration for aircraft trail detection."""
-    angle_tolerance_deg: float = 15.0
-    max_frame_gap: int = 3
-    min_track_frames: int = 3
-
-class AircraftTrailHook(DataclassHook[AircraftTrailConfig]):
-    """Detect aircraft trails by tracking lines across consecutive frames."""
-
-    plugin_name = "aircraft_trail"
-    ConfigType = AircraftTrailConfig
-
-    def __init__(self, config: Optional[AircraftTrailConfig] = None):
-        super().__init__(config)
-        self._tracks: Dict[int, "_TrackState"] = {}
-        self._track_counter = 0
-
-    def on_all_detections_sorted(
-        self,
-        detections: List[SortedDetection],
-    ) -> List[SortedDetection]:
-        """Analyze all detections for aircraft trail patterns.
-
-        Since this hook runs in the main process with globally sorted
-        detections, we can reliably track lines across consecutive frames.
-        """
-        # Reset state for this analysis pass
-        self._tracks.clear()
-        self._track_counter = 0
-
-        for detection in detections:
-            if not detection.lines:
-                detection.extras["aircraft"] = {"likelihood": 0.0, "track_id": None}
-                continue
-
-            # Match or create track based on line geometry
-            track = self._match_or_create_track(detection)
-            likelihood = self._compute_likelihood(track)
-
-            detection.extras["aircraft"] = {
-                "likelihood": likelihood,
-                "track_id": track.track_id,
-                "evidence": {
-                    "track_frames": track.frames,
-                    "angle_consistency": track.angle_consistency,
-                },
-            }
-
-        return detections
+config = PipelineConfig.with_defaults()
+config.hooks = [HookConfig(name="aircraft_trail", config={"min_track_frames": 3})]
+pipeline = MeteorDetectionPipeline(config)
+pipeline.run(enable_roi_selection=False)
 ```
+
+The hook preserves candidate decisions and scores. It annotates each sorted
+record with `aircraft.likelihood`, `track_id`, and geometric evidence; only
+candidate records are persisted in `progress.json`. `likelihood_threshold` is
+currently an unused configuration field and does not filter candidates. See the
+[aircraft hook implementation notes](docs/aircraft_light_trails_hook_design.md)
+for the actual configuration fields and tracking limitations.
 
 **Registration**:
 - Hooks should be made available through discovery (entry points or
@@ -1036,8 +1007,11 @@ As of v1.6.5, users can configure the entire pipeline—including plugin selecti
 
 The CLI accepts a `--config` option to load pipeline settings from a YAML or JSON file. The file structure mirrors `PipelineConfig` fields:
 
+The CLI and `load_pipeline_config()` accept partial configurations and fill
+omitted fields with defaults. Relative paths use the current working directory.
+
 ```yaml
-# config_examples/pipeline.yaml
+# Minimal pipeline configuration
 target_folder: ./rawfiles
 output_folder: ./candidates
 debug_folder: ./debug_masks
@@ -1050,16 +1024,17 @@ params:
 # Plugin selection
 input_loader_name: raw
 input_loader_config:
-  binning: 1
+  binning: 2
   normalize: true
 
 detector_name: hough
-detector_config:
-  use_probabilistic: true
+detector_config: {}
 
 output_handler_name: file
 output_handler_config:
-  overwrite: false
+  output_folder: ./candidates
+  debug_folder: ./debug_masks
+  output_overwrite: false
 ```
 
 **Plugin configuration keys**:
@@ -1074,6 +1049,17 @@ output_handler_config:
 | `output_handler_config` | Dict passed to plugin's `ConfigType` |
 
 The `*_config` dicts are coerced into each plugin's `ConfigType` using the standard coercion rules (see [3.3 Configuration Management](#33-configuration-management-configtype)).
+
+The built-in RAW loader supports only `binning: 2`; normalization defaults to
+`false`. Hough detector thresholds belong in `params`, since its `ConfigType`
+has no fields. With an explicit `output_handler_name: file`, the handler uses
+`output_handler_config` and its own defaults; top-level output paths and overwrite
+settings are not merged into that config. Omit `output_handler_name` to let the
+default file handler inherit those top-level settings.
+
+The built-in plugins are `raw`, `hough`, `simple_threshold`, and `file`, with
+`allow_all_files` and `aircraft_trail` hooks. TIFF/FITS loaders, ML detectors, and
+cloud/notification handlers mentioned in this guide are custom extension examples.
 
 **Loading in Python**:
 
@@ -1098,17 +1084,17 @@ uv run python detect_meteors_cli.py \
 
 # Provide plugin configs as JSON strings
 uv run python detect_meteors_cli.py \
-    --detector hough \
-    --detector-config '{"use_probabilistic": true}'
+    --input-loader raw \
+    --input-loader-config '{"binning": 2, "normalize": true}'
 
-# Or as YAML strings
+# Or as YAML strings (requires a custom slack output plugin)
 uv run python detect_meteors_cli.py \
     --output-handler slack \
     --output-handler-config "webhook_url: https://hooks.slack.com/..."
 
-# Or as file paths
+# Or as file paths containing the RAW loader configuration
 uv run python detect_meteors_cli.py \
-    --detector-config detector_settings.yaml
+    --input-loader-config raw_loader_settings.yaml
 ```
 
 **CLI plugin options**:

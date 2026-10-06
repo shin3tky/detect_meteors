@@ -1,5 +1,47 @@
 # Version 1.6 Release Notes
 
+## Version 1.6.10 (2026-02-04)
+
+### Sorted Detection Hooks and Aircraft Trail Metadata
+
+Version 1.6.10 adds frame-ordered analysis hooks and a lightweight
+`SortedDetection` contract for results without image payloads.
+
+- `on_batch_results_sorted(detections)` runs in the main process after each
+  batch's output and progress are recorded. Results within the batch are sorted
+  by `frame_index`; parallel batches arrive in completion order. Sequential
+  processing supplies one frame pair per batch.
+- `on_all_detections_sorted(detections)` runs in the main process after
+  `OutputHandler.on_pipeline_complete()`, with results processed in the current
+  invocation sorted across batches. It includes non-candidates but excludes
+  failed pairs without frame indices. Previous results are not reconstructed on
+  resume, and Ctrl-C skips this final analysis.
+- `SortedDetection` carries frame indices, paths, candidate flags, score,
+  aspect ratio, line segments, extras, and a schema version. It excludes image
+  and ROI arrays.
+- The built-in `aircraft_trail` hook uses the final sorted hook for geometric
+  tracking, with per-frame error handling and angle normalization. It adds
+  likelihood, track ID, and evidence without changing candidate decisions.
+- After final analysis, the progress manager merges `extras["aircraft"]` into
+  existing candidate entries in `progress.json`'s `detected_details`. Other
+  extras are not automatically persisted by the built-in writer.
+
+### Usage
+
+```bash
+uv run python detect_meteors_cli.py --hooks aircraft_trail --no-roi
+```
+
+The hooks are optional; existing configurations without hooks continue to skip
+hook execution. Custom sorted hooks should return the detection list and use
+`extras` for annotations: output files and candidate counts have already been
+recorded when these hooks run. `likelihood_threshold` in the aircraft hook's
+configuration is currently unused and does not enable filtering.
+
+See the [Plugin Author Guide](PLUGIN_AUTHOR_GUIDE.md#110-batch-results-sorted-hook-pipeline)
+and [aircraft hook implementation notes](docs/aircraft_light_trails_hook_design.md)
+for configuration and lifecycle details.
+
 ## Version 1.6.8 (2026-01-07) 🌿
 
 ### 🔍 Static Type Checking with ty
@@ -594,12 +636,13 @@ input_loader_config:
   normalize: true
 
 detector_name: hough
-detector_config:
-  use_probabilistic: true
+detector_config: {}
 
 output_handler_name: file
 output_handler_config:
-  overwrite: false
+  output_folder: ./candidates
+  debug_folder: ./debug_masks
+  output_overwrite: false
 ```
 
 **Usage**:
@@ -625,8 +668,8 @@ uv run python detect_meteors_cli.py \
 
 # Provide plugin configs as JSON strings
 uv run python detect_meteors_cli.py \
-    --detector hough \
-    --detector-config '{"use_probabilistic": true}'
+    --input-loader raw \
+    --input-loader-config '{"binning": 2, "normalize": true}'
 
 # Or as YAML strings
 uv run python detect_meteors_cli.py \

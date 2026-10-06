@@ -2,6 +2,11 @@
 
 All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 
+Defaults below apply when no configuration override is supplied. For pipeline
+settings, explicitly supplied CLI flags take precedence over the configuration
+file, followed by built-in defaults. Relative paths use the current working
+directory.
+
 ## Input/Output Options
 - **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan.
 - **`-o`/`--output`** (default: `candidates`): Destination folder for RAW files flagged as meteor candidates.
@@ -17,8 +22,19 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--detector-config`**: Detector config as a JSON/YAML string or file path.
 - **`--output-handler`**: Output handler plugin name (overrides `output_handler_name` in config).
 - **`--output-handler-config`**: Output handler config as a JSON/YAML string or file path.
-- **`--hooks`**: Comma-separated hook plugin names (execution order, overrides `hooks` in config). Omit this flag (or set `hooks: null` in config) to skip hooks entirely.
+- **`--hooks`**: Comma-separated hook plugin names (execution order, overrides `hooks` in config). When omitted, hooks from the configuration file are retained. With no configured hooks, hooks are skipped. Use `--hooks ""` to override configured hooks with an empty list.
 - **`--hook-config`**: Hook config as a JSON/YAML list or mapping (or file path) keyed by hook name.
+
+Built-in plugin defaults are `raw`, `hough`, and `file`. The RAW loader supports
+only `binning: 2` and defaults to `normalize: false`. The Hough detector accepts
+`detector_config: {}` and reads thresholds from `params`. The file output
+handler's overwrite field is `output_overwrite`. Set `hook_error_mode` to
+`raise` (default) or `warn` in the configuration file; there is no CLI flag for it.
+The optional `aircraft_trail` hook adds metadata after processing without
+changing candidate decisions or removing copied files.
+With an explicit `--output-handler file` (or `output_handler_name: file`), use
+the handler config for output paths and overwrite settings; top-level pipeline
+settings are only inherited when the default handler is selected implicitly.
 
 > **Note**: The CLI now runs through `MeteorDetectionPipeline`. The legacy path
 > remains for backward compatibility but is slated for deprecation.
@@ -41,6 +57,10 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--no-roi`**: Skip ROI selection and process the entire frame.
 - **`--roi`**: Explicit polygon ROI as `"x1,y1;x2,y2;..."` (needs ≥3 vertices).
 
+Interactive ROI selection is enabled by default. ROI coordinates, contour areas,
+and line lengths use the binned image (half the RAW width and height with the
+built-in loader).
+
 ## NPF Rule-based Auto-Parameter Optimization
 - **`--auto-params`**: Automatically optimize all three critical detection parameters using NPF Rule and EXIF metadata. The algorithm:
   - Extracts EXIF data (ISO, exposure, aperture, focal length, resolution)
@@ -49,7 +69,11 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
   - Optimizes `diff_threshold` based on ISO sensitivity and NPF overshoot
   - Optimizes `min_area` based on star trail length
   - Optimizes `min_line_score` based on meteor speed (3× faster than stars)
-  - Manual parameter specifications always have priority over auto-optimization
+  - Explicit `--diff-threshold`, `--min-area`, and `--min-line-score` flags take priority over auto-optimization; values supplied only in a configuration file may be recalculated
+
+When the EXIF data required for NPF analysis is unavailable, automatic estimation
+falls back to image-based sampling and geometry. The current auto-parameter
+path uses the built-in RAW helpers even when another input plugin is selected.
 
 ## NPF Rule Options
 - **`--sensor-type`**: Sensor type preset that automatically sets `--focal-factor`, `--sensor-width`, and `--pixel-pitch`. Valid types (ordered by sensor size):
@@ -74,8 +98,8 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--show-exif`**: Display EXIF metadata only and exit without processing. **Use this first** to verify focal length extraction before running `--auto-params`.
 
 ## Performance Options
-- **`--workers`** (default: CPU count - 1): Number of parallel worker processes.
-- **`--batch-size`** (default: `10`): How many RAW files each worker processes at a time.
+- **`--workers`** (default: `max(1, CPU count - 1)`): Number of parallel worker processes; allowed range is `1` through the CPU count. One worker uses sequential processing.
+- **`--batch-size`** (default: `10`): Number of adjacent-frame pairs in each parallel task. Sequential processing handles one pair at a time.
 - **`--auto-batch-size` / `--no-auto-batch-size`**: Enable or disable auto-adjusted batch sizing to stay within ~60% of available RAM.
 - **`--parallel` / `--no-parallel`**: Explicitly enable or disable parallel processing (defaults to enabled, unless overridden by config).
 
@@ -83,12 +107,14 @@ All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
 - **`--profile`**: Print timing breakdowns after the run.
 - **`--verbose`**: Show detailed diagnostic information on errors. Includes system info, dependency versions, and full error context for troubleshooting.
 - **`--save-diagnostic FILE`**: Save diagnostic report to specified file on error. If FILE is omitted, generates a timestamped filename. The report is formatted as Markdown suitable for GitHub issue attachments.
-- **`--validate-raw`**: Pre-validate RAW files to catch corruption before processing.
+- **`--validate-raw`**: Accepted but currently unused by both the CLI pipeline and the legacy detection function. Load failures are handled during processing. Python callers can invoke `meteor_core.pipeline.validate_raw_file()` explicitly for pre-validation.
 - **`--progress-file`** (default: `progress.json`): Path to the JSON file that tracks processed frames.
 - **`--locale`** (default: environment variable `DETECT_METEORS_LOCALE` or `en`): Locale code for CLI messages. Currently supports `en` (English) and `ja` (Japanese).
-- **`--no-resume`**: Ignore and remove any existing progress file before processing.
+- **`--no-resume`**: Start fresh without loading existing progress; new progress replaces the previous contents. Existing candidate files still follow the overwrite setting.
 - **`--remove-progress`**: Delete the progress file and exit immediately.
 - **`--output-overwrite`**: Force overwrite existing files in output folder (default: skip existing files).
+- **`--version`**: Display the application version and exit.
+- **`-h` / `--help`**: Display command-line help and exit.
 
 ## Fisheye Correction Options
 - **`--fisheye`**: Enable fisheye lens correction for equisolid angle projection lenses. Adjusts NPF calculations to use edge focal length (worst case) and accounts for longer star trails at image edges. Recommended for ultra-wide fisheye lenses (e.g., 8mm on Full Frame or MFT).

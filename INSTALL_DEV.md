@@ -19,11 +19,11 @@ After cloning the repository, install all dependencies including dev tools:
 uv sync --all-extras
 ```
 
-This installs the project in editable mode plus the dev toolchain (Ruff, pre-commit, coverage).
+This installs the project in editable mode plus the dev toolchain (Ruff, ty, pre-commit, coverage).
 
 ### Step 2: Set Up Pre-commit Hooks
 
-This project uses [pre-commit](https://pre-commit.com/) with [Ruff](https://docs.astral.sh/ruff/) for automatic code formatting and linting.
+This project uses [pre-commit](https://pre-commit.com/) with [Ruff](https://docs.astral.sh/ruff/) for automatic code formatting and linting, plus ty for type checking.
 
 ```bash
 # Install the git hooks
@@ -45,10 +45,10 @@ uv run pre-commit run --all-files
 
 ### How It Works
 
-Once installed, pre-commit will automatically run Ruff (linter and formatter) before each commit:
+Once installed, pre-commit runs Ruff (linter and formatter) and ty before each commit:
 
 1. You make changes and run `git commit`
-2. Pre-commit runs Ruff linter with auto-fix and formatter on staged files
+2. Pre-commit runs Ruff linter with auto-fix and formatter on staged Python files, then ty over the configured source paths
 3. If changes are made or errors are found, the commit is aborted
 4. You stage the changes and commit again
 
@@ -173,6 +173,7 @@ uv run coverage html
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch sizing |
 | `test_pipeline_execution_v1x.py` | 7 | Pipeline execution and results |
 | `test_pipeline_helpers_v1x.py` | 12 | Pipeline helpers |
+| `test_aircraft_trail_hook_v1x.py` | 3 | Aircraft tracking metadata and progress persistence |
 
 #### Plugins, registries, and contracts
 
@@ -199,14 +200,14 @@ uv run coverage html
 | `test_utils_display_width_v1x.py` | 3 | Unicode display width helpers |
 | `test_utils_roi_hash_v1x.py` | 5 | ROI hash utilities |
 
-**Total: 572 tests**
+**Total: 575 tests (v1.6.10)**
 
 ## Code Style
 
 ### Standards
 
 - **Ruff** for linting and formatting (88 character line length)
-- **Python 3.12+** required
+- **Python 3.12 or 3.13** required (`>=3.12,<3.14`)
 - **Google-style docstrings**
 - **Type hints** throughout
 
@@ -278,6 +279,7 @@ detect_meteors/
 │   ├── inputs/                    # Input loader plugins
 │   ├── detectors/                 # Detection algorithm plugins
 │   ├── outputs/                   # Output handler plugins
+│   ├── hooks/                     # Pipeline hooks, including aircraft trail analysis
 │   ├── locales/                   # Translations
 │   └── templates/                 # Report templates and assets
 ├── candidates/                    # Default output folder for detections
@@ -292,7 +294,7 @@ detect_meteors/
 
 ## Plugin Development
 
-For creating custom plugins (input loaders, detectors, output handlers), see the comprehensive [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md).
+For creating custom plugins (input loaders, detectors, output handlers, pipeline hooks), see the comprehensive [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md).
 
 > ⚠️ **Note**: The plugin architecture is experimental and may change before v2.0.
 
@@ -313,11 +315,10 @@ For creating custom plugins (input loaders, detectors, output handlers), see the
 
 ### Updating Ruff Version
 
-Ruff version is pinned in two locations for consistency across all environments:
-- `pyproject.toml` (`ruff==X.Y.Z` in dev dependencies)
-- `.pre-commit-config.yaml` (`rev: vX.Y.Z`)
-
-When updating Ruff, change both files to the same version.
+Ruff is pinned in `pyproject.toml` (`ruff==X.Y.Z` in dev dependencies).
+The local hooks in `.pre-commit-config.yaml` invoke `.venv/bin/ruff` and
+`.venv/bin/ty`; they do not have separate version pins. Update the dependency
+pin and run `uv sync --all-extras` to refresh the tools used by pre-commit.
 
 ### Pre-commit Issues
 
@@ -326,8 +327,8 @@ When updating Ruff, change both files to the same version.
 uv run pre-commit uninstall
 uv run pre-commit install
 
-# Update to latest versions
-uv run pre-commit autoupdate
+# Refresh the locally pinned tools
+uv sync --all-extras
 ```
 
 ### Test Issues
