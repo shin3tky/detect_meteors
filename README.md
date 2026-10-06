@@ -17,7 +17,10 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
 > [!TIP]
-> 🌠 **Draconids are coming — October 8-9, 2026!** The Draconids meteor shower peaks on the night of October 8-9, 2026. Don't miss this opportunity to capture stunning meteors! See [Draconids details](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#draconids) for viewing conditions and tips.
+> 🌠 **Two meteor showers to photograph in October 2026!**
+>
+> - **Draconids — October 8-9, 2026:** See [Draconids details](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#draconids) for peak-night viewing conditions and photography tips.
+> - **Orionids — October 21-22, 2026:** See [Orionids details](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#orionids) for peak-night viewing conditions and photography tips.
 
 ## Features
 
@@ -231,6 +234,10 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
 ## What's New in v1.6.10
+
+**Release date: October 6, 2026 (2026-10-06) — 🌠 Make Your Dream Come True Day.**
+Version 1.6.9 was skipped; this
+release follows v1.6.8.
 
 - **Sorted detection hooks**: New pipeline hooks for temporally-ordered detection analysis
   - `on_batch_results_sorted`: Per-batch hook with frame-order guarantee

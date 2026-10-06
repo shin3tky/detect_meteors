@@ -17,7 +17,10 @@
 📅 **流星撮影を計画していますか？** 今後の流星群の日程や観測のヒントは、[流星群カレンダー](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar)を参照してください。
 
 > [!TIP]
-> 🌠 **2026年10月8〜9日は、りゅう座流星群！** りゅう座流星群は2026年10月8〜9日の夜に極大を迎えます。観測条件や撮影のヒントは、[りゅう座流星群の詳細](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#draconids)を参照してください。
+> 🌠 **2026年10月は、2つの流星群を撮影しよう！**
+>
+> - **りゅう座流星群（Draconids）：2026年10月8〜9日**。[りゅう座流星群の詳細](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#draconids)で、極大夜の観測条件や撮影のヒントを確認してください。
+> - **オリオン座流星群（Orionids）：2026年10月21〜22日**。[オリオン座流星群の詳細](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#orionids)で、極大夜の観測条件や撮影のヒントを確認してください。
 
 ## 特徴
 
@@ -200,6 +203,8 @@ RAWファイルとチェックサムは、リポジトリの [`rawfiles/2024GEMI
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | 技術的な詳細 |
 
 ## v1.6.10の新機能
+
+**リリース日：2026年10月6日（2026-10-06）— 🌠 夢をかなえる日。** 1.6.9はスキップし、v1.6.8の次のリリースをv1.6.10とします。
 
 - **ソート済み検出フック**：時系列順の検出解析に使う新しいパイプラインフック
   - `on_batch_results_sorted`：フレーム順を保証するバッチ単位のフック

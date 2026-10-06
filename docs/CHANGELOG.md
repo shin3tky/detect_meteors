@@ -2,7 +2,10 @@
 
 [日本語版](CHANGELOG_ja.md)
 
-## v1.6.10 - 2026-02-04
+## v1.6.10 - 2026-10-06 - 🌠 Make Your Dream Come True Day
+
+Version 1.6.9 was skipped; v1.6.10 is the next release after v1.6.8.
+
 - **Release packaging**: Explicit setuptools build backend, installable `detect-meteors` command, and CLI module included in the wheel. Source distributions include documentation, configuration examples, and tests.
 - **Aircraft trail usage and validation**: Added a sample configuration, result-reading instructions, and validation on the local 12-frame `2024GEMINI_AIRCRAFT` sequence. Aircraft metadata does not exclude mixed aircraft/meteor images.
 - **Sorted detection hooks**: New pipeline hooks for temporally-ordered detection analysis.

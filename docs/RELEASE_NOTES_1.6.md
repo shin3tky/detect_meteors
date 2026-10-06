@@ -2,7 +2,9 @@
 
 [日本語版](RELEASE_NOTES_1.6_ja.md)
 
-## Version 1.6.10 (2026-02-04)
+## Version 1.6.10 (2026-10-06) - 🌠 Make Your Dream Come True Day
+
+Version 1.6.9 was skipped; v1.6.10 is the next release after v1.6.8.
 
 ### Sorted Detection Hooks and Aircraft Trail Metadata
 
@@ -1704,8 +1706,9 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
-### v1.6.10 (Latest)
-- **Release Date**: 2026-02-04
+### v1.6.10 🌠 (Latest)
+- **Release Date**: 2026-10-06 - Make Your Dream Come True Day
+- **Version sequence**: v1.6.9 skipped; follows v1.6.8
 - **Main Focus**: Sorted detection hooks and aircraft trail metadata
 - **Key Changes**:
   - Frame-ordered batch and full-run analysis with `SortedDetection`

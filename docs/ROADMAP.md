@@ -210,7 +210,7 @@ The following features were originally planned for v1.x but have been deferred:
 - [ ] Advanced quality metrics (focus quality, atmospheric transparency)
 
 ### Sorted Detection Analysis
-- [x] **v1.6.10** - Frame-ordered hooks and aircraft trail metadata
+- [x] **v1.6.10 (2026-10-06) 🌠 Make Your Dream Come True Day** - Frame-ordered hooks and aircraft trail metadata (v1.6.9 skipped)
   - [x] `SortedDetection` records without image payloads
   - [x] `on_batch_results_sorted` for analysis within each result batch
   - [x] `on_all_detections_sorted` for analysis across the current run
@@ -266,5 +266,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.10 (Sorted Detection Hooks and Aircraft Trail Metadata)
+**Current Status**: v1.6.10, released 2026-10-06 - 🌠 Make Your Dream Come True Day (Sorted Detection Hooks and Aircraft Trail Metadata; v1.6.9 skipped)
 **Next Focus**: v2.0 Architecture and Extensibility - Pipeline modularity and plugin ecosystem
