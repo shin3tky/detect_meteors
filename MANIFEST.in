@@ -1,0 +1,11 @@
+include README.md README_ja.md
+include LICENSE NOTICE
+include uv.lock
+include run_tests.py
+include _detect_meteors_cli detect_meteors_cli_completion.bash
+include social_preview.jpg workflow.png
+include rawfiles/2024GEMINI_AIRCRAFT/README.md
+include rawfiles/2024GEMINI_AIRCRAFT/SHA256SUMS
+recursive-include config_examples *.yaml
+recursive-include docs *.md
+recursive-include tests *.py

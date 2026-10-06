@@ -32,6 +32,77 @@ Hooks are disabled by default. The hook is included in built-in discovery and
 registered under the `detect_meteors.hook` entry point. Custom hooks can also be
 discovered from `~/.detect_meteors/hook_plugins/`.
 
+### Configure from the Command Line
+
+Use `--hook-config` to set matching tolerances without a pipeline file:
+
+```bash
+uv run python detect_meteors_cli.py \
+  --target rawfiles/2024GEMINI_AIRCRAFT \
+  --output candidates/aircraft_v1.6.10/cli \
+  --debug-dir debug_masks/aircraft_v1.6.10/cli \
+  --progress-file candidates/aircraft_v1.6.10/cli/progress.json \
+  --auto-params --sensor-type MFT --no-roi --no-resume --debug-image \
+  --hooks aircraft_trail \
+  --hook-config '{"aircraft_trail":{"max_start_distance_px":150,"max_end_distance_px":150,"max_angle_diff_deg":10}}'
+```
+
+The distances above were tried on the local sample and are not universal
+defaults. Start with the built-in defaults for a new sequence, inspect the
+evidence, and adjust distances for the displacement in binned image coordinates.
+Wider tolerances can join unrelated lines. `min_track_frames` changes continuity
+weighting; `likelihood_threshold` currently has no effect.
+
+### Run the Local Sample
+
+The Git-tracked `rawfiles/2024GEMINI_AIRCRAFT` sequence contains 12 RAW files, all with
+aircraft trails. The owner identifies meteors only in `_C140338.ORF` and
+`_C140344.ORF`. Clone the repository to obtain the RAW files and verify the
+checksums in the [sample README](../rawfiles/2024GEMINI_AIRCRAFT/README.md).
+The RAW images are excluded from the Python wheel and source distribution.
+
+From the repository or extracted source distribution directory, run:
+
+```bash
+uv run python detect_meteors_cli.py \
+  --config config_examples/aircraft_trail_sample.yaml \
+  --no-roi --no-resume --debug-image --profile
+```
+
+This sample configuration uses the detection parameters obtained by NPF-based
+auto-estimation and wider endpoint/angle matching tolerances. It keeps separate
+output, debug, and progress paths so it does not reuse the normal `progress.json`.
+On a single-core machine, add `--workers 1` to override the sample's two workers.
+
+### Read the Results
+
+After the run completes, inspect the `aircraft` blocks in the progress file:
+
+```bash
+uv run python - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("candidates/aircraft_v1.6.10/tuned/progress.json")
+data = json.loads(path.read_text(encoding="utf-8"))
+for item in sorted(data["detected_details"], key=lambda item: item["frame_index"]):
+    aircraft = item.get("aircraft", {})
+    evidence = aircraft.get("evidence", {})
+    print(item["filename"], aircraft.get("likelihood"),
+          aircraft.get("track_id"), evidence.get("track_frames"))
+PY
+```
+
+Review these values alongside the original RAW and debug masks. A higher
+likelihood describes the selected line's continuity, not whether a meteor is
+absent from the image. In this sample, `_C140344.ORF` has both a meteor and a high
+aircraft likelihood. Filtering files by a likelihood threshold would lose that
+meteor. The absolute frame difference can also retain a meteor's disappearance
+in the following pair, so a track need not represent a persistent aircraft.
+
+See [the sample validation results](aircraft_sample_validation.md) for both the
+built-in defaults and the sample configuration.
+
 ## Processing and Persistence
 
 ```text

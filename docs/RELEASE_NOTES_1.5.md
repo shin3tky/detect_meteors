@@ -716,7 +716,7 @@ Homepage = "https://github.com/shin3tky/detect_meteors"
 Repository = "https://github.com/shin3tky/detect_meteors.git"
 Documentation = "https://github.com/shin3tky/detect_meteors#readme"
 Issues = "https://github.com/shin3tky/detect_meteors/issues"
-Changelog = "https://github.com/shin3tky/detect_meteors/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/shin3tky/detect_meteors/blob/main/docs/CHANGELOG.md"
 ```
 
 ### Pre-commit Hook Update

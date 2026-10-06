@@ -1,6 +1,11 @@
 # Developer Installation Guide
 
+[日本語版](INSTALL_DEV_ja.md)
+
 This guide provides setup instructions for contributors and developers working on Detect Meteors CLI.
+
+Run the commands in this guide from the repository root or the root of an
+extracted source distribution, not from `docs/`.
 
 For basic user installation, see [INSTALL.md](INSTALL.md).
 For plugin development, see [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md).
@@ -204,6 +209,28 @@ uv run coverage html
 
 ## Code Style
 
+### Building a Release
+
+Version `1.6.10` must agree in `pyproject.toml`, `meteor_core/schema.py`, and
+`uv.lock`. The setuptools backend packages the CLI module and installs the
+`detect-meteors` command. `MANIFEST.in` includes documentation, configuration
+examples, and tests in the source distribution.
+
+```bash
+uv run python run_tests.py
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check
+uv build
+```
+
+Build outputs are `dist/detect_meteors-1.6.10.tar.gz` and
+`dist/detect_meteors-1.6.10-py3-none-any.whl`. Before distributing them, verify the
+wheel in an isolated environment using `detect-meteors --version` and `--help`,
+and check that the source archive includes the documented sample config and
+excludes RAW files and generated candidates. The local aircraft sample can be
+checked with the commands in the [aircraft guide](aircraft_light_trails_hook_design.md).
+
 ### Standards
 
 - **Ruff** for linting and formatting (88 character line length)
@@ -284,12 +311,16 @@ detect_meteors/
 │   └── templates/                 # Report templates and assets
 ├── candidates/                    # Default output folder for detections
 ├── config_examples/               # Sample configuration files
+├── docs/                          # Guides, changelogs, release notes, and translations
+│   ├── INSTALL_DEV.md             # Developer setup guide
+│   └── PLUGIN_AUTHOR_GUIDE.md     # Plugin development guide
 ├── debug_masks/                   # Debug output masks
 ├── rawfiles/                      # Sample/raw image inputs
 ├── tests/                         # Test suite
 ├── pyproject.toml                 # Project configuration
 ├── run_tests.py                   # Test runner helper
-└── PLUGIN_AUTHOR_GUIDE.md         # Plugin development guide
+├── README.md                      # English overview
+└── README_ja.md                   # Japanese overview
 ```
 
 ## Plugin Development
@@ -350,14 +381,14 @@ uv run python -c "from meteor_core import BaseInputLoader, BaseOutputHandler, Ba
 
 ## License
 
-This project is licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
+This project is licensed under the **Apache License 2.0**. See [LICENSE](../LICENSE) for details.
 
-When redistributing, include the [NOTICE](NOTICE) file.
+When redistributing, include the [NOTICE](../NOTICE) file.
 
 ## Resources
 
 - [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) — Plugin development
-- [README.md](README.md) — User documentation
+- [README.md](../README.md) — User documentation
 - [CHANGELOG.md](CHANGELOG.md) — Release history
 - [Ruff Documentation](https://docs.astral.sh/ruff/)
 - [uv Documentation](https://docs.astral.sh/uv/)

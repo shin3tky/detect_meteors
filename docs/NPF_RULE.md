@@ -1,5 +1,7 @@
 # Understanding NPF Rule
 
+[日本語版](NPF_RULE_ja.md)
+
 The **NPF Rule** (developed by Frédéric Michaud) is a scientific method to calculate the maximum exposure time before stars show trailing due to Earth's rotation. Unlike traditional "500 Rule" or "600 Rule", it accounts for modern camera sensor pixel pitch:
 
 ```

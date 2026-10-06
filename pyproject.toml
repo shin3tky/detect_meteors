@@ -6,6 +6,10 @@
 # Note: Version is also defined in meteor_core/schema.py
 #       Keep both in sync when releasing new versions.
 
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
 # ==========================================
 # Project Metadata (PEP 621)
 # ==========================================
@@ -71,10 +75,13 @@ Homepage = "https://github.com/shin3tky/detect_meteors"
 Repository = "https://github.com/shin3tky/detect_meteors.git"
 Documentation = "https://github.com/shin3tky/detect_meteors#readme"
 Issues = "https://github.com/shin3tky/detect_meteors/issues"
-Changelog = "https://github.com/shin3tky/detect_meteors/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/shin3tky/detect_meteors/blob/main/docs/CHANGELOG.md"
 
 [project.entry-points."detect_meteors.hook"]
 aircraft_trail = "meteor_core.hooks.aircraft_trail:AircraftTrailHook"
+
+[project.scripts]
+detect-meteors = "detect_meteors_cli:main"
 
 # ==========================================
 # Ruff - Linter and Formatter
@@ -219,6 +226,9 @@ invalid-base = "warn"
 # ==========================================
 # Setuptools - Package Discovery
 # ==========================================
+[tool.setuptools]
+py-modules = ["detect_meteors_cli"]
+
 [tool.setuptools.packages.find]
 include = ["meteor_core", "meteor_core.*"]
 

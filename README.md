@@ -1,5 +1,7 @@
 # Detect Meteors CLI
 
+[日本語版](README_ja.md)
+
 ![social_preview](social_preview.jpg)
 
 [![tests](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml/badge.svg)](https://github.com/shin3tky/detect_meteors/actions/workflows/python-test.yml)
@@ -33,7 +35,7 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 ## Installation
 
-See [INSTALL.md](INSTALL.md) for detailed installation instructions.
+See [INSTALL.md](docs/INSTALL.md) for detailed installation instructions.
 
 ## Quick Start
 
@@ -196,15 +198,36 @@ cross-frame tracks are not restored from previous progress. See the
 [implementation notes](docs/aircraft_light_trails_hook_design.md) for configuration
 and limitations.
 
+For a reproducible local example, use
+[`config_examples/aircraft_trail_sample.yaml`](config_examples/aircraft_trail_sample.yaml):
+
+```bash
+uv run python detect_meteors_cli.py \
+  --config config_examples/aircraft_trail_sample.yaml \
+  --no-roi --no-resume --debug-image
+```
+
+The Git-tracked 12-frame sample contains aircraft in every image and owner-confirmed
+meteors in `_C140338.ORF` and `_C140344.ORF`. All 11 analyzed pairs remain
+candidates; the hook is not an aircraft rejection filter. The latter meteor
+frame also receives high aircraft likelihood with the sample settings, so keep
+reviewing mixed images. The RAW files and checksums are available in
+[`rawfiles/2024GEMINI_AIRCRAFT`](rawfiles/2024GEMINI_AIRCRAFT/README.md) in a
+repository checkout; RAW images are excluded from the Python distributions. See the
+[usage and result-reading guide](docs/aircraft_light_trails_hook_design.md#read-the-results)
+and [sample validation results](docs/aircraft_sample_validation.md).
+
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [COMMAND_OPTIONS.md](COMMAND_OPTIONS.md) | Complete CLI options reference |
-| [NPF_RULE.md](NPF_RULE.md) | NPF Rule and focal length handling |
-| [INSTALL.md](INSTALL.md) | Installation guide |
-| [INSTALL_DEV.md](INSTALL_DEV.md) | Developer setup |
-| [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
+| [COMMAND_OPTIONS.md](docs/COMMAND_OPTIONS.md) | Complete CLI options reference |
+| [NPF_RULE.md](docs/NPF_RULE.md) | NPF Rule and focal length handling |
+| [INSTALL.md](docs/INSTALL.md) | Installation guide |
+| [INSTALL_DEV.md](docs/INSTALL_DEV.md) | Developer setup |
+| [PLUGIN_AUTHOR_GUIDE.md](docs/PLUGIN_AUTHOR_GUIDE.md) | Plugin development |
+| [Aircraft trail guide](docs/aircraft_light_trails_hook_design.md) | Enable, configure, and inspect aircraft metadata |
+| [Aircraft sample validation](docs/aircraft_sample_validation.md) | Results and limitations on the local 12-frame sequence |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
 ## What's New in v1.6.10
@@ -215,23 +238,23 @@ and limitations.
 - **SortedDetection dataclass**: Lightweight, memory-efficient container for sorted hooks
 - **AircraftTrailHook improvements**: Enhanced robustness with error handling, logging, and 360° angle normalization
 
-For detailed migration information, see [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md).
+For detailed migration information, see [RELEASE_NOTES_1.6.md](docs/RELEASE_NOTES_1.6.md).
 
 ### Previous Releases
 
 | Version | Highlights | Details |
 |---------|------------|---------|
-| v1.6.x | Schema versioning, ML-ready architecture, uv/Ruff toolchain | [RELEASE_NOTES_1.6.md](RELEASE_NOTES_1.6.md) |
-| v1.5.x | Plugin architecture, sensor presets, fisheye support | [RELEASE_NOTES_1.5.md](RELEASE_NOTES_1.5.md) |
-| v1.4.x | NPF Rule optimization, EXIF extraction | [RELEASE_NOTES_1.4.md](RELEASE_NOTES_1.4.md) |
-| v1.3.x | Auto-parameter estimation | [RELEASE_NOTES_1.3.md](RELEASE_NOTES_1.3.md) |
-| v1.2.x | Threshold estimation improvements | [RELEASE_NOTES_1.2.md](RELEASE_NOTES_1.2.md) |
+| v1.6.x | Schema versioning, ML-ready architecture, uv/Ruff toolchain | [RELEASE_NOTES_1.6.md](docs/RELEASE_NOTES_1.6.md) |
+| v1.5.x | Plugin architecture, sensor presets, fisheye support | [RELEASE_NOTES_1.5.md](docs/RELEASE_NOTES_1.5.md) |
+| v1.4.x | NPF Rule optimization, EXIF extraction | [RELEASE_NOTES_1.4.md](docs/RELEASE_NOTES_1.4.md) |
+| v1.3.x | Auto-parameter estimation | [RELEASE_NOTES_1.3.md](docs/RELEASE_NOTES_1.3.md) |
+| v1.2.x | Threshold estimation improvements | [RELEASE_NOTES_1.2.md](docs/RELEASE_NOTES_1.2.md) |
 
-See [CHANGELOG.md](CHANGELOG.md) for complete release history.
+See [CHANGELOG.md](docs/CHANGELOG.md) for complete release history.
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for upcoming features.
+See [ROADMAP.md](docs/ROADMAP.md) for upcoming features.
 
 ## Authors
 
@@ -243,7 +266,7 @@ The NPF Rule implementation is based on the formula developed by Frédéric Mich
 
 Issues and pull requests are welcome. Please open an issue to discuss substantial changes before submitting a PR.
 
-For development setup, see [INSTALL_DEV.md](INSTALL_DEV.md).
+For development setup, see [INSTALL_DEV.md](docs/INSTALL_DEV.md).
 
 ## License
 

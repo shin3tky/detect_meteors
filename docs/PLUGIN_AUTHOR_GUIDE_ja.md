@@ -1,32 +1,40 @@
-# Plugin Author Guide
+# プラグイン開発ガイド
 
-> ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
->
-> **Current status (v1.6.10)**:
->
-> - ✅ Registry system and base classes are stable
-> - ✅ Input Loaders, Detectors, Output Handlers work as documented
-> - ✅ `on_detection_result` and `on_candidate_detected` output handler hooks are invoked (v1.6.4)
-> - ✅ **Pipeline configuration files** (YAML/JSON) supported via `--config` (v1.6.5)
-> - ✅ **CLI plugin selection** with `--input-loader`, `--detector`, `--output-handler` (v1.6.5)
-> - ✅ **Pipeline hook system** with `on_file_found`, `on_image_loaded`, `on_detection_complete`, `on_output_saved` (v1.6.6)
-> - ✅ **HookRegistry** for centralized hook discovery and management (v1.6.6)
-> - ✅ **Static type checking with ty** integrated in development toolchain (v1.6.8)
-> - ✅ **MAX_NUM_WORKERS** constant for worker limit validation (v1.6.8)
-> - ✅ **Sorted detection hooks** with `on_batch_results_sorted`, `on_all_detections_sorted` for stateful analysis (v1.6.10)
-> - ✅ **SortedDetection** lightweight dataclass for memory-efficient sorted hook processing (v1.6.10)
-> - ⚠️ Detector/runtime parameter contracts may still evolve
-> - ✅ `on_batch_complete` and `on_pipeline_complete` output handler hooks are invoked by `MeteorDetectionPipeline`
+[English](PLUGIN_AUTHOR_GUIDE.md)
 
-This guide provides comprehensive instructions for developing custom plugins for Detect Meteors CLI.
+> ⚠️ **実験的**：プラグイン構成は開発中であり、**v2.0の安定版までに互換性のない変更が入る可能性があります**。
+>
+> **現在の状態（v1.6.10）**：
+>
+> - ✅ レジストリと基底クラスは安定しています。
+> - ✅ 入力ローダー、検出器、出力ハンドラーは記載どおり動作します。
+> - ✅ 出力ハンドラーの `on_detection_result`、`on_candidate_detected` を呼び出します（v1.6.4）。
+> - ✅ `--config` による **YAML/JSON設定ファイル** に対応（v1.6.5）。
+> - ✅ `--input-loader`、`--detector`、`--output-handler` による **CLIでのプラグイン選択**（v1.6.5）。
+> - ✅ `on_file_found`、`on_image_loaded`、`on_detection_complete`、`on_output_saved` の **パイプラインフック**（v1.6.6）。
+> - ✅ フック検出と管理を集約する **HookRegistry**（v1.6.6）。
+> - ✅ 開発環境に **tyによる静的型検査** を統合（v1.6.8）。
+> - ✅ ワーカー上限を検証する **MAX_NUM_WORKERS**（v1.6.8）。
+> - ✅ 状態を持つ解析用の **ソート済み検出フック** `on_batch_results_sorted`、`on_all_detections_sorted`（v1.6.10）。
+> - ✅ ソート済み解析用の軽量な **SortedDetection**（v1.6.10）。
+> - ⚠️ 検出器・実行パラメータの契約は今後も変わる可能性があります。
+> - ✅ `MeteorDetectionPipeline` は出力ハンドラーの `on_batch_complete`、`on_pipeline_complete` を呼び出します。
+
+Detect Meteors CLIの独自プラグイン開発を詳しく説明します。
+
+特に指定がない限り、CLI・Pythonの実行例は `docs/` 内ではなく、リポジトリのルート、または展開したソース配布版のルートで実行してください。
 
 ---
 
-## Architecture Overview
+<a id="architecture-overview"></a>
 
-Before diving into the details, it helps to understand the overall architecture. The plugin system is designed with **loose coupling** between three distinct layers, each with clearly defined responsibilities and data contracts.
+## 設計の概要
 
-### Three-Layer Architecture
+最初に全体の構成を確認します。3つの層を **疎結合** にし、それぞれの責務とデータ契約を明確にしています。
+
+<a id="three-layer-architecture"></a>
+
+### 3層構成
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -46,9 +54,11 @@ Before diving into the details, it helps to understand the overall architecture.
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+<a id="data-flow"></a>
 
-The pipeline processes image pairs (current frame, previous frame) to detect meteor candidates:
+### データの流れ
+
+現在・前の2フレームを1組として処理し、流星候補を検出します。
 
 ```
 filepath ──▶ Input Loader ──▶ InputContext
@@ -75,46 +85,54 @@ filepath ──▶ Input Loader ──▶ InputContext
                             └───────────────┘
 ```
 
-### Layer Responsibilities
+<a id="layer-responsibilities"></a>
 
-| Layer | Base Class | Input | Output | Responsibility |
-|-------|------------|-------|--------|----------------|
-| **Input** | `BaseInputLoader` | `filepath` | `InputContext` | Load images from various formats (CR2, ARW, DNG, TIFF, FITS, ...), extract metadata |
-| **Detection** | `BaseDetector` | `DetectionContext` | `DetectionResult` | Analyze image pairs to detect meteor candidates (frame differencing, Hough transform, ML, ...) |
-| **Output** | `BaseOutputHandler` | `DetectionResult` | `OutputResult` | Save results, generate reports, send notifications (file, cloud, Slack, database, ...) |
+### 各層の責務
 
-### Benefits of Loose Coupling
+| 層 | 基底クラス | 入力 | 出力 | 責務 |
+|----|------------|------|------|------|
+| **入力** | `BaseInputLoader` | `filepath` | `InputContext` | CR2、ARW、DNG、TIFF、FITSなどの読み込みとメタデータ抽出 |
+| **検出** | `BaseDetector` | `DetectionContext` | `DetectionResult` | フレーム差分、Hough変換、MLなどによる候補解析 |
+| **出力** | `BaseOutputHandler` | `DetectionResult` | `OutputResult` | ファイル・クラウド・Slack・データベースなどへの保存、レポート、通知 |
 
-This architecture provides significant flexibility:
+<a id="benefits-of-loose-coupling"></a>
 
-- **Input Layer**: Detectors never need to know about file formats or image loading libraries. Whether you use rawpy, OpenCV, or a custom FITS reader, the detector simply receives a normalized `InputContext`.
+### 疎結合の利点
 
-- **Detection Layer**: The entire detection algorithm (preprocessing → analysis → scoring) is encapsulated. You can replace the built-in Hough transform approach with deep learning, morphological analysis, or video-based detection—the input and output layers remain unchanged.
+次のように、柔軟に差し替えられます。
 
-- **Output Layer**: Storage destinations can be changed from local disk to cloud storage (S3, GCS), databases, or notification services (Slack, Discord) without affecting detection logic.
+- **入力層**：検出器はファイル形式や読み込みライブラリを意識する必要がありません。rawpy、OpenCV、独自FITSリーダーでも、正規化した `InputContext` を介して画像を提供します。
+- **検出層**：前処理・解析・スコア算出を検出器内にまとめます。Hough変換を深層学習、モルフォロジー解析、動画検出などに置き換えても、入出力層は維持できます。
+- **出力層**：検出ロジックに影響せず、保存先をローカルからS3/GCS、データベース、Slack/Discordなどへ変更できます。
 
-Each layer communicates only through well-defined dataclasses (`InputContext`, `DetectionContext`, `DetectionResult`, `OutputResult`), ensuring that internal implementation changes don't break the pipeline.
-
----
-
-## Table of Contents
-
-0. [Architecture Overview](#architecture-overview)
-1. [Application Lifecycle](#1-application-lifecycle)
-2. [Extension Points](#2-extension-points)
-3. [Plugin Architecture](#3-plugin-architecture)
-4. [Data Contracts Reference](#4-data-contracts-reference)
-5. [Sample Code](#5-sample-code)
-6. [Best Practices](#6-best-practices)
-7. [Step-by-Step Tutorial](#7-step-by-step-tutorial)
+各層は `InputContext`、`DetectionContext`、`DetectionResult`、`OutputResult` の明確なデータクラスで通信し、内部の変更がパイプラインを壊さないようにします。
 
 ---
 
-## 1. Application Lifecycle
+<a id="table-of-contents"></a>
 
-Understanding the detection pipeline lifecycle is essential for effective plugin development.
+## 目次
 
-### 1.1 Pipeline + Hook Overview
+0. [設計の概要](#architecture-overview)
+1. [アプリケーションのライフサイクル](#1-application-lifecycle)
+2. [拡張ポイント](#2-extension-points)
+3. [プラグイン構成](#3-plugin-architecture)
+4. [データ契約リファレンス](#4-data-contracts-reference)
+5. [コード例](#5-sample-code)
+6. [実装上の推奨事項](#6-best-practices)
+7. [段階的なチュートリアル](#7-step-by-step-tutorial)
+
+---
+
+<a id="1-application-lifecycle"></a>
+
+## 1. アプリケーションのライフサイクル
+
+効果的なプラグイン開発には、検出パイプラインの処理順を理解することが重要です。
+
+<a id="11-pipeline--hook-overview"></a>
+
+### 1.1 パイプラインとフックの全体像
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -176,11 +194,11 @@ Understanding the detection pipeline lifecycle is essential for effective plugin
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-This diagram highlights *where* hooks are inserted relative to the pipeline.
-The next section explains the pipeline flow in detail, followed by a focused
-breakdown of each hook.
+フックがパイプラインのどこに入るかを示しています。次に処理の流れを説明し、その後で各フックを詳しく説明します。
 
-### 1.2 Pipeline Steps
+<a id="12-pipeline-steps"></a>
+
+### 1.2 パイプラインの処理段階
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -201,7 +219,9 @@ breakdown of each hook.
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.3 Processing Flow Detail
+<a id="13-processing-flow-detail"></a>
+
+### 1.3 処理の流れの詳細
 
 ```
 For each image pair (current, previous):
@@ -239,66 +259,60 @@ For each image pair (current, previous):
     └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1.4 Hook Overview
+<a id="14-hook-overview"></a>
 
-The pipeline provides two categories of hooks:
+### 1.4 フックの概要
 
-**Output Handler Hooks** (defined on `BaseOutputHandler`):
+フックには2種類あります。
 
-Output Handlers define lifecycle hooks for per-frame and batch-level events.
-The `on_detection_result` hook receives a serialized context payload (from
-`DetectionContext.to_dict()`), not raw image arrays.
+**出力ハンドラーのフック**（`BaseOutputHandler` で定義）：
 
-| Event | Current Status | Intended Use Case |
-|-------|----------------|-------------------|
-| `on_detection_result` | Invoked | Per-frame inspection, logging, telemetry |
-| `on_candidate_detected` | Invoked | Real-time notifications (Slack, webhook) |
-| `on_batch_complete` | Invoked | Progress reporting, metrics collection |
-| `on_pipeline_complete` | Invoked | Final summary, cleanup, reporting |
+フレーム・バッチ単位のイベントを扱います。`on_detection_result` は画像配列ではなく、`DetectionContext.to_dict()` のシリアライズ済みコンテキストを受け取ります。
 
-**Pipeline Hooks** (defined on `BaseHook`):
+| イベント | 現在の状態 | 用途 |
+|----------|------------|------|
+| `on_detection_result` | 呼び出す | フレームごとの確認、ログ、計測 |
+| `on_candidate_detected` | 呼び出す | Slack/Webhookなどの通知 |
+| `on_batch_complete` | 呼び出す | 進捗、計測値の収集 |
+| `on_pipeline_complete` | 呼び出す | 最終集計、後始末、レポート |
 
-Pipeline hooks provide insertion points for cross-cutting concerns like
-filtering, transformation, and analysis.
+**パイプラインのフック**（`BaseHook` で定義）：
 
-| Event | Current Status | Intended Use Case |
-|-------|----------------|-------------------|
-| `on_file_found` | Invoked | Filter files before loading |
-| `on_image_loaded` | Invoked | Transform images or enrich metadata |
-| `on_detection_complete` | Invoked | Adjust scoring, attach metadata |
-| `on_output_saved` | Invoked | Record metrics, telemetry |
-| `on_batch_results_sorted` | Invoked (v1.6.10) | Batch-local analysis with frame order |
-| `on_all_detections_sorted` | Invoked (v1.6.10) | Cross-frame analysis (e.g., aircraft trails) |
+ファイル選別、画像変換、解析などの補助処理を挿入します。
 
-**Important**: Input Loaders and Detectors do **not** receive lifecycle events.
+| イベント | 現在の状態 | 用途 |
+|----------|------------|------|
+| `on_file_found` | 呼び出す | 読み込み前の選別 |
+| `on_image_loaded` | 呼び出す | 画像変換、メタデータ追加 |
+| `on_detection_complete` | 呼び出す | スコア調整、メタデータ追加 |
+| `on_output_saved` | 呼び出す | 計測値の記録 |
+| `on_batch_results_sorted` | 呼び出す（v1.6.10） | フレーム順でバッチ内を解析 |
+| `on_all_detections_sorted` | 呼び出す（v1.6.10） | 飛行機の光跡などのフレーム間解析 |
+
+**重要**：入力ローダーと検出器にはライフサイクルイベントを送りません。
 
 ---
 
-### 1.5 Hook Discovery (Pipeline)
+<a id="15-hook-discovery-pipeline"></a>
 
-Hooks are discovered (and therefore available to both the main process and any
-worker processes) via the standard plugin discovery mechanisms.
+### 1.5 フックの検出（パイプライン）
 
-> **Important:** Runtime registration with `HookRegistry.register()` is
-> **single-process only** and **does not propagate to worker processes**. Use
-> discovery for production usage and multiprocessing.
+標準のプラグイン検出方式で、メイン・ワーカープロセスの双方から利用できるようにします。
 
-**Discovery options**:
-- **Entry points**: register the hook class under the `detect_meteors.hook`
-  entry point group.
-- **Local plugin directory**: place a `*.py` file defining your hook class in
-  `~/.detect_meteors/hook_plugins`.
+> **重要**：`HookRegistry.register()` による実行時登録は **単一プロセスのみ** で、**ワーカーへ伝わりません**。実運用やマルチプロセスではプラグイン検出を使ってください。
 
-**Multiprocessing usage example**:
-- Install your hook as an entry point (`detect_meteors.hook`) **or** drop a file
-  into `~/.detect_meteors/hook_plugins` so every worker discovers it at startup.
-  For example, package `MyHook` under the `detect_meteors.hook` entry point,
-  or place `my_hook.py` in `~/.detect_meteors/hook_plugins` when running with
-  `num_workers > 1`.
+**検出方法**：
 
-**Dynamic switching via config**:
-- If you need to toggle hooks at runtime, switch them through config rather than
-  runtime registration. Use `PipelineConfig.hooks` to specify the ordered list:
+- **エントリーポイント**：`detect_meteors.hook` にフッククラスを登録。
+- **ローカルディレクトリ**：`~/.detect_meteors/hook_plugins` にクラスを定義した `*.py` を置く。
+
+**マルチプロセスでの使用例**：
+
+- エントリーポイント（`detect_meteors.hook`）としてインストールするか、`~/.detect_meteors/hook_plugins` にファイルを置き、各ワーカーが起動時に検出できるようにします。`num_workers > 1` の場合は、`MyHook` をパッケージ化して登録するか、`my_hook.py` をそのディレクトリに保存してください。
+
+**設定による動的な切り替え**：
+
+- フックを切り替える場合は、実行時登録より設定の切り替えを使ってください。`PipelineConfig.hooks` で実行順を指定します。
 
   ```python
   from meteor_core.schema import PipelineConfig, DetectionParams
@@ -315,161 +329,138 @@ worker processes) via the standard plugin discovery mechanisms.
   )
   ```
 
-**Hook configuration defaults**:
-- When `PipelineConfig.hooks` is `None`, the pipeline **skips hooks entirely**.
-- Provide an explicit hook list to run hooks, and include per-hook config when
-  `ConfigType` requires constructor arguments.
+**設定の既定値**：
 
-**Hook design guideline**:
-- For hook authors, **prefer `ConfigType` definitions that can be constructed
-  with no arguments**. This keeps hooks easier to configure and reduces
-  configuration friction for users.
+- `PipelineConfig.hooks` が `None` の場合は **すべてのフックを省略** します。
+- フック一覧を明示し、`ConfigType` に必須引数がある場合は設定も渡してください。
 
-**Future enhancement ideas**:
-- Consider extending `HookRegistry` with a way to **distribute a temporary plugin
-  directory to workers** (e.g., passing a path that workers add to discovery).
-- Consider adding an **environment-variable-based plugin search path** (see
-  `meteor_core/hooks/discovery.py` and the `PLUGIN_DIR` default) to support
-  runtime-configurable discovery roots.
+**設計指針**：
+
+- **引数なしで生成できるConfigType** を推奨します。設定しやすく、利用者の手間を減らせます。
+
+**今後の拡張案**：
+
+- `HookRegistry` に **一時的なプラグインディレクトリをワーカーへ配布する機能**（パスを渡して検索対象へ追加するなど）。
+- **環境変数による検索パス**（`meteor_core/hooks/discovery.py` と既定の `PLUGIN_DIR` を参照）で、実行時に検索元を設定する仕組み。
 
 ---
 
-### 1.6 File Discovery Hook (Pipeline)
+<a id="16-file-discovery-hook-pipeline"></a>
 
-The pipeline calls the file discovery hook immediately after collecting files
-from the input directory. This allows you to exclude files **before**
-`InputLoader.load()` runs.
+### 1.6 ファイル検出フック（パイプライン）
 
-| Hook | Signature | Description |
-|------|-----------|-------------|
-| `on_file_found` | `(filepath: str) -> bool` | Return `True` to keep, `False` to drop |
+入力ファイルの収集直後に呼び出し、`InputLoader.load()` の **前に** 選別できます。
 
-**Notes**:
-- `filepath` is an **absolute, normalized** path.
-- Files rejected by the hook are removed from the pipeline.
-- Useful for excluding specific extensions or path patterns.
+| フック | シグネチャ | 説明 |
+|--------|------------|------|
+| `on_file_found` | `(filepath: str) -> bool` | `True` で保持、`False` で除外 |
 
-**Registration**:
-- Hooks should be made available through discovery (entry points or
-  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
-- Registered hooks are invoked in order during pipeline execution.
-- Hooks follow the same config patterns as other plugins, using dataclass
-  or Pydantic-based `ConfigType` definitions.
+**補足**：
 
----
+- `filepath` は **正規化した絶対パス** です。
+- 拒否したファイルはパイプラインから除外します。
+- 拡張子やパスのパターンによる選別に使えます。
 
-### 1.7 Image Load Hook (Pipeline)
+**登録**：
 
-The pipeline calls the image load hook immediately after an `InputContext` is
-normalized (per frame) and before detection begins. This allows you to
-transform image data or enrich metadata for downstream detectors/output hooks.
-
-| Hook | Signature | Description |
-|------|-----------|-------------|
-| `on_image_loaded` | `(context: InputContext) -> InputContext` | Return updated context (image/metadata/loader info) |
-
-**Notes**:
-- `InputContext.metadata["frame_role"]` is set to `"current"` or `"previous"` to
-  indicate which frame is being processed.
-- You may return a new `InputContext` to replace `image_data` or metadata.
-- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
-  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
-  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
-  pipeline moving while still surfacing errors.
-
-**Registration**:
-- Hooks should be made available through discovery (entry points or
-  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
-- Registered hooks are invoked in order for each frame.
+- マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
+- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- 登録順に呼び出します。
+- dataclass/Pydanticベースの `ConfigType` など、ほかのプラグインと同じ設定方式です。
 
 ---
 
-### 1.8 Detection Result Hook (Pipeline)
+<a id="17-image-load-hook-pipeline"></a>
 
-The pipeline calls the detection result hook immediately after the detector
-returns and the `DetectionResult` is normalized, but before debug image handling
-and output processing. This allows you to adjust scoring, candidate flags, or
-attach metadata for downstream consumers.
+### 1.7 画像読み込みフック（パイプライン）
 
-| Hook | Signature | Description |
-|------|-----------|-------------|
-| `on_detection_complete` | `(result: DetectionResult, context: DetectionContext) -> DetectionResult` | Return updated detection result |
+`InputContext` の正規化直後、検出前に呼び出します。画像を変換したり、検出器や出力用のメタデータを追加できます。
 
-**Notes**:
-- The returned `DetectionResult` is used to determine `is_candidate`, `score`,
-  and `debug_image` for downstream logic.
-- You may return a new `DetectionResult` to override lines or extras.
-- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
-  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
-  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
-  pipeline moving while still surfacing errors.
+| フック | シグネチャ | 説明 |
+|--------|------------|------|
+| `on_image_loaded` | `(context: InputContext) -> InputContext` | 画像・メタデータ・ローダー情報を更新したコンテキスト |
 
-**Registration**:
-- Hooks should be made available through discovery (entry points or
-  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
-- Registered hooks are invoked in order for each frame.
+**補足**：
+
+- `InputContext.metadata["frame_role"]` は `"current"` または `"previous"` で、処理するフレームの役割を示します。
+- 新しい `InputContext` を返して、`image_data` やメタデータを差し替えられます。
+- 例外時は `PipelineConfig.hook_error_mode` で、`"warn"` による警告・継続、または `"raise"` による送出を選びます。既定は `"raise"`。実運用では、エラーを報告しつつ処理を継続する `"warn"` を推奨します。
+
+**登録**：
+
+- マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
+- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- フレームごとに登録順で実行します。
 
 ---
 
-### 1.9 Output Saved Hook (Pipeline)
+<a id="18-detection-result-hook-pipeline"></a>
 
-The pipeline calls the output saved hook immediately after an output handler
-returns a normalized `OutputResult`. This allows you to record metrics,
-telemetry, or notifications based on what was saved.
+### 1.8 検出結果フック（パイプライン）
 
-| Hook | Signature | Description |
-|------|-----------|-------------|
-| `on_output_saved` | `(result: OutputResult) -> None` | Read-only notification when the output handler returns |
+検出器が返した `DetectionResult` の正規化後、デバッグ画像・出力の処理前に呼び出します。スコアや候補フラグを調整し、後続処理用のメタデータを付加できます。
 
-**Notes**:
-- The hook receives a snapshot of `OutputResult`; mutations do **not** affect
-  downstream control flow (`saved`/paths are not altered).
-- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
-  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
-  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
-  pipeline moving while still surfacing errors.
+| フック | シグネチャ | 説明 |
+|--------|------------|------|
+| `on_detection_complete` | `(result: DetectionResult, context: DetectionContext) -> DetectionResult` | 更新した検出結果 |
 
-**Registration**:
-- Hooks should be made available through discovery (entry points or
-  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
-- Registered hooks are invoked in order for each candidate save attempt.
+**補足**：
+
+- 戻り値の `DetectionResult` が後続の `is_candidate`、`score`、`debug_image` を決めます。
+- 新しい `DetectionResult` で線分やextrasを上書きできます。
+- 例外時は `PipelineConfig.hook_error_mode` で `"warn"`（警告して継続）か `"raise"`（送出）を選びます。既定は `"raise"`。実運用では `"warn"` を推奨します。
+
+**登録**：
+
+- マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
+- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- フレームごとに登録順で実行します。
 
 ---
 
-### 1.10 Batch Results Sorted Hook (Pipeline)
+<a id="19-output-saved-hook-pipeline"></a>
 
-The pipeline calls the batch results sorted hook after each batch completes
-processing. Results within the batch are sorted by `frame_index` in ascending
-order before the hook is invoked.
+### 1.9 出力保存フック（パイプライン）
 
-| Hook | Signature | Description |
-|------|-----------|-------------|
-| `on_batch_results_sorted` | `(detections: List[SortedDetection]) -> List[SortedDetection]` | Process batch results sorted by frame index |
+出力ハンドラーが正規化した `OutputResult` を返した直後に呼び出します。保存結果の計測や通知に使えます。
 
-**Notes**:
-- The hook receives a list of `SortedDetection` objects (lightweight dataclass
-  without image data) sorted by `frame_index`.
-- This hook runs in the main process after candidate output and progress have
-  been recorded. In parallel mode, it runs once per completed worker batch;
-  batches arrive in completion order, not necessarily frame order. In sequential
-  mode, each batch contains one frame pair.
-- Suitable for **batch-local analysis** that does not require global frame
-  continuity across the entire pipeline run.
-- The hook can modify `SortedDetection.extras` to attach analysis results.
-- Return the list of `SortedDetection` objects (modified or unchanged).
-- Updates to candidate flags/scores do not change already saved files or counts.
-  Extras remain available to the final sorted hook; the built-in progress writer
-  persists only the `aircraft` namespace after final analysis.
+| フック | シグネチャ | 説明 |
+|--------|------------|------|
+| `on_output_saved` | `(result: OutputResult) -> None` | ハンドラーの戻り値に対する読み取り専用の通知 |
 
-**SortedDetection dataclass**:
+**補足**：
+
+- `OutputResult` のスナップショットを受け取ります。変更しても後続の制御には影響せず、`saved` やパスは変わりません。
+- 例外時は `PipelineConfig.hook_error_mode` で `"warn"`（警告して継続）か `"raise"`（送出）を選びます。既定は `"raise"`。実運用では `"warn"` を推奨します。
+
+**登録**：
+
+- マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
+- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- 候補の保存を試みるごとに、登録順で呼び出します。
+
+---
+
+<a id="110-batch-results-sorted-hook-pipeline"></a>
+
+### 1.10 バッチ内ソート済み結果フック（パイプライン）
+
+バッチ処理が完了するたびに、結果を `frame_index` の昇順に並べて呼び出します。
+
+| フック | シグネチャ | 説明 |
+|--------|------------|------|
+| `on_batch_results_sorted` | `(detections: List[SortedDetection]) -> List[SortedDetection]` | フレーム番号順のバッチ結果を解析 |
+
+**補足**：
+
+- 画像を含まない軽量な `SortedDetection` の一覧を、`frame_index` 順で受け取ります。
+- 候補出力と進捗の記録後、メインプロセスで実行します。並列時はワーカーバッチの完了ごとに呼びますが、バッチ間はフレーム順ではなく完了順です。逐次処理では1組ずつ渡します。
+- 実行全体での連続性を必要としない **バッチ内解析** に適しています。
+- `SortedDetection.extras` を変更して解析情報を付加できます。
+- 変更した、またはそのままの一覧を返してください。
+- 候補フラグやスコアを変更しても、保存済みファイルや件数には反映しません。extrasは最終フックにも渡し、組み込みの進捗管理は最終解析後に `aircraft` のみを保存します。
+
+**SortedDetectionデータクラス**：
 
 ```python
 @dataclass
@@ -488,17 +479,16 @@ class SortedDetection:
     schema_version: int = 1                             # SORTED_DETECTION_SCHEMA_VERSION
 ```
 
-**Why SortedDetection instead of DetectionResult?**
+**DetectionResultではなくSortedDetectionを使う理由**：
 
-`SortedDetection` is a memory-efficient representation that excludes:
-- `debug_image`: Large image arrays not needed for analysis
-- Image data from `DetectionContext`
+次のデータを除外してメモリを節約します。
 
-This allows the pipeline to collect all detections in memory without excessive
-memory consumption, enabling the `on_all_detections_sorted` hook to process
-thousands of frames.
+- `debug_image`：解析に不要な大きな画像配列。
+- `DetectionContext` の画像データ。
 
-**Example usage**:
+メモリ使用量を抑えて全結果を蓄積し、`on_all_detections_sorted` で数千フレームを解析できます。
+
+**使用例**：
 
 ```python
 from meteor_core.hooks import DataclassHook
@@ -520,64 +510,51 @@ class MyBatchAnalyzer(DataclassHook[MyConfig]):
         return detections
 ```
 
-**Registration**:
-- Hooks should be made available through discovery (entry points or
-  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
+**登録**：
+
+- マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
+- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
 
 ---
 
-### 1.11 All Detections Sorted Hook (Pipeline)
+<a id="111-all-detections-sorted-hook-pipeline"></a>
 
-The pipeline calls the all detections sorted hook **after pipeline completion**
-with ALL detection results sorted by `frame_index` in ascending order. This
-hook runs in the **main process** after all worker processes have completed,
-guaranteeing global frame order across all batches.
+### 1.11 全検出結果のソート済みフック（パイプライン）
 
-| Hook | Signature | Description |
-|------|-----------|-------------|
-| `on_all_detections_sorted` | `(detections: List[SortedDetection]) -> List[SortedDetection]` | Process all detections sorted by frame index |
+**パイプライン完了後**、検出結果全体を `frame_index` の昇順に並べて呼び出します。全ワーカー完了後の **メインプロセス** で実行し、バッチ間でもフレーム順を保証します。
 
-**Notes**:
-- The hook receives successful detections processed in the current invocation,
-  including non-candidates, sorted by `frame_index` in ascending order. Failed
-  frame pairs without a frame index are omitted. On resume, previously processed
-  frames are not reconstructed from `progress.json`.
-- Runs in the **main process** (not in worker processes), so stateful analysis
-  with instance variables is safe.
-- Suitable for **cross-frame analysis** requiring consecutive frame access:
-  - Aircraft trail tracking across frames
-  - Temporal filtering and smoothing
-  - Multi-frame event correlation
-- The hook can modify `SortedDetection.extras` to attach analysis results.
-- It runs after `OutputHandler.on_pipeline_complete()` and is skipped when
-  processing exits via Ctrl-C. Candidate output and counts are already recorded;
-  changing `is_candidate` or `score` here does not revise them. The built-in
-  `ProgressManager` merges only `extras["aircraft"]` into existing candidate
-  entries in `detected_details`; other extras require custom persistence.
+| フック | シグネチャ | 説明 |
+|--------|------------|------|
+| `on_all_detections_sorted` | `(detections: List[SortedDetection]) -> List[SortedDetection]` | 全検出結果をフレーム番号順で解析 |
 
-**When to use `on_all_detections_sorted` vs `on_batch_results_sorted`**:
+**補足**：
 
-| Use Case | Recommended Hook |
-|----------|------------------|
-| Batch-local statistics | `on_batch_results_sorted` |
-| Per-frame feature extraction | `on_batch_results_sorted` |
-| Cross-frame tracking (e.g., aircraft trails) | `on_all_detections_sorted` |
-| Temporal filtering requiring frame order | `on_all_detections_sorted` |
-| Analysis requiring global context | `on_all_detections_sorted` |
+- 現在の実行で成功した検出を、非候補も含めて `frame_index` 順に渡します。フレーム番号のない失敗結果は除外します。再開時に過去の結果を `progress.json` から復元しません。
+- ワーカーではなく **メインプロセス** で実行するため、インスタンス変数で安全に状態を管理できます。
+- 連続するフレームが必要な **フレーム間解析** に適しています。
+  - 飛行機の光跡の追跡。
+  - 時系列のフィルターや平滑化。
+  - 複数フレームのイベント対応付け。
+- `SortedDetection.extras` に解析情報を追加できます。
+- `OutputHandler.on_pipeline_complete()` の後に実行し、Ctrl-Cでは省略します。出力と件数は記録済みなので、`is_candidate` や `score` を変更しても修正しません。組み込み `ProgressManager` は `extras["aircraft"]` のみを `detected_details` の既存候補へ反映し、ほかのextrasには独自の保存処理が必要です。
 
-**Memory considerations**:
+**2つのソート済みフックの使い分け**：
 
-This hook processes all detections in memory. `SortedDetection` excludes image
-arrays, but its memory usage depends on the number of line segments and the size
-of `extras` as well as Python object overhead. Account for these variable payloads
-when processing large datasets.
+| 用途 | 推奨フック |
+|------|------------|
+| バッチ内の統計 | `on_batch_results_sorted` |
+| フレームごとの特徴抽出 | `on_batch_results_sorted` |
+| 飛行機などのフレーム間追跡 | `on_all_detections_sorted` |
+| フレーム順を必要とする時系列処理 | `on_all_detections_sorted` |
+| 実行全体の情報が必要な解析 | `on_all_detections_sorted` |
 
-**Example: Aircraft Trail Detection**
+**メモリ使用量**：
 
-The built-in `aircraft_trail` hook uses `on_all_detections_sorted` for cross-frame
-tracking. Enable it through the pipeline configuration:
+全結果をメモリ上で処理します。`SortedDetection` は画像を含みませんが、線分の数、`extras` の大きさ、Pythonオブジェクトの負荷に左右されます。大規模データではこれらも考慮してください。
+
+**例：飛行機の光跡検出**
+
+組み込み `aircraft_trail` は `on_all_detections_sorted` で追跡します。設定で有効にできます。
 
 ```python
 from meteor_core import MeteorDetectionPipeline
@@ -589,40 +566,41 @@ pipeline = MeteorDetectionPipeline(config)
 pipeline.run(enable_roi_selection=False)
 ```
 
-The hook preserves candidate decisions and scores. It annotates each sorted
-record with `aircraft.likelihood`, `track_id`, and geometric evidence; only
-candidate records are persisted in `progress.json`. `likelihood_threshold` is
-currently an unused configuration field and does not filter candidates. See the
-[aircraft hook implementation notes](docs/aircraft_light_trails_hook_design.md)
-for the actual configuration fields and tracking limitations.
+候補判定とスコアを維持し、各レコードに `aircraft.likelihood`、`track_id`、形状の根拠を追加します。`progress.json` へ保存するのは候補レコードのみです。`likelihood_threshold` は現在未使用で、候補を除外しません。設定フィールドと追跡の制約は[実装説明](aircraft_light_trails_hook_design.md)を参照してください。
 
-**Registration**:
-- Hooks should be made available through discovery (entry points or
-  `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
+**登録**：
+
+- マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
+- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
 
 ---
 
-## 2. Extension Points
+<a id="2-extension-points"></a>
 
-The plugin system provides three extension points:
+## 2. 拡張ポイント
 
-### 2.1 Input Loaders
+3つの拡張ポイントを提供します。
 
-**Purpose**: Load images from various file formats
+<a id="21-input-loaders"></a>
 
-**When to create**:
-- Support a new image format (TIFF, FITS, etc.)
-- Apply pre-processing during load (debayer, normalize)
-- Extract custom metadata
+### 2.1 入力ローダー
 
-**Required methods**:
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `load` | `(filepath: str) -> InputContext` | Load image data plus metadata and loader info |
+**目的**：各種ファイル形式から画像を読み込む。
 
-**InputContext type** (return value of `load`):
+**作成する場面**：
+
+- TIFF、FITSなどの新しい画像形式への対応。
+- デベイヤー、正規化などの読み込み時の前処理。
+- 独自メタデータの抽出。
+
+**必須メソッド**：
+
+| メソッド | シグネチャ | 説明 |
+|----------|------------|------|
+| `load` | `(filepath: str) -> InputContext` | 画像、メタデータ、ローダー情報の読み込み |
+
+**InputContext**（`load` の戻り値）：
+
 ```python
 ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
 
@@ -641,26 +619,28 @@ class InputContext:
         ...
 ```
 
-**Fields**:
-- `image_data`: Loaded image pixels. This is the payload used by the detector.
-- `filepath`: Original path of the loaded image.
-- `metadata`: Loader-provided metadata (EXIF, timestamps, camera info, etc.).
-- `loader_info`: Loader identity details (from `BaseInputLoader.get_info()`).
-- `schema_version`: Contract version for future migrations (current: `1`).
+**フィールド**：
 
-**Schema versioning**: The `schema_version` field enables future migration of loader plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing loaders to handle different versions gracefully. Current version is `1`.
+- `image_data`：読み込んだ画素。検出器で使用するデータ。
+- `filepath`：元の画像パス。
+- `metadata`：EXIF、時刻、カメラ情報などのローダーのメタデータ。
+- `loader_info`：`BaseInputLoader.get_info()` による識別情報。
+- `schema_version`：将来の移行用の契約バージョン（現在：`1`）。
 
-**Normalization point**: The pipeline calls `meteor_core.schema.normalize_input_context` immediately after `load` returns. If `schema_version` is older, the pipeline uses any converter registered via `meteor_core.schema.register_input_context_converter`; otherwise it rejects the input with a configuration error.
+**スキーマのバージョン管理**：既存プラグインを壊さず移行するための `schema_version` を持ちます。必須フィールドの追加などでスキーマが変わるとバージョンを上げ、段階的に対応します。現在は `1` です。
 
-**Serialization**: Use `context.to_dict()` to get a JSON-serializable representation (excludes `image_data` to avoid large binary data in logs).
+**正規化の時点**：`load` の直後に `meteor_core.schema.normalize_input_context` を呼びます。古い `schema_version` には `meteor_core.schema.register_input_context_converter` で登録した変換を使い、対応できない場合は設定エラーとして拒否します。
 
-**Optional features**:
-- Implement `BaseMetadataExtractor` for EXIF-like metadata extraction
-- Define `name`, `version` attributes for plugin info
+**シリアライズ**：`context.to_dict()` はJSON互換です。大きなバイナリをログに含めないため `image_data` を除外します。
 
-**BaseMetadataExtractor mixin**:
+**任意の機能**：
 
-Implement this optional interface to extract metadata (EXIF, timestamps, camera info) from image files:
+- EXIFなどの抽出用に `BaseMetadataExtractor` を実装。
+- プラグイン情報の `name`、`version` を定義。
+
+**BaseMetadataExtractorミックスイン**：
+
+EXIF、時刻、カメラ情報を抽出する任意のインターフェースです。
 
 ```python
 class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
@@ -669,29 +649,34 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
         return {"timestamp": ..., "camera": ..., "exposure": ...}
 ```
 
-**When is `extract_metadata` called?**
-- The pipeline calls it for each image pair; if your loader does **not** implement
-  `BaseMetadataExtractor`, the pipeline falls back to `meteor_core.image_io.extract_exif_metadata`.
-- Detectors receive metadata as `context.metadata = {"current": ..., "previous": ...}`.
-- You can also call it manually for custom processing.
-- If extraction fails, return `{}` to keep the pipeline moving.
+**`extract_metadata` の呼び出し時点**：
 
-### 2.2 Detectors
+- 各画像ペアで呼び出します。`BaseMetadataExtractor` を実装していない場合は `meteor_core.image_io.extract_exif_metadata` へフォールバックします。
+- 検出器には `context.metadata = {"current": ..., "previous": ...}` の形式で渡します。
+- 独自処理から手動で呼ぶこともできます。
+- 抽出に失敗した場合は `{}` を返し、処理を続けられるようにしてください。
 
-**Purpose**: Implement meteor detection algorithms
+<a id="22-detectors"></a>
 
-**When to create**:
-- Use different detection approach (ML-based, morphological)
-- Optimize for specific conditions (bright meteors, fireball detection)
-- Add custom scoring logic
+### 2.2 検出器
 
-**Required methods**:
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `detect` | `(context: DetectionContext) -> DetectionResult` | Main detection (see below) |
-| `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | Line scoring (called internally by `detect`) |
+**目的**：流星検出アルゴリズムの実装。
 
-**DetectionContext type** (input to `detect`):
+**作成する場面**：
+
+- MLやモルフォロジーなど、別の検出方法を使う。
+- 明るい流星・火球など、特定条件へ最適化。
+- 独自のスコアを追加。
+
+**必須メソッド**：
+
+| メソッド | シグネチャ | 説明 |
+|----------|------------|------|
+| `detect` | `(context: DetectionContext) -> DetectionResult` | 主な検出処理（下記参照） |
+| `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | `detect` 内部から使う線分スコア算出 |
+
+**DetectionContext**（`detect` の入力）：
+
 ```python
 ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
 
@@ -711,19 +696,14 @@ class DetectionContext:
         ...
 ```
 
-**Schema versioning**: The `schema_version` field enables future migration of detector plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing detectors to handle different versions gracefully. Current version is `1`.
+**スキーマのバージョン管理**：`schema_version` で将来の移行に備えます。必須フィールドなどを変更するとバージョンを上げ、既存プラグインから段階的に移行します。現在は `1` です。
 
-**Normalization point**: The pipeline normalizes `DetectionContext` internally before passing it to your `detect` method. This uses the public API `meteor_core.schema.normalize_detection_context`, so plugin authors do not need to call it directly. If you need to handle legacy contexts in custom tooling, you can register converters via `meteor_core.schema.register_detection_context_converter`.
+**正規化の時点**：`detect` へ渡す前に、内部で `meteor_core.schema.normalize_detection_context` を使います。通常、プラグイン側で直接呼ぶ必要はありません。独自ツールで旧コンテキストを処理する場合は `meteor_core.schema.register_detection_context_converter` で変換を登録できます。
 
-`current_image` and `previous_image` are typically `numpy.ndarray` today, but can
-also be provided as `torch.Tensor` or `PIL.Image.Image` for ML-based detectors.
-If you rely on specific array operations, normalize these inputs at the start
-of your detector implementation. The helper `meteor_core.utils.ensure_numpy`
-converts `numpy.ndarray`, `torch.Tensor`, and `PIL.Image.Image` into a
-`numpy.ndarray`. If you prefer working with PyTorch, `meteor_core.utils.ensure_tensor`
-performs the same normalization into a `torch.Tensor`.
+`current_image`、`previous_image` は通常 `numpy.ndarray` ですが、ML検出器では `torch.Tensor` や `PIL.Image.Image` も渡せます。配列固有の操作が必要な場合は、検出器の冒頭で正規化してください。`meteor_core.utils.ensure_numpy` は3つの型を `numpy.ndarray` へ変換します。PyTorchでは `meteor_core.utils.ensure_tensor` で `torch.Tensor` に変換できます。
 
-**DetectionResult type** (return value of `detect`):
+**DetectionResult**（`detect` の戻り値）：
+
 ```python
 @dataclass
 class DetectionResult:
@@ -749,39 +729,36 @@ class DetectionResult:
         ...
 ```
 
-**Schema versioning**: Like `DetectionContext`, the `schema_version` enables forward-compatible result handling. Downstream consumers can check the version before processing.
+**スキーマのバージョン管理**：`DetectionContext` と同様に、後続処理がバージョンを確認して将来の結果にも対応できる仕組みです。
 
-**Normalization point**: The pipeline calls `meteor_core.schema.normalize_detection_result` right after your `detect` implementation returns. If `schema_version` is older, it applies converters registered with `meteor_core.schema.register_detection_result_converter`; if no converter exists, the pipeline rejects the result.
+**正規化の時点**：`detect` の直後に `meteor_core.schema.normalize_detection_result` を呼びます。古い結果には `meteor_core.schema.register_detection_result_converter` の変換を適用し、変換がなければ拒否します。
 
-**Normalized vs detector-specific outputs**
+**共通出力と検出器固有の出力**：
 
-`lines` remains the normalized, line-segment-centric output for downstream
-consumers. Detectors that do not produce line segments should still return
-`lines=[]` and place non-linear detections into `extras`.
+`lines` は線分を中心とした共通出力です。線分を生成しない検出器も `lines=[]` を返し、線分以外の検出結果は `extras` に格納してください。
 
-Recommended `extras` keys for non-linear detections:
-- `bounding_boxes`: List of rects, e.g. `[{x1, y1, x2, y2}, ...]`
-- `polygons`: List of polygons, e.g. `[[[x, y], [x, y], ...], ...]`
-- `masks`: Detector-specific masks (numpy arrays or references/paths)
+推奨するextrasのキー：
 
-**Standard diagnostics** (`DetectionResult.metrics`):
+- `bounding_boxes`：矩形の一覧（`[{x1, y1, x2, y2}, ...]` など）。
+- `polygons`：多角形の一覧（`[[[x, y], [x, y], ...], ...]` など）。
+- `masks`：検出器固有のマスク（numpy配列、参照、パス）。
 
-Use `metrics` to emit stable, comparable diagnostics across detectors. These
-entries are intended for downstream analysis and visualization tools, while
-`extras` should hold detector-specific or auxiliary data.
+**標準の診断情報**（`DetectionResult.metrics`）：
 
-Recommended keys:
-- `duration_ms`: Total detection wall time for the call.
-- `num_contours`: Number of contours found in the binary mask.
-- `mask_area`: Non-zero pixel count in the mask used for line/contour analysis.
-- `hough_votes`: Hough line evidence count (e.g., number of detected lines).
+検出器間で比較できる診断値は `metrics` に置き、後続の解析・可視化で使います。検出器固有・補助的な情報は `extras` に置いてください。
 
-**Serialization**: Use `result.to_dict()` to get a JSON-serializable representation (excludes `debug_image` to avoid large binary data in logs).
+推奨キー：
 
-**Runtime parameters** (`context.runtime_params`):
+- `duration_ms`：呼び出し全体の経過時間。
+- `num_contours`：二値マスクで見つかった輪郭数。
+- `mask_area`：線分・輪郭解析のマスクの非ゼロ画素数。
+- `hough_votes`：Houghの線分の根拠数（検出した線分の数など）。
 
-Runtime parameters are carried as a `RuntimeParams` dataclass
-(`meteor_core.schema.RuntimeParams`):
+**シリアライズ**：`result.to_dict()` はJSON互換です。大きなバイナリを避けるため `debug_image` を除外します。
+
+**実行時パラメータ**（`context.runtime_params`）：
+
+`RuntimeParams`（`meteor_core.schema.RuntimeParams`）で渡します。
 
 ```python
 @dataclass
@@ -797,7 +774,7 @@ class RuntimeParams:
         ...
 ```
 
-The serialized shape (via `to_dict()`) is:
+`to_dict()` の形式：
 
 ```python
 {
@@ -809,53 +786,56 @@ The serialized shape (via `to_dict()`) is:
 }
 ```
 
-**Versioning policy**:
-- `schema_version` increments only when the structure above changes in a
-  backward-incompatible way.
-- New optional keys may be added without bumping the version as long as
-  existing keys remain valid.
+**バージョン方針**：
 
-**Compatibility rules**:
-- `context.runtime_params` may be either a `RuntimeParams` instance or a plain
-  dict with the same keys.
-- Legacy detectors may still receive a flat dict; prefer reading from the
-  namespaced structure when available.
+- 構造が後方互換性を失う変更の場合のみ `schema_version` を上げます。
+- 既存キーが有効なままなら、任意キーの追加では上げる必要はありません。
 
-`BaseDetector` provides helpers to make this easy:
-- `split_runtime_params(runtime_params)` → `(global_params, detector_params)`
-- `build_runtime_params(flat_params)` → `RuntimeParams`
-- `detect_legacy(current_image, previous_image, roi_mask, params)` → adapter for
-  the old signature
+**互換性のルール**：
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `diff_threshold` | `int` | `8` | Frame difference threshold (scale matches input dtype) |
-| `min_area` | `int` | `10` | Minimum contour area in pixels |
-| `min_line_score` | `float` | `30.0` | Minimum score to classify as candidate |
-| `min_aspect_ratio` | `float` | `2.0` | Minimum contour aspect ratio |
-| `hough_threshold` | `int` | `50` | Hough transform vote threshold |
-| `hough_min_line_length` | `int` | `50` | Minimum line length in pixels |
-| `hough_max_line_gap` | `int` | `10` | Maximum gap between line segments |
+- `context.runtime_params` は `RuntimeParams` または同じキーを持つ辞書です。
+- 従来の検出器には平坦な辞書も渡せますが、可能なら名前空間付き構造を使ってください。
 
-**Note**: `compute_line_score` is a helper method typically called within your `detect` implementation. The pipeline calls only `detect`.
+`BaseDetector` のヘルパー：
 
-### 2.3 Output Handlers
+- `split_runtime_params(runtime_params)` → `(global_params, detector_params)`。
+- `build_runtime_params(flat_params)` → `RuntimeParams`。
+- `detect_legacy(current_image, previous_image, roi_mask, params)` → 旧シグネチャのアダプター。
 
-**Purpose**: Save results and send notifications
+| キー | 型 | 既定値 | 説明 |
+|------|----|--------|------|
+| `diff_threshold` | `int` | `8` | 入力のdtypeに対応するフレーム差分しきい値 |
+| `min_area` | `int` | `10` | 輪郭の最小面積（画素） |
+| `min_line_score` | `float` | `30.0` | 候補とする最小スコア |
+| `min_aspect_ratio` | `float` | `2.0` | 輪郭の最小縦横比 |
+| `hough_threshold` | `int` | `50` | Hough変換の投票しきい値 |
+| `hough_min_line_length` | `int` | `50` | 最小線分長（画素） |
+| `hough_max_line_gap` | `int` | `10` | 線分間の最大間隔（画素） |
 
-**When to create**:
-- Upload to cloud storage (S3, GCS)
-- Send notifications (Slack, Discord, email)
-- Store in database
-- Generate custom reports
+**補足**：`compute_line_score` は通常 `detect` の内部ヘルパーです。パイプラインが呼ぶのは `detect` のみです。
 
-**Required methods**:
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `save_candidate` | `(source_path, filename, ...) -> OutputResult` | Save meteor candidate |
-| `save_debug_image` | `(debug_image, filename, ...) -> str` | Save debug image |
+<a id="23-output-handlers"></a>
 
-**OutputResult type** (return value of `save_candidate`):
+### 2.3 出力ハンドラー
+
+**目的**：結果の保存と通知。
+
+**作成する場面**：
+
+- S3/GCSなどへアップロード。
+- Slack、Discord、メールなどへの通知。
+- データベースへの保存。
+- 独自レポートの生成。
+
+**必須メソッド**：
+
+| メソッド | シグネチャ | 説明 |
+|----------|------------|------|
+| `save_candidate` | `(source_path, filename, ...) -> OutputResult` | 流星候補の保存 |
+| `save_debug_image` | `(debug_image, filename, ...) -> str` | デバッグ画像の保存 |
+
+**OutputResult**（`save_candidate` の戻り値）：
+
 ```python
 @dataclass
 class OutputResult:
@@ -873,40 +853,47 @@ class OutputResult:
         ...
 ```
 
-**Fields**:
-- `saved`: True if the handler persisted the candidate successfully.
-- `output_path`: Location of the persisted candidate (if any).
-- `debug_path`: Location of the persisted debug image (if any).
-- `handler_info`: Handler identity details (from `BaseOutputHandler.get_info()`).
-- `metrics`: Stable diagnostics (duration, bytes written, upload timings, etc.).
-- `schema_version`: Contract version for future migrations (current: `1`).
+**フィールド**：
 
-**Schema versioning**: The `schema_version` field enables future migration of handler plugins without breaking changes. When the schema evolves (e.g., new required fields), the version increments, allowing handlers to handle different versions gracefully. Current version is `1`.
+- `saved`：候補を正常に保存した場合はTrue。
+- `output_path`：保存した候補の場所（ある場合）。
+- `debug_path`：デバッグ画像の場所（ある場合）。
+- `handler_info`：`BaseOutputHandler.get_info()` による識別情報。
+- `metrics`：経過時間、バイト数、アップロード時間などの標準的な診断。
+- `schema_version`：将来の移行用のバージョン（現在：`1`）。
 
-**Normalization point**: The pipeline calls `meteor_core.schema.normalize_output_result` immediately after `save_candidate` returns. If `schema_version` is older, it uses converters registered via `meteor_core.schema.register_output_result_converter`; without a converter, the pipeline rejects the result.
+**スキーマのバージョン管理**：`schema_version` で互換性を維持した段階的移行に備えます。必須フィールドの追加などで変更する場合はバージョンを上げます。現在は `1` です。
 
-**Serialization**: Use `result.to_dict()` to get a JSON-serializable representation for logging and debugging.
+**正規化の時点**：`save_candidate` の直後に `meteor_core.schema.normalize_output_result` を呼びます。古い結果には `meteor_core.schema.register_output_result_converter` の変換を使い、なければ拒否します。
 
-**Lifecycle hooks (optional)**:
-| Hook | Signature |
-|------|-----------|
+**シリアライズ**：ログ・デバッグにはJSON互換の `result.to_dict()` を使います。
+
+**任意のライフサイクルフック**：
+
+| フック | シグネチャ |
+|--------|------------|
 | `on_detection_result` | `(context, result, filepath) -> None` |
 | `on_candidate_detected` | `(filename, saved, score, aspect_ratio) -> None` |
 | `on_batch_complete` | `(processed_count, detected_count, batch_size) -> None` |
 | `on_pipeline_complete` | `(total_processed, total_detected, elapsed_seconds) -> None` |
 
-**Invocation order (per frame)**:
-1. `on_detection_result()` — called immediately after the detector returns and the pipeline normalizes `DetectionResult`. The `context` parameter is the result of `DetectionContext.to_dict()` and excludes image/ROI arrays.
-2. `save_candidate()` — only if `result.is_candidate` is `True`.
-3. `on_candidate_detected()` — called after `save_candidate()` returns (with `saved` reflecting the output decision).
+**フレームごとの呼び出し順**：
+
+1. `on_detection_result()`：検出結果を正規化した直後。`context` は画像・ROIを除く `DetectionContext.to_dict()` です。
+2. `save_candidate()`：`result.is_candidate` が `True` の場合のみ。
+3. `on_candidate_detected()`：保存処理の後。`saved` が保存の成否を示します。
 
 ---
 
-## 3. Plugin Architecture
+<a id="3-plugin-architecture"></a>
 
-### 3.1 Registry System
+## 3. プラグイン構成
 
-Each plugin type has its own registry:
+<a id="31-registry-system"></a>
+
+### 3.1 レジストリ
+
+種別ごとにレジストリがあります。
 
 ```python
 from meteor_core.inputs import LoaderRegistry
@@ -914,7 +901,8 @@ from meteor_core.detectors import DetectorRegistry
 from meteor_core.outputs import OutputHandlerRegistry
 ```
 
-**Registry Operations**:
+**操作**：
+
 ```python
 # Register a plugin class
 LoaderRegistry.register(MyLoader)
@@ -940,7 +928,9 @@ names = LoaderRegistry.list_available()  # ["raw", "my_loader", ...]
 LoaderRegistry.discover()
 ```
 
-### 3.2 Base Class Hierarchy
+<a id="32-base-class-hierarchy"></a>
+
+### 3.2 基底クラスの階層
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -974,41 +964,46 @@ LoaderRegistry.discover()
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.3 Configuration Management (ConfigType)
+<a id="33-configuration-management-configtype"></a>
 
-Plugins can define a `ConfigType` for typed configuration. See [6.1 Choosing ConfigType](#61-choosing-configtype) for guidance on when to use dataclass vs Pydantic.
+### 3.3 設定管理（ConfigType）
 
-**Coercion Rules**:
-| Input | ConfigType | Result |
-|-------|------------|--------|
-| `None` | Defined | `ConfigType()` with defaults |
-| `None` | Not defined | `None` |
-| ConfigType instance | — | Used as-is |
+型付き設定として `ConfigType` を定義できます。dataclassとPydanticの使い分けは[6.1 ConfigTypeの選択](#61-choosing-configtype)を参照してください。
+
+**変換ルール**：
+
+| 入力 | ConfigType | 結果 |
+|------|------------|------|
+| `None` | 定義あり | 既定値の `ConfigType()` |
+| `None` | 定義なし | `None` |
+| ConfigTypeインスタンス | — | そのまま使用 |
 | `dict` | Dataclass | `ConfigType(**dict)` |
 | `dict` | Pydantic v2 | `ConfigType.model_validate(dict)` |
 | `dict` | Pydantic v1 | `ConfigType.parse_obj(dict)` |
-| Other | — | Passed as-is |
+| その他 | — | そのまま渡す |
 
-**Error Handling**:
-- `TypeError`: Missing required fields, wrong type
-- `ValueError`: Validation failed (Pydantic)
+**エラー処理**：
 
-**Default instance requirement**:
-`create_default()` for the built-in loader/detector/handler assumes your
-`ConfigType()` constructor yields a complete default configuration. If it does
-not, `create_default()` raises a `TypeError` to avoid silently creating a
-misconfigured plugin.
+- `TypeError`：必須フィールド不足、型の誤り。
+- `ValueError`：Pydanticの検証失敗。
 
-### 3.4 Pipeline Configuration and CLI Plugin Selection
+**既定インスタンスの要件**：
 
-As of v1.6.5, users can configure the entire pipeline—including plugin selection—via configuration files or CLI arguments. This is a major step toward the v2.0 plugin architecture.
+組み込みの入力・検出・出力で使う `create_default()` は、`ConfigType()` が完全な既定設定を生成することを前提にします。生成できない場合は `TypeError` を送り、設定不足のプラグインを黙って作らないようにします。
 
-#### Configuration Files (YAML/JSON)
+<a id="34-pipeline-configuration-and-cli-plugin-selection"></a>
 
-The CLI accepts a `--config` option to load pipeline settings from a YAML or JSON file. The file structure mirrors `PipelineConfig` fields:
+### 3.4 パイプライン設定とCLIのプラグイン選択
 
-The CLI and `load_pipeline_config()` accept partial configurations and fill
-omitted fields with defaults. Relative paths use the current working directory.
+v1.6.5から、プラグインを含むパイプライン全体を設定ファイルとCLIで管理できます。v2.0に向けた基盤です。
+
+<a id="configuration-files-yamljson"></a>
+
+#### 設定ファイル（YAML/JSON）
+
+`--config` で `PipelineConfig` に対応するYAML/JSONを読み込みます。
+
+CLIと `load_pipeline_config()` は一部だけの設定にも対応し、省略分は既定値です。相対パスは現在の作業ディレクトリを基準にします。
 
 ```yaml
 # Minimal pipeline configuration
@@ -1037,31 +1032,24 @@ output_handler_config:
   output_overwrite: false
 ```
 
-**Plugin configuration keys**:
+**設定キー**：
 
-| Key | Description |
-|-----|-------------|
-| `input_loader_name` | Plugin name (e.g., `"raw"`, `"tiff"`, `"fits"`) |
-| `input_loader_config` | Dict passed to plugin's `ConfigType` |
-| `detector_name` | Plugin name (e.g., `"hough"`, `"threshold"`) |
-| `detector_config` | Dict passed to plugin's `ConfigType` |
-| `output_handler_name` | Plugin name (e.g., `"file"`, `"slack"`) |
-| `output_handler_config` | Dict passed to plugin's `ConfigType` |
+| キー | 説明 |
+|------|------|
+| `input_loader_name` | 名前（`"raw"`、`"tiff"`、`"fits"` など） |
+| `input_loader_config` | ローダーの `ConfigType` へ渡す辞書 |
+| `detector_name` | 名前（`"hough"`、`"threshold"` など） |
+| `detector_config` | 検出器の `ConfigType` へ渡す辞書 |
+| `output_handler_name` | 名前（`"file"`、`"slack"` など） |
+| `output_handler_config` | ハンドラーの `ConfigType` へ渡す辞書 |
 
-The `*_config` dicts are coerced into each plugin's `ConfigType` using the standard coercion rules (see [3.3 Configuration Management](#33-configuration-management-configtype)).
+`*_config` は標準のルールで各 `ConfigType` へ変換します。[3.3 設定管理](#33-configuration-management-configtype)を参照してください。
 
-The built-in RAW loader supports only `binning: 2`; normalization defaults to
-`false`. Hough detector thresholds belong in `params`, since its `ConfigType`
-has no fields. With an explicit `output_handler_name: file`, the handler uses
-`output_handler_config` and its own defaults; top-level output paths and overwrite
-settings are not merged into that config. Omit `output_handler_name` to let the
-default file handler inherit those top-level settings.
+組み込みRAWローダーは `binning: 2` のみ対応し、正規化の既定は `false` です。Hough検出器の `ConfigType` はフィールドを持たないため、しきい値は `params` で設定します。`output_handler_name: file` を明示すると `output_handler_config` とハンドラーの既定値を使い、最上位の保存先・上書き設定は統合しません。最上位の設定を引き継ぐ場合は `output_handler_name` を省略してください。
 
-The built-in plugins are `raw`, `hough`, `simple_threshold`, and `file`, with
-`allow_all_files` and `aircraft_trail` hooks. TIFF/FITS loaders, ML detectors, and
-cloud/notification handlers mentioned in this guide are custom extension examples.
+組み込みは `raw`、`hough`、`simple_threshold`、`file` と、`allow_all_files`、`aircraft_trail` のフックです。このガイドのTIFF/FITS、ML、クラウド・通知は独自拡張の例です。
 
-**Loading in Python**:
+**Pythonでの読み込み**：
 
 ```python
 from meteor_core import MeteorDetectionPipeline, load_pipeline_config
@@ -1071,9 +1059,11 @@ pipeline = MeteorDetectionPipeline(config)
 pipeline.run()
 ```
 
-#### CLI Plugin Selection
+<a id="cli-plugin-selection"></a>
 
-Users can also specify plugins directly via CLI arguments:
+#### CLIでの選択
+
+引数でもプラグインを指定できます。
 
 ```bash
 # Select plugins by name
@@ -1097,37 +1087,41 @@ uv run python detect_meteors_cli.py \
     --input-loader-config raw_loader_settings.yaml
 ```
 
-**CLI plugin options**:
+**オプション**：
 
-| Option | Description |
-|--------|-------------|
-| `--input-loader NAME` | Select input loader plugin |
-| `--input-loader-config VALUE` | JSON/YAML string or file path |
-| `--detector NAME` | Select detector plugin |
-| `--detector-config VALUE` | JSON/YAML string or file path |
-| `--output-handler NAME` | Select output handler plugin |
-| `--output-handler-config VALUE` | JSON/YAML string or file path |
+| オプション | 説明 |
+|------------|------|
+| `--input-loader NAME` | 入力ローダーの選択 |
+| `--input-loader-config VALUE` | JSON/YAML文字列またはパス |
+| `--detector NAME` | 検出器の選択 |
+| `--detector-config VALUE` | JSON/YAML文字列またはパス |
+| `--output-handler NAME` | 出力ハンドラーの選択 |
+| `--output-handler-config VALUE` | JSON/YAML文字列またはパス |
 
-#### Configuration Precedence
+<a id="configuration-precedence"></a>
 
-When multiple sources provide configuration, this precedence applies (highest to lowest):
+#### 設定の優先順
 
-1. **CLI arguments** (`--detector`, `--detector-config`, etc.)
-2. **Configuration file** (`--config pipeline.yaml`)
-3. **Built-in defaults**
+次の順に優先します。
 
-This allows users to load a base configuration file and override specific settings via CLI.
+1. **CLI引数**（`--detector`、`--detector-config` など）。
+2. **設定ファイル**（`--config pipeline.yaml`）。
+3. **組み込みの既定値**。
 
-#### Plugin Author Considerations
+基本設定を読み込み、一部をCLIで上書きできます。
 
-When developing plugins for configuration file support:
+<a id="plugin-author-considerations"></a>
 
-1. **Use meaningful field names**: Your `ConfigType` fields become YAML/JSON keys. Use clear, documented names.
-2. **Provide sensible defaults**: All `ConfigType` fields should have defaults so users can omit optional settings.
-3. **Document required fields**: If any fields are required, document them clearly.
-4. **Validate early**: Use Pydantic validators or `__post_init__` to catch configuration errors at load time.
+#### プラグイン作者への留意点
 
-Example with documented configuration:
+設定ファイルに対応する場合：
+
+1. **わかりやすいフィールド名**：`ConfigType` がYAML/JSONのキーになります。名前と説明を明確にしてください。
+2. **適切な既定値**：任意設定を省略できるようにしてください。
+3. **必須フィールドの文書化**：必須値がある場合は明記してください。
+4. **早期の検証**：Pydanticや `__post_init__` で読み込み時にエラーを発見してください。
+
+説明付き設定の例：
 
 ```python
 @dataclass
@@ -1145,31 +1139,34 @@ class MyDetectorConfig:
     model_path: str = ""          # Path to ML model (optional)
 ```
 
-### 3.5 Plugin Discovery
+<a id="35-plugin-discovery"></a>
 
-Plugins are discovered in this order (duplicates warn but don't overwrite):
+### 3.5 プラグインの検出
 
-1. **Built-in plugins** (RawImageLoader, HoughDetector, SimpleThresholdDetector, FileOutputHandler)
-2. **Entry points** (sorted alphabetically by name)
-3. **Plugin directories** (sorted alphabetically by filename)
-4. **Runtime registrations** via `Registry.register()` (overrides discovered entries)
+次の順に検出します（重複は警告し、上書きしません）。
 
-**Plugin Directories**:
-| Plugin Type | Directory |
-|-------------|-----------|
-| Input Loaders | `~/.detect_meteors/input_plugins/` |
-| Detectors | `~/.detect_meteors/detector_plugins/` |
-| Output Handlers | `~/.detect_meteors/output_plugins/` |
+1. **組み込み**（RawImageLoader、HoughDetector、SimpleThresholdDetector、FileOutputHandler）。
+2. **エントリーポイント**（名前のアルファベット順）。
+3. **ディレクトリ**（ファイル名のアルファベット順）。
+4. **実行時登録** `Registry.register()`（検出済みの項目を上書き）。
 
-**How plugin directory discovery works**:
-1. Place your `.py` file in the appropriate directory (create it if needed).
-2. The registry loads all `.py` files alphabetically on first access.
-3. Any class defined in the module that subclasses the correct base and has
-   `plugin_name` is auto-registered (you do **not** need to call
-   `Registry.register()`).
-4. No special naming convention required, but descriptive names help organization.
+**ディレクトリ**：
 
-Example file structure:
+| 種別 | ディレクトリ |
+|------|--------------|
+| 入力 | `~/.detect_meteors/input_plugins/` |
+| 検出器 | `~/.detect_meteors/detector_plugins/` |
+| 出力 | `~/.detect_meteors/output_plugins/` |
+
+**ディレクトリでの検出の仕組み**：
+
+1. 対応するディレクトリに `.py` を保存します。必要なら作成してください。
+2. 初回アクセスで `.py` をアルファベット順に読み込みます。
+3. 正しい基底クラスを継承し、`plugin_name` を持つクラスを自動登録します。`Registry.register()` は **不要** です。
+4. 特別なファイル名は不要ですが、内容のわかる名前を推奨します。
+
+ファイル構成の例：
+
 ```
 ~/.detect_meteors/
 └── input_plugins/
@@ -1177,7 +1174,8 @@ Example file structure:
     └── tiff_loader.py      # Defines: class TiffLoader(DataclassInputLoader)
 ```
 
-**Entry Points** (in `pyproject.toml`):
+**エントリーポイント**（`pyproject.toml`）：
+
 ```toml
 [project.entry-points."detect_meteors.input"]
 my_loader = "my_package.loaders:MyLoader"
@@ -1191,9 +1189,11 @@ my_handler = "my_package.handlers:MyHandler"
 
 ---
 
-## 4. Data Contracts Reference
+<a id="4-data-contracts-reference"></a>
 
-This section provides a comprehensive reference for the dataclasses used in the plugin system. All dataclasses are imported from `meteor_core.schema`.
+## 4. データ契約リファレンス
+
+プラグインが使うデータクラスの詳細です。すべて `meteor_core.schema` からインポートします。
 
 ```python
 from meteor_core.schema import (
@@ -1205,11 +1205,13 @@ from meteor_core.schema import (
 )
 ```
 
+<a id="41-inputcontext"></a>
+
 ### 4.1 InputContext
 
-`InputContext` bundles the loaded image data with metadata for downstream processing.
+読み込んだ画像とメタデータを、後続の処理へ渡します。
 
-**Import**: `from meteor_core.schema import InputContext`
+**インポート**：`from meteor_core.schema import InputContext`
 
 ```python
 @dataclass
@@ -1225,17 +1227,17 @@ class InputContext:
     def to_dict(self) -> Dict[str, Any]: ...
 ```
 
-**Fields**:
+**フィールド**：
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `image_data` | `ImageLike` | — | Loaded image pixels. Accepts `np.ndarray`, `torch.Tensor`, or `PIL.Image.Image`. |
-| `filepath` | `str` | — | Original path of the loaded image file. |
-| `metadata` | `Dict[str, Any]` | `{}` | Loader-provided metadata (EXIF, timestamps, camera info, etc.). |
-| `loader_info` | `Dict[str, Any]` | `{}` | Loader identity details from `BaseInputLoader.get_info()`. |
-| `schema_version` | `int` | `1` | Contract version for future migrations. |
+| フィールド | 型 | 既定値 | 説明 |
+|------------|----|--------|------|
+| `image_data` | `ImageLike` | — | 画素。`np.ndarray`、`torch.Tensor`、`PIL.Image.Image` に対応 |
+| `filepath` | `str` | — | 元の画像パス |
+| `metadata` | `Dict[str, Any]` | `{}` | EXIF、時刻、カメラなどのメタデータ |
+| `loader_info` | `Dict[str, Any]` | `{}` | `BaseInputLoader.get_info()` の識別情報 |
+| `schema_version` | `int` | `1` | 将来の移行用の契約バージョン |
 
-**Usage Example**:
+**使用例**：
 
 ```python
 from meteor_core.schema import InputContext
@@ -1252,13 +1254,15 @@ class MyLoader(DataclassInputLoader[MyConfig]):
         )
 ```
 
-**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `image_data` to avoid large binary data in logs).
+**シリアライズ**：`context.to_dict()` はJSON互換の辞書です。大きなバイナリを避けるため `image_data` を除外します。
+
+<a id="42-detectioncontext"></a>
 
 ### 4.2 DetectionContext
 
-`DetectionContext` bundles all inputs required for detector execution.
+検出器に必要な入力をまとめます。
 
-**Import**: `from meteor_core.schema import DetectionContext`
+**インポート**：`from meteor_core.schema import DetectionContext`
 
 ```python
 @dataclass
@@ -1275,18 +1279,18 @@ class DetectionContext:
     def to_dict(self) -> Dict[str, Any]: ...
 ```
 
-**Fields**:
+**フィールド**：
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `current_image` | `ImageLike` | — | Current frame to analyze. |
-| `previous_image` | `ImageLike` | — | Previous frame for frame differencing. |
-| `roi_mask` | `Any` | — | ROI mask (typically `np.ndarray` with dtype `uint8`). |
-| `runtime_params` | `RuntimeParams \| Dict` | — | Runtime parameters (see below). |
-| `metadata` | `Dict[str, Any]` | — | Metadata dict with keys `"current"` and `"previous"` containing per-frame metadata. |
-| `schema_version` | `int` | `1` | Contract version for future migrations. |
+| フィールド | 型 | 既定値 | 説明 |
+|------------|----|--------|------|
+| `current_image` | `ImageLike` | — | 解析する現在のフレーム |
+| `previous_image` | `ImageLike` | — | 差分用の前フレーム |
+| `roi_mask` | `Any` | — | ROIマスク（通常dtypeが `uint8` の `np.ndarray`） |
+| `runtime_params` | `RuntimeParams \| Dict` | — | 実行パラメータ（下記参照） |
+| `metadata` | `Dict[str, Any]` | — | `"current"`、`"previous"` に各フレームの情報を格納 |
+| `schema_version` | `int` | `1` | 将来の移行用の契約バージョン |
 
-**RuntimeParams Structure**:
+**RuntimeParamsの構造**：
 
 ```python
 @dataclass
@@ -1296,7 +1300,8 @@ class RuntimeParams:
     detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # Per-detector overrides
 ```
 
-Serialized form via `to_dict()`:
+`to_dict()` の形式：
+
 ```python
 {
     "schema_version": 1,
@@ -1305,7 +1310,7 @@ Serialized form via `to_dict()`:
 }
 ```
 
-**Usage Example**:
+**使用例**：
 
 ```python
 from meteor_core.schema import DetectionContext, DetectionResult
@@ -1333,15 +1338,17 @@ class MyDetector(DataclassDetector[MyConfig]):
         return DetectionResult(...)
 ```
 
-**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `current_image`, `previous_image`, and `roi_mask`). The pipeline uses this payload when invoking `on_detection_result()` to avoid transferring large image arrays.
+**シリアライズ**：`context.to_dict()` は `current_image`、`previous_image`、`roi_mask` を除外したJSON互換辞書です。パイプラインは `on_detection_result()` にこの形式を渡し、大きな画像の転送を避けます。
 
-**Normalization**: The pipeline normalizes `DetectionContext` internally before passing it into `detect` using `meteor_core.schema.normalize_detection_context()`. Plugin authors typically don't need to call the function directly, but you can use it (and register converters with `register_detection_context_converter()`) in custom tooling that processes serialized contexts.
+**正規化**：`detect` の前に `meteor_core.schema.normalize_detection_context()` で内部正規化します。通常プラグインが直接呼ぶ必要はありませんが、シリアライズ済みコンテキストを扱う独自ツールで利用でき、`register_detection_context_converter()` で変換も登録できます。
+
+<a id="43-detectionresult"></a>
 
 ### 4.3 DetectionResult
 
-`DetectionResult` encapsulates the output of a detector's `detect()` method.
+検出器の `detect()` の出力をまとめます。
 
-**Import**: `from meteor_core.schema import DetectionResult`
+**インポート**：`from meteor_core.schema import DetectionResult`
 
 ```python
 @dataclass
@@ -1366,27 +1373,27 @@ class DetectionResult:
     def to_dict(self) -> Dict[str, Any]: ...
 ```
 
-**Fields**:
+**フィールド**：
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `is_candidate` | `bool` | — | `True` if the frame contains a meteor candidate. |
-| `score` | `float` | — | Detection confidence score (higher = more confident). |
-| `lines` | `List[Tuple[int, int, int, int]]` | — | Detected line segments as `(x1, y1, x2, y2)` tuples. |
-| `aspect_ratio` | `float` | — | Maximum aspect ratio of detected contours. |
-| `debug_image` | `Optional[Any]` | — | Debug visualization image (typically BGR `np.ndarray`). |
-| `extras` | `Dict[str, Any]` | `{}` | Detector-specific auxiliary data (see below). |
-| `metrics` | `Dict[str, Any]` | `{}` | Standard diagnostics for analysis tools. |
-| `schema_version` | `int` | `1` | Contract version for future migrations. |
+| フィールド | 型 | 既定値 | 説明 |
+|------------|----|--------|------|
+| `is_candidate` | `bool` | — | 流星候補を含む場合は `True` |
+| `score` | `float` | — | 検出の信頼度スコア（高いほど信頼度が高い） |
+| `lines` | `List[Tuple[int, int, int, int]]` | — | `(x1, y1, x2, y2)` の線分一覧 |
+| `aspect_ratio` | `float` | — | 輪郭の最大縦横比 |
+| `debug_image` | `Optional[Any]` | — | 可視化画像（通常BGRの `np.ndarray`） |
+| `extras` | `Dict[str, Any]` | `{}` | 検出器固有の補助情報 |
+| `metrics` | `Dict[str, Any]` | `{}` | 解析ツール用の標準診断 |
+| `schema_version` | `int` | `1` | 将来の移行用の契約バージョン |
 
-**metrics vs extras**:
+**metricsとextras**：
 
-| Dictionary | Purpose | Recommended Keys |
-|------------|---------|------------------|
-| `metrics` | Stable diagnostics for downstream analysis tools | `duration_ms`, `num_contours`, `mask_area`, `hough_votes` |
-| `extras` | Detector-specific or auxiliary data | `bounding_boxes`, `polygons`, `masks`, custom keys |
+| 辞書 | 目的 | 推奨キー |
+|------|------|----------|
+| `metrics` | 後続解析用の共通診断 | `duration_ms`、`num_contours`、`mask_area`、`hough_votes` |
+| `extras` | 検出器固有・補助情報 | `bounding_boxes`、`polygons`、`masks`、独自キー |
 
-**Usage Example**:
+**使用例**：
 
 ```python
 from meteor_core.schema import DetectionResult
@@ -1417,13 +1424,15 @@ def detect(self, context: DetectionContext) -> DetectionResult:
     )
 ```
 
-**Serialization**: `result.to_dict()` returns a JSON-serializable dict (excludes `debug_image`).
+**シリアライズ**：`result.to_dict()` は `debug_image` を除くJSON互換辞書です。
+
+<a id="44-outputresult"></a>
 
 ### 4.4 OutputResult
 
-`OutputResult` encapsulates the result of an output handler's `save_candidate()` method.
+出力ハンドラーの `save_candidate()` の結果をまとめます。
 
-**Import**: `from meteor_core.schema import OutputResult`
+**インポート**：`from meteor_core.schema import OutputResult`
 
 ```python
 @dataclass
@@ -1440,18 +1449,18 @@ class OutputResult:
     def to_dict(self) -> Dict[str, Any]: ...
 ```
 
-**Fields**:
+**フィールド**：
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `saved` | `bool` | — | `True` if the handler persisted the candidate successfully. |
-| `output_path` | `Optional[str]` | — | Location of the persisted candidate file (if any). |
-| `debug_path` | `Optional[str]` | — | Location of the persisted debug image (if any). |
-| `handler_info` | `Dict[str, Any]` | `{}` | Handler identity details from `BaseOutputHandler.get_info()`. |
-| `metrics` | `Dict[str, Any]` | `{}` | Stable diagnostics (duration, bytes written, etc.). |
-| `schema_version` | `int` | `1` | Contract version for future migrations. |
+| フィールド | 型 | 既定値 | 説明 |
+|------------|----|--------|------|
+| `saved` | `bool` | — | 正常に候補を保存した場合は `True` |
+| `output_path` | `Optional[str]` | — | 候補の保存先（ある場合） |
+| `debug_path` | `Optional[str]` | — | デバッグ画像の保存先（ある場合） |
+| `handler_info` | `Dict[str, Any]` | `{}` | `BaseOutputHandler.get_info()` の識別情報 |
+| `metrics` | `Dict[str, Any]` | `{}` | 経過時間、バイト数などの診断 |
+| `schema_version` | `int` | `1` | 将来の移行用の契約バージョン |
 
-**Usage Example**:
+**使用例**：
 
 ```python
 from meteor_core.schema import OutputResult
@@ -1496,14 +1505,15 @@ def save_candidate(
         )
 ```
 
-**Serialization**: `result.to_dict()` returns a JSON-serializable dict.
+**シリアライズ**：`result.to_dict()` はJSON互換の辞書です。
+
+<a id="45-sorteddetection"></a>
 
 ### 4.5 SortedDetection
 
-`SortedDetection` is a lightweight dataclass for sorted hook processing, designed
-to minimize memory usage when collecting all detections for cross-frame analysis.
+ソート済みフックで使う軽量データクラスです。フレーム間解析で全結果を収集するときのメモリを節約します。
 
-**Import**: `from meteor_core.schema import SortedDetection`
+**インポート**：`from meteor_core.schema import SortedDetection`
 
 ```python
 @dataclass
@@ -1534,40 +1544,37 @@ class SortedDetection:
     ) -> "SortedDetection": ...
 ```
 
-**Fields**:
+**フィールド**：
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `frame_index` | `int` | — | 0-based index of the current frame in the sequence. |
-| `prev_frame_index` | `int` | — | 0-based index of the previous frame used for differencing. |
-| `filename` | `str` | — | Base filename of the processed image (e.g., `"IMG_0001.CR2"`). |
-| `filepath` | `str` | — | Full absolute path to the processed image file. |
-| `is_candidate` | `bool` | — | `True` if this detection is marked as a meteor candidate. |
-| `score` | `float` | — | Detection confidence score from the detector. |
-| `aspect_ratio` | `float` | — | Maximum aspect ratio of detected contours. |
-| `lines` | `List[Tuple[int, int, int, int]]` | — | Detected line segments as `(x1, y1, x2, y2)` tuples. |
-| `extras` | `Dict[str, Any]` | `{}` | Detector-specific or hook-added auxiliary data. |
-| `schema_version` | `int` | `1` | Contract version for future migrations. |
+| フィールド | 型 | 既定値 | 説明 |
+|------------|----|--------|------|
+| `frame_index` | `int` | — | 現在のフレームの0始まりの番号 |
+| `prev_frame_index` | `int` | — | 差分用の前フレームの0始まりの番号 |
+| `filename` | `str` | — | ファイル名（例：`"IMG_0001.CR2"`） |
+| `filepath` | `str` | — | 処理した画像の絶対パス |
+| `is_candidate` | `bool` | — | 候補の場合は `True` |
+| `score` | `float` | — | 検出器の信頼度スコア |
+| `aspect_ratio` | `float` | — | 輪郭の最大縦横比 |
+| `lines` | `List[Tuple[int, int, int, int]]` | — | `(x1, y1, x2, y2)` の線分一覧 |
+| `extras` | `Dict[str, Any]` | `{}` | 検出器固有、またはフックが付加した補助情報 |
+| `schema_version` | `int` | `1` | 将来の移行用の契約バージョン |
 
-**Why SortedDetection?**
+**SortedDetectionを使う理由**：
 
-`SortedDetection` excludes large data that would consume excessive memory when
-collecting thousands of detections:
+数千件を収集するときに大きなメモリを使うデータを除外します。
 
-| Excluded Data | Reason |
-|--------------|--------|
-| `debug_image` | Large BGR image arrays (~megabytes each) |
-| `current_image` / `previous_image` | Raw frame data from `DetectionContext` |
-| `roi_mask` | Binary mask array |
-| `metrics` | Diagnostics not needed for cross-frame analysis |
+| 除外するデータ | 理由 |
+|----------------|------|
+| `debug_image` | 各画像が数MBになるBGR配列 |
+| `current_image` / `previous_image` | `DetectionContext` のフレームデータ |
+| `roi_mask` | 二値マスク配列 |
+| `metrics` | フレーム間解析に不要な診断 |
 
-This design allows the pipeline to store ~10,000 detections in ~2MB of memory,
-enabling efficient cross-frame analysis in the `on_all_detections_sorted` hook.
+この設計により、約10,000件を約2MBで保持し、`on_all_detections_sorted` で効率的に解析することを意図しています。
 
-**Factory method**:
+**ファクトリーメソッド**：
 
-Use `SortedDetection.from_detection_result()` to create instances from
-`DetectionResult` objects:
+`SortedDetection.from_detection_result()` で `DetectionResult` から生成できます。
 
 ```python
 from meteor_core.schema import SortedDetection, DetectionResult
@@ -1584,7 +1591,7 @@ sorted_detection = SortedDetection.from_detection_result(
 )
 ```
 
-**Usage in hooks**:
+**フックでの使用例**：
 
 ```python
 from meteor_core.hooks import DataclassHook
@@ -1612,31 +1619,34 @@ class MyAnalyzer(DataclassHook[MyConfig]):
         return detections
 ```
 
-**Serialization**: `detection.to_dict()` returns a JSON-serializable dict.
+**シリアライズ**：`detection.to_dict()` はJSON互換の辞書です。
 
-### 4.6 Schema Versioning and Normalization
+<a id="46-schema-versioning-and-normalization"></a>
 
-All four dataclasses include a `schema_version` field (currently `1`) to enable forward-compatible evolution of the plugin system.
+### 4.6 スキーマのバージョン管理と正規化
 
-**Available normalize/converter functions**:
+4つのデータクラスに `schema_version`（現在：`1`）を持ち、将来の変更に備えます。
 
-| Dataclass | normalize function | converter registration |
-|-----------|-------------------|------------------------|
+**正規化・変換関数の一覧**：
+
+| データクラス | 正規化関数 | 変換関数の登録 |
+|--------------|------------|----------------|
 | `InputContext` | `meteor_core.schema.normalize_input_context()` | `register_input_context_converter()` |
 | `DetectionContext` | `meteor_core.schema.normalize_detection_context()` | `register_detection_context_converter()` |
 | `DetectionResult` | `meteor_core.schema.normalize_detection_result()` | `register_detection_result_converter()` |
 | `OutputResult` | `meteor_core.schema.normalize_output_result()` | `register_output_result_converter()` |
 
-> **Note**: The pipeline still performs `DetectionContext` normalization internally, but the normalize/converter APIs are available publicly for tooling or custom flows.
+> **補足**：`DetectionContext` は内部で正規化しますが、独自ツールや処理でも正規化・変換APIを使えます。
 
-**How it works**:
-1. Plugins return dataclass instances with their implemented `schema_version`.
-2. The pipeline calls `normalize_*()` functions immediately after plugin methods return.
-3. If `schema_version` matches the current version, the instance passes through unchanged.
-4. If `schema_version` is older, registered converters upgrade the instance.
-5. If no converter exists for an older version, the pipeline raises `ValueError` (or `MeteorConfigError` when normalizing `DetectionContext` inside the pipeline).
+**仕組み**：
 
-**Registering converters** (for backward compatibility):
+1. プラグインは実装した `schema_version` のインスタンスを返します。
+2. 戻り値を受け取った直後に `normalize_*()` を呼びます。
+3. 現行バージョンならそのまま通します。
+4. 古いバージョンなら登録した変換で更新します。
+5. 変換がなければ `ValueError`、またはパイプライン内で `DetectionContext` を正規化する場合は `MeteorConfigError` を送出します。
+
+**後方互換用の変換登録**：
 
 ```python
 from meteor_core.schema import (
@@ -1676,16 +1686,21 @@ register_detection_context_converter(0, upgrade_detection_context_v0_to_v1)
 register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
 ```
 
-**Versioning policy**:
-- `schema_version` increments only for backward-incompatible structural changes.
-- New optional fields can be added without version bump.
-- Current version for all dataclasses is `1`.
+**バージョン方針**：
+
+- 後方互換性のない構造変更の場合のみ `schema_version` を上げます。
+- 任意フィールドの追加では上げる必要はありません。
+- 現在はすべて `1` です。
 
 ---
 
-## 5. Sample Code
+<a id="5-sample-code"></a>
 
-### 5.1 Input Loader (Complete Example)
+## 5. コード例
+
+<a id="51-input-loader-complete-example"></a>
+
+### 5.1 入力ローダー（完全な例）
 
 ```python
 """Custom TIFF image loader with metadata extraction, logging, and exceptions."""
@@ -1843,7 +1858,9 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
 LoaderRegistry.register(TiffImageLoader)
 ```
 
-### 5.2 Detector (Complete Example)
+<a id="52-detector-complete-example"></a>
+
+### 5.2 検出器（完全な例）
 
 ```python
 """Simple threshold-based detector for bright meteors with logging."""
@@ -2060,14 +2077,11 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 DetectorRegistry.register(ThresholdDetector)
 ```
 
-### 5.3 Output Handler with Lifecycle Hooks (Secondary Handler Example)
+<a id="53-output-handler-with-lifecycle-hooks-secondary-handler-example"></a>
 
-Per-frame hooks run during detection, so you can use `DetectionResult.lines` to
-inspect line segments and `DetectionResult.extras` to read detector-specific
-metadata (e.g., bounding boxes, masks, or algorithm tags). The
-`context` argument contains `DetectionContext.to_dict()` output (no
-image buffers). Keep `extras` JSON-serializable so it can be logged or emitted
-to observability tools.
+### 5.3 ライフサイクルフックを持つ出力ハンドラー（補助ハンドラーの例）
+
+フレームごとのフックは検出中に呼びます。`DetectionResult.lines` で線分を確認し、`DetectionResult.extras` で矩形、マスク、アルゴリズムのタグなどを参照できます。`context` は画像を含まない `DetectionContext.to_dict()` です。ログや観察用ツールへ渡せるよう、`extras` はJSON互換にしてください。
 
 ```python
 """Slack notification handler with full lifecycle support, logging, and exceptions."""
@@ -2432,11 +2446,15 @@ OutputHandlerRegistry.register(SlackNotificationHandler)
 
 ---
 
-## 6. Best Practices
+<a id="6-best-practices"></a>
 
-### 6.1 Choosing ConfigType
+## 6. 実装上の推奨事項
 
-Use this decision tree to select the right configuration approach:
+<a id="61-choosing-configtype"></a>
+
+### 6.1 ConfigTypeの選択
+
+次の分岐図で設定方式を選んでください。
 
 ```
 Need configuration?
@@ -2459,7 +2477,8 @@ Use Pydantic BaseModel
 (rich validation, type coercion)
 ```
 
-**Dataclass (Recommended for most cases)**:
+**Dataclass（多くの場合に推奨）**：
+
 ```python
 from dataclasses import dataclass
 
@@ -2470,7 +2489,8 @@ class MyConfig:
     enabled: bool = True
 ```
 
-**Pydantic (For complex validation)**:
+**Pydantic（複雑な検証向け）**：
+
 ```python
 from pydantic import BaseModel, Field, field_validator
 
@@ -2488,20 +2508,26 @@ class MyConfig(BaseModel):
     model_config = {"extra": "forbid"}  # Reject unknown keys
 ```
 
-### 6.2 Required Attributes
+<a id="62-required-attributes"></a>
 
-| Attribute | Required | Type | Description |
-|-----------|----------|------|-------------|
-| `plugin_name` | ✅ Yes | `str` | Unique identifier (case-insensitive) |
-| `name` | ❌ No | `str` | Human-readable name |
-| `version` | ❌ No | `str` | Version string |
-| `ConfigType` | ❌ No | `type` | Configuration class |
+### 6.2 必須属性
 
-### 6.3 Exception Hierarchy and Error Handling
+| 属性 | 必須 | 型 | 説明 |
+|------|------|----|------|
+| `plugin_name` | ✅ 必須 | `str` | 大文字・小文字を区別しない固有名 |
+| `name` | ❌ 任意 | `str` | 人が読む名前 |
+| `version` | ❌ 任意 | `str` | バージョン文字列 |
+| `ConfigType` | ❌ 任意 | `type` | 設定クラス |
 
-#### Exception Hierarchy
+<a id="63-exception-hierarchy-and-error-handling"></a>
 
-`meteor_core` provides a structured exception hierarchy for consistent error handling:
+### 6.3 例外階層とエラー処理
+
+<a id="exception-hierarchy"></a>
+
+#### 例外階層
+
+`meteor_core` は一貫したエラー処理のため、構造化した例外階層を提供します。
 
 ```
 MeteorError (base)
@@ -2514,7 +2540,8 @@ MeteorError (base)
 └── MeteorConfigError (configuration errors)
 ```
 
-**Import exceptions**:
+**例外のインポート**：
+
 ```python
 from meteor_core.exceptions import (
     MeteorError,
@@ -2528,18 +2555,19 @@ from meteor_core.exceptions import (
 )
 ```
 
-**Exception attributes**:
+**例外の属性**：
 
-Each exception includes rich context for debugging and issue reporting:
+デバッグ・問題報告用の詳しいコンテキストを持ちます。
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `message` | `str` | Human-readable error description |
-| `filepath` | `Optional[str]` | File path (if applicable) |
-| `original_error` | `Optional[Exception]` | Original exception (for chained errors) |
-| `context` | `Dict[str, Any]` | Additional context information |
+| 属性 | 型 | 説明 |
+|------|----|------|
+| `message` | `str` | 読みやすいエラー説明 |
+| `filepath` | `Optional[str]` | 対象ファイル（ある場合） |
+| `original_error` | `Optional[Exception]` | 連鎖した元の例外 |
+| `context` | `Dict[str, Any]` | 追加のコンテキスト |
 
-**Creating exceptions with context**:
+**コンテキスト付き例外の作成**：
+
 ```python
 from meteor_core.exceptions import MeteorLoadError
 
@@ -2555,9 +2583,9 @@ raise MeteorLoadError(
 )
 ```
 
-**Output-specific exceptions**:
+**出力固有の例外**：
 
-For output operations, use `MeteorWriteError` and `MeteorProgressError`:
+`MeteorWriteError`、`MeteorProgressError` を使います。
 
 ```python
 from meteor_core.exceptions import MeteorWriteError, MeteorProgressError
@@ -2582,39 +2610,40 @@ error = MeteorProgressError(
 )
 ```
 
-| Exception | Use Case | Key Attributes |
-|-----------|----------|----------------|
-| `MeteorWriteError` | File copy, debug image save, directory creation | `destination_path`, `operation` |
-| `MeteorProgressError` | Progress file read/write, JSON parse errors | `operation` (load/save/parse/serialize) |
+| 例外 | 用途 | 主な属性 |
+|------|------|----------|
+| `MeteorWriteError` | コピー、画像保存、ディレクトリ作成 | `destination_path`、`operation` |
+| `MeteorProgressError` | 進捗の読み書き、JSON解析 | `operation`（load/save/parse/serialize） |
 
-#### Exception Policy by Plugin Type
+<a id="exception-policy-by-plugin-type"></a>
 
-Each plugin type has different expectations for when to raise exceptions vs. continue processing:
+#### 種別ごとの例外方針
 
-| Plugin Type | Method | Policy |
-|-------------|--------|--------|
-| **Input Loader** | `load()` | **Raise exceptions** - Pipeline cannot continue without image |
-| **Input Loader** | `extract_metadata()` | **Return empty dict** - Metadata is optional |
-| **Detector** | `detect()` | **Raise or return DetectionResult** - Pipeline marks failures as no detection |
-| **Output Handler** | `save_candidate()` | **Depends on criticality** - See below |
-| **Output Handler** | Lifecycle hooks | **Never raise** - Log errors, continue processing |
+例外を送るか処理を継続するかは、種別によって異なります。
 
-**Output Handler Exception Policy (Critical vs. Non-Critical)**:
+| 種別 | メソッド | 方針 |
+|------|----------|------|
+| **入力ローダー** | `load()` | **送出**：画像なしでは処理できない |
+| **入力ローダー** | `extract_metadata()` | **空辞書**：メタデータは任意 |
+| **検出器** | `detect()` | **送出またはDetectionResult**：失敗を未検出として扱う |
+| **出力ハンドラー** | `save_candidate()` | **重要度による**：下記参照 |
+| **出力ハンドラー** | ライフサイクルフック | **送出しない**：ログを記録して継続 |
 
-Output handlers fall into two categories based on their role:
+**重要・非重要な出力ハンドラーの方針**：
 
-| Category | Examples | Policy |
-|----------|----------|--------|
-| **Primary (Critical)** | FileOutputHandler, S3Handler | **Raise exceptions** - Disk/storage errors are critical |
-| **Secondary (Non-Critical)** | SlackHandler, WebhookHandler | **Return OutputResult(saved=False, ...)** - Notification failures are non-critical |
+役割で2つに分けます。
 
-- **Primary handlers** persist the detection results (RAW files, debug images). If these fail, it usually indicates a systemic issue (disk full, permission denied, network storage unavailable) that will affect all subsequent writes. Raising an exception allows users to address the issue immediately rather than discovering hours later that no files were saved.
+| 種類 | 例 | 方針 |
+|------|----|------|
+| **主ハンドラー（重要）** | FileOutputHandler、S3Handler | **送出**：ディスク・ストレージの失敗は重大 |
+| **補助ハンドラー（非重要）** | SlackHandler、WebhookHandler | **OutputResult(saved=False, ...)を返す**：通知の失敗は非重大 |
 
-- **Secondary handlers** provide notifications or auxiliary outputs. Their failure should not stop the pipeline since the core detection work can still proceed.
+- **主ハンドラー** はRAW・デバッグ画像を保存します。失敗は容量不足、権限、ネットワークストレージの障害など、後続にも影響する問題を示すことが多いため、例外で即座に対処できるようにします。長時間後に保存されていなかったと気付く事態を避けます。
+- **補助ハンドラー** は通知などを行います。検出自体は続けられるため、失敗してもパイプラインを停止しないようにします。
 
-The built-in `FileOutputHandler` follows the **primary handler** pattern and raises `MeteorWriteError` on write failures. The Slack example in this guide demonstrates the **secondary handler** pattern.
+組み込み `FileOutputHandler` は **主ハンドラー** であり、書き込み失敗時に `MeteorWriteError` を送ります。このガイドのSlack例は **補助ハンドラー** です。
 
-**Input Loader exceptions**:
+**入力ローダーの例外**：
 
 ```python
 class MyLoader(DataclassInputLoader[MyConfig]):
@@ -2661,7 +2690,7 @@ class MyLoader(DataclassInputLoader[MyConfig]):
             return {}
 ```
 
-**Detector behavior** (raise or return):
+**検出器の動作（送出または結果を返す）**：
 
 ```python
 class MyDetector(DataclassDetector[MyConfig]):
@@ -2682,9 +2711,9 @@ class MyDetector(DataclassDetector[MyConfig]):
         )
 ```
 
-**Output Handler error handling**:
+**出力ハンドラーのエラー処理**：
 
-For **primary handlers** (critical file/storage operations), raise exceptions:
+重要なファイル・ストレージ操作をする **主ハンドラー** は例外を送出します。
 
 ```python
 from meteor_core.exceptions import MeteorWriteError
@@ -2713,7 +2742,7 @@ class MyFileHandler(DataclassOutputHandler[MyConfig]):
             ) from e
 ```
 
-For **secondary handlers** (notifications, webhooks), log and return `OutputResult(saved=False, ...)`:
+通知・Webhookなどの **補助ハンドラー** はログを記録し、`OutputResult(saved=False, ...)` を返します。
 
 ```python
 class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
@@ -2744,11 +2773,15 @@ class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
             logger.warning(f"Notification failed: {e}")
 ```
 
-### 6.4 Logging Guidelines
+<a id="64-logging-guidelines"></a>
 
-#### Setting Up Logging
+### 6.4 ログの指針
 
-Use Python's standard `logging` module with the `meteor_core` logger hierarchy:
+<a id="setting-up-logging"></a>
+
+#### ログの設定
+
+標準の `logging` と `meteor_core` のロガー階層を使います。
 
 ```python
 import logging
@@ -2759,17 +2792,19 @@ logger = logging.getLogger("meteor_core.inputs.my_loader")
 # Or for outputs: logging.getLogger("meteor_core.outputs.my_handler")
 ```
 
-#### Log Level Policy
+<a id="log-level-policy"></a>
 
-| Level | When to Use | Example |
-|-------|-------------|---------|
-| `DEBUG` | Detailed trace info for troubleshooting | File paths, config values, intermediate results |
-| `INFO` | Significant events during normal operation | Plugin loaded, processing started/completed |
-| `WARNING` | Recoverable issues that don't stop processing | Missing optional metadata, slow operation, deprecated usage |
-| `ERROR` | Failures that affect the current operation | Failed to save file, network timeout |
-| `CRITICAL` | Severe errors requiring immediate attention | Rarely used in plugins |
+#### ログレベルの方針
 
-**Log level examples**:
+| レベル | 用途 | 例 |
+|--------|------|----|
+| `DEBUG` | 調査用の詳細な処理記録 | パス、設定、中間結果 |
+| `INFO` | 通常動作の主要イベント | 読み込み、処理開始・完了 |
+| `WARNING` | 継続可能な問題 | 任意メタデータの不足、低速、非推奨の使用 |
+| `ERROR` | 現在の操作の失敗 | 保存失敗、ネットワークのタイムアウト |
+| `CRITICAL` | 即座の対処が必要な重大障害 | プラグインでは通常使わない |
+
+**レベルごとの例**：
 
 ```python
 import logging
@@ -2814,13 +2849,16 @@ class FitsLoader(DataclassInputLoader[FitsConfig]):
             return {}
 ```
 
-#### Logging Best Practices
+<a id="logging-best-practices"></a>
 
-**Do**:
-- Use appropriate log levels consistently
-- Include relevant context (filenames, config values)
-- Use `logger.exception()` to include stack traces for errors
-- Keep log messages concise but informative
+#### ログの推奨事項
+
+**推奨**：
+
+- 適切なレベルを一貫して使用。
+- ファイル名や設定などの関連情報を付加。
+- `logger.exception()` でスタックトレースを記録。
+- 短く、必要な情報を含むメッセージ。
 
 ```python
 # Good: Informative with context
@@ -2829,11 +2867,12 @@ logger.warning(f"Metadata missing 'exposure_time' in {filepath}, using default")
 logger.error(f"Failed to save to {output_path}: {e}")
 ```
 
-**Don't**:
-- Log sensitive information (API keys, credentials)
-- Use `print()` instead of logging
-- Log excessively in tight loops (performance impact)
-- Raise exceptions just to log them
+**避けること**：
+
+- APIキーや認証情報などの機密情報の記録。
+- ログの代わりに `print()` を使う。
+- 高頻度ループでの過剰なログ（性能に影響）。
+- ログを残すためだけに例外を送る。
 
 ```python
 # Bad: Using print
@@ -2858,17 +2897,16 @@ except Exception as e:
     raise
 ```
 
-### Internationalization (i18n) Guidance
+<a id="internationalization-i18n-guidance"></a>
 
-- **Localize UI/UX only**: user-facing interface text such as CLI prompts, progress summaries, and error headers should use localized messages.
-- **Keep everything else in English**: logs, debug output, and developer-facing diagnostics remain in English to keep troubleshooting consistent.
+### 国際化（i18n）の指針
 
-When you need localized UI/UX strings, use the shared message catalog in
-`meteor_core/locales/<locale>/messages.yaml` via `meteor_core.i18n.get_message`.
-Avoid introducing plugin-specific translation files unless coordinated with the
-core maintainers.
+- **UI/UXだけを翻訳**：CLIの質問、進捗集計、エラー見出しなど、利用者向けの表示。
+- **それ以外は英語**：ログ、デバッグ出力、開発者向け診断は、問題調査を一貫させるため英語を維持。
 
-Example entries (matching the Slack output handler sample):
+UI/UXには `meteor_core/locales/<locale>/messages.yaml` の共通カタログを `meteor_core.i18n.get_message` で使ってください。中核の保守担当者と調整せずに、プラグイン独自の翻訳ファイルを追加することは避けてください。
+
+Slack出力ハンドラーに対応する項目の例：
 
 ```yaml
 ui:
@@ -2877,12 +2915,13 @@ ui:
     detection_complete: "✅ *Detection Complete*\n• Processed: {processed} images\n• Detected: {detected} candidates\n• Time: {minutes} minutes\n• Rate: {rate} images/sec"
 ```
 
-Add corresponding translations in other locale files (for example,
-`meteor_core/locales/ja/messages.yaml`).
+`meteor_core/locales/ja/messages.yaml` など、ほかのロケールにも翻訳を追加してください。
 
-#### Using Diagnostic Reports
+<a id="using-diagnostic-reports"></a>
 
-For errors that users might report as issues, use `format_for_issue()`:
+#### 診断レポートの利用
+
+Issueとして報告される可能性のあるエラーには `format_for_issue()` を使います。
 
 ```python
 from meteor_core.exceptions import MeteorLoadError
@@ -2896,26 +2935,33 @@ except MeteorLoadError as e:
     raise
 ```
 
-### 6.5 Performance Considerations
+<a id="65-performance-considerations"></a>
 
-**Input Loaders**:
-- Return single-channel arrays; use uint16 by default or float32 if you normalize
-- Avoid unnecessary copies (`image.astype()` creates a copy)
-- Consider memory-mapped files for very large images
+### 6.5 性能上の注意点
 
-**Detectors**:
-- Use NumPy vectorized operations over Python loops
-- Pre-allocate arrays when possible
-- Consider using OpenCV's optimized functions
+**入力ローダー**：
 
-**Output Handlers**:
-- Make lifecycle hooks non-blocking (use timeouts)
-- Buffer notifications for batch sending if needed
-- Use async I/O for network operations (advanced)
+- 単一チャンネル配列を返し、通常はuint16、正規化する場合はfloat32を使用。
+- 不要なコピーを避ける（`image.astype()` はコピーを生成）。
+- 大きな画像ではメモリマップを検討。
 
-### 6.6 Thread Safety
+**検出器**：
 
-The pipeline may process images in parallel. Ensure your plugins are thread-safe:
+- PythonのループよりNumPyのベクトル化を使用。
+- 可能なら配列を事前確保。
+- OpenCVの最適化された関数を検討。
+
+**出力ハンドラー**：
+
+- フックが長時間停止しないようタイムアウトを設定。
+- 必要なら通知をまとめてバッチ送信。
+- ネットワーク処理には非同期I/Oも検討（高度な実装）。
+
+<a id="66-thread-safety"></a>
+
+### 6.6 スレッド安全性
+
+画像を並列処理する場合があります。プラグインのスレッド安全性を確保してください。
 
 ```python
 class MyHandler(DataclassOutputHandler[MyConfig]):
@@ -2929,11 +2975,15 @@ class MyHandler(DataclassOutputHandler[MyConfig]):
             self._count += 1
 ```
 
-### 6.7 Type Safety with ty
+<a id="67-type-safety-with-ty"></a>
 
-As of v1.6.8, the project uses [ty](https://docs.astral.sh/ty/) (Astral's Rust-based type checker) for static type analysis. Plugin authors are encouraged to use ty to catch type errors early.
+### 6.7 tyによる型安全性
 
-#### Running ty on Your Plugin
+v1.6.8から、AstralのRust製型検査ツール[ty](https://docs.astral.sh/ty/)を使用します。プラグインでも利用し、型エラーを早期に発見することを推奨します。
+
+<a id="running-ty-on-your-plugin"></a>
+
+#### プラグインにtyを実行する
 
 ```bash
 # Install ty (if not already installed)
@@ -2946,10 +2996,14 @@ uv run ty check your_plugin/
 uv run pre-commit run ty-check --all-files
 ```
 
-#### Type Hints Best Practices
+<a id="type-hints-best-practices"></a>
 
-**Do**:
-- Use explicit type hints for all public methods:
+#### 型ヒントの推奨事項
+
+**推奨**：
+
+- 公開メソッドに型ヒントを明示。
+
   ```python
   from meteor_core.schema import DetectionContext, DetectionResult
   
@@ -2958,7 +3012,8 @@ uv run pre-commit run ty-check --all-files
       ...
   ```
 
-- Match base class signatures exactly to avoid `invalid-method-override` errors:
+- `invalid-method-override` を避けるため、基底クラスのシグネチャに正確に一致させる。
+
   ```python
   # Good: Exact signature match
   def save_candidate(
@@ -2971,7 +3026,8 @@ uv run pre-commit run ty-check --all-files
       ...
   ```
 
-- Import types from `meteor_core.schema` for contract compliance:
+- 契約に対応する型を `meteor_core.schema` からインポート。
+
   ```python
   from meteor_core.schema import (
       InputContext,
@@ -2982,21 +3038,26 @@ uv run pre-commit run ty-check --all-files
   )
   ```
 
-**Don't**:
-- Omit return type annotations for public methods
-- Use incompatible parameter types when overriding base class methods
-- Ignore ty errors—they often indicate real issues
+**避けること**：
 
-#### Common ty Errors and Fixes
+- 公開メソッドの戻り値型を省略。
+- オーバーライドで互換性のない引数型を使用。
+- tyのエラーを無視する（実際の問題を示すことが多い）。
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `invalid-return-type` | Return type doesn't match declaration | Check return statement matches declared type |
-| `invalid-method-override` | Override signature incompatible with base | Match base class parameter types exactly |
-| `invalid-assignment` | Assigned value doesn't match declared type | Use correct type or add type narrowing |
-| `call-non-callable` | Attempting to call non-callable | Ensure object is callable before calling |
+<a id="common-ty-errors-and-fixes"></a>
 
-#### Example: Type-Safe Detector
+#### よくあるtyのエラーと修正
+
+| エラー | 原因 | 修正 |
+|--------|------|------|
+| `invalid-return-type` | 戻り値が宣言と不一致 | return文と宣言した型を照合 |
+| `invalid-method-override` | 基底クラスと非互換 | 引数型を正確に一致させる |
+| `invalid-assignment` | 代入値が宣言と不一致 | 正しい型または型の絞り込み |
+| `call-non-callable` | 呼び出し不能な値 | 呼び出し可能かを確認 |
+
+<a id="example-type-safe-detector"></a>
+
+#### 例：型安全な検出器
 
 ```python
 from dataclasses import dataclass
@@ -3049,9 +3110,11 @@ class MyDetector(DataclassDetector[MyDetectorConfig]):
         return 0.0, []
 ```
 
-### 6.8 Worker Limit Configuration
+<a id="68-worker-limit-configuration"></a>
 
-As of v1.6.8, the `MAX_NUM_WORKERS` constant is exported from `meteor_core` and enforced in `PipelineConfig`:
+### 6.8 ワーカー上限の設定
+
+v1.6.8から `meteor_core` が `MAX_NUM_WORKERS` を公開し、`PipelineConfig` が上限を検証します。
 
 ```python
 from meteor_core import MAX_NUM_WORKERS
@@ -3060,9 +3123,9 @@ from meteor_core import MAX_NUM_WORKERS
 print(f"Maximum workers allowed: {MAX_NUM_WORKERS}")
 ```
 
-**PipelineConfig validation**:
+**PipelineConfigの検証**：
 
-When creating a `PipelineConfig`, the `num_workers` value is validated against `MAX_NUM_WORKERS`:
+生成時に `num_workers` を `MAX_NUM_WORKERS` と比較します。
 
 ```python
 from meteor_core.schema import PipelineConfig
@@ -3076,19 +3139,25 @@ config = PipelineConfig(
 )
 ```
 
-**Plugin author considerations**:
+**作者への留意点**：
 
-- Do not assume unlimited worker processes are available
-- Design plugins to be stateless or thread-safe (see [6.6 Thread Safety](#66-thread-safety))
-- Use `MAX_NUM_WORKERS` when documenting performance recommendations
+- 無制限のワーカープロセスを前提にしない。
+- 状態を持たない、またはスレッド安全な実装にする（[6.6 スレッド安全性](#66-thread-safety)参照）。
+- 性能の推奨設定を記すときは `MAX_NUM_WORKERS` を考慮。
 
 ---
 
-## 7. Step-by-Step Tutorial
+<a id="7-step-by-step-tutorial"></a>
 
-### 7.1 Step-by-Step: Creating a Plugin
+## 7. 段階的なチュートリアル
 
-#### Step 1: Choose Plugin Type and Base Class
+<a id="71-step-by-step-creating-a-plugin"></a>
+
+### 7.1 プラグインを作成する手順
+
+<a id="step-1-choose-plugin-type-and-base-class"></a>
+
+#### 手順1：種別と基底クラスを選ぶ
 
 ```python
 # For input loaders with dataclass config
@@ -3101,7 +3170,9 @@ from meteor_core.detectors import DataclassDetector
 from meteor_core.outputs import DataclassOutputHandler
 ```
 
-#### Step 2: Define Configuration (Optional)
+<a id="step-2-define-configuration-optional"></a>
+
+#### 手順2：設定を定義する（任意）
 
 ```python
 from dataclasses import dataclass
@@ -3112,7 +3183,9 @@ class MyPluginConfig:
     option2: int = 10
 ```
 
-#### Step 3: Implement the Plugin Class
+<a id="step-3-implement-the-plugin-class"></a>
+
+#### 手順3：クラスを実装する
 
 ```python
 from meteor_core.schema import InputContext
@@ -3128,29 +3201,38 @@ class MyPlugin(DataclassInputLoader[MyPluginConfig]):
         ...
 ```
 
-#### Step 4: Register the Plugin
+<a id="step-4-register-the-plugin"></a>
 
-**Option A: Runtime registration**
+#### 手順4：登録する
+
+**方法A：実行時登録**
+
 ```python
 from meteor_core.inputs import LoaderRegistry
 LoaderRegistry.register(MyPlugin)
 ```
 
-**Option B: Entry point (for packages)**
+**方法B：パッケージのエントリーポイント**
+
 ```toml
 # pyproject.toml
 [project.entry-points."detect_meteors.input"]
 my_plugin = "my_package:MyPlugin"
 ```
 
-**Option C: Plugin directory (for user plugins)**
+**方法C：利用者のプラグインディレクトリ**
+
 ```bash
 # Save as ~/.detect_meteors/input_plugins/my_plugin.py
 ```
 
-### 7.2 Testing Your Plugin
+<a id="72-testing-your-plugin"></a>
 
-#### Unit Test Example
+### 7.2 プラグインのテスト
+
+<a id="unit-test-example"></a>
+
+#### ユニットテストの例
 
 ```python
 import unittest
@@ -3181,7 +3263,9 @@ if __name__ == "__main__":
     unittest.main()
 ```
 
-#### Integration Test
+<a id="integration-test"></a>
+
+#### 統合テスト
 
 ```python
 def test_plugin_in_pipeline():
@@ -3198,15 +3282,19 @@ def test_plugin_in_pipeline():
     assert loader.config.option1 == "test"
 ```
 
-### 7.3 Debugging Tips
+<a id="73-debugging-tips"></a>
 
-**Enable verbose logging**:
+### 7.3 デバッグのヒント
+
+**詳しいログを有効にする**：
+
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-**Check plugin info**:
+**プラグイン情報を確認する**：
+
 ```python
 from meteor_core.inputs import LoaderRegistry
 
@@ -3217,7 +3305,8 @@ for name in LoaderRegistry.list_available():
     print(instance.get_info())
 ```
 
-**Verify configuration coercion**:
+**設定変換を確認する**：
+
 ```python
 # Test that dict config works
 handler = OutputHandlerRegistry.create("my_handler", {"option": "value"})
@@ -3232,14 +3321,18 @@ handler = OutputHandlerRegistry.create("my_handler")  # Uses ConfigType()
 
 ---
 
-## See Also
+<a id="see-also"></a>
 
-**Documentation**:
-- [INSTALL_DEV.md](INSTALL_DEV.md) — Development environment setup
-- [CHANGELOG.md](CHANGELOG.md) — Release history
-- [README.md](README.md) — User documentation
+## 関連資料
 
-**Built-in plugin implementations** (reference code):
-- [`meteor_core/inputs/raw.py`](meteor_core/inputs/raw.py) — RawImageLoader
-- [`meteor_core/detectors/hough_default.py`](meteor_core/detectors/hough_default.py) — HoughDetector
-- [`meteor_core/outputs/file_handler.py`](meteor_core/outputs/file_handler.py) — FileOutputHandler
+**ドキュメント**：
+
+- [INSTALL_DEV.md](INSTALL_DEV_ja.md) — 開発環境の構築
+- [CHANGELOG.md](CHANGELOG_ja.md) — リリース履歴
+- [README.md](../README_ja.md) — 利用者向けドキュメント
+
+**参考用の組み込み実装**：
+
+- [`meteor_core/inputs/raw.py`](../meteor_core/inputs/raw.py) — RawImageLoader
+- [`meteor_core/detectors/hough_default.py`](../meteor_core/detectors/hough_default.py) — HoughDetector
+- [`meteor_core/outputs/file_handler.py`](../meteor_core/outputs/file_handler.py) — FileOutputHandler

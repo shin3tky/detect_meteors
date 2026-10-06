@@ -1,5 +1,7 @@
 # Version 1.6 Release Notes
 
+[日本語版](RELEASE_NOTES_1.6_ja.md)
+
 ## Version 1.6.10 (2026-02-04)
 
 ### Sorted Detection Hooks and Aircraft Trail Metadata
@@ -39,8 +41,24 @@ recorded when these hooks run. `likelihood_threshold` in the aircraft hook's
 configuration is currently unused and does not enable filtering.
 
 See the [Plugin Author Guide](PLUGIN_AUTHOR_GUIDE.md#110-batch-results-sorted-hook-pipeline)
-and [aircraft hook implementation notes](docs/aircraft_light_trails_hook_design.md)
+and [aircraft hook implementation notes](aircraft_light_trails_hook_design.md)
 for configuration and lifecycle details.
+
+### Local Aircraft Sample and Distribution Files
+
+The Git-tracked `2024GEMINI_AIRCRAFT` sample contains 12 images, all with aircraft;
+the owner confirms meteors only in `_C140338.ORF` and `_C140344.ORF`. The supplied
+[sample configuration](../config_examples/aircraft_trail_sample.yaml) demonstrates
+matching tolerance adjustment. Both meteor images remain candidates, and
+`_C140344.ORF` also receives high aircraft likelihood. Do not use this metadata
+to discard whole images that may contain both objects. See the
+[validation report](aircraft_sample_validation.md).
+
+The v1.6.10 wheel includes the CLI module and installs `detect-meteors`. The
+source distribution includes documentation, configuration examples, and tests.
+RAW images and generated outputs are excluded from the Python distributions;
+the sample RAW files are available in a repository checkout. See [installation](INSTALL.md)
+and the [release build instructions](INSTALL_DEV.md#building-a-release).
 
 ## Version 1.6.8 (2026-01-07) 🌿
 
@@ -1686,7 +1704,15 @@ This release only affects the development toolchain. Users who install the packa
 
 ## Version Information
 
-### v1.6.8 (Latest) 🌿
+### v1.6.10 (Latest)
+- **Release Date**: 2026-02-04
+- **Main Focus**: Sorted detection hooks and aircraft trail metadata
+- **Key Changes**:
+  - Frame-ordered batch and full-run analysis with `SortedDetection`
+  - Aircraft likelihood metadata and documented sample validation
+  - Installable CLI and source/wheel release packaging
+
+### v1.6.8 🌿
 - **Version**: 1.6.8
 - **Release Date**: 2026-01-07
 - **Major Changes**:

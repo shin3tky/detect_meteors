@@ -1,6 +1,37 @@
 # Installation Guide
 
+[日本語版](INSTALL_ja.md)
+
 This guide provides detailed installation instructions for Detect Meteors CLI on macOS and Windows.
+
+## Install a v1.6.10 Distribution
+
+If you have the release wheel, install it into a Python 3.12 or 3.13 virtual
+environment. Dependency installation requires access to the package index:
+
+```bash
+uv venv --python 3.12
+uv pip install dist/detect_meteors-1.6.10-py3-none-any.whl
+```
+
+Use the actual path to your downloaded wheel if it is not in `dist/`. On macOS
+or Linux, activate with `source .venv/bin/activate`; on Windows PowerShell, use
+`.venv\Scripts\Activate.ps1`. Then run:
+
+```bash
+detect-meteors --version
+detect-meteors --help
+detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
+```
+
+The `detect-meteors` command is included in the wheel. Existing source-based
+commands (`uv run python detect_meteors_cli.py ...`) remain available. The source
+distribution includes documentation, configuration examples, and tests; extract
+`detect_meteors-1.6.10.tar.gz`, enter its directory, and follow the `uv sync`
+instructions below. RAW images and generated candidates are excluded from these
+distributions. To reproduce the aircraft sample, clone the repository, which
+tracks `rawfiles/2024GEMINI_AIRCRAFT` with file checksums, or copy that directory
+from a repository checkout into the extracted source tree.
 
 ## macOS Installation
 
@@ -205,4 +236,4 @@ python detect_meteors_cli.py --help
 
 ## Next Steps
 
-After installation, proceed to the [README](README.md) for usage instructions and examples.
+After installation, proceed to the [README](../README.md) for usage instructions and examples.

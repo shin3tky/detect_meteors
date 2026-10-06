@@ -1,0 +1,39 @@
+# Git-tracked validation sequence; RAW images are excluded from Python distributions.
+target_folder: ./rawfiles/2024GEMINI_AIRCRAFT
+output_folder: ./candidates/aircraft_v1.6.10/tuned
+debug_folder: ./debug_masks/aircraft_v1.6.10/tuned
+progress_file: ./candidates/aircraft_v1.6.10/tuned/progress.json
+
+# Values obtained with --auto-params --sensor-type MFT on this sequence.
+params:
+  diff_threshold: 9
+  min_area: 3
+  min_aspect_ratio: 3.0
+  hough_threshold: 10
+  hough_min_line_length: 15
+  hough_max_line_gap: 5
+  min_line_score: 30.0
+
+input_loader_name: raw
+input_loader_config:
+  binning: 2
+  normalize: false
+detector_name: hough
+detector_config: {}
+
+# The default file handler inherits the output paths above.
+output_overwrite: false
+enable_parallel: true
+num_workers: 2
+batch_size: 4
+auto_batch_size: false
+hook_error_mode: raise
+hooks:
+  - name: aircraft_trail
+    config:
+      min_track_frames: 3
+      max_start_distance_px: 150.0
+      max_end_distance_px: 150.0
+      max_angle_diff_deg: 10.0
+      max_speed_variance: 0.3
+      track_ttl_frames: 5
