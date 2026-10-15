@@ -19,7 +19,6 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 > [!TIP]
 > 🌠 **Two meteor showers to photograph in October 2026!**
 >
-> - **Draconids — October 8-9, 2026:** See [Draconids details](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#draconids) for peak-night viewing conditions and photography tips.
 > - **Orionids — October 21-22, 2026:** See [Orionids details](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#orionids) for peak-night viewing conditions and photography tips.
 
 ## Features
