@@ -17,7 +17,7 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
 > [!TIP]
-> 🌠 **Two meteor showers to photograph in October 2026!**
+> 🌠 **A meteor showers to photograph in October 2026!**
 >
 > - **Orionids — October 21-22, 2026:** See [Orionids details](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#orionids) for peak-night viewing conditions and photography tips.
 
