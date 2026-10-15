@@ -19,7 +19,6 @@
 > [!TIP]
 > 🌠 **2026年10月は、2つの流星群を撮影しよう！**
 >
-> - **りゅう座流星群（Draconids）：2026年10月8〜9日**。[りゅう座流星群の詳細](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#draconids)で、極大夜の観測条件や撮影のヒントを確認してください。
 > - **オリオン座流星群（Orionids）：2026年10月21〜22日**。[オリオン座流星群の詳細](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#orionids)で、極大夜の観測条件や撮影のヒントを確認してください。
 
 ## 特徴
