@@ -2,7 +2,119 @@
 
 [日本語版](RELEASE_NOTES_1.6_ja.md)
 
-## Version 1.6.10 (2026-10-06) - 🌠 Make Your Dream Come True Day
+<a id="version-1611-2026-11-07"></a>
+
+## Version 1.6.11 (2026-11-07) 🦅
+
+### Explain a Missed Candidate, Then Review Adjustments
+
+Version 1.6.11 completes a workflow around the existing frame-difference/Hough
+detector: reproduce a visually confirmed missed meteor with its original image
+pair and settings, inspect the blocking conditions, compare bounded adjustments,
+and save an explicitly selected configuration for reprocessing that session.
+
+This is useful when a bright/wide trail fails an aspect-ratio gate despite a
+large line score. It keeps the existing candidate rule; it does not bypass gates
+or learn universal thresholds for a camera, lens, or shooting site.
+
+### 1. Reproduce the Original Decision
+
+Run from the repository root or an extracted source distribution, replacing the
+paths with your own original inputs:
+
+```bash
+uv run python detect_meteors_cli.py \
+  --analyze-image rawfiles/session/frame002.ORF \
+  --reference-image rawfiles/session/frame001.ORF \
+  --analysis-progress previous_run/progress.json --verbose
+```
+
+Alternatively, `--analysis-sequence rawfiles/session` explicitly selects the
+preceding RAW by filename order. The summary shows effective parameters and
+sources, ROI, metadata, line/contour evidence, and rejection reasons. Use
+`--locale ja` for Japanese. A progress file is optional but helps reproduce the
+original settings; use the original loader configuration with `--config` when
+needed. Only built-in Hough is supported, and configured hooks must be explicitly
+removed with `--hooks ""` for this detector-only replay.
+
+Parameter precedence is defaults → pipeline config → recorded `params` → recorded
+`processing_params` → explicit detection flags. Recorded ROI takes priority over
+config; `--roi`/`--no-roi` overrides it. Analysis neither copies candidates nor
+updates progress. With no reference it reports `reference_missing` and exit 2,
+without a decision; measured pairs exit 0 even if rejected, and errors exit 1.
+
+### 2. Generate Proposals and Compare Their Effects
+
+Add the following options to the command above:
+
+```bash
+  --tune-params \
+  --tuning-config config_examples/parameter_tuning.yaml \
+  --comparison-sequence rawfiles/session \
+  --known-meteor rawfiles/session/frame002.ORF
+```
+
+Gate adjustments come from measured contours and scores; optional finite
+preprocessing/Hough grids remeasure the loaded snapshot. An optional
+`--analysis-region X0,Y0,X1,Y1` associates contour evidence with an annotated
+region in loaded-image coordinates (exclusive end). ROI stays fixed.
+
+Default budgets allow 8 target measurements, 256 decisions, 5 returned proposals,
+100 comparison pairs, and 600 comparison measurements, with at most 50% gate
+relaxation. These are configurable search limits. Baseline work counts toward
+the budgets; incomplete coverage and stop reasons are explicit. Comparison
+reports added/lost candidates and selected/rejected/unchecked known positives.
+Repeat `--known-meteor` for additional positive labels. Candidate counts are not
+a false-positive rate, and a selected frame does not prove its meteor was detected.
+
+### 3. Save Evidence and an Explicitly Selected Configuration
+
+After reviewing the proposals, rerun the same analysis/tuning/comparison command
+with a new output directory and a selection from the current returned order:
+
+```bash
+  --analysis-output analysis/review-001 \
+  --analysis-proposal 1
+```
+
+The option snippets above extend the full command; they are not standalone
+shell commands. No proposals are applied automatically. Omit `--analysis-proposal`
+to save evidence only, or select `baseline` for the current effective settings.
+The output directory must not already exist, even if empty.
+
+The bundle contains a schema-versioned `report.json`, mask/debug PNGs (including
+rejected results), and, when selected, `session.yaml`. It records exact settings,
+ROI, sources, measurements, tuning/comparison coverage, runtime versions, and
+fingerprints. Primary inputs and assets have SHA-256 hashes; comparison inputs
+have file-change stamps. Changed sources invalidate export.
+
+Start normal detection separately:
+
+```bash
+uv run python detect_meteors_cli.py --config analysis/review-001/session.yaml
+```
+
+The saved configuration retains the actual loader, exact thresholds, and fixed
+ROI using new `roi_polygon`/`enable_roi_selection` fields. It uses sequential
+processing and dedicated absolute paths under `analysis/review-001/run`, with
+overwrite disabled. Review paths when relocating a session. Existing normal
+configurations retain their defaults; active hooks/custom output handlers cannot
+be exported as equivalent detector-only sessions.
+
+### Compatibility, Installation, and Validation
+
+- Python 3.12 and 3.13 remain supported. Runtime/project/lockfile versions are 1.6.11. Current pinned dependencies are listed in [installation](INSTALL.md#dependency-versions-v1611) and [developer setup](INSTALL_DEV.md#development-tool-versions-v1611). Historical tool-version examples later in these notes describe their original releases.
+- Bash and native Zsh completion include analysis/tuning/export flags and the installed `detect-meteors` command; see [completion setup](INSTALL.md#optional-shell-completion-bashzsh).
+- Normal detection still requires contour area and aspect ratio strictly above their thresholds, and image-wide line score at least its threshold. The score sums Hough segment lengths. Aircraft likelihood remains metadata; no automatic filtering or track merging is added.
+- Validation includes 658 tests, 44 unchanged real-pair comparisons during refactoring, and controlled tuning/export/session replay on the local aircraft/meteor sample. The original `P8136507.ORF` report is not a reproduced original-pair case because its preceding RAW is unavailable.
+
+Try the repository-sample command in the [README](../README.md#try-tuning-with-the-repository-sample).
+See [CHANGELOG](CHANGELOG.md#v1611---2026-11-07) for all changes,
+[command options](COMMAND_OPTIONS.md#read-only-image-analysis-v1611) for precise
+limits and combinations, and the [design and validation record](parameter_analysis_1.6.11.md)
+for implementation details and extension points.
+
+## Version 1.6.10 (2026-10-06) - 🌠
 
 Version 1.6.9 was skipped; v1.6.10 is the next release after v1.6.8.
 

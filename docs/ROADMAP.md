@@ -2,29 +2,6 @@
 
 ## Version 1.x - Foundation and Auto-Parameter Optimization
 
-### Next target: v1.6.11 — Missed-meteor analysis and parameter tuning
-
-- [x] Separate built-in Hough measurements, candidate decisions, and debug rendering while preserving detection behavior.
-- [x] Reproduce a visually confirmed missed meteor using the original image pair, ROI, and effective parameters.
-- [x] Compare bounded parameter adjustments and their effects on the shooting sequence.
-- [x] Save analysis evidence and a reusable session configuration.
-
-The measurement/decision foundation and explicit-pair replay API are reviewed.
-The read-only analysis CLI is implemented and reviewed. Bounded tuning and
-sequence comparison are implemented and reviewed. Analysis bundles and reusable
-session configurations are implemented and reviewed. See the
-[v1.6.11 design](parameter_analysis_1.6.11.md) for responsibilities,
-input requirements, extension points, and acceptance criteria.
-
-Implementation and review sequence:
-
-1. **Explicit-pair replay API** — implemented and reviewed. Read recorded parameters and ROI, track overrides, and replay the built-in Hough decision without writing files.
-2. **Analysis CLI** — implemented and reviewed. Connect explicit image/reference or sequence selection and original-run settings to the API, and display localized evidence and missing-input conditions.
-3. **Bounded tuning and sequence comparison** — implemented and reviewed. Derive gate adjustments from measured contours, optionally remeasure a finite preprocessing/Hough grid, and report candidate changes and known-frame coverage under explicit budgets.
-4. **Analysis reports and reusable session configuration** — implemented and reviewed. Save a versioned JSON manifest and PNG evidence to a new directory, optionally export an explicitly selected session configuration, and replay saved ROI/settings through normal processing.
-
-Run the relevant tests and complete review of each step before starting the next.
-
 -2025 4Q
 
 ### Core Detection System
@@ -224,14 +201,6 @@ Run the relevant tests and complete review of each step before starting the next
   - [x] Typed factory casts and validator callable pattern
   - [x] `MAX_NUM_WORKERS` constant with pipeline/CLI validation
 
-### Pending (Deferred from v1.x)
-The following features were originally planned for v1.x but have been deferred:
-
-- [ ] Camera model database for automatic sensor detection from EXIF
-- [ ] Per-image adaptive parameter adjustment
-- [ ] Declination support with GPS coordinate extraction
-- [ ] Advanced quality metrics (focus quality, atmospheric transparency)
-
 ### Sorted Detection Analysis
 - [x] **v1.6.10 (2026-10-06) 🌠 Make Your Dream Come True Day** - Frame-ordered hooks and aircraft trail metadata (v1.6.9 skipped)
   - [x] `SortedDetection` records without image payloads
@@ -240,6 +209,27 @@ The following features were originally planned for v1.x but have been deferred:
   - [x] Sorted hooks executed in the main process, including parallel runs
   - [x] Built-in `aircraft_trail` hook with geometric tracking and likelihood/evidence metadata in `progress.json`
   - [x] Aircraft analysis preserves candidate decisions and scores
+
+### Missed-Meteor Analysis and Parameter Tuning
+- [x] **v1.6.11 (2026-11-07)** - Reproduce missed candidates and review session-specific adjustments
+  - [x] Separate Hough measurements, threshold decisions, and debug rendering while preserving normal detection behavior
+  - [x] Read-only image-pair replay API and CLI with recorded parameters, ROI, provenance, and rejection reasons
+  - [x] Bounded contour-derived tuning, optional finite measurement grids, and annotated target regions
+  - [x] Sequence comparison with added/lost candidates, known-positive coverage, and explicit work limits
+  - [x] Versioned JSON/PNG analysis bundles and explicitly selected reusable session configurations
+  - [x] Persist ROI in pipeline configuration and support Bash/Zsh completion for the analysis workflow
+
+See the [release notes](RELEASE_NOTES_1.6.md#version-1611-2026-11-07) for usage
+and the [design and validation record](parameter_analysis_1.6.11.md) for the
+four reviewed implementation steps and extension points.
+
+### Pending (Deferred from v1.x)
+The following features were originally planned for v1.x but have been deferred:
+
+- [ ] Camera model database for automatic sensor detection from EXIF
+- [ ] Per-image adaptive parameter adjustment
+- [ ] Declination support with GPS coordinate extraction
+- [ ] Advanced quality metrics (focus quality, atmospheric transparency)
 
 ## Version 2.x - Architecture and Extensibility
 
@@ -289,5 +279,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.10, released 2026-10-06 - 🌠 Make Your Dream Come True Day (Sorted Detection Hooks and Aircraft Trail Metadata; v1.6.9 skipped)
+**Current Status**: v1.6.11, released 2026-11-07 — Missed-Meteor Analysis and Parameter Tuning
 **Next Focus**: v2.0 Architecture and Extensibility - Pipeline modularity and plugin ecosystem

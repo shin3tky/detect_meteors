@@ -26,6 +26,18 @@ uv sync --all-extras
 
 This installs the project in editable mode plus the dev toolchain (Ruff, ty, pre-commit, coverage).
 
+### Development Tool Versions (v1.6.11)
+
+| Package | Pinned version |
+| --- | --- |
+| `ruff` | `0.17.4` |
+| `ty` | `0.0.99` |
+| `pre-commit` | `4.7.0` |
+| `coverage` | `7.17.2` |
+
+These match the `dev` extra in `pyproject.toml` and `uv.lock`. Runtime pins are
+listed in [installation](INSTALL.md#dependency-versions-v1611).
+
 ### Step 2: Set Up Pre-commit Hooks
 
 This project uses [pre-commit](https://pre-commit.com/) with [Ruff](https://docs.astral.sh/ruff/) for automatic code formatting and linting, plus ty for type checking.
@@ -205,13 +217,23 @@ uv run coverage html
 | `test_utils_display_width_v1x.py` | 3 | Unicode display width helpers |
 | `test_utils_roi_hash_v1x.py` | 5 | ROI hash utilities |
 
-**Total: 575 tests (v1.6.10)**
+#### Missed-candidate analysis, tuning, and export
+
+| File | Tests | Description |
+| --- | --- | --- |
+| `test_hough_analysis_v1x.py` | 6 | Shared measurement/decision/rendering |
+| `test_analysis_reproduction_v1x.py` | 14 | Read-only pair replay and provenance |
+| `test_analysis_cli_v1x.py` | 27 | Analysis/tuning CLI and ROI overrides |
+| `test_tuning_v1x.py` | 16 | Bounded proposals and comparison |
+| `test_analysis_reports_v1x.py` | 20 | Bundles, fingerprints, session export and replay |
+
+**Total: 658 tests (v1.6.11)**
 
 ## Code Style
 
 ### Building a Release
 
-Version `1.6.10` must agree in `pyproject.toml`, `meteor_core/schema.py`, and
+Version `1.6.11` must agree in `pyproject.toml`, `meteor_core/schema.py`, and
 `uv.lock`. The setuptools backend packages the CLI module and installs the
 `detect-meteors` command. `MANIFEST.in` includes documentation, configuration
 examples, and tests in the source distribution.
@@ -224,8 +246,8 @@ uv run ty check
 uv build
 ```
 
-Build outputs are `dist/detect_meteors-1.6.10.tar.gz` and
-`dist/detect_meteors-1.6.10-py3-none-any.whl`. Before distributing them, verify the
+Build outputs are `dist/detect_meteors-1.6.11.tar.gz` and
+`dist/detect_meteors-1.6.11-py3-none-any.whl`. Before distributing them, verify the
 wheel in an isolated environment using `detect-meteors --version` and `--help`,
 and check that the source archive includes the documented sample config and
 excludes RAW files and generated candidates. The local aircraft sample can be

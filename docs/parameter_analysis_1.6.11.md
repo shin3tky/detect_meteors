@@ -6,8 +6,8 @@ Status: the explicit-pair replay API and read-only analysis CLI are reviewed.
 Bounded tuning and sequence comparison are implemented and reviewed.
 Analysis bundles and selected session configuration export are implemented and
 reviewed.
-This foundation change does not update the release number; the runtime version
-remains 1.6.10.
+All four implementation steps are included in v1.6.11. See the
+[release notes](RELEASE_NOTES_1.6.md#version-1611-2026-11-07) for the released workflow.
 
 ## Goal and User Workflow
 
@@ -316,7 +316,7 @@ tuning mode; known labels also require comparison. Configuration formats are
 kept separate, with invalid fields and input-role swaps rejected. English and
 Japanese output and shell completion are provided. See
 [`parameter_tuning.yaml`](../config_examples/parameter_tuning.yaml) for defaults
-and the [option reference](COMMAND_OPTIONS.md#bounded-parameter-tuning-v1611-development)
+and the [option reference](COMMAND_OPTIONS.md#bounded-parameter-tuning-v1611)
 for usage. No proposal is applied and no report/configuration is saved.
 
 Validation for this step:
@@ -435,7 +435,7 @@ Session targets use the explicit analysis sequence, otherwise an explicitly
 configured target, otherwise the analyzed image's parent. Top-level run paths
 are absolute; plugin-specific relative paths retain their existing semantics.
 The report records the working directory. See the
-[option reference](COMMAND_OPTIONS.md#analysis-bundles-and-session-configuration-v1611-development)
+[option reference](COMMAND_OPTIONS.md#analysis-bundles-and-session-configuration-v1611)
 for output contents, selection, and replay examples.
 
 Validation for this step:
@@ -443,7 +443,7 @@ Validation for this step:
 - Added 20 export/replay tests; all 658 tests passed. Covered PNG/JSON fidelity, hashes, exact float thresholds, loader/ROI round trips, normal pipeline/CLI replay without GUI, legacy progress, changed sources or parameters, existing-path refusal, and failed-write cleanup including preservation of unowned files.
 - Exported a selected proposal from the real sample and processed all 11 pairs through normal CLI using the saved configuration. The target's score, aspect ratio, and line count matched the selected report exactly.
 - Original config/progress/candidate/debug markers were unchanged; repeated export was refused. The user's RAW without a reference saved a truthful incomplete report with exit status 2.
-- Ruff lint/format checks, ty, shell completion syntax, and bilingual documentation were verified. The implementation is reviewed; release/version preparation remains separate.
+- Ruff lint/format checks, ty, shell completion syntax, and bilingual documentation were verified. The implementation is reviewed; v1.6.11 release preparation is documented in the release notes.
 
 ## Acceptance Criteria for 1.6.11
 

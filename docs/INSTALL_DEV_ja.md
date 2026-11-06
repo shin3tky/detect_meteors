@@ -24,6 +24,18 @@ uv sync --all-extras
 
 プロジェクトを編集可能モードでインストールし、Ruff、ty、pre-commit、coverageも導入します。
 
+### 開発ツールのバージョン（v1.6.11）
+
+| ライブラリ | 固定バージョン |
+| --- | --- |
+| `ruff` | `0.17.4` |
+| `ty` | `0.0.99` |
+| `pre-commit` | `4.7.0` |
+| `coverage` | `7.17.2` |
+
+`pyproject.toml` の `dev` と `uv.lock` に従います。実行時依存は
+[インストールガイド](INSTALL_ja.md#依存ライブラリのバージョンv1611)を参照。
+
 ### 手順2：pre-commitフックを設定する
 
 [pre-commit](https://pre-commit.com/)と[Ruff](https://docs.astral.sh/ruff/)で自動整形・静的解析を行い、tyで型を検査します。
@@ -203,7 +215,17 @@ uv run coverage html
 | `test_utils_display_width_v1x.py` | 3 | Unicodeの表示幅 |
 | `test_utils_roi_hash_v1x.py` | 5 | ROIハッシュのヘルパー |
 
-**合計：575テスト（v1.6.10）**
+#### 取りこぼし分析・調整・保存
+
+| ファイル | テスト数 | 内容 |
+| --- | --- | --- |
+| `test_hough_analysis_v1x.py` | 6 | 計測・判定・描画の共通基盤 |
+| `test_analysis_reproduction_v1x.py` | 14 | 読み取り専用のペア再現と出所 |
+| `test_analysis_cli_v1x.py` | 27 | 分析・調整CLIとROIの変更 |
+| `test_tuning_v1x.py` | 16 | 上限付きの調整案と比較 |
+| `test_analysis_reports_v1x.py` | 20 | 証拠保存・識別情報・設定保存と再実行 |
+
+**合計：658テスト（v1.6.11）**
 
 ## コードスタイル
 
@@ -211,7 +233,7 @@ uv run coverage html
 
 ### リリース版のビルド
 
-バージョン `1.6.10` を `pyproject.toml`、`meteor_core/schema.py`、`uv.lock` で一致させてください。setuptoolsのバックエンドがCLIモジュールをパッケージ化し、`detect-meteors` コマンドをインストールします。`MANIFEST.in` はソース配布版にドキュメント、設定例、テストを含めます。
+バージョン `1.6.11` を `pyproject.toml`、`meteor_core/schema.py`、`uv.lock` で一致させてください。setuptoolsのバックエンドがCLIモジュールをパッケージ化し、`detect-meteors` コマンドをインストールします。`MANIFEST.in` はソース配布版にドキュメント、設定例、テストを含めます。
 
 ```bash
 uv run python run_tests.py
@@ -221,7 +243,7 @@ uv run ty check
 uv build
 ```
 
-生成物は `dist/detect_meteors-1.6.10.tar.gz` と `dist/detect_meteors-1.6.10-py3-none-any.whl` です。配布前に独立した環境へwheelをインストールし、`detect-meteors --version` と `--help` で動作を確認してください。ソースアーカイブに記載済みの設定例が含まれ、RAW画像や生成済み候補が含まれないことも確認します。飛行機サンプルは[飛行機ガイド](aircraft_light_trails_hook_design.md)のコマンドで検証できます。
+生成物は `dist/detect_meteors-1.6.11.tar.gz` と `dist/detect_meteors-1.6.11-py3-none-any.whl` です。配布前に独立した環境へwheelをインストールし、`detect-meteors --version` と `--help` で動作を確認してください。ソースアーカイブに記載済みの設定例が含まれ、RAW画像や生成済み候補が含まれないことも確認します。飛行機サンプルは[飛行機ガイド](aircraft_light_trails_hook_design.md)のコマンドで検証できます。
 
 ### 基準
 

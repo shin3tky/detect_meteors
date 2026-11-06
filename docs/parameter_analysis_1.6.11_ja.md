@@ -5,7 +5,8 @@
 状態: 画像ペアの再実行APIと読み取り専用の分析CLIはレビュー済み。
 範囲を限定した調整案と系列比較もレビュー済み。分析バンドルと選択した設定の保存を
 実装し、レビュー済み。
-今回の基盤整理ではリリース番号を更新せず、実行時バージョンは1.6.10を維持する。
+全4ステップをv1.6.11に収録する。公開機能の使い方は
+[リリースノート](RELEASE_NOTES_1.6_ja.md#バージョン16112026-11-07)を参照。
 
 ## 目的と利用の流れ
 
@@ -287,7 +288,7 @@ CLIは `--tune-params`、`--tuning-config`、`--analysis-region`、
 設定形式を分け、無効なフィールドや入力役割の取り違えを拒否する。
 日英の表示とシェル補完に対応する。既定値は
 [`parameter_tuning.yaml`](../config_examples/parameter_tuning.yaml)、使い方は
-[オプション一覧](COMMAND_OPTIONS.md#bounded-parameter-tuning-v1611-development)を参照。
+[オプション一覧](COMMAND_OPTIONS.md#bounded-parameter-tuning-v1611)を参照。
 案の自動適用やレポート・設定保存は行わない。
 
 このステップの検証結果:
@@ -400,7 +401,7 @@ NumPy・OpenCVの版、検出器とローダー、実効ローダー設定、寸
 保存する対象フォルダーは、明示した分析系列、元の設定に明示した対象、分析画像の
 親フォルダーの順で選ぶ。主要な実行パスは絶対パスとし、プラグイン固有の相対パスの
 意味は維持する。作業フォルダーもレポートに記録する。
-詳しくは[オプション一覧](COMMAND_OPTIONS.md#analysis-bundles-and-session-configuration-v1611-development)を参照。
+詳しくは[オプション一覧](COMMAND_OPTIONS.md#analysis-bundles-and-session-configuration-v1611)を参照。
 
 このステップの検証結果:
 
@@ -412,7 +413,7 @@ NumPy・OpenCVの版、検出器とローダー、実効ローダー設定、寸
 - 同じ出力先への保存は拒否し、参照のない利用者RAWは不完全な情報のまま正しく
   保存して終了コード2を返した。
 - Ruffのlint・整形、ty、補完の構文、日英の文書を検証。実装はレビュー済みとし、
-  リリースとバージョンの準備は別に行う。
+  v1.6.11のリリース準備はリリースノートに記載する。
 
 ## 1.6.11の受け入れ条件
 

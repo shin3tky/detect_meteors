@@ -1,5 +1,5 @@
-#compdef detect_meteors_cli.py
-# Zsh completion for detect_meteors_cli.py
+#compdef detect-meteors detect_meteors_cli.py
+# Zsh completion for detect-meteors and detect_meteors_cli.py (v1.6.11)
 #
 # Installation:
 #   1. Copy this file to a directory in your $fpath (e.g., ~/.zsh/completions/)
@@ -64,12 +64,14 @@ _detect_meteors_cli() {
         # Performance options
         '--workers[Number of parallel workers]:workers:(1 2 4 8 12 16)'
         '--batch-size[Batch size for processing]:batch:(5 10 20 30 50)'
-        '--auto-batch-size[Auto-adjust batch size based on memory]'
-        '--no-parallel[Disable parallel processing]'
+        '(--no-auto-batch-size)--auto-batch-size[Auto-adjust batch size based on memory]'
+        '(--auto-batch-size)--no-auto-batch-size[Disable auto-adjusted batch size]'
+        '(--no-parallel)--parallel[Enable parallel processing]'
+        '(--parallel)--no-parallel[Disable parallel processing]'
         
         # Progress and debugging
         '--profile[Display timing profile]'
-        '--verbose[Show detailed diagnostic information on errors]'
+        '--verbose[Show diagnostic details and analysis contour/line evidence]'
         '--save-diagnostic[Save diagnostic report to file on error]:file:_files'
         '--validate-raw[Validate RAW files before processing]'
         '--progress-file[Progress JSON file path]:file:_files -g "*.json"'

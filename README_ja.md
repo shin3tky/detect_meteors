@@ -35,6 +35,8 @@
 - macOS、Windows、Linux
 - 依存ライブラリ：`numpy`、`opencv-python`、`rawpy`、`psutil`、`pillow`、`pydantic`、`pyyaml`
 
+固定バージョンは[インストールガイド](docs/INSTALL_ja.md#依存ライブラリのバージョンv1611)を参照。
+
 ## インストール
 
 詳しい手順は[INSTALL_ja.md](docs/INSTALL_ja.md)を参照してください。
@@ -79,29 +81,49 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-leng
 
 `candidates/` フォルダに保存された流星候補画像を確認してください。
 
-### 取りこぼし画像の確認（v1.6.11開発中）
+### 取りこぼし画像の確認（v1.6.11）
 
-目視で流星を確認したのに候補へ入らなかった場合は、対象画像と直前画像、元の進捗を指定して調べられます。
+目視で流星を確認したのに候補へ入らなかった場合は、対象画像と直前画像、元の進捗を指定します。
+実効設定、値の出所、不採用の条件を確認できます。
 
 ```bash
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
   --analyze-image rawfiles/frame002.ORF \
   --reference-image rawfiles/frame001.ORF \
-  --analysis-progress previous_run/progress.json
+  --analysis-progress previous_run/progress.json --locale ja
 ```
 
-実効設定と値の出所、不採用の条件を表示する読み取り専用モードです。候補コピーや進捗更新は行いません。
-`--reference-image` の代わりに `--analysis-sequence DIR` を使うと、明示した撮影系列の
-ファイル名順で直前のRAWを選択します。参照がない場合は `reference_missing` と終了コード2を返し、判定しません。
-`--verbose` で輪郭と線分の詳細を表示し、`--roi` または `--no-roi` で元のROIを明示的に変更できます。
-`--locale ja` で日本語を指定できます。優先順位と制約は[分析CLIの設計](docs/parameter_analysis_1.6.11_ja.md#実装ステップ2-分析cli)を参照してください。
-`--tune-params` で範囲を限定した調整案を生成し、`--comparison-sequence DIR` と
-繰り返し指定できる `--known-meteor IMAGE` で系列への影響を比較できます。
-探索上限は `--tuning-config config_examples/parameter_tuning.yaml` で指定します。
-調整案は自動適用しません。`--analysis-output DIR` を明示すると、新規フォルダーに
-レポートとPNGの証拠画像を保存します。`--analysis-proposal baseline` または返された
-案の番号を付けると `DIR/session.yaml` も保存します。後で `--config DIR/session.yaml`
-を使って通常検出を実行でき、ROIと専用の実行結果の保存先も維持されます。
+候補コピーや進捗更新は行いません。`--verbose` で輪郭と線分の詳細を表示し、
+`--tune-params` で範囲を限定した調整案を生成します。`--reference-image` の代わりに
+`--analysis-sequence DIR` を使うと、明示した系列のファイル名順で直前RAWを選択します。
+参照がない場合は `reference_missing` と終了コード2を返し、判定しません。
+
+#### 同梱サンプルで調整を試す
+
+リポジトリのルートで次を実行できます。比率閾値を意図的に高くして取りこぼしを作り、
+実測値に基づく緩和案を確認する例です。
+
+```bash
+uv run python detect_meteors_cli.py \
+  --analyze-image rawfiles/2024GEMINI_AIRCRAFT/_C140338.ORF \
+  --reference-image rawfiles/2024GEMINI_AIRCRAFT/_C140337.ORF \
+  --diff-threshold 9 --min-area 3 --min-line-score 30 \
+  --min-aspect-ratio 20 --no-roi --tune-params --locale ja
+```
+
+数値は動作例であり、カメラやレンズの推奨値ではありません。このサンプルには確認済み流星と
+飛行機が映っています。候補フレームになったことと、その流星を検出したことは区別してください。
+RAWサンプルはリポジトリに収録され、Python配布物には含まれません。
+
+`--analysis-output analysis/review-001` を追加すると、**新規**フォルダーへJSONレポートと
+PNGの証拠画像を保存します。案を確認した後、同じオプションに `--analysis-proposal 1` を付け、
+別の新規出力先で再実行すると、先頭の調整案を `session.yaml` に保存できます。
+採用時は `uv run python detect_meteors_cli.py --config DIR/session.yaml` で通常検出を実行します。
+出力先は `DIR/run` です。調整案は自動適用しません。
+
+系列比較、既知流星の指定、探索上限、ROIの変更は
+[オプション一覧](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611)と
+[リリースノート](docs/RELEASE_NOTES_1.6_ja.md#バージョン16112026-11-07)を参照してください。
 
 ## 対応するセンサータイプ
 
@@ -230,17 +252,17 @@ RAWファイルとチェックサムは、リポジトリの [`rawfiles/2024GEMI
 | [飛行機サンプルの検証](docs/aircraft_sample_validation.md) | 12枚のサンプルでの結果と制約 |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | 技術的な詳細 |
 
-## v1.6.10の新機能
+## v1.6.11の新機能
 
-**リリース日：2026年10月6日（2026-10-06）— 🌠 夢をかなえる日。** 1.6.9はスキップし、v1.6.8の次のリリースをv1.6.10とします。
+**リリース日：2026年11月7日（2026-11-07）。**
 
-- **ソート済み検出フック**：時系列順の検出解析に使う新しいパイプラインフック
-  - `on_batch_results_sorted`：フレーム順を保証するバッチ単位のフック
-  - `on_all_detections_sorted`：フレームをまたいで解析する、パイプライン処理後のフック
-- **SortedDetectionデータクラス**：ソート済みフックに使う、メモリ効率のよい軽量コンテナ
-- **AircraftTrailHookの改善**：エラー処理、ログ出力、360°の角度正規化により堅牢性を向上
+- 元の画像ペア、記録済み設定、ROIを使い、候補にならなかった理由を確認。
+- 範囲を限定した調整案を導出し、撮影系列への影響を比較。
+- JSON/PNGの証拠と、明示的に選んだ再処理用の設定を保存。
+- 設定済みROIの再利用と、`detect-meteors` を含むBash/Zshでの分析オプション補完。
 
-詳しい移行情報は[RELEASE_NOTES_1.6_ja.md](docs/RELEASE_NOTES_1.6_ja.md)を参照してください。
+使い方は[リリースノート](docs/RELEASE_NOTES_1.6_ja.md#バージョン16112026-11-07)、
+変更全体は[CHANGELOG](docs/CHANGELOG_ja.md#v1611---2026-11-07)を参照してください。
 
 ### 以前のリリース
 

@@ -4,13 +4,13 @@
 
 Detect Meteors CLIをmacOSとWindowsにインストールする手順を説明します。
 
-## v1.6.10の配布ファイルからインストールする
+## v1.6.11の配布ファイルからインストールする
 
 リリースのwheelファイルを持っている場合は、Python 3.12または3.13の仮想環境へインストールしてください。依存ライブラリのインストールにはパッケージインデックスへの接続が必要です。
 
 ```bash
 uv venv --python 3.12
-uv pip install dist/detect_meteors-1.6.10-py3-none-any.whl
+uv pip install dist/detect_meteors-1.6.11-py3-none-any.whl
 ```
 
 ダウンロードしたwheelが `dist/` にない場合は、実際の保存先を指定してください。macOSとLinuxでは `source .venv/bin/activate`、Windows PowerShellでは `.venv\Scripts\Activate.ps1` で仮想環境を有効にし、次のコマンドを実行します。
@@ -22,8 +22,24 @@ detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 ```
 
 wheelには `detect-meteors` コマンドを含めています。従来のソースからの実行（`uv run python detect_meteors_cli.py ...`）も利用できます。
-ソース配布版にはドキュメント、設定例、テストが含まれます。`detect_meteors-1.6.10.tar.gz` を展開してそのディレクトリへ移動し、以下の `uv sync` の手順に従ってください。
+ソース配布版にはドキュメント、設定例、テストが含まれます。`detect_meteors-1.6.11.tar.gz` を展開してそのディレクトリへ移動し、以下の `uv sync` の手順に従ってください。
 これらの配布ファイルにRAW画像や生成済み候補は含めません。飛行機サンプルを再現するには、チェックサムとともに `rawfiles/2024GEMINI_AIRCRAFT` を管理しているリポジトリをクローンするか、そのディレクトリを展開済みソースへコピーしてください。
+
+## 依存ライブラリのバージョン（v1.6.11）
+
+Python **3.12／3.13** に対応します。以下は `pyproject.toml` と `uv.lock` の固定値です。
+
+| ライブラリ | 固定バージョン |
+| --- | --- |
+| `numpy` | `2.5.4` |
+| `opencv-python` | `5.0.0.93` |
+| `rawpy` | `0.28.0` |
+| `psutil` | `7.2.2` |
+| `pillow` | `13.0.0` |
+| `pydantic` | `2.14.3` |
+| `pyyaml` | `6.0.3` |
+
+開発用ツールは[開発環境ガイド](INSTALL_DEV_ja.md#開発ツールのバージョンv1611)を参照。
 
 ## macOSへのインストール
 
@@ -100,41 +116,45 @@ source .venv/bin/activate
 python detect_meteors_cli.py --help
 ```
 
-### 任意：エイリアスと補完（bash/zsh）
+### 任意：シェル補完（Bash/Zsh）
 
-`uv run ...` を使いながらシェル補完も利用したい場合は、エイリアスを作り、同梱の補完関数をそのエイリアスへ明示的に割り当ててください。
-現在リポジトリに同梱しているのは **bash用**の補完スクリプトです。zshでは、次のように `bashcompinit` を使って読み込めます。
+リポジトリとソース配布版にはBash用とZsh標準の補完を収録しています。
+wheelだけを使う場合はソース配布版から補完ファイルを取り出してください。
+インストール後の `detect-meteors` とソースの `detect_meteors_cli.py` の両方に対応します。
+`python`／`python3` 全体の補完は変更しません。
 
-**Bash（`~/.bashrc`）**
+**Bash (`~/.bashrc`)**
 
 ```bash
-# detect_meteors alias
-alias detect_meteors='uv run python /path/to/detect_meteors_cli.py'
+source /path/to/detect_meteors/detect_meteors_cli_completion.bash
 
-# Load bash completion script (adjust path if needed)
-source /path/to/detect_meteors_cli_completion.bash
-
-# Attach completion to the alias
+# Optional source-command alias
+alias detect_meteors='uv run python /path/to/detect_meteors/detect_meteors_cli.py'
 complete -F _detect_meteors_cli_completion detect_meteors
 ```
 
-**Zsh（`~/.zshrc`）**
+**Zsh (`~/.zshrc`)**
+
+まず、補完ファイルを配置します。
 
 ```zsh
-# Enable bash-style completion for the provided bash script
-autoload -U +X bashcompinit && bashcompinit
-
-# detect_meteors alias
-alias detect_meteors='uv run python /path/to/detect_meteors_cli.py'
-
-# Load bash completion script (adjust path if needed)
-source /path/to/detect_meteors_cli_completion.bash
-
-# Attach completion to the alias
-complete -F _detect_meteors_cli_completion detect_meteors
+mkdir -p ~/.zsh/completions
+cp /path/to/detect_meteors/_detect_meteors_cli ~/.zsh/completions/
 ```
 
-シェル設定の更新後、`source ~/.bashrc` や `source ~/.zshrc` などで再読み込みするか、新しいターミナルを開いてください。
+`~/.zshrc` では既存の `compinit` 実行より前に `fpath` を設定します。
+
+```zsh
+fpath=(~/.zsh/completions $fpath)
+autoload -Uz compinit
+compinit
+
+# Optional source-command alias
+alias detect_meteors='uv run python /path/to/detect_meteors/detect_meteors_cli.py'
+compdef _detect_meteors_cli detect_meteors
+```
+
+設定後に新しいシェルを起動します。分析・調整・保存オプションも補完できます。
 
 ---
 

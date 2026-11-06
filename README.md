@@ -35,6 +35,8 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 - macOS, Windows, or Linux
 - Dependencies: `numpy`, `opencv-python`, `rawpy`, `psutil`, `pillow`, `pydantic`, `pyyaml`
 
+Exact versions: [installation guide](docs/INSTALL.md#dependency-versions-v1611).
+
 ## Installation
 
 See [INSTALL.md](docs/INSTALL.md) for detailed installation instructions.
@@ -79,33 +81,52 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-leng
 
 Check the `candidates/` folder for detected meteor images.
 
-### Inspect a Missed Candidate (v1.6.11 Development)
+### Inspect a Missed Candidate (v1.6.11)
 
-To inspect a visually confirmed meteor that was missed, supply its image, the
-preceding image, and the original progress file:
+Supply a visually confirmed missed meteor, its preceding image, and the original
+progress file to see effective settings, their sources, and rejection reasons:
 
 ```bash
-python detect_meteors_cli.py \
+uv run python detect_meteors_cli.py \
   --analyze-image rawfiles/frame002.ORF \
   --reference-image rawfiles/frame001.ORF \
   --analysis-progress previous_run/progress.json
 ```
 
-This read-only mode displays effective settings, their sources, and blocking
-conditions. It does not copy candidates or update progress. Use
+This mode leaves candidates and progress untouched. `--verbose` shows contours
+and lines; `--tune-params` proposes bounded adjustments. Use an explicit
 `--analysis-sequence DIR` instead of `--reference-image` to select the preceding
-RAW by filename order in an explicitly supplied sequence. Without a reference,
-it reports `reference_missing` and exits with status 2 without making a decision.
-`--verbose` shows contour and line details; `--roi` or `--no-roi` explicitly
-override the original ROI. See the [analysis options](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611-development)
-for parameter precedence and limitations. Add `--tune-params` to generate bounded
-adjustment proposals, and `--comparison-sequence DIR` with repeatable
-`--known-meteor IMAGE` labels to inspect their effects. Search limits can be set
-with `--tuning-config config_examples/parameter_tuning.yaml`. Proposals are not
-applied automatically. `--analysis-output DIR` explicitly saves a report and PNG
-evidence to a new directory; add `--analysis-proposal baseline` or a returned
-proposal index to save `DIR/session.yaml`. Run normal detection later with
-`--config DIR/session.yaml`; its ROI and dedicated run paths are retained.
+RAW by filename order. A missing reference reports `reference_missing` and exits
+with status 2 without a decision.
+
+#### Try Tuning with the Repository Sample
+
+From a repository checkout, this example deliberately raises the aspect-ratio
+threshold to create a missed candidate, then proposes a relaxation:
+
+```bash
+uv run python detect_meteors_cli.py \
+  --analyze-image rawfiles/2024GEMINI_AIRCRAFT/_C140338.ORF \
+  --reference-image rawfiles/2024GEMINI_AIRCRAFT/_C140337.ORF \
+  --diff-threshold 9 --min-area 3 --min-line-score 30 \
+  --min-aspect-ratio 20 --no-roi --tune-params
+```
+
+These values demonstrate the workflow; they are not camera or lens presets.
+The sample contains aircraft as well as a confirmed meteor: recovering a
+candidate frame does not identify which trail passed. RAW samples are available
+in the repository and excluded from Python distributions.
+
+Add `--analysis-output analysis/review-001` to save a JSON report and PNG evidence
+to a **new** directory. After reviewing the proposals, rerun with the same options
+and `--analysis-proposal 1` plus a fresh output directory to export the first
+returned proposal as `session.yaml`. Run normal detection separately with
+`uv run python detect_meteors_cli.py --config DIR/session.yaml`; outputs go under
+`DIR/run`. Proposals are never applied automatically.
+
+For sequence comparison, known-meteor labels, search limits, and ROI overrides,
+see the [analysis options](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611)
+and [release notes](docs/RELEASE_NOTES_1.6.md#version-1611-2026-11-07).
 
 ## Available Sensor Types
 
@@ -265,19 +286,17 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 | [Aircraft sample validation](docs/aircraft_sample_validation.md) | Results and limitations on the local 12-frame sequence |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.10
+## What's New in v1.6.11
 
-**Release date: October 6, 2026 (2026-10-06) — 🌠 Make Your Dream Come True Day.**
-Version 1.6.9 was skipped; this
-release follows v1.6.8.
+**Release date: November 7, 2026 (2026-11-07).**
 
-- **Sorted detection hooks**: New pipeline hooks for temporally-ordered detection analysis
-  - `on_batch_results_sorted`: Per-batch hook with frame-order guarantee
-  - `on_all_detections_sorted`: Post-pipeline hook for cross-frame analysis
-- **SortedDetection dataclass**: Lightweight, memory-efficient container for sorted hooks
-- **AircraftTrailHook improvements**: Enhanced robustness with error handling, logging, and 360° angle normalization
+- Inspect missed candidates with the original image pair, recorded settings, and ROI.
+- Derive bounded tuning proposals and compare their effects on a shooting sequence.
+- Save JSON/PNG evidence and an explicitly selected session configuration for reprocessing.
+- Reuse configured ROI and complete analysis options in Bash/Zsh, including `detect-meteors`.
 
-For detailed migration information, see [RELEASE_NOTES_1.6.md](docs/RELEASE_NOTES_1.6.md).
+See the [release notes](docs/RELEASE_NOTES_1.6.md#version-1611-2026-11-07)
+for the workflow and [CHANGELOG](docs/CHANGELOG.md#v1611---2026-11-07) for all changes.
 
 ### Previous Releases
 

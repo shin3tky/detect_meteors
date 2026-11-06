@@ -7,7 +7,7 @@ settings, explicitly supplied CLI flags take precedence over the configuration
 file, followed by built-in defaults. Relative paths use the current working
 directory.
 
-## Read-Only Image Analysis (v1.6.11 Development)
+## Read-Only Image Analysis (v1.6.11)
 
 - **`--analyze-image IMAGE`**: Analyze one image with the built-in Hough detector without copying candidates or updating progress.
 - **`--reference-image IMAGE`**: Explicit preceding image. Without a reference or an explicitly selected sequence, only target-image information is shown.
@@ -55,7 +55,7 @@ Bounded tuning and explicit report/configuration export are available through
 the options below.
 See the [analysis design](parameter_analysis_1.6.11.md).
 
-## Bounded Parameter Tuning (v1.6.11 Development)
+## Bounded Parameter Tuning (v1.6.11)
 
 - **`--tune-params`**: Generate bounded, evidence-derived proposals for `--analyze-image`. Nothing is applied or saved.
 - **`--tuning-config JSON_OR_YAML`**: A mapping or file containing limits and an optional `measurement_grid`; see [`parameter_tuning.yaml`](../config_examples/parameter_tuning.yaml).
@@ -127,7 +127,7 @@ truncation, comparison coverage, and stop reasons. Budget exhaustion or no
 proposal does not turn a valid measured pair into a processing error; existing
 analysis exit statuses still apply.
 
-## Analysis Bundles and Session Configuration (v1.6.11 Development)
+## Analysis Bundles and Session Configuration (v1.6.11)
 
 - **`--analysis-output DIR`**: Explicitly create a new analysis directory with `report.json` and PNG evidence. Existing files, directories, and symlinks are rejected, including empty directories. Parent directories may be created.
 - **`--analysis-proposal baseline|N`**: Also save `session.yaml` for the current effective baseline or a one-based index from the returned proposal list. Requires `--analysis-output`; numeric indices require `--tune-params`. With no selection, the bundle contains no executable session configuration.

@@ -4,14 +4,14 @@
 
 This guide provides detailed installation instructions for Detect Meteors CLI on macOS and Windows.
 
-## Install a v1.6.10 Distribution
+## Install a v1.6.11 Distribution
 
 If you have the release wheel, install it into a Python 3.12 or 3.13 virtual
 environment. Dependency installation requires access to the package index:
 
 ```bash
 uv venv --python 3.12
-uv pip install dist/detect_meteors-1.6.10-py3-none-any.whl
+uv pip install dist/detect_meteors-1.6.11-py3-none-any.whl
 ```
 
 Use the actual path to your downloaded wheel if it is not in `dist/`. On macOS
@@ -27,11 +27,28 @@ detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 The `detect-meteors` command is included in the wheel. Existing source-based
 commands (`uv run python detect_meteors_cli.py ...`) remain available. The source
 distribution includes documentation, configuration examples, and tests; extract
-`detect_meteors-1.6.10.tar.gz`, enter its directory, and follow the `uv sync`
+`detect_meteors-1.6.11.tar.gz`, enter its directory, and follow the `uv sync`
 instructions below. RAW images and generated candidates are excluded from these
 distributions. To reproduce the aircraft sample, clone the repository, which
 tracks `rawfiles/2024GEMINI_AIRCRAFT` with file checksums, or copy that directory
 from a repository checkout into the extracted source tree.
+
+## Dependency Versions (v1.6.11)
+
+Python **3.12 and 3.13** are supported. These versions are pinned in
+`pyproject.toml` and `uv.lock`.
+
+| Package | Pinned version |
+| --- | --- |
+| `numpy` | `2.5.4` |
+| `opencv-python` | `5.0.0.93` |
+| `rawpy` | `0.28.0` |
+| `psutil` | `7.2.2` |
+| `pillow` | `13.0.0` |
+| `pydantic` | `2.14.3` |
+| `pyyaml` | `6.0.3` |
+
+See [developer setup](INSTALL_DEV.md#development-tool-versions-v1611) for tool versions.
 
 ## macOS Installation
 
@@ -106,44 +123,45 @@ source .venv/bin/activate
 python detect_meteors_cli.py --help
 ```
 
-### Optional: Alias + completion (bash/zsh)
+### Optional: Shell Completion (Bash/Zsh)
 
-If you prefer `uv run ...` but still want shell completion, add an alias and
-explicitly attach the provided completion function to that alias. The repository
-currently ships a **bash** completion script only; zsh users can load it via
-`bashcompinit` as shown below.
+The repository and source distribution include Bash and native Zsh completion.
+For wheel-only installations, obtain the completion files from the source
+distribution. Both the installed `detect-meteors` and source `detect_meteors_cli.py`
+commands are supported, without taking over completion for `python`/`python3`.
 
 **Bash (`~/.bashrc`)**
 
 ```bash
-# detect_meteors alias
-alias detect_meteors='uv run python /path/to/detect_meteors_cli.py'
+source /path/to/detect_meteors/detect_meteors_cli_completion.bash
 
-# Load bash completion script (adjust path if needed)
-source /path/to/detect_meteors_cli_completion.bash
-
-# Attach completion to the alias
+# Optional source-command alias
+alias detect_meteors='uv run python /path/to/detect_meteors/detect_meteors_cli.py'
 complete -F _detect_meteors_cli_completion detect_meteors
 ```
 
 **Zsh (`~/.zshrc`)**
 
+First place the completion file in a directory for your Zsh functions:
+
 ```zsh
-# Enable bash-style completion for the provided bash script
-autoload -U +X bashcompinit && bashcompinit
-
-# detect_meteors alias
-alias detect_meteors='uv run python /path/to/detect_meteors_cli.py'
-
-# Load bash completion script (adjust path if needed)
-source /path/to/detect_meteors_cli_completion.bash
-
-# Attach completion to the alias
-complete -F _detect_meteors_cli_completion detect_meteors
+mkdir -p ~/.zsh/completions
+cp /path/to/detect_meteors/_detect_meteors_cli ~/.zsh/completions/
 ```
 
-After updating your shell config, reload it (e.g. `source ~/.bashrc` or
-`source ~/.zshrc`) or start a new terminal session.
+In `~/.zshrc`, set `fpath` before any existing `compinit` invocation:
+
+```zsh
+fpath=(~/.zsh/completions $fpath)
+autoload -Uz compinit
+compinit
+
+# Optional source-command alias
+alias detect_meteors='uv run python /path/to/detect_meteors/detect_meteors_cli.py'
+compdef _detect_meteors_cli detect_meteors
+```
+
+Start a new shell after setup. Analysis, tuning, and report/session options are included.
 
 ---
 

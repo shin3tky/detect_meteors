@@ -2,19 +2,68 @@
 
 [日本語版](CHANGELOG_ja.md)
 
-## Unreleased — v1.6.11
+<a id="v1611---2026-11-07"></a>
 
-- Separate built-in Hough image measurements, candidate threshold evaluation, and debug rendering without changing the v1.x candidate rule or plugin contracts.
-- Allow explicit re-evaluation of area, aspect-ratio, and score thresholds against measured evidence, with rejection reasons and optional rendering for non-candidates.
-- Share Hough line scoring between the detector method and the compatibility function.
-- Add a read-only explicit-pair Hough replay API with recorded parameter/ROI loading, value provenance, explicit overrides, and missing-reference handling.
-- Add `--analyze-image`, `--reference-image`, `--analysis-sequence`, and `--analysis-progress` for read-only CLI analysis, with localized summaries, verbose contour/line evidence, explicit override tracking, and Bash/Zsh completion.
-- Add bounded contour-derived tuning, optional finite preprocessing/Hough grids, annotated target regions, and sequence comparison with explicit known-positive coverage. Expose these through `--tune-params`, `--tuning-config`, `--analysis-region`, `--comparison-sequence`, and repeatable `--known-meteor`.
-- Retain the loaded target-pair snapshot and original loader for fresh measurements and comparable sequence processing. Report inclusive work budgets, incomplete coverage, and omitted proposals without automatically applying changes.
-- Add explicit `--analysis-output` bundles with a versioned JSON manifest, PNG evidence, source/asset fingerprints, and failure cleanup. `--analysis-proposal baseline|N` also exports a selected `session.yaml` with exact thresholds, loader settings, persisted ROI, and dedicated output paths.
-- Add optional `roi_polygon` and `enable_roi_selection` pipeline settings for replay without interactive ROI selection, preserving explicit CLI overrides. Read the legacy `full_image` progress marker and detect changing inputs during analysis/comparison/export.
+## v1.6.11 - 2026-11-07 - 🦅 International Golden Eagle Day
+
+### Missed-Candidate Replay and Diagnosis
+
+- Add a detector-only workflow for a visually confirmed meteor that was not selected as a candidate. `--analyze-image IMAGE` selects the target; choose its preceding image with `--reference-image IMAGE` or an explicit filename-ordered `--analysis-sequence DIR`. The parent/default/configured target directory is never implicitly searched. The first sequence frame has no preceding frame.
+- Add `--analysis-progress JSON` to read recorded effective parameters and ROI separately from normal `--config` and `--progress-file`. Parameter precedence is defaults → pipeline config → recorded `params` → recorded `processing_params` → explicit detection flags, including `--flag=value`. Show value provenance, explicit changes, and gaps filled by defaults.
+- Display the selected paths, metadata, loaded image shape, settings, ROI source, line score/count, contour aspect ratios, and blocking conditions in English or Japanese. `--verbose` includes every measured contour and Hough segment endpoint.
+- Keep analysis read-only unless an output/diagnostic file is explicitly requested: no candidate copies, normal progress changes, auto-parameter estimation, hooks, or pipeline output handler. Only the built-in `hough` detector is supported. Configured hooks require explicit removal with `--hooks ""`; a progress file alone cannot restore original loader settings or hook effects.
+- Reject conflicting analysis/normal-run options before processing, including `--auto-params`, `--remove-progress`, `--show-exif`, `--show-npf`, `--list-sensor-types`, `--debug-image`, `--progress-file`, and explicit `--target`. `--reference-image` and `--analysis-sequence` are mutually exclusive; `--roi` and `--no-roi` cannot be combined in analysis.
+- Return status **0** for a measured pair, whether accepted or rejected; **1** for input/configuration/processing failures; **2** for invalid option combinations or `reference_missing`. A missing reference reports target information without inventing a decision.
+
+### Bounded Parameter Tuning and Sequence Comparison
+
+- Add `--tune-params` to derive small gate relaxations from measured contour area/aspect ratio and image-wide Hough score. Preserve the actual strict area/ratio boundaries and inclusive score boundary. Passing gates stay unchanged; an already passing target needs no adjustment. No line evidence or no feasible proposal within the limits is a valid outcome. Proposals are never automatically applied.
+- Add `--tuning-config` for a JSON/YAML mapping or file, with [`config_examples/parameter_tuning.yaml`](../config_examples/parameter_tuning.yaml) as a starting point. Gate-only changes reuse measurements. An optional finite `measurement_grid` for `diff_threshold`, `hough_threshold`, `hough_min_line_length`, and `hough_max_line_gap` remeasures the same loaded image/ROI snapshot, including original values.
+- Default bounds are `max_gate_relaxation: 0.5`, `max_measurements: 8`, `max_evaluations: 256`, `max_proposals: 5`, `max_comparison_pairs: 100`, and `max_comparison_measurements: 600`; `measurement_grid` defaults to `{}`. The baseline counts toward measurement/evaluation budgets. Report work counts, search truncation, omitted proposals, and stop reasons. These are computational/search bounds, not camera, lens, or site presets.
+- Add optional `--analysis-region X0,Y0,X1,Y1` in loaded-image coordinates with exclusive end coordinates. Require actual contour foreground overlap with the annotated region. Keep ROI fixed; a region fully outside it reports `target_outside_roi`. This helps associate evidence with the target but does not identify a meteor automatically.
+- Add `--comparison-sequence DIR` to compare only returned proposals over the same bounded set of whole adjacent pairs. Retain the original loader and ROI, share identical measurements within a pair, and reject incompatible shapes/dtypes or changing/unreadable inputs.
+- Add repeatable `--known-meteor IMAGE` positive labels, requiring a comparison sequence. List added/lost candidates and known frames selected, rejected, or unchecked. Unvisited frames remain unchecked; progress candidates are not inferred ground truth. Added candidates are not a false-positive rate, and a selected frame can contain a different accepted trail.
+- Initially rank proposals by summed normalized parameter changes; after comparison, prioritize fewer missed known positives, then smaller changes and fewer added candidates. Do not claim a global optimum or complete coverage when budgets stop work. Tuning/comparison modifiers require `--tune-params` and `--analyze-image`; tuning configuration is distinct from pipeline configuration.
+
+### Analysis Bundles and Reusable Sessions
+
+- Add `--analysis-output DIR` to explicitly create a new bundle containing `report.json`, lossless measurement-mask PNGs, and baseline/proposal debug PNGs, including rejected results. Existing directories (even empty), files, and symlinks are rejected; `--output-overwrite` cannot replace a bundle.
+- Use report format `detect_meteors.analysis`, schema version **1**, with application/runtime/detector versions, exact settings and sources, ROI, metadata, limitations, decisions, complete line/contour measurements, tuning grid/bounds/counters, and comparison coverage. Deduplicate identical measurement settings; preserve non-JSON metadata as text with `serialization_notes`.
+- Record SHA-256 hashes and identity/change stamps for primary image/config/progress sources, stamps for comparison inputs (`sha256: null` to avoid rereading the sequence), and sizes/hashes for PNG/configuration assets. Detect source or effective-setting changes before export. Write the manifest last and clean up only files created by the failed invocation.
+- Add `--analysis-proposal baseline|N` to also export `session.yaml`: `baseline` means the current effective settings; numeric indices are one-based in the current returned proposal order and require tuning. The option requires `--analysis-output`. Without selection, no session configuration is written. A missing-reference report is allowed, but no selected session can be exported.
+- Export a complete normal `PipelineConfig` with exact thresholds, the registered loader and faithfully serializable settings, built-in Hough detector, and fixed ROI. Reject active hooks, custom output handlers, or loader settings that cannot round-trip with their original values/types.
+- Run exported sessions separately with `--config DIR/session.yaml`. They use one worker, sequential processing, absolute candidate/debug/progress paths under `DIR/run`, and disabled overwrite in both pipeline and file-handler settings. The target is the explicit analysis sequence, otherwise an explicitly configured target, otherwise the target image's parent. Export alone does not create run outputs. The report records the working directory; review paths when moving a session.
+- Add optional pipeline settings `roi_polygon` (null or at least three integer points in loaded-image coordinates) and `enable_roi_selection` (default true). Saved sessions disable interactive selection; normal CLI `--roi`/`--no-roi` explicitly override saved ROI. Analysis uses recorded ROI ahead of config, with explicit flags ahead of both. Accept the legacy progress `full_image` marker. Existing configurations retain their defaults.
+
+### Detection Foundation and Compatibility
+
+- Separate `HoughDetector.analyze`, `HoughAnalysis.evaluate`, and debug rendering; expose a read-only reproduction API in `meteor_core.analysis`, bounded tuning in `meteor_core.tuning`, and explicit export in `meteor_core.analysis_reports`. Share line scoring between the detector method and compatibility function.
+- Preserve normal candidate behavior: a contour must have **area > min_area** and **aspect ratio > min_aspect_ratio**, with image-wide **line score >= min_line_score**. Strong scores do not bypass the aspect-ratio gate. The score sums all Hough segment lengths, not meteor probability or a single trail's strength.
+- Keep existing plugin contracts, normal auto-parameter estimation, and aircraft annotations. This release adds no automatic aircraft rejection, track merging, per-camera presets, or automatic adoption of tuned settings.
 - Fix the shared unknown-input-loader error path to use the registry's existing `list_available()` method.
-- Document the [missed-meteor analysis and session parameter tuning workflow](parameter_analysis_1.6.11.md). All implementation steps are reviewed; the runtime version remains 1.6.10 pending release preparation.
+
+### Release, Documentation, and Dependencies
+
+- Set the project, runtime, and lockfile version to **1.6.11**; continue to support Python **3.12 and 3.13** (`>=3.12,<3.14`).
+- Update bilingual README examples, release notes, installation/build instructions, and the [analysis design and validation record](parameter_analysis_1.6.11.md). Move v1.6.11 to completed v1.x milestones in ROADMAP. Preserve aligned inline comments in Markdown code examples by excluding Markdown from Ruff formatting.
+- Update Bash/Zsh completion for analysis/tuning/export options, both parallel/batch-size switches, and the installed `detect-meteors` command. Stop registering the project completion globally on `python`/`python3`; source-command aliases can be attached explicitly. Document native Zsh setup.
+- Document the existing locked runtime and development dependencies below; release preparation does not change these pins.
+
+| Runtime dependency | Version | Development dependency | Version |
+| --- | --- | --- | --- |
+| `numpy` | `2.5.4` | `ruff` | `0.17.4` |
+| `opencv-python` | `5.0.0.93` | `ty` | `0.0.99` |
+| `rawpy` | `0.28.0` | `pre-commit` | `4.7.0` |
+| `psutil` | `7.2.2` | `coverage` | `7.17.2` |
+| `pillow` | `13.0.0` | | |
+| `pydantic` | `2.14.3` | | |
+| `pyyaml` | `6.0.3` | | |
+
+Validation: **658 tests** pass. Previous refactor validation matched 44 real-pair
+comparisons; tuning/export validation used controlled misses in the repository's
+12-frame aircraft/meteor sample and replayed a saved session. The originally
+reported `P8136507.ORF` pair has not been reproduced because `P8136506.ORF` is
+unavailable. See the design record for the evidence and its limits.
 
 ## v1.6.10 - 2026-10-06 - 🌠 Make Your Dream Come True Day
 

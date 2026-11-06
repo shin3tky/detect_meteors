@@ -1,4 +1,4 @@
-# Bash completion for detect_meteors_cli.py
+# Bash completion for detect-meteors and detect_meteors_cli.py (v1.6.11)
 # 
 # Installation:
 #   1. Copy this file to /etc/bash_completion.d/ or ~/.bash_completion.d/
@@ -52,6 +52,8 @@ _detect_meteors_cli_completion() {
           --workers
           --batch-size
           --auto-batch-size
+          --no-auto-batch-size
+          --parallel
           --no-parallel
           --profile
           --verbose
@@ -100,7 +102,7 @@ _detect_meteors_cli_completion() {
             ;;
         --focal-factor)
             # Suggest common sensor types (ordered by sensor size)
-            local sensor_types="1INCH MFT APS-C APS-C_CANON APS-H FF FULLFRAME MF44X33 MF54X40"
+            local sensor_types="1INCH MFT APS-C APS-C_CANON APS-H FF FULLFRAME MF44X33 MF54X40 0.64 0.79 1.0 1.3 1.5 1.6 2.0 2.7"
             COMPREPLY=( $(compgen -W "${sensor_types}" -- "${cur}") )
             return 0
             ;;
@@ -151,7 +153,6 @@ _detect_meteors_cli_completion() {
 }
 
 # Register the completion function
+complete -F _detect_meteors_cli_completion detect-meteors
 complete -F _detect_meteors_cli_completion detect_meteors_cli.py
 complete -F _detect_meteors_cli_completion ./detect_meteors_cli.py
-complete -F _detect_meteors_cli_completion python detect_meteors_cli.py
-complete -F _detect_meteors_cli_completion python3 detect_meteors_cli.py
