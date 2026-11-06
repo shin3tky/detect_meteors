@@ -41,25 +41,65 @@
 - Preserve normal candidate behavior: a contour must have **area > min_area** and **aspect ratio > min_aspect_ratio**, with image-wide **line score >= min_line_score**. Strong scores do not bypass the aspect-ratio gate. The score sums all Hough segment lengths, not meteor probability or a single trail's strength.
 - Keep existing plugin contracts, normal auto-parameter estimation, and aircraft annotations. This release adds no automatic aircraft rejection, track merging, per-camera presets, or automatic adoption of tuned settings.
 - Fix the shared unknown-input-loader error path to use the registry's existing `list_available()` method.
+- Fix parallel candidate-save errors being swallowed as batch failures. As in sequential processing, the original exception propagates regardless of `hook_error_mode`, and the failed candidate is not recorded as processed. Ordinary worker batch failures retain their continue-to-next-batch behavior.
+- Add 23 hook/error regression tests covering callback order, instance lifetime, sorting, interruption/resume, and save failures, including process boundaries and exception propagation with real `spawn` workers. Remove the save-error test’s `expectedFailure` after the fix.
 
 ### Release, Documentation, and Dependencies
 
 - Set the project, runtime, and lockfile version to **1.6.11**; continue to support Python **3.12 and 3.13** (`>=3.12,<3.14`).
 - Update bilingual README examples, release notes, installation/build instructions, and the [analysis design and validation record](parameter_analysis_1.6.11.md). Move v1.6.11 to completed v1.x milestones in ROADMAP. Preserve aligned inline comments in Markdown code examples by excluding Markdown from Ruff formatting.
 - Update Bash/Zsh completion for analysis/tuning/export options, both parallel/batch-size switches, and the installed `detect-meteors` command. Stop registering the project completion globally on `python`/`python3`; source-command aliases can be attached explicitly. Document native Zsh setup.
-- Document the existing locked runtime and development dependencies below; release preparation does not change these pins.
+- Update runtime and development dependencies from 1.6.10. The tables below compare tag `1.6.10` with the 1.6.11 `pyproject.toml` and `uv.lock`.
 
-| Runtime dependency | Version | Development dependency | Version |
+<a id="dependency-updates-1610-to-1611"></a>
+
+### Dependency Updates from 1.6.10 to 1.6.11
+
+| Scope | Package | 1.6.10 | 1.6.11 |
 | --- | --- | --- | --- |
-| `numpy` | `2.5.4` | `ruff` | `0.17.4` |
-| `opencv-python` | `5.0.0.93` | `ty` | `0.0.99` |
-| `rawpy` | `0.28.0` | `pre-commit` | `4.7.0` |
-| `psutil` | `7.2.2` | `coverage` | `7.17.2` |
-| `pillow` | `13.0.0` | | |
-| `pydantic` | `2.14.3` | | |
-| `pyyaml` | `6.0.3` | | |
+| Runtime | `numpy` | `2.5.3` | `2.5.4` |
+| Runtime | `opencv-python` | `5.0.0.93` | `5.0.0.93` |
+| Runtime | `rawpy` | `0.27.1` | `0.28.0` |
+| Runtime | `psutil` | `7.2.2` | `7.2.2` |
+| Runtime | `pillow` | `12.3.0` | `13.0.0` |
+| Runtime | `pydantic` | `2.13.5` | `2.14.3` |
+| Runtime | `pyyaml` | `6.0.3` | `6.0.3` |
+| Development | `ruff` | `0.16.10` | `0.17.4` |
+| Development | `ty` | `0.0.84` | `0.0.99` |
+| Development | `pre-commit` | `4.6.2` | `4.7.0` |
+| Development | `coverage` | `7.16.2` | `7.17.2` |
 
-Validation: **658 tests** pass. Previous refactor validation matched 44 real-pair
+OpenCV, psutil, and PyYAML pins are unchanged. The lockfile also updates the following transitive dependencies.
+
+| Scope | Transitive dependency | 1.6.10 | 1.6.11 |
+| --- | --- | --- | --- |
+| Development | `distlib` | `0.4.0` | `0.4.4` |
+| Development | `filelock` | `3.25.0` | `4.2.1` |
+| Development | `packaging` | Not present | `26.3` |
+| Runtime | `pydantic-core` | `2.46.5` | `2.50.4` |
+| Development | `python-discovery` | `1.1.0` | `1.6.4` |
+| Runtime | `typing-extensions` | `4.15.0` | `4.16.0` |
+| Runtime | `typing-inspection` | `0.4.2` | `0.4.4` |
+| Development | `virtualenv` | `21.1.0` | `21.14.13` |
+
+Development-only transitive packages come through `pre-commit` → `virtualenv` (`python-discovery` also uses `filelock`); they are not normal runtime requirements.
+Transitive versions above are repository lockfile values. Reproduce them from source with `uv sync --locked`, or `uv sync --locked --all-extras` for development. Installing the wheel alone resolves transitive packages according to their package constraints.
+
+<a id="security-updates-1611"></a>
+
+### Security Updates
+
+The version changes above were checked against upstream release notes and advisories on November 7, 2026.
+
+- **Pillow 12.3.0 → 13.0.0** fixes stale storage reuse in multi-frame loaders ([GHSA-v9pv-5gc8-w2m6](https://github.com/python-pillow/Pillow/security/advisories/GHSA-v9pv-5gc8-w2m6), affected 11.0.0–12.3.0, fixed in 13.0.0). The [13.0.0 security notes](https://pillow.readthedocs.io/en/stable/releasenotes/13.0.0.html#security) also describe JPEG/TIFF memory-safety and denial-of-service fixes.
+- **Pydantic 2.13.5 → 2.14.3** includes fixes for JSON extra-key validation bypass ([GHSA-qpmf-fgh3-ff25](https://github.com/pydantic/pydantic/security/advisories/GHSA-qpmf-fgh3-ff25), fixed in 2.14.2) and excessive work/memory during multi-host URL validation ([GHSA-955g-x97g-8mcp](https://github.com/pydantic/pydantic/security/advisories/GHSA-955g-x97g-8mcp), fixed in 2.14.0).
+- **filelock 3.25.0 → 4.2.1 (development-only transitive dependency)** fixes truncation/permission changes to regular files placed at a Unix lock path by another local user ([GHSA-69hj-f68j-2879](https://github.com/tox-dev/filelock/security/advisories/GHSA-69hj-f68j-2879), affected through 4.2.0, fixed in 4.2.1).
+- **virtualenv 21.1.0 → 21.14.13 (development-only transitive dependency)** includes the fix for prompt text becoming executable under Bash compatibility modes ([GHSA-6w3r-xr62-4xcp](https://github.com/pypa/virtualenv/security/advisories/GHSA-6w3r-xr62-4xcp), affected 20.0.0–21.14.8). The selected [21.14.13 release](https://github.com/pypa/virtualenv/releases/tag/21.14.13) also fixes a subsequent upstream prompt-handling regression.
+- **rawpy 0.27.1 → 0.28.0** updates LibRaw to 0.22.2 in the [upstream release](https://github.com/letmaik/rawpy/releases/tag/v0.28.0). [LibRaw 0.22.2](https://github.com/LibRaw/LibRaw/releases/tag/0.22.2) adds bounds/allocation-overflow checks and fixes metadata memory exposure. Source builds can use a different native library; inspect `rawpy.libraw_version` when needed.
+
+Applicability depends on the image formats, plugins, and development tools used. These entries record upstream fixes incorporated by dependency updates; they do not claim that each vulnerability was reproduced through this tool’s normal RAW-processing path.
+
+Final validation: **681 tests** pass with no expected failures. Previous refactor validation matched 44 real-pair
 comparisons; tuning/export validation used controlled misses in the repository's
 12-frame aircraft/meteor sample and replayed a saved session. The originally
 reported `P8136507.ORF` pair has not been reproduced because `P8136506.ORF` is

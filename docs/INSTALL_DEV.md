@@ -38,6 +38,11 @@ This installs the project in editable mode plus the dev toolchain (Ruff, ty, pre
 These match the `dev` extra in `pyproject.toml` and `uv.lock`. Runtime pins are
 listed in [installation](INSTALL.md#dependency-versions-v1611).
 
+See the [CHANGELOG](CHANGELOG.md#security-updates-1611) for development-only
+transitive updates (including filelock and virtualenv) and upstream security fixes.
+To update a 1.6.10 environment, run `uv sync --locked --all-extras` from the
+1.6.11 source root.
+
 ### Step 2: Set Up Pre-commit Hooks
 
 This project uses [pre-commit](https://pre-commit.com/) with [Ruff](https://docs.astral.sh/ruff/) for automatic code formatting and linting, plus ty for type checking.
@@ -190,6 +195,8 @@ uv run coverage html
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch sizing |
 | `test_pipeline_execution_v1x.py` | 7 | Pipeline execution and results |
 | `test_pipeline_helpers_v1x.py` | 12 | Pipeline helpers |
+| `test_pipeline_hooks_v1x.py` | 12 | Hook order, lifetime, process boundaries, interruption/resume |
+| `test_pipeline_hook_errors_v1x.py` | 11 | Hook error policy, worker and save failures |
 | `test_aircraft_trail_hook_v1x.py` | 3 | Aircraft tracking metadata and progress persistence |
 
 #### Plugins, registries, and contracts
@@ -227,7 +234,7 @@ uv run coverage html
 | `test_tuning_v1x.py` | 16 | Bounded proposals and comparison |
 | `test_analysis_reports_v1x.py` | 20 | Bundles, fingerprints, session export and replay |
 
-**Total: 658 tests (v1.6.11)**
+**Total: 681 tests (v1.6.11; no expected failures)**
 
 ## Code Style
 

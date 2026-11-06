@@ -211,13 +211,16 @@
   - [x] Aircraft analysis preserves candidate decisions and scores
 
 ### Missed-Meteor Analysis and Parameter Tuning
-- [x] **v1.6.11 (2026-11-07)** - Reproduce missed candidates and review session-specific adjustments
+- [x] **v1.6.11 (2026-11-07)** - Consolidate the 1.6 foundation and support missed-candidate analysis
   - [x] Separate Hough measurements, threshold decisions, and debug rendering while preserving normal detection behavior
   - [x] Read-only image-pair replay API and CLI with recorded parameters, ROI, provenance, and rejection reasons
   - [x] Bounded contour-derived tuning, optional finite measurement grids, and annotated target regions
   - [x] Sequence comparison with added/lost candidates, known-positive coverage, and explicit work limits
   - [x] Versioned JSON/PNG analysis bundles and explicitly selected reusable session configurations
   - [x] Persist ROI in pipeline configuration and support Bash/Zsh completion for the analysis workflow
+  - [x] Align parallel candidate-save failures with sequential error propagation
+  - [x] Add hook/error regression coverage, including real spawn workers (681 tests pass)
+  - [x] Update runtime/development dependencies and document upstream security fixes
 
 See the [release notes](RELEASE_NOTES_1.6.md#version-1611-2026-11-07) for usage
 and the [design and validation record](parameter_analysis_1.6.11.md) for the

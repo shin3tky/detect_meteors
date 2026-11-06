@@ -6,6 +6,16 @@
 
 ## Version 1.6.11 (2026-11-07) 🦅
 
+Version 1.6.11 consolidates the 1.6 series while retaining its detection rules
+and plugin contracts. It includes detection-code cleanup, corrected error
+handling, regression coverage, and dependency updates, together with the
+missed-candidate analysis and session-replay workflow below.
+
+### Pipeline Reliability
+
+- Parallel candidate-save failures now propagate like sequential failures, even with `hook_error_mode: warn`. The original exception reaches the caller, and the failed candidate is not recorded as processed.
+- Add 23 hook/error regression tests for callback order, instance lifetime, process boundaries, interruption/resume, and exception propagation.
+
 ### Explain a Missed Candidate, Then Review Adjustments
 
 Version 1.6.11 completes a workflow around the existing frame-difference/Hough
@@ -101,12 +111,21 @@ overwrite disabled. Review paths when relocating a session. Existing normal
 configurations retain their defaults; active hooks/custom output handlers cannot
 be exported as equivalent detector-only sessions.
 
+### Dependency and Security Updates
+
+NumPy, rawpy, Pillow, Pydantic, and development tools are updated from 1.6.10.
+The updates include upstream security fixes in Pillow and Pydantic, and in the
+development-only transitive packages filelock and virtualenv. See the
+[version comparison](CHANGELOG.md#dependency-updates-1610-to-1611) and
+[security sources and scope](CHANGELOG.md#security-updates-1611).
+For environment updates, see [upgrading from 1.6.10](INSTALL.md#upgrading-from-1610).
+
 ### Compatibility, Installation, and Validation
 
 - Python 3.12 and 3.13 remain supported. Runtime/project/lockfile versions are 1.6.11. Current pinned dependencies are listed in [installation](INSTALL.md#dependency-versions-v1611) and [developer setup](INSTALL_DEV.md#development-tool-versions-v1611). Historical tool-version examples later in these notes describe their original releases.
 - Bash and native Zsh completion include analysis/tuning/export flags and the installed `detect-meteors` command; see [completion setup](INSTALL.md#optional-shell-completion-bashzsh).
 - Normal detection still requires contour area and aspect ratio strictly above their thresholds, and image-wide line score at least its threshold. The score sums Hough segment lengths. Aircraft likelihood remains metadata; no automatic filtering or track merging is added.
-- Validation includes 658 tests, 44 unchanged real-pair comparisons during refactoring, and controlled tuning/export/session replay on the local aircraft/meteor sample. The original `P8136507.ORF` report is not a reproduced original-pair case because its preceding RAW is unavailable.
+- Final validation includes all 681 tests passing with no expected failures, 44 unchanged real-pair comparisons during refactoring, and controlled tuning/export/session replay on the local aircraft/meteor sample. The original `P8136507.ORF` report is not a reproduced original-pair case because its preceding RAW is unavailable.
 
 Try the repository-sample command in the [README](../README.md#try-tuning-with-the-repository-sample).
 See [CHANGELOG](CHANGELOG.md#v1611---2026-11-07) for all changes,
@@ -312,22 +331,27 @@ New constant exported from `meteor_core`:
 ```python
 from meteor_core import MAX_NUM_WORKERS
 
-# Default: 16 (reasonable limit for most systems)
+# Current v1.6.11: max(1, multiprocessing.cpu_count())
 # Pipeline config validation enforces this limit
 # CLI --workers help text displays the limit
 ```
 
 **Validation in PipelineConfig**:
 ```python
-@dataclass
-class PipelineConfig:
-    num_workers: int = 4
-    
-    def __post_init__(self):
-        if self.num_workers > MAX_NUM_WORKERS:
-            raise MeteorConfigError(
-                f"num_workers ({self.num_workers}) exceeds MAX_NUM_WORKERS ({MAX_NUM_WORKERS})"
-            )
+# Current v1.6.11 API: direct construction validates worker bounds.
+from meteor_core import MAX_NUM_WORKERS
+from meteor_core.schema import DetectionParams, PipelineConfig
+
+try:
+    config = PipelineConfig(
+        target_folder="./raw",
+        output_folder="./candidates",
+        debug_folder="./debug",
+        params=DetectionParams(),
+        num_workers=MAX_NUM_WORKERS + 1,
+    )
+except ValueError as exc:
+    print(exc)
 ```
 
 ### Development Workflow
@@ -641,12 +665,13 @@ uv run python detect_meteors_cli.py \
 ### Python API
 
 ```python
-from meteor_core.schema import PipelineConfig, HookConfig
+from meteor_core.schema import DetectionParams, PipelineConfig, HookConfig
 
 config = PipelineConfig(
     target_folder="./raw",
     output_folder="./candidates",
     debug_folder="./debug",
+    params=DetectionParams(),
     hooks=[
         HookConfig(name="score_filter", config={"min_score_threshold": 75.0}),
         HookConfig(name="logger_hook"),
@@ -945,11 +970,14 @@ uv run python detect_meteors_cli.py --config pipeline.yaml
 Use `load_pipeline_config()` for file-based configuration:
 
 ```python
+from meteor_core import DetectionParams, PipelineConfig, load_pipeline_config
+
 # Before: Manual PipelineConfig construction
 config = PipelineConfig(
     target_folder="./rawfiles",
     output_folder="./candidates",
-    params={"diff_threshold": 8},
+    debug_folder="./debug_masks",
+    params=DetectionParams(diff_threshold=8),
 )
 
 # After: Load from file

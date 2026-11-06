@@ -237,7 +237,7 @@ For each image pair (current, previous):
     │                                                             │
     │  Returns: OutputResult                                      │
     │  Lifecycle Hooks (Output Handlers):                         │
-    │  • on_detection_result(context)                             │
+    │  • on_detection_result(context, result, filepath)           │
     │  • on_candidate_detected()                                  │
     │  • on_batch_complete()                                      │
     │  • on_pipeline_complete()                                   │
@@ -329,6 +329,35 @@ worker processes) via the standard plugin discovery mechanisms.
 - For hook authors, **prefer `ConfigType` definitions that can be constructed
   with no arguments**. This keeps hooks easier to configure and reduces
   configuration friction for users.
+
+<a id="hook-execution-and-state"></a>
+
+#### Execution and Instance Lifetime (v1.6.11)
+
+| Callback | Process | Hook instance lifetime |
+| --- | --- | --- |
+| `on_file_found`, `on_all_detections_sorted` | Main | Shared within one run |
+| `on_image_loaded`, `on_detection_complete` | Main for sequential processing; worker for parallel processing | Created per `process_image_batch()` call, shared across pairs within that batch |
+| `on_output_saved`, `on_batch_results_sorted` | Main | Shared within one run, separately from file-filter/final-analysis instances |
+| Output-handler lifecycle events | Main | The output handler held by the pipeline |
+
+Hooks run in configuration order; returned contexts, results, and sorted lists
+feed the next hook. Do not rely on instance state crossing the groups above or
+separate worker batches. A sequential batch contains one pair. Image hooks apply
+to detection pairs, not the initial ROI-selection or auto-estimation sample loads.
+
+Successful result handling follows this order:
+
+1. `OutputHandler.on_detection_result()` receives a context dictionary without image arrays.
+2. For candidates: `save_candidate()` → `on_output_saved()` → `OutputHandler.on_candidate_detected()`.
+3. Record progress, then sort each batch: `on_batch_results_sorted()` → `OutputHandler.on_batch_complete()`.
+4. On normal completion: `OutputHandler.on_pipeline_complete()` → `on_all_detections_sorted()` → merge supported extras into progress.
+
+On resume, final sorting includes only results newly processed in that run.
+Ctrl-C skips final analysis. `warn` logs an exception and continues to the next
+hook; it does not roll back in-place mutations or external side effects made
+before failure. Hook construction/configuration failures raise `MeteorConfigError`
+even in `warn` mode.
 
 **Future enhancement ideas**:
 - Consider extending `HookRegistry` with a way to **distribute a temporary plugin
@@ -837,13 +866,13 @@ The serialized shape (via `to_dict()`) is:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `diff_threshold` | `int` | `8` | Frame difference threshold (scale matches input dtype) |
+| `diff_threshold` | `int` / `float` | `8` | Frame difference threshold (scale matches input dtype) |
 | `min_area` | `int` | `10` | Minimum contour area in pixels |
-| `min_line_score` | `float` | `30.0` | Minimum score to classify as candidate |
-| `min_aspect_ratio` | `float` | `2.0` | Minimum contour aspect ratio |
-| `hough_threshold` | `int` | `50` | Hough transform vote threshold |
-| `hough_min_line_length` | `int` | `50` | Minimum line length in pixels |
-| `hough_max_line_gap` | `int` | `10` | Maximum gap between line segments |
+| `min_line_score` | `float` | `80.0` | Minimum score to classify as candidate |
+| `min_aspect_ratio` | `float` | `3.0` | Minimum contour aspect ratio |
+| `hough_threshold` | `int` | `10` | Hough transform vote threshold |
+| `hough_min_line_length` | `int` | `15` | Minimum line length in pixels |
+| `hough_max_line_gap` | `int` | `5` | Maximum gap between line segments |
 
 **Note**: `compute_line_score` is a helper method typically called within your `detect` implementation. The pipeline calls only `detect`.
 
@@ -2282,7 +2311,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             return ""
 
     # ========== LIFECYCLE HOOKS ==========
-    # These methods must NEVER raise exceptions!
+    # This notification handler logs callback failures and continues.
 
     def on_detection_result(
         self,
@@ -2309,7 +2338,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 runtime_params,
             )
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_detection_result hook failed: {e}")
 
     def on_candidate_detected(
@@ -2348,7 +2377,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 self._send_slack(message)
 
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_candidate_detected hook failed: {e}")
 
     def on_batch_complete(
@@ -2375,7 +2404,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             # Could implement periodic progress updates here
 
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_batch_complete hook failed: {e}")
 
     def on_pipeline_complete(
@@ -2415,7 +2444,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 self._send_slack(message)
 
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_pipeline_complete hook failed: {e}")
 
     def _send_slack(self, message: str) -> None:
@@ -2713,7 +2742,12 @@ class MyDetector(DataclassDetector[MyConfig]):
 
 **Output Handler error handling**:
 
-For **primary handlers** (critical file/storage operations), raise exceptions:
+For **primary handlers** (critical file/storage operations), raise exceptions.
+In 1.6.11, both sequential and parallel processing propagate exceptions from
+saving and `OutputResult` normalization. `hook_error_mode: warn` does not suppress
+save failures, and failed candidates are not marked processed. In contrast,
+`OutputResult(saved=False, ...)` is a normal skipped save: notifications still
+run and the frame still counts as a candidate.
 
 ```python
 from meteor_core.exceptions import MeteorWriteError
@@ -2723,7 +2757,7 @@ class MyFileHandler(DataclassOutputHandler[MyConfig]):
     """Primary handler - raises exceptions on critical failures."""
 
     def save_candidate(
-        self, source_path, filename, debug_image, roi_polygon
+        self, source_path, filename, debug_image=None, roi_polygon=None
     ) -> OutputResult:
         dest_path = os.path.join(self.config.output_folder, filename)
         try:
@@ -2752,7 +2786,7 @@ class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
     """Secondary handler - logs errors and continues."""
 
     def save_candidate(
-        self, source_path, filename, debug_image, roi_polygon
+        self, source_path, filename, debug_image=None, roi_polygon=None
     ) -> OutputResult:
         try:
             self._upload_to_cloud(source_path)
@@ -2774,7 +2808,7 @@ class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
         try:
             self._send_notification(filename)
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"Notification failed: {e}")
 ```
 
@@ -2949,7 +2983,9 @@ except MeteorLoadError as e:
 
 ### 6.6 Thread Safety
 
-The pipeline may process images in parallel. Ensure your plugins are thread-safe:
+The pipeline uses separate worker processes, so plugin instance state is not
+shared between workers. If your plugin itself creates threads, protect shared
+state as in the example below:
 
 ```python
 class MyHandler(DataclassOutputHandler[MyConfig]):
@@ -3085,30 +3121,41 @@ class MyDetector(DataclassDetector[MyDetectorConfig]):
 
 ### 6.8 Worker Limit Configuration
 
-As of v1.6.8, the `MAX_NUM_WORKERS` constant is exported from `meteor_core` and enforced in `PipelineConfig`:
+The `MAX_NUM_WORKERS` constant has been exported from `meteor_core` since v1.6.8.
+In the current v1.6.11 code, its value is `max(1, multiprocessing.cpu_count())`;
+the default worker count is `max(1, CPU count - 1)`.
 
 ```python
 from meteor_core import MAX_NUM_WORKERS
 
-# Default: 16 (reasonable limit for most systems)
+# Current v1.6.11: max(1, multiprocessing.cpu_count())
 print(f"Maximum workers allowed: {MAX_NUM_WORKERS}")
 ```
 
 **PipelineConfig validation**:
 
-When creating a `PipelineConfig`, the `num_workers` value is validated against `MAX_NUM_WORKERS`:
+Direct construction checks `num_workers` against `1..MAX_NUM_WORKERS` and
+requires `batch_size >= 1`; invalid values raise `ValueError`.
 
 ```python
-from meteor_core.schema import PipelineConfig
-from meteor_core.exceptions import MeteorConfigError
+from meteor_core import MAX_NUM_WORKERS
+from meteor_core.schema import DetectionParams, PipelineConfig
 
-# This will raise MeteorConfigError if num_workers > MAX_NUM_WORKERS
-config = PipelineConfig(
-    target_folder="./raw",
-    output_folder="./candidates",
-    num_workers=32,  # Raises if > MAX_NUM_WORKERS
-)
+try:
+    config = PipelineConfig(
+        target_folder="./raw",
+        output_folder="./candidates",
+        debug_folder="./debug",
+        params=DetectionParams(),
+        num_workers=MAX_NUM_WORKERS + 1,
+    )
+except ValueError as exc:
+    print(exc)
 ```
+
+`from_partial_dict()`, used when loading configuration files, assigns fields
+after constructing defaults and does not repeat the same bounds checks. Supply
+valid worker/batch values and `hook_error_mode: warn|raise` in files too.
 
 **Plugin author considerations**:
 
@@ -3251,8 +3298,7 @@ from meteor_core.inputs import LoaderRegistry
 
 LoaderRegistry.discover()
 for name in LoaderRegistry.list_available():
-    cls = LoaderRegistry.get(name)
-    instance = cls(None)
+    instance = LoaderRegistry.create(name)
     print(instance.get_info())
 ```
 

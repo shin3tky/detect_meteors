@@ -36,6 +36,10 @@ uv sync --all-extras
 `pyproject.toml` の `dev` と `uv.lock` に従います。実行時依存は
 [インストールガイド](INSTALL_ja.md#依存ライブラリのバージョンv1611)を参照。
 
+開発用の間接依存の更新（filelock、virtualenvなど）と上流セキュリティ修正は
+[CHANGELOG](CHANGELOG_ja.md#security-updates-1611)を参照してください。
+1.6.10の環境を更新する際は、1.6.11のソースルートで `uv sync --locked --all-extras` を実行します。
+
 ### 手順2：pre-commitフックを設定する
 
 [pre-commit](https://pre-commit.com/)と[Ruff](https://docs.astral.sh/ruff/)で自動整形・静的解析を行い、tyで型を検査します。
@@ -188,6 +192,8 @@ uv run coverage html
 | `test_memory_batch_size_v1x.py` | 6 | メモリに基づくバッチサイズ調整 |
 | `test_pipeline_execution_v1x.py` | 7 | パイプラインの実行と結果 |
 | `test_pipeline_helpers_v1x.py` | 12 | パイプラインのヘルパー |
+| `test_pipeline_hooks_v1x.py` | 12 | フックの順序・状態・実行場所・中断と再開 |
+| `test_pipeline_hook_errors_v1x.py` | 11 | フックのエラー方針、ワーカー・保存失敗 |
 | `test_aircraft_trail_hook_v1x.py` | 3 | 飛行機の追跡メタデータと進捗への保存 |
 
 #### プラグイン、レジストリ、データ契約
@@ -225,7 +231,7 @@ uv run coverage html
 | `test_tuning_v1x.py` | 16 | 上限付きの調整案と比較 |
 | `test_analysis_reports_v1x.py` | 20 | 証拠保存・識別情報・設定保存と再実行 |
 
-**合計：658テスト（v1.6.11）**
+**合計：681テスト（v1.6.11、期待失敗なし）**
 
 ## コードスタイル
 

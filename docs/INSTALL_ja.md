@@ -41,6 +41,29 @@ Python **3.12／3.13** に対応します。以下は `pyproject.toml` と `uv.l
 
 開発用ツールは[開発環境ガイド](INSTALL_DEV_ja.md#開発ツールのバージョンv1611)を参照。
 
+<a id="upgrading-from-1610"></a>
+
+## 1.6.10からの更新
+
+1.6.11のソースへ切り替えた後、プロジェクトルートで実行します。
+
+```bash
+uv sync --locked
+# Development environment, including pre-commit and its dependencies:
+uv sync --locked --all-extras
+```
+
+用途に合わせてどちらかを選びます。`uv.lock` に記録した直接・間接依存を反映します。
+wheelで導入している場合は、使用中の仮想環境へ新しい配布ファイルをインストールしてください。
+
+```bash
+uv pip install --upgrade /path/to/detect_meteors-1.6.11-py3-none-any.whl
+```
+
+wheelでは直接の実行時依存を固定し、間接依存は各パッケージの制約に従って解決します。
+[バージョン差分](CHANGELOG_ja.md#dependency-updates-1610-to-1611)と
+[セキュリティ修正の根拠](CHANGELOG_ja.md#security-updates-1611)も参照してください。
+
 ## macOSへのインストール
 
 ### 手順1：Homebrewをインストールする
@@ -75,7 +98,8 @@ brew install uv
 
 ### 手順5：システム依存ライブラリをインストールする
 
-OpenCVとLibRawをインストールします。
+Pythonパッケージのソースビルドなどで必要な場合に、システムライブラリをインストールします。
+対応するwheelを使う通常の構成では、この手順を省略できます。
 
 ```bash
 brew install opencv libraw

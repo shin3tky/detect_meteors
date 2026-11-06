@@ -7,6 +7,19 @@ settings, explicitly supplied CLI flags take precedence over the configuration
 file, followed by built-in defaults. Relative paths use the current working
 directory.
 
+<a id="normal-run-override-syntax"></a>
+
+## Normal-Run Override Syntax
+
+When normal detection combines `--config` with detection-parameter, folder,
+worker/batch, or progress-path overrides, use full option names with separate
+values, for example `--diff-threshold 12` and `--workers 2`. The current normal-run
+merge checks the original argument tokens: `--diff-threshold=12` or an abbreviated
+option may parse successfully but fail to override the config value. Explicit
+parameter detection for `--auto-params` has the same syntax limitation.
+Analysis detection-parameter flags track explicit values separately and accept
+both `--option value` and `--option=value`.
+
 ## Read-Only Image Analysis (v1.6.11)
 
 - **`--analyze-image IMAGE`**: Analyze one image with the built-in Hough detector without copying candidates or updating progress.
@@ -235,7 +248,7 @@ settings are only inherited when the default handler is selected implicitly.
 - **`--min-aspect-ratio`** (default: `3.0`): Minimum ratio of a contour's long side to its short side.
 
 > **Legacy notice**: These parameter flags are mapped into `PipelineConfig.params` for backward compatibility.
-> They will be deprecated in favor of YAML/JSON configuration files over time.
+> Normal runs already emit a deprecation warning for these flags; prefer YAML/JSON configuration files.
 
 ## Hough Transform Parameters
 - **`--hough-threshold`** (default: `10`): Accumulator threshold for the probabilistic Hough transform.
@@ -290,8 +303,13 @@ path uses the built-in RAW helpers even when another input plugin is selected.
 ## Performance Options
 - **`--workers`** (default: `max(1, CPU count - 1)`): Number of parallel worker processes; allowed range is `1` through the CPU count. One worker uses sequential processing.
 - **`--batch-size`** (default: `10`): Number of adjacent-frame pairs in each parallel task. Sequential processing handles one pair at a time.
-- **`--auto-batch-size` / `--no-auto-batch-size`**: Enable or disable auto-adjusted batch sizing to stay within ~60% of available RAM.
+- **`--auto-batch-size` / `--no-auto-batch-size`**: Accepted and stored in configuration, but the current pipeline does not apply memory-based resizing. Set `--batch-size` explicitly. The Python helper `meteor_core.utils.estimate_batch_size()` can be called separately; its default memory-budget fraction is `0.6`.
 - **`--parallel` / `--no-parallel`**: Explicitly enable or disable parallel processing (defaults to enabled, unless overridden by config).
+
+Saving a candidate or its debug image can raise an output error. In 1.6.11,
+both sequential and parallel processing propagate that exception to the caller,
+regardless of `hook_error_mode`; the failed candidate is not marked processed.
+Hook callbacks still follow their `warn`/`raise` policy.
 
 ## Utility Options
 - **`--profile`**: Print timing breakdowns after the run.

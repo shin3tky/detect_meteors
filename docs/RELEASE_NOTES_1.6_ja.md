@@ -6,6 +6,15 @@
 
 ## バージョン1.6.11（2026-11-07） 🦅
 
+1.6.11は、1.6系の検出条件とプラグイン契約を維持しながら、検出処理の整理、
+エラー処理の修正、回帰テストの拡充、依存パッケージ更新を行うリリースです。
+取りこぼしの分析・調整・再処理を支援する、以下の機能も含みます。
+
+### パイプラインの安定性
+
+- 並列処理の候補保存エラーを逐次処理と同じ扱いに統一しました。`hook_error_mode` が `warn` でも元の例外を送出し、失敗した候補を処理済みに記録しません。
+- フックの呼び出し順、状態の生存期間、実行プロセス、中断・再開、例外伝播を回帰テストで確認しました。フックとエラー処理のテストを23件追加しています。
+
 ### 取りこぼしの理由を確認し、調整案を検討する
 
 v1.6.11では、既存の差分・Hough検出器を使い、目視確認した流星の取りこぼしを
@@ -87,12 +96,20 @@ uv run python detect_meteors_cli.py --config analysis/review-001/session.yaml
 上書きは無効です。設定の移動時はパスを確認してください。既存の通常設定の既定動作を維持し、
 有効なフックや独自出力ハンドラーのある設定は同等の検出器単体セッションとして保存できません。
 
+### 依存パッケージとセキュリティ更新
+
+1.6.10からNumPy、rawpy、Pillow、Pydanticと開発用ツールを更新しました。
+Pillow・Pydantic、および開発用の間接依存であるfilelock・virtualenvの上流セキュリティ修正を含みます。
+[旧版とのバージョン比較](CHANGELOG_ja.md#dependency-updates-1610-to-1611)と
+[セキュリティ更新の根拠・適用範囲](CHANGELOG_ja.md#security-updates-1611)を参照してください。
+実行環境の更新方法は[インストールガイド](INSTALL_ja.md#upgrading-from-1610)に記載しています。
+
 ### 互換性・導入・検証
 
 - Python 3.12と3.13の対応を継続し、プロジェクト・実行時・ロックファイルのバージョンを1.6.11に統一。現在の固定依存は[インストール](INSTALL_ja.md#依存ライブラリのバージョンv1611)と[開発環境](INSTALL_DEV_ja.md#開発ツールのバージョンv1611)に記載しています。これより後の過去リリース内のツールバージョン例は当時のものです。
 - BashとZsh標準の補完で、分析・調整・保存のフラグとインストール後の `detect-meteors` に対応。[補完の設定](INSTALL_ja.md#任意シェル補完bashzsh)を参照。
 - 通常検出は面積・比率が閾値より大きく、画像全体の線分スコアが閾値以上という従来条件です。スコアはHough線分長の合計です。飛行機likelihoodは引き続きメタデータで、自動除外や追跡結合は追加しません。
-- 検証は658テスト、基盤整理時の実画像44比較の一致、ローカルの飛行機・流星サンプルでの意図的な取りこぼしの調整・保存・再処理を含みます。元の `P8136507.ORF` 報告は直前RAWがないため、元のペア判定を再現した事例には含めません。
+- 最終検証は681テストすべての成功（期待失敗なし）、基盤整理時の実画像44比較の一致、ローカルの飛行機・流星サンプルでの意図的な取りこぼしの調整・保存・再処理を含みます。元の `P8136507.ORF` 報告は直前RAWがないため、元のペア判定を再現した事例には含めません。
 
 まず[READMEの同梱サンプル例](../README_ja.md#同梱サンプルで調整を試す)を試せます。
 変更全体は[CHANGELOG](CHANGELOG_ja.md#v1611---2026-11-07)、正確な上限と組み合わせは
@@ -270,7 +287,7 @@ def get_message(key: str, locale: Optional[str] = None) -> str:
 ```python
 from meteor_core import MAX_NUM_WORKERS
 
-# Default: 16 (reasonable limit for most systems)
+# Current v1.6.11: max(1, multiprocessing.cpu_count())
 # Pipeline config validation enforces this limit
 # CLI --workers help text displays the limit
 ```
@@ -278,15 +295,20 @@ from meteor_core import MAX_NUM_WORKERS
 **PipelineConfigでの検証**：
 
 ```python
-@dataclass
-class PipelineConfig:
-    num_workers: int = 4
-    
-    def __post_init__(self):
-        if self.num_workers > MAX_NUM_WORKERS:
-            raise MeteorConfigError(
-                f"num_workers ({self.num_workers}) exceeds MAX_NUM_WORKERS ({MAX_NUM_WORKERS})"
-            )
+# Current v1.6.11 API: direct construction validates worker bounds.
+from meteor_core import MAX_NUM_WORKERS
+from meteor_core.schema import DetectionParams, PipelineConfig
+
+try:
+    config = PipelineConfig(
+        target_folder="./raw",
+        output_folder="./candidates",
+        debug_folder="./debug",
+        params=DetectionParams(),
+        num_workers=MAX_NUM_WORKERS + 1,
+    )
+except ValueError as exc:
+    print(exc)
 ```
 
 ### 開発手順
@@ -610,12 +632,13 @@ uv run python detect_meteors_cli.py \
 ### Python API
 
 ```python
-from meteor_core.schema import PipelineConfig, HookConfig
+from meteor_core.schema import DetectionParams, PipelineConfig, HookConfig
 
 config = PipelineConfig(
     target_folder="./raw",
     output_folder="./candidates",
     debug_folder="./debug",
+    params=DetectionParams(),
     hooks=[
         HookConfig(name="score_filter", config={"min_score_threshold": 75.0}),
         HookConfig(name="logger_hook"),
@@ -917,11 +940,14 @@ uv run python detect_meteors_cli.py --config pipeline.yaml
 設定ファイルには `load_pipeline_config()` を使います。
 
 ```python
+from meteor_core import DetectionParams, PipelineConfig, load_pipeline_config
+
 # Before: Manual PipelineConfig construction
 config = PipelineConfig(
     target_folder="./rawfiles",
     output_folder="./candidates",
-    params={"diff_threshold": 8},
+    debug_folder="./debug_masks",
+    params=DetectionParams(diff_threshold=8),
 )
 
 # After: Load from file

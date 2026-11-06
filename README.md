@@ -16,17 +16,17 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
+🌠 **November 2026:** See [Meteor Showers 2026 — November](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#november-2026).
+
 > [!TIP]
-> 🌠 **A meteor showers to photograph in October 2026!**
->
-> - **Orionids — October 21-22, 2026:** See [Orionids details](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#orionids) for peak-night viewing conditions and photography tips.
+> If a visually confirmed meteor was missed, [inspect the original pair and settings](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611) before changing thresholds.
 
 ## Features
 
 - **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata and scientifically tunes detection parameters
 - **Field-tested**: Reported 100% detection rate on the project's real-world test dataset (OM Digital OM-1, 1000+ RAW images); results depend on shooting conditions and parameters
-- **RAW format support**: Works with any format supported by [`rawpy`](https://github.com/letmaik/rawpy)
-- **Intelligent processing**: ROI cropping, Hough transform line detection, resumable batch processing
+- **RAW format support**: Collects the extensions listed in [`meteor_core/schema.py`](meteor_core/schema.py) and decodes them with [`rawpy`](https://github.com/letmaik/rawpy); camera support depends on LibRaw
+- **Intelligent processing**: ROI masking, Hough transform line detection, resumable batch processing
 - **High performance**: ~0.18 sec/image with multi-core parallel processing
 
 ## Requirements
@@ -171,6 +171,7 @@ current working directory, not from the configuration file's directory.
 
 - `target_folder`, `output_folder`, `debug_folder` (default: `rawfiles`, `candidates`, `debug_masks`)
 - `params` (detection parameters)
+- `roi_polygon`, `enable_roi_selection` (configured ROI and interactive selection)
 - `num_workers`, `batch_size`, `auto_batch_size`, `enable_parallel`
 - `progress_file`, `output_overwrite`
 - `input_loader_name`, `input_loader_config`
@@ -219,7 +220,10 @@ uv run python detect_meteors_cli.py --config config_examples/pipeline.yaml
 You can override plugin selections via CLI (e.g., `--input-loader`, `--detector`,
 `--output-handler`) and provide plugin configs as JSON/YAML strings or file paths.
 Legacy parameter flags (e.g., `--diff-threshold`) are still mapped into
-`PipelineConfig.params` but will be deprecated in favor of config files.
+`PipelineConfig.params`; normal runs warn that these legacy flags are deprecated
+in favor of config files. For normal-run config overrides, use full option names
+and separate values (for example, `--diff-threshold 12`); see the
+[syntax limitation](docs/COMMAND_OPTIONS.md#normal-run-override-syntax).
 
 **Usage (Python)**
 
@@ -290,6 +294,8 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 
 **Release date: November 7, 2026 (2026-11-07).**
 
+- Consolidate the 1.6 detection foundation and propagate parallel save errors like sequential errors.
+- Update runtime/development dependencies, including [upstream security fixes](docs/CHANGELOG.md#security-updates-1611).
 - Inspect missed candidates with the original image pair, recorded settings, and ROI.
 - Derive bounded tuning proposals and compare their effects on a shooting sequence.
 - Save JSON/PNG evidence and an explicitly selected session configuration for reprocessing.

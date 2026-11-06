@@ -35,8 +35,8 @@ from a repository checkout into the extracted source tree.
 
 ## Dependency Versions (v1.6.11)
 
-Python **3.12 and 3.13** are supported. These versions are pinned in
-`pyproject.toml` and `uv.lock`.
+Python **3.12 and 3.13** are supported. The following runtime package versions
+are pinned in `pyproject.toml` and recorded in `uv.lock`.
 
 | Package | Pinned version |
 | --- | --- |
@@ -49,6 +49,30 @@ Python **3.12 and 3.13** are supported. These versions are pinned in
 | `pyyaml` | `6.0.3` |
 
 See [developer setup](INSTALL_DEV.md#development-tool-versions-v1611) for tool versions.
+
+<a id="upgrading-from-1610"></a>
+
+## Upgrading from 1.6.10
+
+After switching to the 1.6.11 source, run from the project root:
+
+```bash
+uv sync --locked
+# Development environment, including pre-commit and its dependencies:
+uv sync --locked --all-extras
+```
+
+Choose the command for your environment. It installs direct and transitive
+versions recorded in `uv.lock`. For a wheel installation, install the new
+release file into your existing virtual environment:
+
+```bash
+uv pip install --upgrade /path/to/detect_meteors-1.6.11-py3-none-any.whl
+```
+
+The wheel pins direct runtime dependencies; transitive packages resolve according
+to their package constraints. See the [version changes](CHANGELOG.md#dependency-updates-1610-to-1611)
+and [security sources](CHANGELOG.md#security-updates-1611).
 
 ## macOS Installation
 
@@ -84,7 +108,8 @@ brew install uv
 
 ### Step 5: Install System Dependencies
 
-Install OpenCV and LibRaw:
+Install system libraries when needed for source builds. This step can be
+skipped when compatible Python wheels are available:
 
 ```bash
 brew install opencv libraw

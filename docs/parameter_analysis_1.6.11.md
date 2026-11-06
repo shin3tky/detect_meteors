@@ -445,6 +445,16 @@ Validation for this step:
 - Original config/progress/candidate/debug markers were unchanged; repeated export was refused. The user's RAW without a reference saved a truthful incomplete report with exit status 2.
 - Ruff lint/format checks, ty, shell completion syntax, and bilingual documentation were verified. The implementation is reviewed; v1.6.11 release preparation is documented in the release notes.
 
+## Final Verification: Hooks and Error Handling
+
+Test totals in the implementation steps remain historical records of those steps.
+A further 23 hook/error regression tests bring the final suite to 681 passing tests.
+
+- Exercise all six pipeline and four output-handler callbacks under `warn` and `raise` in sequential and parallel paths.
+- Verify callback order, returned-value chaining, batch-local state, main/worker process boundaries, sorting, interruption, and resume, including real `spawn` workers.
+- Fix parallel candidate-save failures being swallowed as batch errors. Original save exceptions propagate and failed candidates are not recorded as processed; ordinary worker batch failures still allow later batches.
+- Remove the save-error test’s `expectedFailure`; all tests pass without expected failures. Ruff lint/format checks and ty also pass.
+
 ## Acceptance Criteria for 1.6.11
 
 - Normal detection retains the existing candidate set, scores, line segments, aspect ratios, and debug rendering.
