@@ -9,10 +9,20 @@
 - [ ] Compare bounded parameter adjustments and their effects on the shooting sequence.
 - [ ] Save analysis evidence and a reusable session configuration.
 
-The current change covers design and the measurement/decision foundation only.
-The image-analysis and tuning workflow is not implemented yet. See the
+The measurement/decision foundation is complete. The explicit-pair replay API
+is implemented and reviewed; the user-facing CLI and tuning workflow are
+not implemented yet. See the
 [v1.6.11 design](parameter_analysis_1.6.11.md) for responsibilities,
 input requirements, extension points, and acceptance criteria.
+
+Implementation and review sequence:
+
+1. **Explicit-pair replay API** — implemented and reviewed. Read recorded parameters and ROI, track overrides, and replay the built-in Hough decision without writing files.
+2. **Analysis CLI** — pending. Connect image/reference selection and original-run settings to the API, and display evidence and missing-input conditions.
+3. **Bounded tuning and sequence comparison** — pending.
+4. **Analysis reports and reusable session configuration** — pending.
+
+Run the relevant tests and complete review of each step before starting the next.
 
 -2025 4Q
 

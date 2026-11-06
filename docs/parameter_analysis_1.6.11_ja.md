@@ -2,7 +2,8 @@
 
 [English](parameter_analysis_1.6.11.md)
 
-状態: 設計・基盤整理。画像を指定するCLI、調整値の提案・保存は未実装。
+状態: 明示した画像ペアを再実行するAPIを実装し、レビュー済み。
+画像を指定するCLI、調整値の提案・保存は未実装。
 今回の基盤整理ではリリース番号を更新せず、実行時バージョンは1.6.10を維持する。
 
 ## 目的と利用の流れ
@@ -92,7 +93,70 @@ debug_image = analysis.render_debug(original)
 この例の `2.0` は呼び出し側が指定する試行値であり、推奨値や新しい既定値ではない。
 調整案の選定やファイル保存は行わない。
 
-## 次段階: 入力と再現性
+## 実装ステップ1: 明示した画像ペアの再実行API
+
+`meteor_core/analysis.py` に読み取り専用のAPIを追加した。このステップは
+ロードマップの「元条件での再現」のうち、CLIから独立した入力の解決と再実行を
+対象とする。テスト後のレビューを受けてからCLI接続へ進む。
+
+- `load_reproduction_settings()`: 元の進捗からパラメータとROIを読み込み、
+  各値の出所、明示した変更、元条件の情報不足を保持する。
+- `reproduce_hough_pair()`: 明示した対象画像と参照画像を既存のローダーで読み、
+  組み込みHough検出器の共通APIを使って計測・判定する。
+- `HoughReproduction`: 入力ペア、実効設定、ローダー情報、画像寸法、両画像の
+  メタデータ、計測結果と判定をメモリ上に保持する。
+
+パラメータは「既定値 → 呼び出し側の `params` → 進捗の `params` →
+進捗の `processing_params` → `parameter_overrides`」の順に適用する。
+`params` は欠損値の補完にも使い、記録済みの値を暗黙に上書きしない。
+進捗に一部の値がなくても読み込めるが、`parameter_sources` と `limitations` に
+補完の事実を残す。設定ファイルを進捗ファイルとして渡した場合や、無効な閾値・
+ROIは設定エラーにする。組み込みHoughの7パラメータ以外を黙って無視しない。
+
+ROIは記録済みのものを優先する。`roi_polygon` または `use_full_image=True`
+による明示的な変更を認め、両方の同時指定はエラーにする。ROIの記録・指定が
+なければ全画面を使い、その仮定を残す。適用したROIが画像に全く重ならない場合は
+入力エラーにする。ROI座標はローダーが返す画像の座標系を使う。
+
+```python
+from meteor_core.analysis import load_reproduction_settings, reproduce_hough_pair
+
+settings = load_reproduction_settings(progress_path="previous_run/progress.json")
+replay = reproduce_hough_pair(
+    "raw/frame002.ORF",
+    "raw/frame001.ORF",
+    settings=settings,
+)
+print(replay.status)
+if replay.decision is not None:
+    print(replay.decision.is_candidate, replay.decision.rejection_reasons)
+```
+
+参照画像を省略すると `status="reference_missing"` となり、対象画像の情報だけを
+返す。計測結果と判定は `None` とし、ゼロ画像や近くの別ファイルで代替しない。
+同一ファイル（ハードリンクを含む）、読み込み失敗、寸法・dtypeの不一致、
+非グレースケール画像は明示的にエラーにする。
+
+ローダーはインスタンス、または名前・設定で指定できる。両方式の同時指定は
+エラーにする。通常処理と同じ解決・入力正規化を使い、未知のローダーに
+フォールバックしない。未知のローダーのエラー経路にあった、存在しない
+`list_loaders()` の呼び出しも、共通処理で `list_available()` に修正した。
+
+このAPIは検出器本体の再実行に限定する。元の進捗だけではローダー設定や
+フックの適用を再現したことにはならず、その制約を `limitations` に残す。
+フック、auto-params、参照画像の自動選択、候補コピー、進捗更新、レポート保存は
+実行しない。調整案を自動生成する機能も、このステップには含まない。
+
+このステップの検証結果:
+
+- APIのテスト14件を追加し、既存分を含む595件が通過。
+- 既存RAWの11隣接ペアについて、全画面・ポリゴンROIの計22比較で通常パイプラインと
+  判定・スコア・線分・比率・候補のデバッグ画素が一致し、元の進捗も不変。
+- 利用者の `P8136507.ORF` と添付進捗では記録済みの条件を読み込み、直前画像がないため
+  `reference_missing` を返すことを確認。元の差分判定を再現したとは扱わない。
+- Ruffのlint・整形検査とtyの型検査が通過。
+
+## 入力と再現性の設計（CLI接続は次ステップ）
 
 分析ジョブの入力は、対象画像、直前画像、実効パラメータ、ROI、ローダー設定、
 検出器設定とする。必要なら目視確認した流星の領域も受け取る。

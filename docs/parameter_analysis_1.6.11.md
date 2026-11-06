@@ -2,8 +2,9 @@
 
 [日本語版](parameter_analysis_1.6.11_ja.md)
 
-Status: design and foundation refactoring. The CLI for selecting an image, tuning
-recommendations, and saving adjusted settings are not implemented yet.
+Status: the explicit-pair replay API is implemented and reviewed. The CLI
+for selecting an image, tuning recommendations, and saving adjusted settings are
+not implemented yet.
 This foundation change does not update the release number; the runtime version
 remains 1.6.10.
 
@@ -103,7 +104,70 @@ The `2.0` in this example is a trial value supplied by the caller, not a
 recommendation or a new default. The example does not select a tuning proposal
 or save files.
 
-## Next Stage: Inputs and Reproducibility
+## Implementation Step 1: Explicit-Pair Replay API
+
+Add a read-only API in `meteor_core/analysis.py`. This step covers input
+resolution and replay, independently of the CLI, within the roadmap's original-
+condition reproduction milestone. Complete testing and review before connecting
+the CLI.
+
+- `load_reproduction_settings()`: read parameters and ROI from original progress, retaining each value's source, explicit changes, and gaps in the recorded conditions.
+- `reproduce_hough_pair()`: load the explicitly selected target and reference with the existing loader and use the shared built-in Hough API for measurements and decisions.
+- `HoughReproduction`: retain the input pair, effective settings, loader information, image dimensions, metadata for both images, measurements, and decision in memory.
+
+Apply parameters in this order: defaults → caller-supplied `params` → recorded
+`params` → recorded `processing_params` → `parameter_overrides`. Supplied
+`params` also fill missing values; they do not silently replace recorded values.
+Accept progress with missing values, but identify fallbacks in
+`parameter_sources` and `limitations`. Reject a pipeline configuration passed as
+progress, invalid thresholds, and invalid ROI data. Do not silently ignore
+parameters outside the built-in Hough detector's seven parameters.
+
+Use the recorded ROI unless explicitly overridden with `roi_polygon` or
+`use_full_image=True`; reject specifying both. If no ROI is recorded or supplied,
+use the full image and record that assumption. An ROI that does not overlap the
+image at all is an input error. ROI coordinates refer to the image returned by
+the loader.
+
+```python
+from meteor_core.analysis import load_reproduction_settings, reproduce_hough_pair
+
+settings = load_reproduction_settings(progress_path="previous_run/progress.json")
+replay = reproduce_hough_pair(
+    "raw/frame002.ORF",
+    "raw/frame001.ORF",
+    settings=settings,
+)
+print(replay.status)
+if replay.decision is not None:
+    print(replay.decision.is_candidate, replay.decision.rejection_reasons)
+```
+
+Omitting the reference returns `status="reference_missing"` with target-image
+information only. Measurements and decision are `None`; do not substitute a
+zero image or another nearby file. Explicitly reject identical files (including
+hardlinks), loading failures, dimension or dtype mismatches, and non-grayscale
+images.
+
+Specify either a loader instance or a loader name/configuration; reject
+combining these approaches. Reuse normal processing's loader resolution and
+input normalization, and do not fall back for an unknown loader. In the shared
+unknown-loader error path, also replace the nonexistent `list_loaders()` call
+with `list_available()`.
+
+This API replays the detector itself. Original progress alone does not reproduce
+loader settings or hooks, and `limitations` records that restriction. It does
+not run hooks or auto-params, infer references, copy candidates, update progress,
+save reports, or automatically generate tuning proposals.
+
+Validation for this step:
+
+- Added 14 API tests; all 595 tests, including the existing suite, passed.
+- Across 11 adjacent RAW pairs and both full-image and polygon ROIs, all 22 comparisons matched normal pipeline decisions, scores, line segments, aspect ratios, and candidate debug-image pixels. Original progress was unchanged.
+- Loaded recorded settings from the user's progress for `P8136507.ORF` and verified `reference_missing` without its preceding image. This does not count as reproducing the original difference-based decision.
+- Ruff lint/format checks and ty type checking passed.
+
+## Input and Reproducibility Design (CLI Connection Is Next)
 
 An analysis job takes the target image, preceding image, effective parameters,
 ROI, loader configuration, and detector configuration. It may also take a region

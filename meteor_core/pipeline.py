@@ -652,7 +652,7 @@ def _resolve_input_loader(
         try:
             return LoaderRegistry.create(loader_name, loader_config)
         except KeyError as e:
-            available = list(LoaderRegistry.list_loaders().keys())
+            available = LoaderRegistry.list_available()
             logger.error(
                 "Loader '%s' not found. Available: %s",
                 loader_name,
