@@ -2,9 +2,9 @@
 
 [日本語版](parameter_analysis_1.6.11_ja.md)
 
-Status: the explicit-pair replay API is implemented and reviewed. The CLI
-for selecting an image, tuning recommendations, and saving adjusted settings are
-not implemented yet.
+Status: the explicit-pair replay API and read-only analysis CLI are
+implemented and reviewed. Tuning recommendations and saving adjusted
+settings are not implemented yet.
 This foundation change does not update the release number; the runtime version
 remains 1.6.10.
 
@@ -167,7 +167,61 @@ Validation for this step:
 - Loaded recorded settings from the user's progress for `P8136507.ORF` and verified `reference_missing` without its preceding image. This does not count as reproducing the original difference-based decision.
 - Ruff lint/format checks and ty type checking passed.
 
-## Input and Reproducibility Design (CLI Connection Is Next)
+## Implementation Step 2: Analysis CLI
+
+Connect the reviewed API to a separate read-only CLI path:
+
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/frame002.ORF \
+  --reference-image rawfiles/frame001.ORF \
+  --analysis-progress previous_run/progress.json
+```
+
+Alternatively, replace `--reference-image` with `--analysis-sequence DIR` to
+select the preceding RAW in an explicitly selected original sequence, using
+normal file collection and filename ordering. Do not infer a sequence from the
+target's parent, the default target folder, or a configuration's target folder.
+The reference-selection methods are mutually exclusive. The first frame has
+no preceding frame. Reject a target outside the selected sequence.
+
+Use `--config` for loader/detector settings and fallback parameters, and
+`--analysis-progress` for original recorded parameters and ROI. Reject swapping
+these input formats. Recorded values override config parameters; explicit
+detection parameter flags override recorded values, with before/after changes
+shown separately. Preserve explicit-override tracking for both `--key value`
+and `--key=value`, including argparse's unambiguous abbreviations. `--roi` and
+`--no-roi` explicitly override ROI and cannot be combined.
+
+Display the pair and reference-selection method, original progress path, image
+dimensions, target metadata, loader identity, effective parameter sources, ROI,
+explicit changes, limitations, decision, rejection reasons, and measurement
+counts. `--verbose` lists contours and line endpoints. Provide English and
+Japanese summaries and Bash/Zsh completion for all four new options.
+
+Return exit status 0 for a measured pair, including rejected frames, 1 for
+configuration/input/processing errors, and 2 for invalid option combinations or
+`reference_missing`. Missing references produce no decision. Check incompatible
+modes before any progress deletion or parameter estimation can run. Reject
+`--auto-params`, `--remove-progress`, `--show-exif`, `--show-npf`,
+`--list-sensor-types`, `--debug-image`, `--progress-file`, and explicit `--target`
+in analysis mode. Other output/performance settings do not invoke the normal
+pipeline. Explicitly requested error diagnostics through `--save-diagnostic`
+retain their existing behavior.
+
+Reject other detectors and configured hooks. Users may explicitly select
+`--hooks ""` for a detector-only replay. Do not create output directories, copy
+candidates, update progress, generate tuning proposals, or save analysis reports
+in this step. See the [option reference](COMMAND_OPTIONS.md) for details.
+
+Validation for this step:
+
+- Added 19 CLI tests; all 614 tests, including the existing suite, passed.
+- On the real `_C140338.ORF`/`_C140337.ORF` pair, explicit reference selection and filename-order sequence selection returned exit status 0 with identical decisions and measurement summaries.
+- With the user's RAW and recorded progress, the Japanese CLI returned `reference_missing` and exit status 2. All three subprocess runs left an empty working directory unchanged, and the original progress bytes were preserved.
+- Ruff lint/format checks, ty, and Bash/Zsh completion syntax checks passed. English/Japanese analysis message keys match.
+
+## Input and Reproducibility Design
 
 An analysis job takes the target image, preceding image, effective parameters,
 ROI, loader configuration, and detector configuration. It may also take a region

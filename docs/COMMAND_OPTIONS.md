@@ -7,6 +7,52 @@ settings, explicitly supplied CLI flags take precedence over the configuration
 file, followed by built-in defaults. Relative paths use the current working
 directory.
 
+## Read-Only Image Analysis (v1.6.11 Development)
+
+- **`--analyze-image IMAGE`**: Analyze one image with the built-in Hough detector without copying candidates or updating progress.
+- **`--reference-image IMAGE`**: Explicit preceding image. Without a reference or an explicitly selected sequence, only target-image information is shown.
+- **`--analysis-sequence DIR`**: Select the preceding RAW using normal file collection and filename ordering within this explicit sequence. Mutually exclusive with `--reference-image`. No reference is available for the first frame.
+- **`--analysis-progress JSON`**: Read original effective parameters and ROI from a progress file. This is separate from `--config` and the normal processing option `--progress-file`.
+
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/frame002.ORF \
+  --reference-image rawfiles/frame001.ORF \
+  --analysis-progress previous_run/progress.json
+```
+
+In analysis mode, parameter precedence is defaults → `--config` values → recorded
+`params` → recorded `processing_params` → explicit detection parameter flags.
+The output shows each value's source and explicit changes from the baseline.
+Both `--min-aspect-ratio 2.0` and `--min-aspect-ratio=2.0` are recognized as explicit
+overrides; these values are examples, not recommendations. Recorded ROI is used
+unless overridden with `--roi` or `--no-roi`; do not specify both.
+
+The summary shows the selected pair, original progress path, loaded image size,
+metadata, effective settings, rejection reasons, and measurement counts.
+`--verbose` also lists contour measurements and Hough segment endpoints.
+`--locale en` and `--locale ja` select the summary language.
+
+Exit status is **0** for a measured pair, regardless of its candidate decision;
+**1** for configuration, input, or processing errors; and **2** for invalid option
+combinations or a missing preceding frame. A missing frame is reported as
+`reference_missing`, with no candidate decision. The target's parent directory,
+default `--target`, and config target folder are never used to guess a sequence.
+
+Analysis rejects `--auto-params`, `--remove-progress`, `--show-exif`, `--show-npf`,
+`--list-sensor-types`, `--debug-image`, `--progress-file`, and explicitly supplied
+`--target`. Use the analysis-specific input options instead. Other pipeline
+output and performance settings do not start a processing run or output handler.
+The existing `--save-diagnostic` option can still explicitly request an error
+diagnostic file; analysis itself does not save reports or images.
+
+Only the built-in Hough detector is supported. Configured hooks are rejected;
+use `--hooks ""` explicitly for a detector-only replay. Original progress alone
+cannot establish the original loader configuration or hook effects. The
+summary identifies those limits and any missing settings filled by defaults.
+Tuning proposals and report/configuration saving are later implementation steps.
+See the [analysis design](parameter_analysis_1.6.11.md).
+
 ## Input/Output Options
 - **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan.
 - **`-o`/`--output`** (default: `candidates`): Destination folder for RAW files flagged as meteor candidates.

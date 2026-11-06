@@ -5,20 +5,20 @@
 ### Next target: v1.6.11 — Missed-meteor analysis and parameter tuning
 
 - [x] Separate built-in Hough measurements, candidate decisions, and debug rendering while preserving detection behavior.
-- [ ] Reproduce a visually confirmed missed meteor using the original image pair, ROI, and effective parameters.
+- [x] Reproduce a visually confirmed missed meteor using the original image pair, ROI, and effective parameters.
 - [ ] Compare bounded parameter adjustments and their effects on the shooting sequence.
 - [ ] Save analysis evidence and a reusable session configuration.
 
-The measurement/decision foundation is complete. The explicit-pair replay API
-is implemented and reviewed; the user-facing CLI and tuning workflow are
-not implemented yet. See the
+The measurement/decision foundation and explicit-pair replay API are reviewed.
+The read-only analysis CLI is implemented and reviewed; tuning and saved
+analysis reports are not implemented yet. See the
 [v1.6.11 design](parameter_analysis_1.6.11.md) for responsibilities,
 input requirements, extension points, and acceptance criteria.
 
 Implementation and review sequence:
 
 1. **Explicit-pair replay API** — implemented and reviewed. Read recorded parameters and ROI, track overrides, and replay the built-in Hough decision without writing files.
-2. **Analysis CLI** — pending. Connect image/reference selection and original-run settings to the API, and display evidence and missing-input conditions.
+2. **Analysis CLI** — implemented and reviewed. Connect explicit image/reference or sequence selection and original-run settings to the API, and display localized evidence and missing-input conditions.
 3. **Bounded tuning and sequence comparison** — pending.
 4. **Analysis reports and reusable session configuration** — pending.
 

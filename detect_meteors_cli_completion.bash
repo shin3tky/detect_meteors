@@ -16,6 +16,10 @@ _detect_meteors_cli_completion() {
     opts="--version -h --help
           --locale
           --config
+          --analyze-image
+          --reference-image
+          --analysis-sequence
+          --analysis-progress
           -t --target
           -o --output
           --debug-dir
@@ -63,7 +67,7 @@ _detect_meteors_cli_completion() {
 
     # Provide directory completion for path arguments
     case "${prev}" in
-        -t|--target|-o|--output|--debug-dir)
+        -t|--target|-o|--output|--debug-dir|--analysis-sequence)
             # Complete with directories
             COMPREPLY=( $(compgen -d -- "${cur}") )
             return 0
@@ -73,9 +77,13 @@ _detect_meteors_cli_completion() {
             COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
             ;;
-        --progress-file)
+        --progress-file|--analysis-progress)
             # Complete with .json files
             COMPREPLY=( $(compgen -f -X '!*.json' -- "${cur}") )
+            return 0
+            ;;
+        --analyze-image|--reference-image)
+            COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
             ;;
         --save-diagnostic)

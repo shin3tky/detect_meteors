@@ -79,6 +79,28 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-leng
 
 Check the `candidates/` folder for detected meteor images.
 
+### Inspect a Missed Candidate (v1.6.11 Development)
+
+To inspect a visually confirmed meteor that was missed, supply its image, the
+preceding image, and the original progress file:
+
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/frame002.ORF \
+  --reference-image rawfiles/frame001.ORF \
+  --analysis-progress previous_run/progress.json
+```
+
+This read-only mode displays effective settings, their sources, and blocking
+conditions. It does not copy candidates or update progress. Use
+`--analysis-sequence DIR` instead of `--reference-image` to select the preceding
+RAW by filename order in an explicitly supplied sequence. Without a reference,
+it reports `reference_missing` and exits with status 2 without making a decision.
+`--verbose` shows contour and line details; `--roi` or `--no-roi` explicitly
+override the original ROI. See the [analysis options](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611-development)
+for parameter precedence and limitations. Automated tuning and report saving
+are planned for subsequent steps.
+
 ## Available Sensor Types
 
 | Sensor Type | Description |

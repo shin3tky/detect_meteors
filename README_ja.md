@@ -79,6 +79,24 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-leng
 
 `candidates/` フォルダに保存された流星候補画像を確認してください。
 
+### 取りこぼし画像の確認（v1.6.11開発中）
+
+目視で流星を確認したのに候補へ入らなかった場合は、対象画像と直前画像、元の進捗を指定して調べられます。
+
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/frame002.ORF \
+  --reference-image rawfiles/frame001.ORF \
+  --analysis-progress previous_run/progress.json
+```
+
+実効設定と値の出所、不採用の条件を表示する読み取り専用モードです。候補コピーや進捗更新は行いません。
+`--reference-image` の代わりに `--analysis-sequence DIR` を使うと、明示した撮影系列の
+ファイル名順で直前のRAWを選択します。参照がない場合は `reference_missing` と終了コード2を返し、判定しません。
+`--verbose` で輪郭と線分の詳細を表示し、`--roi` または `--no-roi` で元のROIを明示的に変更できます。
+`--locale ja` で日本語を指定できます。優先順位と制約は[分析CLIの設計](docs/parameter_analysis_1.6.11_ja.md#実装ステップ2-分析cli)を参照してください。
+調整案の自動生成とレポート保存は、今後のステップで実装します。
+
 ## 対応するセンサータイプ
 
 | センサータイプ | 説明 |

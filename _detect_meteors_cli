@@ -17,6 +17,10 @@ _detect_meteors_cli() {
         '(- *)--version[Show version and exit]'
         '--locale[Locale code for CLI messages]:locale:(en ja)'
         '--config[Pipeline configuration file (YAML/JSON)]:file:_files'
+        '--analyze-image[Analyze one image without saving candidates or progress]:image:_files'
+        '(--analysis-sequence)--reference-image[Explicit preceding image for analysis]:image:_files'
+        '(--reference-image)--analysis-sequence[Original sequence folder for preceding-frame selection]:directory:_directories'
+        '--analysis-progress[Original progress supplying parameters and ROI]:file:_files -g "*.json"'
         
         # Input/Output options
         '(-t --target)'{-t,--target}'[Input RAW image folder]:directory:_directories'

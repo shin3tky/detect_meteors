@@ -78,6 +78,16 @@ from meteor_core import (
 from meteor_core.utils import _display_width, _pad_label
 
 
+class _TrackExplicitOption(argparse.Action):
+    """Retain explicit values, including argparse abbreviations and --key=value."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        explicit: set[str] = set(getattr(namespace, "_explicit_options", ()))
+        explicit.add(self.dest)
+        namespace._explicit_options = explicit
+        setattr(namespace, self.dest, values)
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the CLI."""
     default_locale = os.environ.get("DETECT_METEORS_LOCALE", "en")
@@ -106,8 +116,35 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    analysis_group = parser.add_argument_group("Missed-meteor analysis (read-only)")
+    analysis_group.add_argument(
+        "--analyze-image",
+        metavar="IMAGE",
+        help="Analyze one image without saving candidates or progress",
+    )
+    reference_group = analysis_group.add_mutually_exclusive_group()
+    reference_group.add_argument(
+        "--reference-image",
+        metavar="IMAGE",
+        help="Explicit preceding image for --analyze-image",
+    )
+    reference_group.add_argument(
+        "--analysis-sequence",
+        metavar="DIR",
+        help="Original sequence folder; select the preceding RAW in normal filename order",
+    )
+    analysis_group.add_argument(
+        "--analysis-progress",
+        metavar="JSON",
+        help="Original progress file supplying recorded parameters and ROI",
+    )
+
     parser.add_argument(
-        "-t", "--target", default=DEFAULT_TARGET_FOLDER, help="Input RAW image folder"
+        "-t",
+        "--target",
+        default=DEFAULT_TARGET_FOLDER,
+        action=_TrackExplicitOption,
+        help="Input RAW image folder",
     )
     parser.add_argument(
         "-o",
@@ -186,18 +223,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--diff-threshold",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_DIFF_THRESHOLD,
         help=f"Threshold for difference binarization (default: {DEFAULT_DIFF_THRESHOLD})",
     )
     parser.add_argument(
         "--min-area",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_MIN_AREA,
         help=f"Minimum contour area (default: {DEFAULT_MIN_AREA})",
     )
     parser.add_argument(
         "--min-aspect-ratio",
+        action=_TrackExplicitOption,
         type=float,
         default=DEFAULT_MIN_ASPECT_RATIO,
         help=f"Minimum aspect ratio (default: {DEFAULT_MIN_ASPECT_RATIO})",
@@ -205,24 +245,28 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--hough-threshold",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_HOUGH_THRESHOLD,
         help=f"Hough line detection threshold (default: {DEFAULT_HOUGH_THRESHOLD})",
     )
     parser.add_argument(
         "--hough-min-line-length",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_HOUGH_MIN_LINE_LENGTH,
         help=f"Minimum line length (default: {DEFAULT_HOUGH_MIN_LINE_LENGTH})",
     )
     parser.add_argument(
         "--hough-max-line-gap",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_HOUGH_MAX_LINE_GAP,
         help=f"Maximum line gap (default: {DEFAULT_HOUGH_MAX_LINE_GAP})",
     )
     parser.add_argument(
         "--min-line-score",
+        action=_TrackExplicitOption,
         type=float,
         default=DEFAULT_MIN_LINE_SCORE,
         help=f"Minimum line score (default: {DEFAULT_MIN_LINE_SCORE})",
@@ -294,7 +338,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--validate-raw", action="store_true", help="Validate RAW files first"
     )
     parser.add_argument(
-        "--progress-file", default=DEFAULT_PROGRESS_FILE, help="Progress JSON file path"
+        "--progress-file",
+        default=DEFAULT_PROGRESS_FILE,
+        action=_TrackExplicitOption,
+        help="Progress JSON file path",
     )
     parser.add_argument(
         "--no-resume", action="store_true", help="Ignore existing progress"
@@ -556,8 +603,9 @@ def _build_hook_configs(
     return configs
 
 
-def _build_pipeline_config(args) -> PipelineConfig:
-    base_config = load_pipeline_config(args.config) if args.config else None
+def _build_pipeline_config(args, *, base_config=None) -> PipelineConfig:
+    if base_config is None and args.config:
+        base_config = load_pipeline_config(args.config)
     base_params = base_config.params if base_config else None
 
     params = DetectionParams(
@@ -2322,10 +2370,123 @@ def detect_meteors_advanced(
     return detected_count
 
 
+def _validate_analysis_options(parser, args) -> None:
+    """Check analysis routing before any action can delete or write files."""
+    if args.analyze_image is None:
+        if any(
+            value is not None
+            for value in (
+                args.reference_image,
+                args.analysis_sequence,
+                args.analysis_progress,
+            )
+        ):
+            parser.error(
+                "--reference-image, --analysis-sequence, and --analysis-progress require --analyze-image"
+            )
+        return
+    incompatible = (
+        "remove_progress",
+        "auto_params",
+        "show_exif",
+        "show_npf",
+        "list_sensor_types",
+        "debug_image",
+        "progress_file",
+        "target",
+    )
+    explicit = getattr(args, "_explicit_options", ())
+    used = [
+        "--" + name.replace("_", "-")
+        for name in incompatible
+        if (
+            name in explicit
+            if name in ("progress_file", "target")
+            else getattr(args, name)
+        )
+    ]
+    if used:
+        parser.error(
+            "--analyze-image cannot be combined with "
+            + ", ".join(used)
+            + "; use --analysis-progress and --analysis-sequence for original-run inputs"
+        )
+    if args.roi is not None and args.no_roi:
+        parser.error("--roi and --no-roi cannot be combined during analysis")
+
+
+def _run_image_analysis(args):
+    """Resolve explicit analysis inputs without starting the output pipeline."""
+    from meteor_core.analysis import load_reproduction_settings, reproduce_hough_pair
+    from meteor_core.analysis_cli import display_reproduction, select_reference_image
+    from meteor_core.config_io import _load_config_mapping
+    from meteor_core.detectors.hough_default import HoughDetector
+    from meteor_core.pipeline import _resolve_detector
+
+    base = load_pipeline_config(args.config) if args.config else None
+    if args.config:
+        data = _load_config_mapping(Path(args.config))
+        if any(
+            key in data for key in ("processed_files", "detected_files", "params_hash")
+        ):
+            raise MeteorConfigError(
+                "Use --analysis-progress for a progress file, not --config"
+            )
+    config = _build_pipeline_config(args, base_config=base)
+    try:
+        detector = _resolve_detector(
+            detector_name=config.detector_name or HoughDetector.plugin_name,
+            detector_config=config.detector_config,
+        )
+    except (TypeError, ValueError) as exc:
+        raise MeteorConfigError(
+            "Invalid analysis detector configuration", original_error=exc
+        ) from exc
+    if type(detector) is not HoughDetector:
+        raise MeteorConfigError(
+            "Image analysis currently supports only the built-in Hough detector"
+        )
+    if config.hooks:
+        raise MeteorConfigError(
+            'Image analysis does not run hooks; use --hooks "" for a detector-only replay'
+        )
+    overrides = {
+        name: getattr(args, name)
+        for name in DetectionParams().to_dict()
+        if name in getattr(args, "_explicit_options", ())
+    }
+    settings = load_reproduction_settings(
+        params=base.params if base is not None else None,
+        progress_path=args.analysis_progress,
+        parameter_overrides=overrides,
+        roi_polygon=parse_roi_polygon_string(args.roi)
+        if args.roi is not None
+        else None,
+        use_full_image=args.no_roi,
+    )
+    reference, source = select_reference_image(
+        args.analyze_image,
+        reference_image=args.reference_image,
+        sequence_folder=args.analysis_sequence,
+    )
+    replay = reproduce_hough_pair(
+        args.analyze_image,
+        reference,
+        settings=settings,
+        loader_name=config.input_loader_name,
+        loader_config=config.input_loader_config,
+    )
+    display_reproduction(
+        replay, reference_source=source, locale=args.locale, verbose=args.verbose
+    )
+    return replay
+
+
 def main():
     """Main entry point for the CLI."""
     parser = build_arg_parser()
     args = parser.parse_args()
+    _validate_analysis_options(parser, args)
     cli_param_string = shlex.join(sys.argv[1:])
 
     args.locale = args.locale or os.environ.get("DETECT_METEORS_LOCALE", "en")
@@ -2334,6 +2495,12 @@ def main():
     _configure_logging(args.verbose)
 
     try:
+        if args.analyze_image is not None:
+            replay = _run_image_analysis(args)
+            if replay.status == "reference_missing":
+                sys.exit(2)
+            return
+
         if args.remove_progress:
             if os.path.exists(args.progress_file):
                 os.remove(args.progress_file)

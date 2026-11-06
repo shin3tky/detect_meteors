@@ -2,14 +2,15 @@
 
 [日本語版](CHANGELOG_ja.md)
 
-## Unreleased — v1.6.11 foundation
+## Unreleased — v1.6.11
 
 - Separate built-in Hough image measurements, candidate threshold evaluation, and debug rendering without changing the v1.x candidate rule or plugin contracts.
 - Allow explicit re-evaluation of area, aspect-ratio, and score thresholds against measured evidence, with rejection reasons and optional rendering for non-candidates.
 - Share Hough line scoring between the detector method and the compatibility function.
-- Add a read-only explicit-pair Hough replay API with recorded parameter/ROI loading, value provenance, explicit overrides, and missing-reference handling. CLI integration remains pending review.
+- Add a read-only explicit-pair Hough replay API with recorded parameter/ROI loading, value provenance, explicit overrides, and missing-reference handling.
+- Add `--analyze-image`, `--reference-image`, `--analysis-sequence`, and `--analysis-progress` for read-only CLI analysis, with localized summaries, verbose contour/line evidence, explicit override tracking, and Bash/Zsh completion.
 - Fix the shared unknown-input-loader error path to use the registry's existing `list_available()` method.
-- Document the planned [missed-meteor analysis and session parameter tuning workflow](parameter_analysis_1.6.11.md). The user-facing analysis/tuning feature is not implemented in this foundation change; the runtime version remains 1.6.10.
+- Document the [missed-meteor analysis and session parameter tuning workflow](parameter_analysis_1.6.11.md). Tuning proposals and report/configuration saving remain pending; the runtime version remains 1.6.10.
 
 ## v1.6.10 - 2026-10-06 - 🌠 Make Your Dream Come True Day
 
