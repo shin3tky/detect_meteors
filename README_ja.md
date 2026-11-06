@@ -16,16 +16,16 @@
 
 📅 **流星撮影を計画していますか？** 今後の流星群の日程や観測のヒントは、[流星群カレンダー](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar)を参照してください。
 
+🌠 **2026年11月の流星群**：[Meteor Showers 2026（11月）](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#november-2026)を参照してください。
+
 > [!TIP]
-> 🌠 **2026年10月の流星群！**
->
-> - **オリオン座流星群（Orionids）：2026年10月21〜22日**。[オリオン座流星群の詳細](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#orionids)で、極大夜の観測条件や撮影のヒントを確認してください。
+> 目視で確認した流星が候補に入らなかったときは、閾値を変える前に[元の画像ペアと設定を確認](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611)できます。
 
 ## 特徴
 
 - **自動調整**：NPF Ruleに基づきEXIFメタデータを解析し、検出パラメータを科学的に調整します。
 - **実画像での検証**：プロジェクトの実画像テストデータ（OM Digital OM-1、1,000枚以上のRAW画像）では検出率100%を報告しています。結果は撮影条件やパラメータによって変わります。
-- **RAW形式への対応**：[`rawpy`](https://github.com/letmaik/rawpy)が対応する形式を利用できます。
+- **RAW形式への対応**：[`meteor_core/schema.py`](meteor_core/schema.py)に列挙した拡張子を収集し、[`rawpy`](https://github.com/letmaik/rawpy)で読み込みます。カメラへの対応はLibRawに依存します。
 - **画像処理と再開機能**：ROIによる領域の絞り込み、Hough変換による線分検出、中断後に再開できるバッチ処理に対応します。
 - **高速処理**：マルチコア並列処理で、1画像あたり約0.18秒の処理実績があります。
 
@@ -34,6 +34,8 @@
 - Python 3.12、3.13
 - macOS、Windows、Linux
 - 依存ライブラリ：`numpy`、`opencv-python`、`rawpy`、`psutil`、`pillow`、`pydantic`、`pyyaml`
+
+固定バージョンは[インストールガイド](docs/INSTALL_ja.md#依存ライブラリのバージョンv1611)を参照。
 
 ## インストール
 
@@ -77,7 +79,51 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-leng
 
 ### 手順3：候補を確認する
 
-`candidates/` フォルダに保存された流星候補画像を確認してください。
+`candidates/` フォルダーに保存された流星候補画像を確認してください。
+
+### 取りこぼし画像の確認（v1.6.11）
+
+目視で流星を確認したのに候補へ入らなかった場合は、対象画像と直前画像、元の進捗を指定します。
+実効設定、値の出所、不採用の条件を確認できます。
+
+```bash
+uv run python detect_meteors_cli.py \
+  --analyze-image rawfiles/frame002.ORF \
+  --reference-image rawfiles/frame001.ORF \
+  --analysis-progress previous_run/progress.json --locale ja
+```
+
+候補コピーや進捗更新は行いません。`--verbose` で輪郭と線分の詳細を表示し、
+`--tune-params` で範囲を限定した調整案を生成します。`--reference-image` の代わりに
+`--analysis-sequence DIR` を使うと、明示した系列のファイル名順で直前RAWを選択します。
+参照がない場合は `reference_missing` と終了コード2を返し、判定しません。
+
+#### 同梱サンプルで調整を試す
+
+リポジトリのルートで次を実行できます。比率閾値を意図的に高くして取りこぼしを作り、
+実測値に基づく緩和案を確認する例です。
+
+```bash
+uv run python detect_meteors_cli.py \
+  --analyze-image rawfiles/2024GEMINI_AIRCRAFT/_C140338.ORF \
+  --reference-image rawfiles/2024GEMINI_AIRCRAFT/_C140337.ORF \
+  --diff-threshold 9 --min-area 3 --min-line-score 30 \
+  --min-aspect-ratio 20 --no-roi --tune-params --locale ja
+```
+
+数値は動作例であり、カメラやレンズの推奨値ではありません。このサンプルには確認済み流星と
+飛行機が映っています。候補フレームになったことと、その流星を検出したことは区別してください。
+RAWサンプルはリポジトリに収録され、Python配布物には含まれません。
+
+`--analysis-output analysis/review-001` を追加すると、**新規**フォルダーへJSONレポートと
+PNGの証拠画像を保存します。案を確認した後、同じオプションに `--analysis-proposal 1` を付け、
+別の新規出力先で再実行すると、先頭の調整案を `session.yaml` に保存できます。
+採用時は `uv run python detect_meteors_cli.py --config DIR/session.yaml` で通常検出を実行します。
+出力先は `DIR/run` です。調整案は自動適用しません。
+
+系列比較、既知流星の指定、探索上限、ROIの変更は
+[オプション一覧](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611)と
+[リリースノート](docs/RELEASE_NOTES_1.6_ja.md#バージョン16112026-11-07)を参照してください。
 
 ## 対応するセンサータイプ
 
@@ -104,7 +150,7 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-leng
   - `--debug-image` と `--debug-dir` による任意のデバッグマスク
   - 処理の再開に使う `progress.json`
 
-既定の `hough` 検出器は、隣接フレームの絶対差分を求め、しきい値処理、ROIの適用、モルフォロジーのオープニング処理を行います。その後、輪郭の面積・縦横比と、Hough変換で得た線分の長さの合計を調べます。これらは候補を選ぶためのヒューリスティックです。機械学習による分類はロードマップに含まれています。ROI座標、検出する線分の長さや領域の面積は、ビニング後の画像を基準にします。
+既定の `hough` 検出器は、隣接フレームの絶対差分を求め、閾値処理、ROIの適用、モルフォロジーのオープニング処理を行います。その後、輪郭の面積・縦横比と、Hough変換で得た線分の長さの合計を調べます。これらは候補を選ぶためのヒューリスティックです。機械学習による分類はロードマップに含まれています。ROI座標、検出する線分の長さや領域の面積は、ビニング後の画像を基準にします。
 
 ## 設定ファイル（YAML/JSON）
 
@@ -115,6 +161,7 @@ CLIと `load_pipeline_config()` は一部の設定だけを指定したファイ
 
 - `target_folder`、`output_folder`、`debug_folder`（既定：`rawfiles`、`candidates`、`debug_masks`）
 - `params`（検出パラメータ）
+- `roi_polygon`、`enable_roi_selection`（保存ROIと対話選択の設定）
 - `num_workers`、`batch_size`、`auto_batch_size`、`enable_parallel`
 - `progress_file`、`output_overwrite`
 - `input_loader_name`、`input_loader_config`
@@ -141,7 +188,7 @@ detector_name: hough
 output_handler_name: file
 ```
 
-RAWローダーの既定値は `normalize: false` です。`true` にすると画素を [0, 1] の範囲の `float32` として返し、パイプラインはそれに合わせて `diff_threshold` を調整します。組み込みHough検出器のしきい値は `params` で指定し、`detector_config` には空の設定を渡せます。ファイル出力ハンドラーの上書き制御には、`overwrite` ではなく `output_overwrite` を使います。
+RAWローダーの既定値は `normalize: false` です。`true` にすると画素を [0, 1] の範囲の `float32` として返し、パイプラインはそれに合わせて `diff_threshold` を調整します。組み込みHough検出器の閾値は `params` で指定し、`detector_config` には空の設定を渡せます。ファイル出力ハンドラーの上書き制御には、`overwrite` ではなく `output_overwrite` を使います。
 
 `output_handler_name: file` を明示的に選ぶ場合は、保存先と上書き動作を `output_handler_config` で指定してください。省略したフィールドにはハンドラー自身の既定値を使います。最上位の `output_folder`、`debug_folder`、`output_overwrite` を引き継ぐには、`output_handler_name` を省略し、既定のファイルハンドラーを使ってください。
 
@@ -153,7 +200,7 @@ RAWローダーの既定値は `normalize: false` です。`true` にすると�
 uv run python detect_meteors_cli.py --config config_examples/pipeline.yaml
 ```
 
-`--input-loader`、`--detector`、`--output-handler` などのCLIオプションで、使用するプラグインを上書きできます。プラグイン設定はJSON/YAML文字列またはファイルパスで渡せます。従来のパラメータオプション（`--diff-threshold` など）は引き続き `PipelineConfig.params` に反映されますが、今後は設定ファイルへの移行に伴い非推奨になる予定です。
+`--input-loader`、`--detector`、`--output-handler` などのCLIオプションで、使用するプラグインを上書きできます。プラグイン設定はJSON/YAML文字列またはファイルパスで渡せます。従来のパラメータオプション（`--diff-threshold` など）は引き続き `PipelineConfig.params` に反映されますが、通常実行では設定ファイルへの移行を促す非推奨警告を表示します。通常実行で設定値を上書きするときは `--diff-threshold 12` のように完全なオプション名と値を空白で区切ってください。[書式の制限](docs/COMMAND_OPTIONS.md#normal-run-override-syntax)も参照してください。
 
 **Pythonでの使用例**
 
@@ -206,17 +253,19 @@ RAWファイルとチェックサムは、リポジトリの [`rawfiles/2024GEMI
 | [飛行機サンプルの検証](docs/aircraft_sample_validation.md) | 12枚のサンプルでの結果と制約 |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | 技術的な詳細 |
 
-## v1.6.10の新機能
+## v1.6.11の新機能
 
-**リリース日：2026年10月6日（2026-10-06）— 🌠 夢をかなえる日。** 1.6.9はスキップし、v1.6.8の次のリリースをv1.6.10とします。
+**リリース日：2026年11月7日（2026-11-07）。**
 
-- **ソート済み検出フック**：時系列順の検出解析に使う新しいパイプラインフック
-  - `on_batch_results_sorted`：フレーム順を保証するバッチ単位のフック
-  - `on_all_detections_sorted`：フレームをまたいで解析する、パイプライン処理後のフック
-- **SortedDetectionデータクラス**：ソート済みフックに使う、メモリ効率のよい軽量コンテナ
-- **AircraftTrailHookの改善**：エラー処理、ログ出力、360°の角度正規化により堅牢性を向上
+- 1.6系の検出基盤を整理し、並列処理の保存エラーを逐次処理と同じ扱いに修正。
+- 実行時・開発用の依存パッケージを更新し、[上流のセキュリティ修正](docs/CHANGELOG_ja.md#security-updates-1611)を取り込み。
+- 元の画像ペア、記録済み設定、ROIを使い、候補にならなかった理由を確認。
+- 範囲を限定した調整案を導出し、撮影系列への影響を比較。
+- JSON/PNGの証拠と、明示的に選んだ再処理用の設定を保存。
+- 設定済みROIの再利用と、`detect-meteors` を含むBash/Zshでの分析オプション補完。
 
-詳しい移行情報は[RELEASE_NOTES_1.6_ja.md](docs/RELEASE_NOTES_1.6_ja.md)を参照してください。
+使い方は[リリースノート](docs/RELEASE_NOTES_1.6_ja.md#バージョン16112026-11-07)、
+変更全体は[CHANGELOG](docs/CHANGELOG_ja.md#v1611---2026-11-07)を参照してください。
 
 ### 以前のリリース
 
@@ -226,7 +275,7 @@ RAWファイルとチェックサムは、リポジトリの [`rawfiles/2024GEMI
 | v1.5.x | プラグイン構成、センサープリセット、魚眼対応 | [RELEASE_NOTES_1.5.md](docs/RELEASE_NOTES_1.5.md) |
 | v1.4.x | NPF Ruleによる最適化、EXIF抽出 | [RELEASE_NOTES_1.4.md](docs/RELEASE_NOTES_1.4.md) |
 | v1.3.x | パラメータの自動推定 | [RELEASE_NOTES_1.3.md](docs/RELEASE_NOTES_1.3.md) |
-| v1.2.x | しきい値推定の改善 | [RELEASE_NOTES_1.2.md](docs/RELEASE_NOTES_1.2.md) |
+| v1.2.x | 閾値推定の改善 | [RELEASE_NOTES_1.2.md](docs/RELEASE_NOTES_1.2.md) |
 
 全リリース履歴は[CHANGELOG_ja.md](docs/CHANGELOG_ja.md)を参照してください。
 

@@ -201,14 +201,6 @@
   - [x] Typed factory casts and validator callable pattern
   - [x] `MAX_NUM_WORKERS` constant with pipeline/CLI validation
 
-### Pending (Deferred from v1.x)
-The following features were originally planned for v1.x but have been deferred:
-
-- [ ] Camera model database for automatic sensor detection from EXIF
-- [ ] Per-image adaptive parameter adjustment
-- [ ] Declination support with GPS coordinate extraction
-- [ ] Advanced quality metrics (focus quality, atmospheric transparency)
-
 ### Sorted Detection Analysis
 - [x] **v1.6.10 (2026-10-06) 🌠 Make Your Dream Come True Day** - Frame-ordered hooks and aircraft trail metadata (v1.6.9 skipped)
   - [x] `SortedDetection` records without image payloads
@@ -217,6 +209,30 @@ The following features were originally planned for v1.x but have been deferred:
   - [x] Sorted hooks executed in the main process, including parallel runs
   - [x] Built-in `aircraft_trail` hook with geometric tracking and likelihood/evidence metadata in `progress.json`
   - [x] Aircraft analysis preserves candidate decisions and scores
+
+### Missed-Meteor Analysis and Parameter Tuning
+- [x] **v1.6.11 (2026-11-07)** - Consolidate the 1.6 foundation and support missed-candidate analysis
+  - [x] Separate Hough measurements, threshold decisions, and debug rendering while preserving normal detection behavior
+  - [x] Read-only image-pair replay API and CLI with recorded parameters, ROI, provenance, and rejection reasons
+  - [x] Bounded contour-derived tuning, optional finite measurement grids, and annotated target regions
+  - [x] Sequence comparison with added/lost candidates, known-positive coverage, and explicit work limits
+  - [x] Versioned JSON/PNG analysis bundles and explicitly selected reusable session configurations
+  - [x] Persist ROI in pipeline configuration and support Bash/Zsh completion for the analysis workflow
+  - [x] Align parallel candidate-save failures with sequential error propagation
+  - [x] Add hook/error regression coverage, including real spawn workers (681 tests pass)
+  - [x] Update runtime/development dependencies and document upstream security fixes
+
+See the [release notes](RELEASE_NOTES_1.6.md#version-1611-2026-11-07) for usage
+and the [design and validation record](parameter_analysis_1.6.11.md) for the
+four reviewed implementation steps and extension points.
+
+### Pending (Deferred from v1.x)
+The following features were originally planned for v1.x but have been deferred:
+
+- [ ] Camera model database for automatic sensor detection from EXIF
+- [ ] Per-image adaptive parameter adjustment
+- [ ] Declination support with GPS coordinate extraction
+- [ ] Advanced quality metrics (focus quality, atmospheric transparency)
 
 ## Version 2.x - Architecture and Extensibility
 
@@ -266,5 +282,5 @@ The following features were originally planned for v1.x but have been deferred:
 
 ---
 
-**Current Status**: v1.6.10, released 2026-10-06 - 🌠 Make Your Dream Come True Day (Sorted Detection Hooks and Aircraft Trail Metadata; v1.6.9 skipped)
+**Current Status**: v1.6.11, released 2026-11-07 — Missed-Meteor Analysis and Parameter Tuning
 **Next Focus**: v2.0 Architecture and Extensibility - Pipeline modularity and plugin ecosystem

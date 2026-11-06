@@ -22,7 +22,7 @@ ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
 # ==========================================
 # Version
 # ==========================================
-VERSION = "1.6.10"
+VERSION = "1.6.11"
 DETECTION_CONTEXT_SCHEMA_VERSION = 1
 DETECTION_RESULT_SCHEMA_VERSION = 1
 INPUT_CONTEXT_SCHEMA_VERSION = 1
@@ -389,6 +389,31 @@ def normalize_hook_configs(hooks_data: Any) -> Optional[List[HookConfig]]:
     raise TypeError(f"hooks must be a list or mapping, got {type(hooks_data).__name__}")
 
 
+def normalize_roi_polygon(value: Any) -> Optional[List[List[int]]]:
+    """Normalize serializable ROI coordinates without importing image libraries."""
+    if value is None:
+        return None
+    if (
+        not isinstance(value, (list, tuple))
+        or len(value) < 3
+        or not all(
+            isinstance(point, (list, tuple))
+            and len(point) == 2
+            and all(
+                isinstance(coord, int)
+                and not isinstance(coord, bool)
+                and -(2**31) <= coord < 2**31
+                for coord in point
+            )
+            for point in value
+        )
+    ):
+        raise ValueError(
+            "ROI must be null or a polygon with at least three integer points"
+        )
+    return [[point[0], point[1]] for point in value]
+
+
 @dataclass
 class PipelineConfig:
     """Configuration for MeteorDetectionPipeline.
@@ -415,6 +440,8 @@ class PipelineConfig:
         output_handler_name: Name of output handler to use (e.g., "file"). If None, uses default.
         output_handler_config: Configuration dict for the output handler.
         hooks: Ordered list of hooks to run (each with name/config). None skips hooks.
+        roi_polygon: Optional ROI in loaded-image coordinates, retained in saved sessions.
+        enable_roi_selection: Whether to open ROI selection when no polygon is supplied.
 
     Example:
         >>> config = PipelineConfig(
@@ -456,6 +483,8 @@ class PipelineConfig:
 
     # Hook configuration
     hooks: Optional[List[HookConfig]] = None
+    roi_polygon: Optional[List[List[int]]] = None
+    enable_roi_selection: bool = DEFAULT_ENABLE_ROI_SELECTION
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
@@ -472,6 +501,9 @@ class PipelineConfig:
             )
         if self.hooks is not None:
             self.hooks = normalize_hook_configs(self.hooks)
+        self.roi_polygon = normalize_roi_polygon(self.roi_polygon)
+        if not isinstance(self.enable_roi_selection, bool):
+            raise ValueError("enable_roi_selection must be a boolean")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary.
@@ -500,6 +532,8 @@ class PipelineConfig:
             "hooks": [hook.to_dict() for hook in self.hooks]
             if self.hooks is not None
             else None,
+            "roi_polygon": self.roi_polygon,
+            "enable_roi_selection": self.enable_roi_selection,
         }
 
     @staticmethod
@@ -545,6 +579,10 @@ class PipelineConfig:
             output_handler_config=data.get("output_handler_config"),
             hook_error_mode=data.get("hook_error_mode", "raise"),
             hooks=normalize_hook_configs(data.get("hooks")),
+            roi_polygon=data.get("roi_polygon"),
+            enable_roi_selection=data.get(
+                "enable_roi_selection", DEFAULT_ENABLE_ROI_SELECTION
+            ),
         )
 
     @classmethod
@@ -587,6 +625,12 @@ class PipelineConfig:
             config.hook_error_mode = data["hook_error_mode"]
         if "hooks" in data:
             config.hooks = normalize_hook_configs(data.get("hooks"))
+        if "roi_polygon" in data:
+            config.roi_polygon = normalize_roi_polygon(data["roi_polygon"])
+        if "enable_roi_selection" in data:
+            if not isinstance(data["enable_roi_selection"], bool):
+                raise ValueError("enable_roi_selection must be a boolean")
+            config.enable_roi_selection = data["enable_roi_selection"]
         return config
 
     @classmethod

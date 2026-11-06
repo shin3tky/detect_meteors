@@ -17,6 +17,7 @@ import cv2
 import numpy as np
 
 from .base import BaseDetector
+from .hough_analysis import CandidateThresholds, ContourMeasurement, HoughAnalysis
 from meteor_core.schema import DetectionContext, DetectionResult
 from meteor_core.utils import ensure_numpy
 
@@ -69,15 +70,46 @@ class HoughDetector(BaseDetector):
         self,
         context: DetectionContext,
     ) -> DetectionResult:
+        """Measure the image pair and apply the existing v1.x candidate rule."""
+        start_time = time.perf_counter()
+        analysis = self.analyze(context)
+        decision = analysis.evaluate()
+        debug_image = analysis.render_debug(decision) if decision.is_candidate else None
+        metrics = {
+            "duration_ms": (time.perf_counter() - start_time) * 1000.0,
+            "num_contours": len(analysis.contours),
+            "mask_area": int(np.count_nonzero(analysis.mask)),
+            "hough_votes": len(analysis.lines),
+        }
+        logger.debug(
+            "Detection finished: candidate=%s, line_score=%.2f, max_aspect_ratio=%.2f",
+            decision.is_candidate,
+            analysis.score,
+            decision.max_aspect_ratio,
+        )
+        return DetectionResult(
+            is_candidate=decision.is_candidate,
+            score=analysis.score,
+            lines=analysis.lines,
+            aspect_ratio=decision.max_aspect_ratio,
+            debug_image=debug_image,
+            extras={},
+            metrics=metrics,
+        )
+
+    def analyze(self, context: DetectionContext) -> HoughAnalysis:
         """
-        Detect meteor candidates by comparing two consecutive frames.
+        Measure an image pair independently of candidate thresholds.
 
         Args:
             context: DetectionContext containing image data, ROI mask,
                 runtime parameters, and metadata.
 
         Returns:
-            DetectionResult with detection outcome and diagnostics.
+            HoughAnalysis with the mask, line evidence, and contour geometry.
+            The caller may re-evaluate area, ratio, and score thresholds without
+            recomputing image measurements. This is a built-in Hough extension;
+            the BaseDetector plugin contract remains unchanged.
         """
         current_image = ensure_numpy(context.current_image)
         previous_image = ensure_numpy(context.previous_image)
@@ -132,7 +164,6 @@ class HoughDetector(BaseDetector):
             logger.error("Missing required Hough detection parameters.")
             raise ValueError("Invalid detection parameters supplied to HoughDetector")
 
-        start_time = time.perf_counter()
         try:
             # Calculate difference
             diff = cv2.absdiff(current_image, previous_image)
@@ -162,66 +193,15 @@ class HoughDetector(BaseDetector):
                 mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
 
-            is_candidate = False
-            debug_img = None
-            max_aspect_ratio = 0.0
-
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-
-                if area > params["min_area"]:
-                    rect = cv2.minAreaRect(cnt)
-                    (w, h) = rect[1]
-
-                    if w == 0 or h == 0:
-                        logger.debug("Skipping contour with zero width/height.")
-                        continue
-
-                    long_side = max(w, h)
-                    short_side = min(w, h)
-                    aspect_ratio = long_side / max(short_side, 1)
-                    max_aspect_ratio = max(max_aspect_ratio, aspect_ratio)
-
-                    if (
-                        aspect_ratio > params["min_aspect_ratio"]
-                        and line_score >= params["min_line_score"]
-                    ):
-                        is_candidate = True
-
-                        if debug_img is None:
-                            debug_img = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-                            for x1, y1, x2, y2 in hough_lines:
-                                cv2.line(
-                                    debug_img, (x1, y1), (x2, y2), (0, 255, 255), 1
-                                )
-
-                        box = cv2.boxPoints(rect)
-                        box = np.int64(box)
-                        cv2.drawContours(debug_img, [box], 0, (0, 0, 255), 2)
-
-            duration_ms = (time.perf_counter() - start_time) * 1000.0
-            mask_area = int(np.count_nonzero(mask))
-            metrics = {
-                "duration_ms": duration_ms,
-                "num_contours": len(contours),
-                "mask_area": mask_area,
-                "hough_votes": len(hough_lines),
-            }
-
-            logger.debug(
-                "Detection finished: candidate=%s, line_score=%.2f, max_aspect_ratio=%.2f",
-                is_candidate,
-                line_score,
-                max_aspect_ratio,
+            measurements = tuple(
+                ContourMeasurement.from_contour(contour) for contour in contours
             )
-            return DetectionResult(
-                is_candidate=is_candidate,
+            return HoughAnalysis(
+                mask=mask,
                 score=line_score,
                 lines=hough_lines,
-                aspect_ratio=max_aspect_ratio,
-                debug_image=debug_img,
-                extras={},
-                metrics=metrics,
+                contours=measurements,
+                thresholds=CandidateThresholds.from_params(params),
             )
         except Exception as exc:  # pragma: no cover - safety net
             logger.exception("Error during HoughDetector detection: %s", exc)
@@ -240,34 +220,7 @@ class HoughDetector(BaseDetector):
         Returns:
             Tuple of (score, line_segments)
         """
-        # Early return if few edges
-        if np.count_nonzero(mask) < hough_params["min_line_length"]:
-            return 0.0, []
-
-        lines = cv2.HoughLinesP(
-            mask,
-            1,
-            np.pi / 180,
-            hough_params["threshold"],
-            minLineLength=hough_params["min_line_length"],
-            maxLineGap=hough_params["max_line_gap"],
-        )
-
-        if lines is None:
-            return 0.0, []
-
-        # Vectorize for speed
-        lines_array = lines.reshape(-1, 4)
-        dx = lines_array[:, 2] - lines_array[:, 0]
-        dy = lines_array[:, 3] - lines_array[:, 1]
-        lengths = np.sqrt(dx * dx + dy * dy)
-
-        score = float(np.sum(lengths))
-        line_segments = [
-            (int(x1), int(y1), int(x2), int(y2)) for x1, y1, x2, y2 in lines_array
-        ]
-
-        return score, line_segments
+        return compute_line_score_fast(mask, hough_params)
 
 
 # Standalone function for backward compatibility

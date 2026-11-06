@@ -7,6 +7,209 @@ settings, explicitly supplied CLI flags take precedence over the configuration
 file, followed by built-in defaults. Relative paths use the current working
 directory.
 
+<a id="normal-run-override-syntax"></a>
+
+## Normal-Run Override Syntax
+
+When normal detection combines `--config` with detection-parameter, folder,
+worker/batch, or progress-path overrides, use full option names with separate
+values, for example `--diff-threshold 12` and `--workers 2`. The current normal-run
+merge checks the original argument tokens: `--diff-threshold=12` or an abbreviated
+option may parse successfully but fail to override the config value. Explicit
+parameter detection for `--auto-params` has the same syntax limitation.
+Analysis detection-parameter flags track explicit values separately and accept
+both `--option value` and `--option=value`.
+
+## Read-Only Image Analysis (v1.6.11)
+
+- **`--analyze-image IMAGE`**: Analyze one image with the built-in Hough detector without copying candidates or updating progress.
+- **`--reference-image IMAGE`**: Explicit preceding image. Without a reference or an explicitly selected sequence, only target-image information is shown.
+- **`--analysis-sequence DIR`**: Select the preceding RAW using normal file collection and filename ordering within this explicit sequence. Mutually exclusive with `--reference-image`. No reference is available for the first frame.
+- **`--analysis-progress JSON`**: Read original effective parameters and ROI from a progress file. This is separate from `--config` and the normal processing option `--progress-file`.
+
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/frame002.ORF \
+  --reference-image rawfiles/frame001.ORF \
+  --analysis-progress previous_run/progress.json
+```
+
+In analysis mode, parameter precedence is defaults → `--config` values → recorded
+`params` → recorded `processing_params` → explicit detection parameter flags.
+The output shows each value's source and explicit changes from the baseline.
+Both `--min-aspect-ratio 2.0` and `--min-aspect-ratio=2.0` are recognized as explicit
+overrides; these values are examples, not recommendations. Recorded ROI is used
+unless overridden with `--roi` or `--no-roi`; do not specify both.
+
+The summary shows the selected pair, original progress path, loaded image size,
+metadata, effective settings, rejection reasons, and measurement counts.
+`--verbose` also lists contour measurements and Hough segment endpoints.
+`--locale en` and `--locale ja` select the summary language.
+
+Exit status is **0** for a measured pair, regardless of its candidate decision;
+**1** for configuration, input, or processing errors; and **2** for invalid option
+combinations or a missing preceding frame. A missing frame is reported as
+`reference_missing`, with no candidate decision. The target's parent directory,
+default `--target`, and config target folder are never used to guess a sequence.
+
+Analysis rejects `--auto-params`, `--remove-progress`, `--show-exif`, `--show-npf`,
+`--list-sensor-types`, `--debug-image`, `--progress-file`, and explicitly supplied
+`--target`. Use the analysis-specific input options instead. Other pipeline
+output and performance settings do not start a processing run or output handler.
+The existing `--save-diagnostic` option can still explicitly request an error
+diagnostic file. Without `--analysis-output`, analysis does not save reports or
+images.
+
+Only the built-in Hough detector is supported. Configured hooks are rejected;
+use `--hooks ""` explicitly for a detector-only replay. Original progress alone
+cannot establish the original loader configuration or hook effects. The
+summary identifies those limits and any missing settings filled by defaults.
+Bounded tuning and explicit report/configuration export are available through
+the options below.
+See the [analysis design](parameter_analysis_1.6.11.md).
+
+## Bounded Parameter Tuning (v1.6.11)
+
+- **`--tune-params`**: Generate bounded, evidence-derived proposals for `--analyze-image`. Nothing is applied or saved.
+- **`--tuning-config JSON_OR_YAML`**: A mapping or file containing limits and an optional `measurement_grid`; see [`parameter_tuning.yaml`](../config_examples/parameter_tuning.yaml).
+- **`--analysis-region X0,Y0,X1,Y1`**: Optional annotated target rectangle in loaded-image coordinates; end coordinates are exclusive. Without it, proposals recover a frame-level candidate, not a specific meteor.
+- **`--comparison-sequence DIR`**: Explicit RAW sequence to evaluate before/after each returned proposal, using normal adjacent filename-ordered pairs.
+- **`--known-meteor IMAGE`**: Known meteor frame for comparison, repeatable; requires `--comparison-sequence`. These are user-supplied positive labels, not `detected_files` inferred from progress.
+
+All modifiers require `--tune-params`, which requires `--analyze-image`.
+`--config`, `--analysis-progress`, and `--tuning-config` serve different purposes;
+passing tuning limits as pipeline configuration is rejected.
+
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/session/frame002.ORF \
+  --reference-image rawfiles/session/frame001.ORF \
+  --analysis-progress previous_run/progress.json \
+  --tune-params \
+  --tuning-config config_examples/parameter_tuning.yaml \
+  --comparison-sequence rawfiles/session \
+  --known-meteor rawfiles/session/frame002.ORF
+```
+
+| Configuration key | Default | Meaning |
+| --- | --- | --- |
+| `max_gate_relaxation` | `0.5` | Each area/ratio/score threshold stays at least this original value multiplied by `1 - max_gate_relaxation`; permitted fraction is 0 through 1 |
+| `max_measurements` | `8` | Target measurements, including the original measurement |
+| `max_evaluations` | `256` | Target candidate decisions, including the original decision |
+| `max_proposals` | `5` | Maximum returned proposals; omitted feasible proposals are reported |
+| `max_comparison_pairs` | `100` | Maximum complete comparison pairs |
+| `max_comparison_measurements` | `600` | Maximum measurement runs across comparison pairs |
+| `measurement_grid` | `{}` | Explicit finite integer lists for difference/Hough parameters; empty means gate-only tuning |
+
+Gate values come from measured contour area/aspect ratio and the image-wide line
+score. Strict area/ratio boundaries are preserved without rounding away a valid
+proposal. The default relaxation fraction is a configurable search limit, not a
+camera-specific recommendation. No proposal is generated without Hough line
+evidence. An already passing target needs no adjustment; no feasible proposal
+within the bounds is also a valid outcome.
+
+Grid keys are `diff_threshold`, `hough_threshold`, `hough_min_line_length`, and
+`hough_max_line_gap`. Original values are always included, with other values
+ordered by distance from the original. A bounded Cartesian product is explored.
+Each changed preprocessing/Hough setting receives fresh measurements from the
+same loaded image/ROI snapshot. Area/ratio/score-only changes reuse evidence.
+
+ROI is held fixed. An annotation fully outside ROI produces
+`target_outside_roi`; a partially overlapping annotation uses evidence within
+the original ROI. A contour must overlap actual foreground pixels in the
+annotated region, but this association alone does not identify a meteor.
+
+Proposals are initially ordered by the sum of
+`abs(after - before) / max(abs(before), 1)` across changed parameters. Comparison
+evaluates only the returned proposals; it does not claim a globally optimal
+configuration. After comparison, fewer rejected known-positive frames take
+precedence, then smaller change cost and fewer added candidates.
+
+Comparison lists added/lost candidate frames and known meteor frames selected,
+rejected, or unchecked. Limits apply to whole pairs shared by all proposals;
+an unprocessed known frame is unchecked, never a negative. Resolution/dtype
+changes and load failures are errors. Matching preprocessing/Hough settings
+share measurements within a pair, with the original loader and ROI retained.
+No comparison means candidate growth is unverified; no known-positive labels
+means their retention is unverified. Added candidates are not a false-positive
+rate, and selecting a known meteor frame does not prove that its meteor was
+the detected feature.
+
+The summary reports measurement/decision counts, planned grid size, proposal
+truncation, comparison coverage, and stop reasons. Budget exhaustion or no
+proposal does not turn a valid measured pair into a processing error; existing
+analysis exit statuses still apply.
+
+## Analysis Bundles and Session Configuration (v1.6.11)
+
+- **`--analysis-output DIR`**: Explicitly create a new analysis directory with `report.json` and PNG evidence. Existing files, directories, and symlinks are rejected, including empty directories. Parent directories may be created.
+- **`--analysis-proposal baseline|N`**: Also save `session.yaml` for the current effective baseline or a one-based index from the returned proposal list. Requires `--analysis-output`; numeric indices require `--tune-params`. With no selection, the bundle contains no executable session configuration.
+
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/session/frame002.ORF \
+  --reference-image rawfiles/session/frame001.ORF \
+  --analysis-progress previous_run/progress.json \
+  --tune-params \
+  --analysis-output analysis/review-001 \
+  --analysis-proposal 1
+
+python detect_meteors_cli.py --config analysis/review-001/session.yaml
+```
+
+The second command starts normal detection; export alone does not apply any
+settings, copy candidates, or update progress. Proposal indices refer to the
+current run's returned order, including comparison ordering. Use `baseline` to
+save the current settings explicitly. Review the proposal list before selecting
+an index. Existing output is never replaced, even with `--output-overwrite`.
+
+`report.json` has format `detect_meteors.analysis`, `schema_version: 1`, the
+application and runtime versions, input fingerprints, exact parameters and their
+sources, ROI, metadata, limitations, decisions, contours/lines, tuning bounds and
+work counters, proposal changes, and comparison coverage. Primary images,
+original progress, and configuration sources have SHA-256 hashes and file
+identity/change stamps. Comparison inputs have stamps; their `sha256` is null
+to avoid rereading the entire sequence. Changed or missing sources invalidate
+export rather than being linked to stale evidence.
+
+Measurement records reference lossless mask PNGs. Baseline/proposal records link
+debug PNGs, including rejected-frame evidence. Identical measurement settings
+share a mask. `assets` records each PNG/configuration's size and SHA-256; the
+manifest does not hash or list itself. Non-JSON metadata is represented as text
+with `serialization_notes`. Image arrays and live loader objects are not stored
+in JSON. The manifest is written last; failed writes remove only artifacts
+created by that invocation and empty newly created directories.
+
+`session.yaml` is a full `PipelineConfig` loaded by existing `--config`. Exact
+float thresholds, the actual registered loader and its serializable settings,
+the built-in Hough detector, and effective ROI are retained. Configuration
+coercion must reproduce loader values and types; unavailable/unserializable
+loader settings fail explicitly. Sessions with active hooks or custom output
+handlers cannot be exported as equivalent detector-only configurations.
+
+The saved session uses one worker and sequential processing. Its absolute
+candidate/debug/progress paths are under `DIR/run`, which is created only when
+normal processing starts, with overwrite disabled in both pipeline and file
+handler settings. Original run paths are not reused. The target folder is the
+explicit analysis sequence, otherwise the configured target if supplied in the
+original config, otherwise the analyzed image's parent. Plugin-specific relative
+paths keep their existing meaning; the report records the working directory.
+Review/edit the absolute paths when relocating a saved session.
+
+Two optional configuration fields persist ROI: `roi_polygon` (null or at least
+three integer points in loaded-image coordinates) and `enable_roi_selection`
+(boolean; default true). Saved sessions set the latter false. Normal processing
+uses configured ROI unless `--roi` or `--no-roi` explicitly overrides it. Analysis
+uses recorded progress ROI ahead of configured ROI, and explicit ROI flags
+ahead of both. Both null and the legacy progress marker `full_image` mean the
+full image. Existing configurations retain their previous defaults.
+
+A missing reference can still produce an honest report with no decision or
+measurement PNGs and exit status 2. It cannot produce a reusable selected
+session. Report/configuration validation errors exit with status 1 and do not
+replace inputs or existing artifacts. The bundle is a record of exploratory
+evidence, not automatic meteor classification or a claim of optimal settings.
+
 ## Input/Output Options
 - **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan.
 - **`-o`/`--output`** (default: `candidates`): Destination folder for RAW files flagged as meteor candidates.
@@ -45,7 +248,7 @@ settings are only inherited when the default handler is selected implicitly.
 - **`--min-aspect-ratio`** (default: `3.0`): Minimum ratio of a contour's long side to its short side.
 
 > **Legacy notice**: These parameter flags are mapped into `PipelineConfig.params` for backward compatibility.
-> They will be deprecated in favor of YAML/JSON configuration files over time.
+> Normal runs already emit a deprecation warning for these flags; prefer YAML/JSON configuration files.
 
 ## Hough Transform Parameters
 - **`--hough-threshold`** (default: `10`): Accumulator threshold for the probabilistic Hough transform.
@@ -100,8 +303,13 @@ path uses the built-in RAW helpers even when another input plugin is selected.
 ## Performance Options
 - **`--workers`** (default: `max(1, CPU count - 1)`): Number of parallel worker processes; allowed range is `1` through the CPU count. One worker uses sequential processing.
 - **`--batch-size`** (default: `10`): Number of adjacent-frame pairs in each parallel task. Sequential processing handles one pair at a time.
-- **`--auto-batch-size` / `--no-auto-batch-size`**: Enable or disable auto-adjusted batch sizing to stay within ~60% of available RAM.
+- **`--auto-batch-size` / `--no-auto-batch-size`**: Accepted and stored in configuration, but the current pipeline does not apply memory-based resizing. Set `--batch-size` explicitly. The Python helper `meteor_core.utils.estimate_batch_size()` can be called separately; its default memory-budget fraction is `0.6`.
 - **`--parallel` / `--no-parallel`**: Explicitly enable or disable parallel processing (defaults to enabled, unless overridden by config).
+
+Saving a candidate or its debug image can raise an output error. In 1.6.11,
+both sequential and parallel processing propagate that exception to the caller,
+regardless of `hook_error_mode`; the failed candidate is not marked processed.
+Hook callbacks still follow their `warn`/`raise` policy.
 
 ## Utility Options
 - **`--profile`**: Print timing breakdowns after the run.

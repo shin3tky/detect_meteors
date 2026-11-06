@@ -78,6 +78,16 @@ from meteor_core import (
 from meteor_core.utils import _display_width, _pad_label
 
 
+class _TrackExplicitOption(argparse.Action):
+    """Retain explicit values, including argparse abbreviations and --key=value."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        explicit: set[str] = set(getattr(namespace, "_explicit_options", ()))
+        explicit.add(self.dest)
+        namespace._explicit_options = explicit
+        setattr(namespace, self.dest, values)
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the CLI."""
     default_locale = os.environ.get("DETECT_METEORS_LOCALE", "en")
@@ -106,8 +116,71 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    analysis_group = parser.add_argument_group("Missed-meteor analysis (read-only)")
+    analysis_group.add_argument(
+        "--analyze-image",
+        metavar="IMAGE",
+        help="Analyze one image without saving candidates or progress",
+    )
+    reference_group = analysis_group.add_mutually_exclusive_group()
+    reference_group.add_argument(
+        "--reference-image",
+        metavar="IMAGE",
+        help="Explicit preceding image for --analyze-image",
+    )
+    reference_group.add_argument(
+        "--analysis-sequence",
+        metavar="DIR",
+        help="Original sequence folder; select the preceding RAW in normal filename order",
+    )
+    analysis_group.add_argument(
+        "--analysis-progress",
+        metavar="JSON",
+        help="Original progress file supplying recorded parameters and ROI",
+    )
+    analysis_group.add_argument(
+        "--tune-params",
+        action="store_true",
+        help="Propose bounded parameter adjustments for --analyze-image",
+    )
+    analysis_group.add_argument(
+        "--tuning-config",
+        metavar="JSON_OR_YAML",
+        help="Tuning limits and measurement_grid as a mapping or config file",
+    )
+    analysis_group.add_argument(
+        "--analysis-region",
+        metavar="X0,Y0,X1,Y1",
+        help="Annotated target region in loaded-image coordinates (end exclusive)",
+    )
+    analysis_group.add_argument(
+        "--comparison-sequence",
+        metavar="DIR",
+        help="Explicit RAW sequence to compare before and after each proposal",
+    )
+    analysis_group.add_argument(
+        "--known-meteor",
+        action="append",
+        metavar="IMAGE",
+        help="Known meteor frame in a comparison (repeatable)",
+    )
+    analysis_group.add_argument(
+        "--analysis-output",
+        metavar="DIR",
+        help="Save a report and evidence images to a new directory",
+    )
+    analysis_group.add_argument(
+        "--analysis-proposal",
+        metavar="BASELINE_OR_INDEX",
+        help="Also save session.yaml for baseline or a one-based returned proposal index",
+    )
+
     parser.add_argument(
-        "-t", "--target", default=DEFAULT_TARGET_FOLDER, help="Input RAW image folder"
+        "-t",
+        "--target",
+        default=DEFAULT_TARGET_FOLDER,
+        action=_TrackExplicitOption,
+        help="Input RAW image folder",
     )
     parser.add_argument(
         "-o",
@@ -186,18 +259,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--diff-threshold",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_DIFF_THRESHOLD,
         help=f"Threshold for difference binarization (default: {DEFAULT_DIFF_THRESHOLD})",
     )
     parser.add_argument(
         "--min-area",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_MIN_AREA,
         help=f"Minimum contour area (default: {DEFAULT_MIN_AREA})",
     )
     parser.add_argument(
         "--min-aspect-ratio",
+        action=_TrackExplicitOption,
         type=float,
         default=DEFAULT_MIN_ASPECT_RATIO,
         help=f"Minimum aspect ratio (default: {DEFAULT_MIN_ASPECT_RATIO})",
@@ -205,24 +281,28 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--hough-threshold",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_HOUGH_THRESHOLD,
         help=f"Hough line detection threshold (default: {DEFAULT_HOUGH_THRESHOLD})",
     )
     parser.add_argument(
         "--hough-min-line-length",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_HOUGH_MIN_LINE_LENGTH,
         help=f"Minimum line length (default: {DEFAULT_HOUGH_MIN_LINE_LENGTH})",
     )
     parser.add_argument(
         "--hough-max-line-gap",
+        action=_TrackExplicitOption,
         type=int,
         default=DEFAULT_HOUGH_MAX_LINE_GAP,
         help=f"Maximum line gap (default: {DEFAULT_HOUGH_MAX_LINE_GAP})",
     )
     parser.add_argument(
         "--min-line-score",
+        action=_TrackExplicitOption,
         type=float,
         default=DEFAULT_MIN_LINE_SCORE,
         help=f"Minimum line score (default: {DEFAULT_MIN_LINE_SCORE})",
@@ -294,7 +374,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--validate-raw", action="store_true", help="Validate RAW files first"
     )
     parser.add_argument(
-        "--progress-file", default=DEFAULT_PROGRESS_FILE, help="Progress JSON file path"
+        "--progress-file",
+        default=DEFAULT_PROGRESS_FILE,
+        action=_TrackExplicitOption,
+        help="Progress JSON file path",
     )
     parser.add_argument(
         "--no-resume", action="store_true", help="Ignore existing progress"
@@ -434,7 +517,11 @@ def _parse_config_payload(value: Optional[str], arg_name: str) -> Any:
         return {}
 
     path = Path(value)
-    if path.exists():
+    try:
+        is_file_path = path.exists()
+    except OSError:
+        is_file_path = False
+    if is_file_path:
         suffix = path.suffix.lower()
         if suffix not in SUPPORTED_CONFIG_EXTENSIONS:
             raise MeteorConfigError(
@@ -556,8 +643,9 @@ def _build_hook_configs(
     return configs
 
 
-def _build_pipeline_config(args) -> PipelineConfig:
-    base_config = load_pipeline_config(args.config) if args.config else None
+def _build_pipeline_config(args, *, base_config=None) -> PipelineConfig:
+    if base_config is None and args.config:
+        base_config = load_pipeline_config(args.config)
     base_params = base_config.params if base_config else None
 
     params = DetectionParams(
@@ -702,6 +790,10 @@ def _build_pipeline_config(args) -> PipelineConfig:
         else (base_config.output_handler_name if base_config else None),
         output_handler_config=output_handler_config,
         hooks=hooks,
+        roi_polygon=base_config.roi_polygon if base_config else None,
+        enable_roi_selection=base_config.enable_roi_selection
+        if base_config
+        else DEFAULT_ENABLE_ROI_SELECTION,
     )
     return pipeline_config
 
@@ -2322,10 +2414,254 @@ def detect_meteors_advanced(
     return detected_count
 
 
+def _validate_analysis_options(parser, args) -> None:
+    """Check analysis routing before any action can delete or write files."""
+    tuning_modifiers = any(
+        value is not None
+        for value in (
+            args.tuning_config,
+            args.analysis_region,
+            args.comparison_sequence,
+            args.known_meteor,
+        )
+    )
+    if (
+        args.analysis_output is not None or args.analysis_proposal is not None
+    ) and args.analyze_image is None:
+        parser.error("Analysis output options require --analyze-image")
+    if args.analysis_proposal is not None:
+        if args.analysis_output is None:
+            parser.error("--analysis-proposal requires --analysis-output")
+        if args.analysis_proposal != "baseline" and not args.tune_params:
+            parser.error(
+                "A proposal index requires --tune-params; use baseline for current settings"
+            )
+    if (args.tune_params or tuning_modifiers) and args.analyze_image is None:
+        parser.error("Tuning options require --analyze-image")
+    if tuning_modifiers and not args.tune_params:
+        parser.error("Tuning modifiers require --tune-params")
+    if args.known_meteor and args.comparison_sequence is None:
+        parser.error("--known-meteor requires --comparison-sequence")
+    if args.analyze_image is None:
+        if any(
+            value is not None
+            for value in (
+                args.reference_image,
+                args.analysis_sequence,
+                args.analysis_progress,
+            )
+        ):
+            parser.error(
+                "--reference-image, --analysis-sequence, and --analysis-progress require --analyze-image"
+            )
+        return
+    incompatible = (
+        "remove_progress",
+        "auto_params",
+        "show_exif",
+        "show_npf",
+        "list_sensor_types",
+        "debug_image",
+        "progress_file",
+        "target",
+    )
+    explicit = getattr(args, "_explicit_options", ())
+    used = [
+        "--" + name.replace("_", "-")
+        for name in incompatible
+        if (
+            name in explicit
+            if name in ("progress_file", "target")
+            else getattr(args, name)
+        )
+    ]
+    if used:
+        parser.error(
+            "--analyze-image cannot be combined with "
+            + ", ".join(used)
+            + "; use --analysis-progress and --analysis-sequence for original-run inputs"
+        )
+    if args.roi is not None and args.no_roi:
+        parser.error("--roi and --no-roi cannot be combined during analysis")
+
+
+def _run_image_analysis(args):
+    """Resolve explicit analysis inputs without starting the output pipeline."""
+    from meteor_core.analysis import load_reproduction_settings, reproduce_hough_pair
+    from meteor_core.analysis_cli import display_reproduction, select_reference_image
+    from meteor_core.config_io import _load_config_mapping
+    from meteor_core.detectors.hough_default import HoughDetector
+    from meteor_core.pipeline import _resolve_detector
+    from meteor_core.tuning import TuningOptions
+
+    sources = {}
+    if args.analysis_output is not None:
+        from meteor_core.analysis import source_stamp
+
+        for name in (
+            "config",
+            "tuning_config",
+            "input_loader_config",
+            "detector_config",
+            "output_handler_config",
+            "hook_config",
+        ):
+            value = getattr(args, name)
+            if value is not None:
+                try:
+                    path = Path(value).expanduser().resolve()
+                    if path.is_file():
+                        sources[str(path)] = source_stamp(path)
+                except OSError:
+                    pass
+
+    base = load_pipeline_config(args.config) if args.config else None
+    data = {}
+    if args.config:
+        data = _load_config_mapping(Path(args.config))
+        if any(
+            key in data for key in ("processed_files", "detected_files", "params_hash")
+        ):
+            raise MeteorConfigError(
+                "Use --analysis-progress for a progress file, not --config"
+            )
+        if any(
+            key in data
+            for key in ("measurement_grid", *TuningOptions.__dataclass_fields__)
+        ):
+            raise MeteorConfigError(
+                "Use --tuning-config for tuning limits and the measurement grid"
+            )
+    config = _build_pipeline_config(args, base_config=base)
+    try:
+        detector = _resolve_detector(
+            detector_name=config.detector_name or HoughDetector.plugin_name,
+            detector_config=config.detector_config,
+        )
+    except (TypeError, ValueError) as exc:
+        raise MeteorConfigError(
+            "Invalid analysis detector configuration", original_error=exc
+        ) from exc
+    if type(detector) is not HoughDetector:
+        raise MeteorConfigError(
+            "Image analysis currently supports only the built-in Hough detector"
+        )
+    if config.hooks:
+        raise MeteorConfigError(
+            'Image analysis does not run hooks; use --hooks "" for a detector-only replay'
+        )
+    overrides = {
+        name: getattr(args, name)
+        for name in DetectionParams().to_dict()
+        if name in getattr(args, "_explicit_options", ())
+    }
+    settings = load_reproduction_settings(
+        params=base.params if base is not None else None,
+        progress_path=args.analysis_progress,
+        parameter_overrides=overrides,
+        roi_polygon=parse_roi_polygon_string(args.roi)
+        if args.roi is not None
+        else None,
+        use_full_image=args.no_roi,
+        fallback_roi_polygon=config.roi_polygon,
+        fallback_full_image=config.roi_polygon is None
+        and not config.enable_roi_selection,
+    )
+    reference, source = select_reference_image(
+        args.analyze_image,
+        reference_image=args.reference_image,
+        sequence_folder=args.analysis_sequence,
+    )
+    replay = reproduce_hough_pair(
+        args.analyze_image,
+        reference,
+        settings=settings,
+        loader_name=config.input_loader_name,
+        loader_config=config.input_loader_config,
+    )
+    display_reproduction(
+        replay, reference_source=source, locale=args.locale, verbose=args.verbose
+    )
+    run = _run_tuning_analysis(args, replay) if args.tune_params else None
+    if args.analysis_output is not None:
+        from meteor_core.analysis_reports import save_analysis_bundle
+
+        target = args.analysis_sequence or (
+            config.target_folder if "target_folder" in data else None
+        )
+        bundle = save_analysis_bundle(
+            replay,
+            args.analysis_output,
+            tuning=run,
+            selection=args.analysis_proposal,
+            pipeline_config=config,
+            session_target=target,
+            source_files=sources,
+            context={
+                "reference_selection": source,
+                "analysis_sequence": args.analysis_sequence,
+                "comparison_sequence": args.comparison_sequence,
+                "known_meteors": args.known_meteor or [],
+                "session_target_source": "analysis_sequence"
+                if args.analysis_sequence
+                else ("configuration" if "target_folder" in data else "target_parent"),
+            },
+        )
+        print(get_message("ui.analysis.saved", locale=args.locale, path=str(bundle)))
+    return replay
+
+
+def _run_tuning_analysis(args, replay):
+    from meteor_core.analysis_cli import display_tuning
+    from meteor_core.tuning import (
+        TuningOptions,
+        compare_tuning_proposals,
+        tune_reproduction,
+    )
+
+    config = _parse_plugin_config(args.tuning_config, "tuning_config") or {}
+    grid = config.pop("measurement_grid", None)
+    try:
+        options = TuningOptions(**config)
+    except TypeError as exc:
+        raise MeteorConfigError(
+            "Unknown tuning configuration field", original_error=exc
+        ) from exc
+    region = None
+    if args.analysis_region is not None:
+        try:
+            region = tuple(
+                int(value.strip()) for value in args.analysis_region.split(",")
+            )
+        except ValueError as exc:
+            raise MeteorConfigError(
+                "Analysis region must be x0,y0,x1,y1", original_error=exc
+            ) from exc
+    run = tune_reproduction(
+        replay, options=options, measurement_grid=grid, target_region=region
+    )
+    if args.comparison_sequence is not None:
+        files = collect_files(
+            str(Path(args.comparison_sequence).expanduser().resolve())
+        )
+        pairs = list(zip(files[1:], files[:-1]))
+        for path in args.known_meteor or ():
+            if not Path(path).expanduser().is_file():
+                raise MeteorLoadError(
+                    "Known meteor image file not found", filepath=path
+                )
+        run = compare_tuning_proposals(
+            run, pairs, known_meteors=args.known_meteor or ()
+        )
+    display_tuning(run, locale=args.locale)
+    return run
+
+
 def main():
     """Main entry point for the CLI."""
     parser = build_arg_parser()
     args = parser.parse_args()
+    _validate_analysis_options(parser, args)
     cli_param_string = shlex.join(sys.argv[1:])
 
     args.locale = args.locale or os.environ.get("DETECT_METEORS_LOCALE", "en")
@@ -2334,6 +2670,12 @@ def main():
     _configure_logging(args.verbose)
 
     try:
+        if args.analyze_image is not None:
+            replay = _run_image_analysis(args)
+            if replay.status == "reference_missing":
+                sys.exit(2)
+            return
+
         if args.remove_progress:
             if os.path.exists(args.progress_file):
                 os.remove(args.progress_file)
@@ -2461,6 +2803,12 @@ def _run_main(args, cli_param_string: str):
     ) = validate_and_apply_sensor_preset(args, verbose=False, locale=locale)
 
     pipeline_config = _build_pipeline_config(args)
+
+    if args.roi is None and not args.no_roi:
+        roi_polygon_cli = pipeline_config.roi_polygon
+        enable_roi_selection = pipeline_config.enable_roi_selection
+    elif args.no_roi and args.roi is None:
+        roi_polygon_cli = []
 
     if args.auto_params:
         files = collect_files(pipeline_config.target_folder)

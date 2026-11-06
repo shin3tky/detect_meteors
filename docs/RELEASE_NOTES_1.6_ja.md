@@ -2,7 +2,121 @@
 
 [English](RELEASE_NOTES_1.6.md)
 
-## バージョン1.6.10（2026-10-06）- 🌠 夢をかなえる日
+<a id="バージョン16112026-11-07"></a>
+
+## バージョン1.6.11（2026-11-07） 🦅
+
+1.6.11は、1.6系の検出条件とプラグイン契約を維持しながら、検出処理の整理、
+エラー処理の修正、回帰テストの拡充、依存パッケージ更新を行うリリースです。
+取りこぼしの分析・調整・再処理を支援する、以下の機能も含みます。
+
+### パイプラインの安定性
+
+- 並列処理の候補保存エラーを逐次処理と同じ扱いに統一しました。`hook_error_mode` が `warn` でも元の例外を送出し、失敗した候補を処理済みに記録しません。
+- フックの呼び出し順、状態の生存期間、実行プロセス、中断・再開、例外伝播を回帰テストで確認しました。フックとエラー処理のテストを23件追加しています。
+
+### 取りこぼしの理由を確認し、調整案を検討する
+
+v1.6.11では、既存の差分・Hough検出器を使い、目視確認した流星の取りこぼしを
+元の画像ペアと設定で再現し、不採用条件を調べ、上限付きの調整案を比較し、
+明示的に選んだ設定でその撮影セッションを再処理する流れを用意しました。
+
+強い線分スコアでも明るく幅広い光跡が比率条件を通らない場合などに使えます。
+候補判定の条件は維持し、条件の迂回や、カメラ・レンズ・撮影地ごとの万能な閾値の学習は行いません。
+
+### 1. 元の判定を再現する
+
+リポジトリまたは展開したソース配布版のルートで、パスを手元の元画像・進捗へ置き換えて実行します。
+
+```bash
+uv run python detect_meteors_cli.py \
+  --analyze-image rawfiles/session/frame002.ORF \
+  --reference-image rawfiles/session/frame001.ORF \
+  --analysis-progress previous_run/progress.json --verbose --locale ja
+```
+
+`--analysis-sequence rawfiles/session` で、ファイル名順の直前RAWを選ぶこともできます。
+実効設定と出所、ROI、メタデータ、輪郭・線分、不採用理由を表示します。
+進捗は任意ですが、元の条件の再現に役立ちます。必要なら `--config` で元のローダー設定も指定します。
+対応する検出器は組み込みHoughのみで、設定済みのフックは `--hooks ""` で明示的に解除してください。
+
+パラメータの優先順位は既定値 → パイプライン設定 → 記録済み `params` → 記録済み
+`processing_params` → 明示した検出フラグです。記録済みROIを設定より優先し、
+`--roi`／`--no-roi` で変更できます。分析では候補コピーや進捗更新を行いません。
+参照不足は `reference_missing` と終了コード2で、判定を返しません。
+計測済みペアは不採用でも終了コード0、エラーは1です。
+
+### 2. 調整案を作り、系列への影響を比較する
+
+上のコマンドへ次のオプションを追加します。
+
+```bash
+  --tune-params \
+  --tuning-config config_examples/parameter_tuning.yaml \
+  --comparison-sequence rawfiles/session \
+  --known-meteor rawfiles/session/frame002.ORF
+```
+
+輪郭とスコアの実測値から判定閾値の緩和案を導出します。任意の有限な差分・Hough設定の
+探索では、同じ読み込み済み画像から再計測します。`--analysis-region X0,Y0,X1,Y1` で、
+読み込み後の座標の矩形（終点を含まない）と輪郭の対応も確認できます。ROIは固定します。
+
+既定の上限は対象の計測8回、判定256回、返す案5件、比較100ペア、比較計測600回、
+各判定閾値の緩和50%までで、設定変更できます。元の計測・判定も回数に含め、
+未完了の比較範囲と停止理由を表示します。系列比較では追加・消失候補と既知流星の
+採用・不採用・未確認を表示し、`--known-meteor` は繰り返し指定できます。
+候補数は誤検出率ではなく、候補フレームになってもその流星を検出したとは限りません。
+
+### 3. 証拠と明示的に選んだ設定を保存する
+
+案を確認した後、同じ分析・調整・比較コマンドを新規の出力先とともに再実行します。
+番号はその実行で返された案の順番です。
+
+```bash
+  --analysis-output analysis/review-001 \
+  --analysis-proposal 1
+```
+
+上のオプション例は元のコマンドへの追加部分で、単独のシェルコマンドではありません。
+調整案は自動適用しません。`--analysis-proposal` を省略すれば証拠だけを保存し、
+`baseline` を指定すれば現在の実効設定を保存します。出力先は空でも既存フォルダーを指定できません。
+
+スキーマ付き `report.json`、不採用結果も含むマスク・デバッグPNG、選択時には `session.yaml`
+を保存します。正確な設定、ROI、入力の出所、計測、探索・比較範囲、実行環境、ファイルの識別情報を記録。
+主入力と成果物にはSHA-256、比較入力には変更情報を記録し、入力が変わった場合は保存を拒否します。
+
+通常検出は別の操作として実行します。
+
+```bash
+uv run python detect_meteors_cli.py --config analysis/review-001/session.yaml
+```
+
+設定には実際のローダー、正確な閾値、新しい `roi_polygon`／`enable_roi_selection` による
+固定ROIを保持します。逐次処理で、出力先は `analysis/review-001/run` 以下の専用絶対パス、
+上書きは無効です。設定の移動時はパスを確認してください。既存の通常設定の既定動作を維持し、
+有効なフックや独自出力ハンドラーのある設定は同等の検出器単体セッションとして保存できません。
+
+### 依存パッケージとセキュリティ更新
+
+1.6.10からNumPy、rawpy、Pillow、Pydanticと開発用ツールを更新しました。
+Pillow・Pydantic、および開発用の間接依存であるfilelock・virtualenvの上流セキュリティ修正を含みます。
+[旧版とのバージョン比較](CHANGELOG_ja.md#dependency-updates-1610-to-1611)と
+[セキュリティ更新の根拠・適用範囲](CHANGELOG_ja.md#security-updates-1611)を参照してください。
+実行環境の更新方法は[インストールガイド](INSTALL_ja.md#upgrading-from-1610)に記載しています。
+
+### 互換性・導入・検証
+
+- Python 3.12と3.13の対応を継続し、プロジェクト・実行時・ロックファイルのバージョンを1.6.11に統一。現在の固定依存は[インストール](INSTALL_ja.md#依存ライブラリのバージョンv1611)と[開発環境](INSTALL_DEV_ja.md#開発ツールのバージョンv1611)に記載しています。これより後の過去リリース内のツールバージョン例は当時のものです。
+- BashとZsh標準の補完で、分析・調整・保存のフラグとインストール後の `detect-meteors` に対応。[補完の設定](INSTALL_ja.md#任意シェル補完bashzsh)を参照。
+- 通常検出は面積・比率が閾値より大きく、画像全体の線分スコアが閾値以上という従来条件です。スコアはHough線分長の合計です。飛行機likelihoodは引き続きメタデータで、自動除外や追跡結合は追加しません。
+- 最終検証は681テストすべての成功（期待失敗なし）、基盤整理時の実画像44比較の一致、ローカルの飛行機・流星サンプルでの意図的な取りこぼしの調整・保存・再処理を含みます。元の `P8136507.ORF` 報告は直前RAWがないため、元のペア判定を再現した事例には含めません。
+
+まず[READMEの同梱サンプル例](../README_ja.md#同梱サンプルで調整を試す)を試せます。
+変更全体は[CHANGELOG](CHANGELOG_ja.md#v1611---2026-11-07)、正確な上限と組み合わせは
+[オプション一覧](COMMAND_OPTIONS.md#read-only-image-analysis-v1611)、実装と拡張点は
+[設計・検証記録](parameter_analysis_1.6.11_ja.md)を参照してください。
+
+## バージョン1.6.10（2026-10-06）- 🌠
 
 1.6.9はスキップし、v1.6.8の次のリリースをv1.6.10とします。
 
@@ -94,11 +208,12 @@ class DetectorRegistry(PluginRegistryBase):
         # Potential type conflicts with base class
         ...
 
+
 # After: Typed factory pattern
 class DetectorRegistry(PluginRegistryBase[Type[BaseDetector]]):
     def __init__(self):
         super().__init__(validator=self._validate_detector)
-    
+
     def _validate_detector(self, plugin_class: type) -> bool:
         # Clean validation without override conflicts
         return issubclass(plugin_class, BaseDetector)
@@ -156,8 +271,8 @@ roi_mask = select_roi(image_data)  # Guaranteed np.ndarray
 
 ```python
 # Before: Strict locale matching
-def get_message(key: str, locale: str) -> str:
-    ...
+def get_message(key: str, locale: str) -> str: ...
+
 
 # After: Optional locale with fallback normalization
 def get_message(key: str, locale: Optional[str] = None) -> str:
@@ -172,7 +287,7 @@ def get_message(key: str, locale: Optional[str] = None) -> str:
 ```python
 from meteor_core import MAX_NUM_WORKERS
 
-# Default: 16 (reasonable limit for most systems)
+# Current v1.6.11: max(1, multiprocessing.cpu_count())
 # Pipeline config validation enforces this limit
 # CLI --workers help text displays the limit
 ```
@@ -180,15 +295,20 @@ from meteor_core import MAX_NUM_WORKERS
 **PipelineConfigでの検証**：
 
 ```python
-@dataclass
-class PipelineConfig:
-    num_workers: int = 4
-    
-    def __post_init__(self):
-        if self.num_workers > MAX_NUM_WORKERS:
-            raise MeteorConfigError(
-                f"num_workers ({self.num_workers}) exceeds MAX_NUM_WORKERS ({MAX_NUM_WORKERS})"
-            )
+# Current v1.6.11 API: direct construction validates worker bounds.
+from meteor_core import MAX_NUM_WORKERS
+from meteor_core.schema import DetectionParams, PipelineConfig
+
+try:
+    config = PipelineConfig(
+        target_folder="./raw",
+        output_folder="./candidates",
+        debug_folder="./debug",
+        params=DetectionParams(),
+        num_workers=MAX_NUM_WORKERS + 1,
+    )
+except ValueError as exc:
+    print(exc)
 ```
 
 ### 開発手順
@@ -263,7 +383,8 @@ repos:
 
    ```python
    from meteor_core.schema import DetectionContext, DetectionResult
-   
+
+
    def detect(self, context: DetectionContext) -> DetectionResult:
        # ty will validate your implementation
        ...
@@ -440,9 +561,11 @@ from dataclasses import dataclass
 from meteor_core.hooks import DataclassHook, HookRegistry
 from meteor_core.schema import InputContext, DetectionResult, DetectionContext
 
+
 @dataclass
 class MyHookConfig:
     min_score_threshold: float = 50.0
+
 
 class ScoreFilterHook(DataclassHook[MyHookConfig]):
     plugin_name = "score_filter"
@@ -466,6 +589,7 @@ class ScoreFilterHook(DataclassHook[MyHookConfig]):
                 extras={**result.extras, "filtered_by": "score_filter"},
             )
         return result
+
 
 # Register for runtime use (single-process only)
 HookRegistry.register(ScoreFilterHook)
@@ -508,12 +632,13 @@ uv run python detect_meteors_cli.py \
 ### Python API
 
 ```python
-from meteor_core.schema import PipelineConfig, HookConfig
+from meteor_core.schema import DetectionParams, PipelineConfig, HookConfig
 
 config = PipelineConfig(
     target_folder="./raw",
     output_folder="./candidates",
     debug_folder="./debug",
+    params=DetectionParams(),
     hooks=[
         HookConfig(name="score_filter", config={"min_score_threshold": 75.0}),
         HookConfig(name="logger_hook"),
@@ -744,6 +869,7 @@ from meteor_core.schema import (
     normalize_detection_context,
 )
 
+
 # Register a converter for older schema versions
 def upgrade_v0_to_v1(context: DetectionContext) -> DetectionContext:
     # Migration logic
@@ -755,6 +881,7 @@ def upgrade_v0_to_v1(context: DetectionContext) -> DetectionContext:
         metadata=context.metadata,
         schema_version=1,
     )
+
 
 register_detection_context_converter(0, upgrade_v0_to_v1)
 
@@ -793,13 +920,14 @@ uv run python detect_meteors_cli.py --config pipeline.yaml
    @dataclass
    class MyDetectorConfig:
        """Configuration for MyDetector.
-       
+
        YAML example:
            detector_name: my_detector
            detector_config:
              sensitivity: 0.8
              use_gpu: true
        """
+
        sensitivity: float = 0.5
        use_gpu: bool = False
    ```
@@ -812,11 +940,14 @@ uv run python detect_meteors_cli.py --config pipeline.yaml
 設定ファイルには `load_pipeline_config()` を使います。
 
 ```python
+from meteor_core import DetectionParams, PipelineConfig, load_pipeline_config
+
 # Before: Manual PipelineConfig construction
 config = PipelineConfig(
     target_folder="./rawfiles",
     output_folder="./candidates",
-    params={"diff_threshold": 8},
+    debug_folder="./debug_masks",
+    params=DetectionParams(diff_threshold=8),
 )
 
 # After: Load from file
@@ -1171,9 +1302,7 @@ def save_candidate(self, source_path, filename, ...) -> bool:
    ```python
    def detect(self, context: DetectionContext) -> DetectionResult:
        # Use helper methods from BaseDetector
-       global_params, detector_params = self.split_runtime_params(
-           context.runtime_params
-       )
+       global_params, detector_params = self.split_runtime_params(context.runtime_params)
        params = {**global_params, **detector_params}
    ```
 
@@ -1337,6 +1466,7 @@ OUTPUT_RESULT_SCHEMA_VERSION = 1
 from meteor_core.inputs import DataclassInputLoader
 from meteor_core.schema import InputContext
 
+
 class MyLoader(DataclassInputLoader[MyConfig]):
     def load(self, filepath: str) -> InputContext:
         image = self._load_image(filepath)
@@ -1440,6 +1570,7 @@ class DetectionResult:
     extras: Dict[str, Any]
     metrics: Dict[str, Any]       # NEW: Standard diagnostics
     schema_version: int = 1       # NEW: For migration support
+
     def to_dict(self) -> Dict[str, Any]:  # NEW: Serialization
         ...
 ```

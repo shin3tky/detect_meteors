@@ -1,4 +1,4 @@
-# Bash completion for detect_meteors_cli.py
+# Bash completion for detect-meteors and detect_meteors_cli.py (v1.6.11)
 # 
 # Installation:
 #   1. Copy this file to /etc/bash_completion.d/ or ~/.bash_completion.d/
@@ -16,6 +16,17 @@ _detect_meteors_cli_completion() {
     opts="--version -h --help
           --locale
           --config
+          --analyze-image
+          --reference-image
+          --analysis-sequence
+          --analysis-progress
+          --tune-params
+          --tuning-config
+          --analysis-region
+          --comparison-sequence
+          --known-meteor
+          --analysis-output
+          --analysis-proposal
           -t --target
           -o --output
           --debug-dir
@@ -41,6 +52,8 @@ _detect_meteors_cli_completion() {
           --workers
           --batch-size
           --auto-batch-size
+          --no-auto-batch-size
+          --parallel
           --no-parallel
           --profile
           --verbose
@@ -63,19 +76,23 @@ _detect_meteors_cli_completion() {
 
     # Provide directory completion for path arguments
     case "${prev}" in
-        -t|--target|-o|--output|--debug-dir)
+        -t|--target|-o|--output|--debug-dir|--analysis-sequence|--comparison-sequence|--analysis-output)
             # Complete with directories
             COMPREPLY=( $(compgen -d -- "${cur}") )
             return 0
             ;;
-        --config|--input-loader-config|--detector-config|--output-handler-config|--hook-config)
+        --config|--input-loader-config|--detector-config|--output-handler-config|--hook-config|--tuning-config)
             # Complete with config files
             COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
             ;;
-        --progress-file)
+        --progress-file|--analysis-progress)
             # Complete with .json files
             COMPREPLY=( $(compgen -f -X '!*.json' -- "${cur}") )
+            return 0
+            ;;
+        --analyze-image|--reference-image|--known-meteor)
+            COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
             ;;
         --save-diagnostic)
@@ -85,7 +102,7 @@ _detect_meteors_cli_completion() {
             ;;
         --focal-factor)
             # Suggest common sensor types (ordered by sensor size)
-            local sensor_types="1INCH MFT APS-C APS-C_CANON APS-H FF FULLFRAME MF44X33 MF54X40"
+            local sensor_types="1INCH MFT APS-C APS-C_CANON APS-H FF FULLFRAME MF44X33 MF54X40 0.64 0.79 1.0 1.3 1.5 1.6 2.0 2.7"
             COMPREPLY=( $(compgen -W "${sensor_types}" -- "${cur}") )
             return 0
             ;;
@@ -114,6 +131,14 @@ _detect_meteors_cli_completion() {
             COMPREPLY=( "x1,y1;x2,y2;x3,y3" )
             return 0
             ;;
+        --analysis-region)
+            COMPREPLY=( "x0,y0,x1,y1" )
+            return 0
+            ;;
+        --analysis-proposal)
+            COMPREPLY=( $(compgen -W "baseline 1 2 3 4 5" -- "${cur}") )
+            return 0
+            ;;
     esac
 
     # Complete with available options
@@ -128,7 +153,6 @@ _detect_meteors_cli_completion() {
 }
 
 # Register the completion function
+complete -F _detect_meteors_cli_completion detect-meteors
 complete -F _detect_meteors_cli_completion detect_meteors_cli.py
 complete -F _detect_meteors_cli_completion ./detect_meteors_cli.py
-complete -F _detect_meteors_cli_completion python detect_meteors_cli.py
-complete -F _detect_meteors_cli_completion python3 detect_meteors_cli.py

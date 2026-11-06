@@ -1,5 +1,5 @@
-#compdef detect_meteors_cli.py
-# Zsh completion for detect_meteors_cli.py
+#compdef detect-meteors detect_meteors_cli.py
+# Zsh completion for detect-meteors and detect_meteors_cli.py (v1.6.11)
 #
 # Installation:
 #   1. Copy this file to a directory in your $fpath (e.g., ~/.zsh/completions/)
@@ -17,6 +17,17 @@ _detect_meteors_cli() {
         '(- *)--version[Show version and exit]'
         '--locale[Locale code for CLI messages]:locale:(en ja)'
         '--config[Pipeline configuration file (YAML/JSON)]:file:_files'
+        '--analyze-image[Analyze one image without saving candidates or progress]:image:_files'
+        '(--analysis-sequence)--reference-image[Explicit preceding image for analysis]:image:_files'
+        '(--reference-image)--analysis-sequence[Original sequence folder for preceding-frame selection]:directory:_directories'
+        '--analysis-progress[Original progress supplying parameters and ROI]:file:_files -g "*.json"'
+        '--tune-params[Propose bounded adjustments for the analysis target]'
+        '--tuning-config[Tuning limits and measurement grid (JSON/YAML or file)]:config:_files'
+        '--analysis-region[Annotated target rectangle, end exclusive]:coordinates:_message -r "x0,y0,x1,y1"'
+        '--comparison-sequence[RAW sequence for proposal comparison]:directory:_directories'
+        '*--known-meteor[Known meteor frame for comparison]:image:_files'
+        '--analysis-output[Save evidence and report to a new directory]:directory:_directories'
+        '--analysis-proposal[Save baseline or a returned proposal as session.yaml]:selection:(baseline 1 2 3 4 5)'
         
         # Input/Output options
         '(-t --target)'{-t,--target}'[Input RAW image folder]:directory:_directories'
@@ -53,12 +64,14 @@ _detect_meteors_cli() {
         # Performance options
         '--workers[Number of parallel workers]:workers:(1 2 4 8 12 16)'
         '--batch-size[Batch size for processing]:batch:(5 10 20 30 50)'
-        '--auto-batch-size[Auto-adjust batch size based on memory]'
-        '--no-parallel[Disable parallel processing]'
+        '(--no-auto-batch-size)--auto-batch-size[Auto-adjust batch size based on memory]'
+        '(--auto-batch-size)--no-auto-batch-size[Disable auto-adjusted batch size]'
+        '(--no-parallel)--parallel[Enable parallel processing]'
+        '(--parallel)--no-parallel[Disable parallel processing]'
         
         # Progress and debugging
         '--profile[Display timing profile]'
-        '--verbose[Show detailed diagnostic information on errors]'
+        '--verbose[Show diagnostic details and analysis contour/line evidence]'
         '--save-diagnostic[Save diagnostic report to file on error]:file:_files'
         '--validate-raw[Validate RAW files before processing]'
         '--progress-file[Progress JSON file path]:file:_files -g "*.json"'

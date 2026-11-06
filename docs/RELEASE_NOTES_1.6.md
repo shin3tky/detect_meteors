@@ -2,7 +2,138 @@
 
 [日本語版](RELEASE_NOTES_1.6_ja.md)
 
-## Version 1.6.10 (2026-10-06) - 🌠 Make Your Dream Come True Day
+<a id="version-1611-2026-11-07"></a>
+
+## Version 1.6.11 (2026-11-07) 🦅
+
+Version 1.6.11 consolidates the 1.6 series while retaining its detection rules
+and plugin contracts. It includes detection-code cleanup, corrected error
+handling, regression coverage, and dependency updates, together with the
+missed-candidate analysis and session-replay workflow below.
+
+### Pipeline Reliability
+
+- Parallel candidate-save failures now propagate like sequential failures, even with `hook_error_mode: warn`. The original exception reaches the caller, and the failed candidate is not recorded as processed.
+- Add 23 hook/error regression tests for callback order, instance lifetime, process boundaries, interruption/resume, and exception propagation.
+
+### Explain a Missed Candidate, Then Review Adjustments
+
+Version 1.6.11 completes a workflow around the existing frame-difference/Hough
+detector: reproduce a visually confirmed missed meteor with its original image
+pair and settings, inspect the blocking conditions, compare bounded adjustments,
+and save an explicitly selected configuration for reprocessing that session.
+
+This is useful when a bright/wide trail fails an aspect-ratio gate despite a
+large line score. It keeps the existing candidate rule; it does not bypass gates
+or learn universal thresholds for a camera, lens, or shooting site.
+
+### 1. Reproduce the Original Decision
+
+Run from the repository root or an extracted source distribution, replacing the
+paths with your own original inputs:
+
+```bash
+uv run python detect_meteors_cli.py \
+  --analyze-image rawfiles/session/frame002.ORF \
+  --reference-image rawfiles/session/frame001.ORF \
+  --analysis-progress previous_run/progress.json --verbose
+```
+
+Alternatively, `--analysis-sequence rawfiles/session` explicitly selects the
+preceding RAW by filename order. The summary shows effective parameters and
+sources, ROI, metadata, line/contour evidence, and rejection reasons. Use
+`--locale ja` for Japanese. A progress file is optional but helps reproduce the
+original settings; use the original loader configuration with `--config` when
+needed. Only built-in Hough is supported, and configured hooks must be explicitly
+removed with `--hooks ""` for this detector-only replay.
+
+Parameter precedence is defaults → pipeline config → recorded `params` → recorded
+`processing_params` → explicit detection flags. Recorded ROI takes priority over
+config; `--roi`/`--no-roi` overrides it. Analysis neither copies candidates nor
+updates progress. With no reference it reports `reference_missing` and exit 2,
+without a decision; measured pairs exit 0 even if rejected, and errors exit 1.
+
+### 2. Generate Proposals and Compare Their Effects
+
+Add the following options to the command above:
+
+```bash
+  --tune-params \
+  --tuning-config config_examples/parameter_tuning.yaml \
+  --comparison-sequence rawfiles/session \
+  --known-meteor rawfiles/session/frame002.ORF
+```
+
+Gate adjustments come from measured contours and scores; optional finite
+preprocessing/Hough grids remeasure the loaded snapshot. An optional
+`--analysis-region X0,Y0,X1,Y1` associates contour evidence with an annotated
+region in loaded-image coordinates (exclusive end). ROI stays fixed.
+
+Default budgets allow 8 target measurements, 256 decisions, 5 returned proposals,
+100 comparison pairs, and 600 comparison measurements, with at most 50% gate
+relaxation. These are configurable search limits. Baseline work counts toward
+the budgets; incomplete coverage and stop reasons are explicit. Comparison
+reports added/lost candidates and selected/rejected/unchecked known positives.
+Repeat `--known-meteor` for additional positive labels. Candidate counts are not
+a false-positive rate, and a selected frame does not prove its meteor was detected.
+
+### 3. Save Evidence and an Explicitly Selected Configuration
+
+After reviewing the proposals, rerun the same analysis/tuning/comparison command
+with a new output directory and a selection from the current returned order:
+
+```bash
+  --analysis-output analysis/review-001 \
+  --analysis-proposal 1
+```
+
+The option snippets above extend the full command; they are not standalone
+shell commands. No proposals are applied automatically. Omit `--analysis-proposal`
+to save evidence only, or select `baseline` for the current effective settings.
+The output directory must not already exist, even if empty.
+
+The bundle contains a schema-versioned `report.json`, mask/debug PNGs (including
+rejected results), and, when selected, `session.yaml`. It records exact settings,
+ROI, sources, measurements, tuning/comparison coverage, runtime versions, and
+fingerprints. Primary inputs and assets have SHA-256 hashes; comparison inputs
+have file-change stamps. Changed sources invalidate export.
+
+Start normal detection separately:
+
+```bash
+uv run python detect_meteors_cli.py --config analysis/review-001/session.yaml
+```
+
+The saved configuration retains the actual loader, exact thresholds, and fixed
+ROI using new `roi_polygon`/`enable_roi_selection` fields. It uses sequential
+processing and dedicated absolute paths under `analysis/review-001/run`, with
+overwrite disabled. Review paths when relocating a session. Existing normal
+configurations retain their defaults; active hooks/custom output handlers cannot
+be exported as equivalent detector-only sessions.
+
+### Dependency and Security Updates
+
+NumPy, rawpy, Pillow, Pydantic, and development tools are updated from 1.6.10.
+The updates include upstream security fixes in Pillow and Pydantic, and in the
+development-only transitive packages filelock and virtualenv. See the
+[version comparison](CHANGELOG.md#dependency-updates-1610-to-1611) and
+[security sources and scope](CHANGELOG.md#security-updates-1611).
+For environment updates, see [upgrading from 1.6.10](INSTALL.md#upgrading-from-1610).
+
+### Compatibility, Installation, and Validation
+
+- Python 3.12 and 3.13 remain supported. Runtime/project/lockfile versions are 1.6.11. Current pinned dependencies are listed in [installation](INSTALL.md#dependency-versions-v1611) and [developer setup](INSTALL_DEV.md#development-tool-versions-v1611). Historical tool-version examples later in these notes describe their original releases.
+- Bash and native Zsh completion include analysis/tuning/export flags and the installed `detect-meteors` command; see [completion setup](INSTALL.md#optional-shell-completion-bashzsh).
+- Normal detection still requires contour area and aspect ratio strictly above their thresholds, and image-wide line score at least its threshold. The score sums Hough segment lengths. Aircraft likelihood remains metadata; no automatic filtering or track merging is added.
+- Final validation includes all 681 tests passing with no expected failures, 44 unchanged real-pair comparisons during refactoring, and controlled tuning/export/session replay on the local aircraft/meteor sample. The original `P8136507.ORF` report is not a reproduced original-pair case because its preceding RAW is unavailable.
+
+Try the repository-sample command in the [README](../README.md#try-tuning-with-the-repository-sample).
+See [CHANGELOG](CHANGELOG.md#v1611---2026-11-07) for all changes,
+[command options](COMMAND_OPTIONS.md#read-only-image-analysis-v1611) for precise
+limits and combinations, and the [design and validation record](parameter_analysis_1.6.11.md)
+for implementation details and extension points.
+
+## Version 1.6.10 (2026-10-06) - 🌠
 
 Version 1.6.9 was skipped; v1.6.10 is the next release after v1.6.8.
 
@@ -121,11 +252,12 @@ class DetectorRegistry(PluginRegistryBase):
         # Potential type conflicts with base class
         ...
 
+
 # After: Typed factory pattern
 class DetectorRegistry(PluginRegistryBase[Type[BaseDetector]]):
     def __init__(self):
         super().__init__(validator=self._validate_detector)
-    
+
     def _validate_detector(self, plugin_class: type) -> bool:
         # Clean validation without override conflicts
         return issubclass(plugin_class, BaseDetector)
@@ -183,8 +315,8 @@ Locale handling now accepts optional locales with normalization:
 
 ```python
 # Before: Strict locale matching
-def get_message(key: str, locale: str) -> str:
-    ...
+def get_message(key: str, locale: str) -> str: ...
+
 
 # After: Optional locale with fallback normalization
 def get_message(key: str, locale: Optional[str] = None) -> str:
@@ -199,22 +331,27 @@ New constant exported from `meteor_core`:
 ```python
 from meteor_core import MAX_NUM_WORKERS
 
-# Default: 16 (reasonable limit for most systems)
+# Current v1.6.11: max(1, multiprocessing.cpu_count())
 # Pipeline config validation enforces this limit
 # CLI --workers help text displays the limit
 ```
 
 **Validation in PipelineConfig**:
 ```python
-@dataclass
-class PipelineConfig:
-    num_workers: int = 4
-    
-    def __post_init__(self):
-        if self.num_workers > MAX_NUM_WORKERS:
-            raise MeteorConfigError(
-                f"num_workers ({self.num_workers}) exceeds MAX_NUM_WORKERS ({MAX_NUM_WORKERS})"
-            )
+# Current v1.6.11 API: direct construction validates worker bounds.
+from meteor_core import MAX_NUM_WORKERS
+from meteor_core.schema import DetectionParams, PipelineConfig
+
+try:
+    config = PipelineConfig(
+        target_folder="./raw",
+        output_folder="./candidates",
+        debug_folder="./debug",
+        params=DetectionParams(),
+        num_workers=MAX_NUM_WORKERS + 1,
+    )
+except ValueError as exc:
+    print(exc)
 ```
 
 ### Development Workflow
@@ -287,7 +424,8 @@ repos:
 2. **Use explicit type hints** in your plugin implementations:
    ```python
    from meteor_core.schema import DetectionContext, DetectionResult
-   
+
+
    def detect(self, context: DetectionContext) -> DetectionResult:
        # ty will validate your implementation
        ...
@@ -457,9 +595,11 @@ from dataclasses import dataclass
 from meteor_core.hooks import DataclassHook, HookRegistry
 from meteor_core.schema import InputContext, DetectionResult, DetectionContext
 
+
 @dataclass
 class MyHookConfig:
     min_score_threshold: float = 50.0
+
 
 class ScoreFilterHook(DataclassHook[MyHookConfig]):
     plugin_name = "score_filter"
@@ -483,6 +623,7 @@ class ScoreFilterHook(DataclassHook[MyHookConfig]):
                 extras={**result.extras, "filtered_by": "score_filter"},
             )
         return result
+
 
 # Register for runtime use (single-process only)
 HookRegistry.register(ScoreFilterHook)
@@ -524,12 +665,13 @@ uv run python detect_meteors_cli.py \
 ### Python API
 
 ```python
-from meteor_core.schema import PipelineConfig, HookConfig
+from meteor_core.schema import DetectionParams, PipelineConfig, HookConfig
 
 config = PipelineConfig(
     target_folder="./raw",
     output_folder="./candidates",
     debug_folder="./debug",
+    params=DetectionParams(),
     hooks=[
         HookConfig(name="score_filter", config={"min_score_threshold": 75.0}),
         HookConfig(name="logger_hook"),
@@ -757,6 +899,7 @@ from meteor_core.schema import (
     normalize_detection_context,
 )
 
+
 # Register a converter for older schema versions
 def upgrade_v0_to_v1(context: DetectionContext) -> DetectionContext:
     # Migration logic
@@ -768,6 +911,7 @@ def upgrade_v0_to_v1(context: DetectionContext) -> DetectionContext:
         metadata=context.metadata,
         schema_version=1,
     )
+
 
 register_detection_context_converter(0, upgrade_v0_to_v1)
 
@@ -805,13 +949,14 @@ uv run python detect_meteors_cli.py --config pipeline.yaml
    @dataclass
    class MyDetectorConfig:
        """Configuration for MyDetector.
-       
+
        YAML example:
            detector_name: my_detector
            detector_config:
              sensitivity: 0.8
              use_gpu: true
        """
+
        sensitivity: float = 0.5
        use_gpu: bool = False
    ```
@@ -825,11 +970,14 @@ uv run python detect_meteors_cli.py --config pipeline.yaml
 Use `load_pipeline_config()` for file-based configuration:
 
 ```python
+from meteor_core import DetectionParams, PipelineConfig, load_pipeline_config
+
 # Before: Manual PipelineConfig construction
 config = PipelineConfig(
     target_folder="./rawfiles",
     output_folder="./candidates",
-    params={"diff_threshold": 8},
+    debug_folder="./debug_masks",
+    params=DetectionParams(diff_threshold=8),
 )
 
 # After: Load from file
@@ -1173,9 +1321,7 @@ def save_candidate(self, source_path, filename, ...) -> bool:
    ```python
    def detect(self, context: DetectionContext) -> DetectionResult:
        # Use helper methods from BaseDetector
-       global_params, detector_params = self.split_runtime_params(
-           context.runtime_params
-       )
+       global_params, detector_params = self.split_runtime_params(context.runtime_params)
        params = {**global_params, **detector_params}
    ```
 
@@ -1330,6 +1476,7 @@ Plugin architecture remains **experimental**, and v1.6.2 introduces a breaking c
 from meteor_core.inputs import DataclassInputLoader
 from meteor_core.schema import InputContext
 
+
 class MyLoader(DataclassInputLoader[MyConfig]):
     def load(self, filepath: str) -> InputContext:
         image = self._load_image(filepath)
@@ -1432,6 +1579,7 @@ class DetectionResult:
     extras: Dict[str, Any]
     metrics: Dict[str, Any]       # NEW: Standard diagnostics
     schema_version: int = 1       # NEW: For migration support
+
     def to_dict(self) -> Dict[str, Any]:  # NEW: Serialization
         ...
 ```

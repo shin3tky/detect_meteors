@@ -1,0 +1,14 @@
+# Search limits for read-only analysis, not camera-specific recommendations.
+# Use with --tune-params --tuning-config config_examples/parameter_tuning.yaml.
+max_gate_relaxation: 0.5
+max_measurements: 8
+max_evaluations: 256
+max_proposals: 5
+max_comparison_pairs: 100
+max_comparison_measurements: 600
+
+# Empty means reuse the original preprocessing/Hough evidence only.
+# For fresh measurements, supply finite integer lists under these keys:
+# diff_threshold, hough_threshold, hough_min_line_length, hough_max_line_gap.
+# Original values are always included; measurement/evaluation limits still apply.
+measurement_grid: {}

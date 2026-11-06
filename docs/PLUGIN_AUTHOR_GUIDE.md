@@ -4,7 +4,7 @@
 
 > ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
 >
-> **Current status (v1.6.10)**:
+> **Current status (v1.6.11)**:
 >
 > - ✅ Registry system and base classes are stable
 > - ✅ Input Loaders, Detectors, Output Handlers work as documented
@@ -237,7 +237,7 @@ For each image pair (current, previous):
     │                                                             │
     │  Returns: OutputResult                                      │
     │  Lifecycle Hooks (Output Handlers):                         │
-    │  • on_detection_result(context)                             │
+    │  • on_detection_result(context, result, filepath)           │
     │  • on_candidate_detected()                                  │
     │  • on_batch_complete()                                      │
     │  • on_pipeline_complete()                                   │
@@ -329,6 +329,35 @@ worker processes) via the standard plugin discovery mechanisms.
 - For hook authors, **prefer `ConfigType` definitions that can be constructed
   with no arguments**. This keeps hooks easier to configure and reduces
   configuration friction for users.
+
+<a id="hook-execution-and-state"></a>
+
+#### Execution and Instance Lifetime (v1.6.11)
+
+| Callback | Process | Hook instance lifetime |
+| --- | --- | --- |
+| `on_file_found`, `on_all_detections_sorted` | Main | Shared within one run |
+| `on_image_loaded`, `on_detection_complete` | Main for sequential processing; worker for parallel processing | Created per `process_image_batch()` call, shared across pairs within that batch |
+| `on_output_saved`, `on_batch_results_sorted` | Main | Shared within one run, separately from file-filter/final-analysis instances |
+| Output-handler lifecycle events | Main | The output handler held by the pipeline |
+
+Hooks run in configuration order; returned contexts, results, and sorted lists
+feed the next hook. Do not rely on instance state crossing the groups above or
+separate worker batches. A sequential batch contains one pair. Image hooks apply
+to detection pairs, not the initial ROI-selection or auto-estimation sample loads.
+
+Successful result handling follows this order:
+
+1. `OutputHandler.on_detection_result()` receives a context dictionary without image arrays.
+2. For candidates: `save_candidate()` → `on_output_saved()` → `OutputHandler.on_candidate_detected()`.
+3. Record progress, then sort each batch: `on_batch_results_sorted()` → `OutputHandler.on_batch_complete()`.
+4. On normal completion: `OutputHandler.on_pipeline_complete()` → `on_all_detections_sorted()` → merge supported extras into progress.
+
+On resume, final sorting includes only results newly processed in that run.
+Ctrl-C skips final analysis. `warn` logs an exception and continues to the next
+hook; it does not roll back in-place mutations or external side effects made
+before failure. Hook construction/configuration failures raise `MeteorConfigError`
+even in `warn` mode.
 
 **Future enhancement ideas**:
 - Consider extending `HookRegistry` with a way to **distribute a temporary plugin
@@ -510,6 +539,7 @@ from meteor_core.hooks import DataclassHook
 from meteor_core.schema import SortedDetection
 from typing import List
 
+
 class MyBatchAnalyzer(DataclassHook[MyConfig]):
     plugin_name = "my_batch_analyzer"
 
@@ -631,6 +661,7 @@ The plugin system provides three extension points:
 ```python
 ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
 
+
 @dataclass
 class InputContext:
     """Input bundle for loader execution."""
@@ -699,6 +730,7 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 **DetectionContext type** (input to `detect`):
 ```python
 ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
+
 
 @dataclass
 class DetectionContext:
@@ -807,9 +839,9 @@ The serialized shape (via `to_dict()`) is:
 ```python
 {
     "schema_version": 1,
-    "global": { ... },        # Pipeline-wide params
+    "global": {...},          # Pipeline-wide params
     "detector": {
-        "<plugin_name>": { ... }  # Detector-specific overrides
+        "<plugin_name>": {...}    # Detector-specific overrides
     },
 }
 ```
@@ -834,13 +866,13 @@ The serialized shape (via `to_dict()`) is:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `diff_threshold` | `int` | `8` | Frame difference threshold (scale matches input dtype) |
+| `diff_threshold` | `int` / `float` | `8` | Frame difference threshold (scale matches input dtype) |
 | `min_area` | `int` | `10` | Minimum contour area in pixels |
-| `min_line_score` | `float` | `30.0` | Minimum score to classify as candidate |
-| `min_aspect_ratio` | `float` | `2.0` | Minimum contour aspect ratio |
-| `hough_threshold` | `int` | `50` | Hough transform vote threshold |
-| `hough_min_line_length` | `int` | `50` | Minimum line length in pixels |
-| `hough_max_line_gap` | `int` | `10` | Maximum gap between line segments |
+| `min_line_score` | `float` | `80.0` | Minimum score to classify as candidate |
+| `min_aspect_ratio` | `float` | `3.0` | Minimum contour aspect ratio |
+| `hough_threshold` | `int` | `10` | Hough transform vote threshold |
+| `hough_min_line_length` | `int` | `15` | Minimum line length in pixels |
+| `hough_max_line_gap` | `int` | `5` | Maximum gap between line segments |
 
 **Note**: `compute_line_score` is a helper method typically called within your `detect` implementation. The pipeline calls only `detect`.
 
@@ -1138,13 +1170,14 @@ Example with documented configuration:
 @dataclass
 class MyDetectorConfig:
     """Configuration for MyDetector.
-    
+
     YAML example:
         detector_name: my_detector
         detector_config:
           sensitivity: 0.8
           use_gpu: true
     """
+
     sensitivity: float = 0.5      # Detection sensitivity (0.0-1.0)
     use_gpu: bool = False         # Enable GPU acceleration
     model_path: str = ""          # Path to ML model (optional)
@@ -1246,6 +1279,7 @@ class InputContext:
 from meteor_core.schema import InputContext
 from meteor_core.inputs import DataclassInputLoader
 
+
 class MyLoader(DataclassInputLoader[MyConfig]):
     def load(self, filepath: str) -> InputContext:
         image = self._load_image(filepath)
@@ -1274,7 +1308,7 @@ class DetectionContext:
     previous_image: ImageLike                           # Previous frame for differencing
     roi_mask: Any                                       # ROI mask (typically np.ndarray uint8)
     runtime_params: Union[RuntimeParams, Dict[str, Any]]
-    metadata: Dict[str, Any]                            # {"current": {...}, "previous": {...}}
+    metadata: Dict[str, Any]                                # {"current": {...}, "previous": {...}}
     schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION  # Currently 1
 
     def to_dict(self) -> Dict[str, Any]: ...
@@ -1298,7 +1332,9 @@ class DetectionContext:
 class RuntimeParams:
     schema_version: int = 1
     global_params: Dict[str, Any] = field(default_factory=dict)  # Pipeline-wide params
-    detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # Per-detector overrides
+    detector: Dict[str, Dict[str, Any]] = field(
+        default_factory=dict
+    )  # Per-detector overrides
 ```
 
 Serialized form via `to_dict()`:
@@ -1316,6 +1352,7 @@ Serialized form via `to_dict()`:
 from meteor_core.schema import DetectionContext, DetectionResult
 from meteor_core.detectors import DataclassDetector
 from meteor_core.utils import ensure_numpy
+
 
 class MyDetector(DataclassDetector[MyConfig]):
     def detect(self, context: DetectionContext) -> DetectionResult:
@@ -1396,6 +1433,7 @@ class DetectionResult:
 ```python
 from meteor_core.schema import DetectionResult
 
+
 def detect(self, context: DetectionContext) -> DetectionResult:
     start_time = time.perf_counter()
 
@@ -1460,6 +1498,7 @@ class OutputResult:
 
 ```python
 from meteor_core.schema import OutputResult
+
 
 def save_candidate(
     self,
@@ -1596,6 +1635,7 @@ from meteor_core.hooks import DataclassHook
 from meteor_core.schema import SortedDetection
 from typing import List
 
+
 class MyAnalyzer(DataclassHook[MyConfig]):
     plugin_name = "my_analyzer"
 
@@ -1653,6 +1693,7 @@ from meteor_core.schema import (
     register_output_result_converter,
 )
 
+
 def upgrade_detection_context_v0_to_v1(context: DetectionContext) -> DetectionContext:
     """Convert v0 DetectionContext to v1 format."""
     return DetectionContext(
@@ -1664,6 +1705,7 @@ def upgrade_detection_context_v0_to_v1(context: DetectionContext) -> DetectionCo
         schema_version=1,
     )
 
+
 def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResult:
     """Convert v0 DetectionResult to v1 format."""
     return DetectionResult(
@@ -1673,9 +1715,10 @@ def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResul
         aspect_ratio=result.aspect_ratio,
         debug_image=result.debug_image,
         extras=result.extras,
-        metrics=result.metrics if hasattr(result, 'metrics') else {},
+        metrics=result.metrics if hasattr(result, "metrics") else {},
         schema_version=1,
     )
+
 
 register_detection_context_converter(0, upgrade_detection_context_v0_to_v1)
 register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
@@ -1694,6 +1737,7 @@ register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
 
 ```python
 """Custom TIFF image loader with metadata extraction, logging, and exceptions."""
+
 import logging
 import os
 from dataclasses import dataclass
@@ -1719,6 +1763,7 @@ logger = logging.getLogger("meteor_core.inputs.tiff_loader")
 @dataclass
 class TiffLoaderConfig:
     """Configuration for TIFF loader."""
+
     normalize: bool = False
     bit_depth: int = 16
 
@@ -1780,9 +1825,11 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
 
             # Normalize if configured
             if self.config.normalize:
-                max_val = 2 ** self.config.bit_depth - 1
+                max_val = 2**self.config.bit_depth - 1
                 image = (image / max_val * 65535).astype(np.uint16)
-                logger.debug(f"Normalized to uint16 (bit_depth={self.config.bit_depth})")
+                logger.debug(
+                    f"Normalized to uint16 (bit_depth={self.config.bit_depth})"
+                )
             else:
                 image = image.astype(np.uint16)
 
@@ -1852,6 +1899,7 @@ LoaderRegistry.register(TiffImageLoader)
 
 ```python
 """Simple threshold-based detector for bright meteors with logging."""
+
 import logging
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional, Any
@@ -1870,6 +1918,7 @@ logger = logging.getLogger("meteor_core.detectors.threshold")
 @dataclass
 class ThresholdDetectorConfig:
     """Configuration for threshold detector."""
+
     brightness_multiplier: float = 1.5
     min_contour_area: int = 50
 
@@ -1920,7 +1969,9 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
         try:
             # Compute absolute difference
             diff = cv2.absdiff(current_image, previous_image)
-            logger.debug(f"Computed frame difference: max={diff.max()}, mean={diff.mean():.1f}")
+            logger.debug(
+                f"Computed frame difference: max={diff.max()}, mean={diff.mean():.1f}"
+            )
 
             # Apply ROI mask
             diff = cv2.bitwise_and(diff, diff, mask=roi_mask)
@@ -1931,12 +1982,7 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             logger.debug(f"Applying threshold: {effective_threshold}")
 
             # Apply threshold
-            _, binary = cv2.threshold(
-                diff,
-                effective_threshold,
-                255,
-                cv2.THRESH_BINARY
-            )
+            _, binary = cv2.threshold(diff, effective_threshold, 255, cv2.THRESH_BINARY)
             binary = binary.astype(np.uint8)
 
             # Find contours
@@ -1947,7 +1993,8 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
             # Filter by area
             valid_contours = [
-                c for c in contours
+                c
+                for c in contours
                 if cv2.contourArea(c) >= self.config.min_contour_area
             ]
             logger.debug(
@@ -1983,7 +2030,9 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
                 aspect_ratios.append(max(w, h) / max(min(w, h), 1))
             max_aspect_ratio = max(aspect_ratios) if aspect_ratios else 0.0
 
-            logger.debug(f"Metrics: score={score:.1f}, max_aspect_ratio={max_aspect_ratio:.2f}")
+            logger.debug(
+                f"Metrics: score={score:.1f}, max_aspect_ratio={max_aspect_ratio:.2f}"
+            )
 
             # Create debug image
             debug_image = cv2.cvtColor(
@@ -2076,6 +2125,7 @@ to observability tools.
 
 ```python
 """Slack notification handler with full lifecycle support, logging, and exceptions."""
+
 import json
 import logging
 import os
@@ -2099,6 +2149,7 @@ logger = logging.getLogger("meteor_core.outputs.slack_handler")
 @dataclass
 class SlackOutputConfig:
     """Configuration for Slack notification handler."""
+
     output_folder: str = "./candidates"
     debug_folder: str = "./debug_masks"
     webhook_url: str = ""
@@ -2260,7 +2311,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             return ""
 
     # ========== LIFECYCLE HOOKS ==========
-    # These methods must NEVER raise exceptions!
+    # This notification handler logs callback failures and continues.
 
     def on_detection_result(
         self,
@@ -2287,7 +2338,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 runtime_params,
             )
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_detection_result hook failed: {e}")
 
     def on_candidate_detected(
@@ -2326,7 +2377,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 self._send_slack(message)
 
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_candidate_detected hook failed: {e}")
 
     def on_batch_complete(
@@ -2353,7 +2404,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             # Could implement periodic progress updates here
 
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_batch_complete hook failed: {e}")
 
     def on_pipeline_complete(
@@ -2393,7 +2444,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 self._send_slack(message)
 
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_pipeline_complete hook failed: {e}")
 
     def _send_slack(self, message: str) -> None:
@@ -2468,6 +2519,7 @@ Use Pydantic BaseModel
 ```python
 from dataclasses import dataclass
 
+
 @dataclass
 class MyConfig:
     output_folder: str = "./output"  # Always provide defaults
@@ -2478,6 +2530,7 @@ class MyConfig:
 **Pydantic (For complex validation)**:
 ```python
 from pydantic import BaseModel, Field, field_validator
+
 
 class MyConfig(BaseModel):
     threshold: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -2689,15 +2742,23 @@ class MyDetector(DataclassDetector[MyConfig]):
 
 **Output Handler error handling**:
 
-For **primary handlers** (critical file/storage operations), raise exceptions:
+For **primary handlers** (critical file/storage operations), raise exceptions.
+In 1.6.11, both sequential and parallel processing propagate exceptions from
+saving and `OutputResult` normalization. `hook_error_mode: warn` does not suppress
+save failures, and failed candidates are not marked processed. In contrast,
+`OutputResult(saved=False, ...)` is a normal skipped save: notifications still
+run and the frame still counts as a candidate.
 
 ```python
 from meteor_core.exceptions import MeteorWriteError
 
+
 class MyFileHandler(DataclassOutputHandler[MyConfig]):
     """Primary handler - raises exceptions on critical failures."""
 
-    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> OutputResult:
+    def save_candidate(
+        self, source_path, filename, debug_image=None, roi_polygon=None
+    ) -> OutputResult:
         dest_path = os.path.join(self.config.output_folder, filename)
         try:
             shutil.copy2(source_path, dest_path)
@@ -2724,7 +2785,9 @@ For **secondary handlers** (notifications, webhooks), log and return `OutputResu
 class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
     """Secondary handler - logs errors and continues."""
 
-    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> OutputResult:
+    def save_candidate(
+        self, source_path, filename, debug_image=None, roi_polygon=None
+    ) -> OutputResult:
         try:
             self._upload_to_cloud(source_path)
             return OutputResult(
@@ -2745,7 +2808,7 @@ class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
         try:
             self._send_notification(filename)
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"Notification failed: {e}")
 ```
 
@@ -2920,7 +2983,9 @@ except MeteorLoadError as e:
 
 ### 6.6 Thread Safety
 
-The pipeline may process images in parallel. Ensure your plugins are thread-safe:
+The pipeline uses separate worker processes, so plugin instance state is not
+shared between workers. If your plugin itself creates threads, protect shared
+state as in the example below:
 
 ```python
 class MyHandler(DataclassOutputHandler[MyConfig]):
@@ -2957,7 +3022,8 @@ uv run pre-commit run ty-check --all-files
 - Use explicit type hints for all public methods:
   ```python
   from meteor_core.schema import DetectionContext, DetectionResult
-  
+
+
   def detect(self, context: DetectionContext) -> DetectionResult:
       # ty will validate your implementation
       ...
@@ -2972,8 +3038,7 @@ uv run pre-commit run ty-check --all-files
       filename: str,
       debug_image: Optional[np.ndarray] = None,
       roi_polygon: Optional[List[List[int]]] = None,
-  ) -> OutputResult:
-      ...
+  ) -> OutputResult: ...
   ```
 
 - Import types from `meteor_core.schema` for contract compliance:
@@ -3056,30 +3121,41 @@ class MyDetector(DataclassDetector[MyDetectorConfig]):
 
 ### 6.8 Worker Limit Configuration
 
-As of v1.6.8, the `MAX_NUM_WORKERS` constant is exported from `meteor_core` and enforced in `PipelineConfig`:
+The `MAX_NUM_WORKERS` constant has been exported from `meteor_core` since v1.6.8.
+In the current v1.6.11 code, its value is `max(1, multiprocessing.cpu_count())`;
+the default worker count is `max(1, CPU count - 1)`.
 
 ```python
 from meteor_core import MAX_NUM_WORKERS
 
-# Default: 16 (reasonable limit for most systems)
+# Current v1.6.11: max(1, multiprocessing.cpu_count())
 print(f"Maximum workers allowed: {MAX_NUM_WORKERS}")
 ```
 
 **PipelineConfig validation**:
 
-When creating a `PipelineConfig`, the `num_workers` value is validated against `MAX_NUM_WORKERS`:
+Direct construction checks `num_workers` against `1..MAX_NUM_WORKERS` and
+requires `batch_size >= 1`; invalid values raise `ValueError`.
 
 ```python
-from meteor_core.schema import PipelineConfig
-from meteor_core.exceptions import MeteorConfigError
+from meteor_core import MAX_NUM_WORKERS
+from meteor_core.schema import DetectionParams, PipelineConfig
 
-# This will raise MeteorConfigError if num_workers > MAX_NUM_WORKERS
-config = PipelineConfig(
-    target_folder="./raw",
-    output_folder="./candidates",
-    num_workers=32,  # Raises if > MAX_NUM_WORKERS
-)
+try:
+    config = PipelineConfig(
+        target_folder="./raw",
+        output_folder="./candidates",
+        debug_folder="./debug",
+        params=DetectionParams(),
+        num_workers=MAX_NUM_WORKERS + 1,
+    )
+except ValueError as exc:
+    print(exc)
 ```
+
+`from_partial_dict()`, used when loading configuration files, assigns fields
+after constructing defaults and does not repeat the same bounds checks. Supply
+valid worker/batch values and `hook_error_mode: warn|raise` in files too.
 
 **Plugin author considerations**:
 
@@ -3111,6 +3187,7 @@ from meteor_core.outputs import DataclassOutputHandler
 ```python
 from dataclasses import dataclass
 
+
 @dataclass
 class MyPluginConfig:
     option1: str = "default"
@@ -3121,6 +3198,7 @@ class MyPluginConfig:
 
 ```python
 from meteor_core.schema import InputContext
+
 
 class MyPlugin(DataclassInputLoader[MyPluginConfig]):
     plugin_name = "my_plugin"  # Required
@@ -3138,6 +3216,7 @@ class MyPlugin(DataclassInputLoader[MyPluginConfig]):
 **Option A: Runtime registration**
 ```python
 from meteor_core.inputs import LoaderRegistry
+
 LoaderRegistry.register(MyPlugin)
 ```
 
@@ -3176,6 +3255,7 @@ class TestMyPlugin(unittest.TestCase):
     def test_default_config(self):
         # Test with default configuration
         from meteor_core.inputs import LoaderRegistry
+
         LoaderRegistry.register(MyPlugin)
 
         loader = LoaderRegistry.create("my_plugin")  # Uses defaults
@@ -3208,6 +3288,7 @@ def test_plugin_in_pipeline():
 **Enable verbose logging**:
 ```python
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 ```
 
@@ -3217,8 +3298,7 @@ from meteor_core.inputs import LoaderRegistry
 
 LoaderRegistry.discover()
 for name in LoaderRegistry.list_available():
-    cls = LoaderRegistry.get(name)
-    instance = cls(None)
+    instance = LoaderRegistry.create(name)
     print(instance.get_info())
 ```
 

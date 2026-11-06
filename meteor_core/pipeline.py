@@ -352,72 +352,6 @@ def _apply_batch_results_sorted_hooks(
     """Apply on_batch_results_sorted hooks to a batch of detections.
 
     Args:
-        detections: List of SortedDetection objects from the current batch.
-        hooks: List of hook instances.
-        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
-
-    Returns:
-        Updated list of SortedDetection objects.
-    """
-    # Sort by frame_index before passing to hooks
-    sorted_detections = sorted(detections, key=lambda d: d.frame_index)
-
-    for hook in hooks:
-        try:
-            sorted_detections = hook.on_batch_results_sorted(sorted_detections)
-        except Exception as exc:
-            _handle_hook_exception(
-                exc,
-                hook_name="on_batch_results_sorted",
-                hook_error_mode=hook_error_mode,
-                message="on_batch_results_sorted hook failed: %s",
-                message_args=(exc,),
-            )
-
-    return sorted_detections
-
-
-def _apply_all_detections_sorted_hooks(
-    detections: List[SortedDetection],
-    hooks: List[Any],
-    hook_error_mode: str,
-) -> List[SortedDetection]:
-    """Apply on_all_detections_sorted hooks to all detections.
-
-    Args:
-        detections: List of ALL SortedDetection objects from the pipeline.
-        hooks: List of hook instances.
-        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
-
-    Returns:
-        Updated list of SortedDetection objects.
-    """
-    # Sort by frame_index before passing to hooks
-    sorted_detections = sorted(detections, key=lambda d: d.frame_index)
-
-    for hook in hooks:
-        try:
-            sorted_detections = hook.on_all_detections_sorted(sorted_detections)
-        except Exception as exc:
-            _handle_hook_exception(
-                exc,
-                hook_name="on_all_detections_sorted",
-                hook_error_mode=hook_error_mode,
-                message="on_all_detections_sorted hook failed: %s",
-                message_args=(exc,),
-            )
-
-    return sorted_detections
-
-
-def _apply_batch_results_sorted_hooks(
-    detections: List[SortedDetection],
-    hooks: List[Any],
-    hook_error_mode: str,
-) -> List[SortedDetection]:
-    """Apply on_batch_results_sorted hooks to a batch of detections.
-
-    Args:
         detections: List of SortedDetection objects, sorted by frame_index.
         hooks: List of hook instances.
         hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
@@ -652,7 +586,7 @@ def _resolve_input_loader(
         try:
             return LoaderRegistry.create(loader_name, loader_config)
         except KeyError as e:
-            available = list(LoaderRegistry.list_loaders().keys())
+            available = LoaderRegistry.list_available()
             logger.error(
                 "Loader '%s' not found. Available: %s",
                 loader_name,
@@ -826,7 +760,7 @@ class DetectionPipeline(Protocol):
 
     def run(
         self,
-        enable_roi_selection: bool = True,
+        enable_roi_selection: Optional[bool] = None,
         roi_polygon_cli: Optional[List[List[int]]] = None,
         resume: bool = True,
         profile: bool = False,
@@ -2046,7 +1980,7 @@ class MeteorDetectionPipeline:
 
     def run(
         self,
-        enable_roi_selection: bool = True,
+        enable_roi_selection: Optional[bool] = None,
         roi_polygon_cli: Optional[List[List[int]]] = None,
         resume: bool = True,
         profile: bool = False,
@@ -2056,14 +1990,20 @@ class MeteorDetectionPipeline:
         Run the full detection pipeline.
 
         Args:
-            enable_roi_selection: Whether to enable interactive ROI selection
-            roi_polygon_cli: Pre-defined ROI polygon from CLI
+            enable_roi_selection: Interactive ROI selection; None uses configuration.
+            roi_polygon_cli: Explicit polygon, None uses configuration, [] selects full image.
             resume: Whether to resume from previous progress
             profile: Whether to collect performance metrics
 
         Returns:
             Number of detected candidates
         """
+        if enable_roi_selection is None:
+            enable_roi_selection = self._config.enable_roi_selection
+        if roi_polygon_cli is None:
+            roi_polygon_cli = self._config.roi_polygon
+        elif not roi_polygon_cli:
+            enable_roi_selection = False
         locale = _resolve_locale(None)
         timing = {}
         t_total = time.time()
@@ -2477,170 +2417,6 @@ class MeteorDetectionPipeline:
                 completed_batches += 1
                 try:
                     batch_results = future.result()
-
-                    # Show batch progress when a batch completes
-                    print(
-                        get_message(
-                            "ui.pipeline.processing.batch_progress",
-                            locale=locale,
-                            completed=completed_batches,
-                            total=total_batches,
-                        ),
-                        end="\r",
-                        flush=True,
-                    )
-
-                    for result in batch_results:
-                        (
-                            is_candidate,
-                            filename,
-                            filepath,
-                            line_score,
-                            debug_img,
-                            aspect_ratio,
-                            num_lines,
-                            detection_result,
-                            detection_context_payload,
-                        ) = result
-                        processed += 1
-
-                        # Always show progress first
-                        print(
-                            get_message(
-                                "ui.pipeline.processing.checking",
-                                locale=locale,
-                                current=resume_offset + processed,
-                                total=overall_total,
-                            ),
-                            end="\r",
-                            flush=True,
-                        )
-
-                        if line_score > 0:
-                            print()  # Move to new line before [LINE]
-                            print(
-                                get_message(
-                                    "ui.pipeline.processing.line",
-                                    locale=locale,
-                                    filename=filename,
-                                    score=line_score,
-                                    lines=num_lines,
-                                )
-                            )
-
-                        if detection_result and detection_context_payload:
-                            try:
-                                self.output_handler.on_detection_result(
-                                    detection_context_payload,
-                                    detection_result,
-                                    filepath,
-                                )
-                            except Exception as exc:
-                                _handle_hook_exception(
-                                    exc,
-                                    hook_name="on_detection_result",
-                                    hook_error_mode=self._config.hook_error_mode,
-                                    message="on_detection_result hook failed for %s: %s",
-                                    message_args=(filename, exc),
-                                    filepath=filepath,
-                                )
-
-                        if is_candidate:
-                            if line_score <= 0:
-                                print()  # Move to new line if [LINE] wasn't printed
-                            output_result = self.output_handler.save_candidate(
-                                filepath, filename, debug_img, roi_polygon
-                            )
-                            output_result = _normalize_output_result(output_result)
-                            _apply_output_saved_hooks(
-                                output_result,
-                                hooks,
-                                filename,
-                                self._config.hook_error_mode,
-                            )
-                            if output_result.saved:
-                                print(
-                                    get_message(
-                                        "ui.pipeline.processing.hit",
-                                        locale=locale,
-                                        filename=filename,
-                                        ratio=aspect_ratio,
-                                    )
-                                )
-                            else:
-                                print(
-                                    get_message(
-                                        "ui.pipeline.processing.skip",
-                                        locale=locale,
-                                        filename=filename,
-                                    )
-                                )
-                            try:
-                                self.output_handler.on_candidate_detected(
-                                    filename,
-                                    output_result.saved,
-                                    score=line_score,
-                                    aspect_ratio=aspect_ratio,
-                                )
-                            except Exception as exc:
-                                _handle_hook_exception(
-                                    exc,
-                                    hook_name="on_candidate_detected",
-                                    hook_error_mode=self._config.hook_error_mode,
-                                    message="on_candidate_detected hook failed for %s: %s",
-                                    message_args=(filename, exc),
-                                    filepath=filepath,
-                                )
-
-                        # Extract frame indices from detection context
-                        ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
-                            detection_context_payload
-                        )
-
-                        self.progress_manager.record_result(
-                            filename,
-                            is_candidate,
-                            line_score,
-                            num_lines,
-                            aspect_ratio,
-                            frame_index=ctx_frame_index,
-                            prev_frame_index=ctx_prev_frame_index,
-                            detection_result=detection_result,
-                        )
-
-                    # Apply on_batch_results_sorted hooks
-                    batch_sorted_detections = _build_sorted_detections_from_batch(
-                        batch_results
-                    )
-                    batch_sorted_detections = _apply_batch_results_sorted_hooks(
-                        batch_sorted_detections,
-                        hooks,
-                        self._config.hook_error_mode,
-                    )
-                    self._all_sorted_detections.extend(batch_sorted_detections)
-
-                    try:
-                        if logger.isEnabledFor(logging.DEBUG):
-                            logger.debug(
-                                "on_batch_complete elapsed=%.2fs processed=%s detected=%s batch_size=%s",
-                                time.time() - start_time,
-                                self.progress_manager.get_total_processed(),
-                                self.progress_manager.get_total_detected(),
-                                len(batch_results),
-                            )
-                        self.output_handler.on_batch_complete(
-                            self.progress_manager.get_total_processed(),
-                            self.progress_manager.get_total_detected(),
-                            len(batch_results),
-                        )
-                    except Exception as exc:
-                        _handle_hook_exception(
-                            exc,
-                            hook_name="on_batch_complete",
-                            hook_error_mode=self._config.hook_error_mode,
-                            message="on_batch_complete hook failed for batch %s: %s",
-                            message_args=(completed_batches, exc),
-                        )
                 except Exception as e:
                     if self._config.hook_error_mode == "raise" and isinstance(
                         e, MeteorHookError
@@ -2653,6 +2429,172 @@ class MeteorDetectionPipeline:
                             locale=locale,
                             error=e,
                         )
+                    )
+                    continue
+
+                # Output failures must propagate, just as in sequential mode.
+                # Show batch progress when a batch completes
+                print(
+                    get_message(
+                        "ui.pipeline.processing.batch_progress",
+                        locale=locale,
+                        completed=completed_batches,
+                        total=total_batches,
+                    ),
+                    end="\r",
+                    flush=True,
+                )
+
+                for result in batch_results:
+                    (
+                        is_candidate,
+                        filename,
+                        filepath,
+                        line_score,
+                        debug_img,
+                        aspect_ratio,
+                        num_lines,
+                        detection_result,
+                        detection_context_payload,
+                    ) = result
+                    processed += 1
+
+                    # Always show progress first
+                    print(
+                        get_message(
+                            "ui.pipeline.processing.checking",
+                            locale=locale,
+                            current=resume_offset + processed,
+                            total=overall_total,
+                        ),
+                        end="\r",
+                        flush=True,
+                    )
+
+                    if line_score > 0:
+                        print()  # Move to new line before [LINE]
+                        print(
+                            get_message(
+                                "ui.pipeline.processing.line",
+                                locale=locale,
+                                filename=filename,
+                                score=line_score,
+                                lines=num_lines,
+                            )
+                        )
+
+                    if detection_result and detection_context_payload:
+                        try:
+                            self.output_handler.on_detection_result(
+                                detection_context_payload,
+                                detection_result,
+                                filepath,
+                            )
+                        except Exception as exc:
+                            _handle_hook_exception(
+                                exc,
+                                hook_name="on_detection_result",
+                                hook_error_mode=self._config.hook_error_mode,
+                                message="on_detection_result hook failed for %s: %s",
+                                message_args=(filename, exc),
+                                filepath=filepath,
+                            )
+
+                    if is_candidate:
+                        if line_score <= 0:
+                            print()  # Move to new line if [LINE] wasn't printed
+                        output_result = self.output_handler.save_candidate(
+                            filepath, filename, debug_img, roi_polygon
+                        )
+                        output_result = _normalize_output_result(output_result)
+                        _apply_output_saved_hooks(
+                            output_result,
+                            hooks,
+                            filename,
+                            self._config.hook_error_mode,
+                        )
+                        if output_result.saved:
+                            print(
+                                get_message(
+                                    "ui.pipeline.processing.hit",
+                                    locale=locale,
+                                    filename=filename,
+                                    ratio=aspect_ratio,
+                                )
+                            )
+                        else:
+                            print(
+                                get_message(
+                                    "ui.pipeline.processing.skip",
+                                    locale=locale,
+                                    filename=filename,
+                                )
+                            )
+                        try:
+                            self.output_handler.on_candidate_detected(
+                                filename,
+                                output_result.saved,
+                                score=line_score,
+                                aspect_ratio=aspect_ratio,
+                            )
+                        except Exception as exc:
+                            _handle_hook_exception(
+                                exc,
+                                hook_name="on_candidate_detected",
+                                hook_error_mode=self._config.hook_error_mode,
+                                message="on_candidate_detected hook failed for %s: %s",
+                                message_args=(filename, exc),
+                                filepath=filepath,
+                            )
+
+                    # Extract frame indices from detection context
+                    ctx_frame_index, ctx_prev_frame_index = _extract_frame_indices(
+                        detection_context_payload
+                    )
+
+                    self.progress_manager.record_result(
+                        filename,
+                        is_candidate,
+                        line_score,
+                        num_lines,
+                        aspect_ratio,
+                        frame_index=ctx_frame_index,
+                        prev_frame_index=ctx_prev_frame_index,
+                        detection_result=detection_result,
+                    )
+
+                # Apply on_batch_results_sorted hooks
+                batch_sorted_detections = _build_sorted_detections_from_batch(
+                    batch_results
+                )
+                batch_sorted_detections = _apply_batch_results_sorted_hooks(
+                    batch_sorted_detections,
+                    hooks,
+                    self._config.hook_error_mode,
+                )
+                self._all_sorted_detections.extend(batch_sorted_detections)
+
+                try:
+                    if logger.isEnabledFor(logging.DEBUG):
+                        logger.debug(
+                            "on_batch_complete elapsed=%.2fs processed=%s detected=%s batch_size=%s",
+                            time.time() - start_time,
+                            self.progress_manager.get_total_processed(),
+                            self.progress_manager.get_total_detected(),
+                            len(batch_results),
+                        )
+                    self.output_handler.on_batch_complete(
+                        self.progress_manager.get_total_processed(),
+                        self.progress_manager.get_total_detected(),
+                        len(batch_results),
+                    )
+                except Exception as exc:
+                    _handle_hook_exception(
+                        exc,
+                        hook_name="on_batch_complete",
+                        hook_error_mode=self._config.hook_error_mode,
+                        message="on_batch_complete hook failed for batch %s: %s",
+                        message_args=(completed_batches, exc),
                     )
         except KeyboardInterrupt:
             print(

@@ -16,17 +16,17 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 📅 **Planning your meteor photography?** Check out the [Meteor Showers Calendar](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-Calendar) for upcoming meteor shower dates and viewing tips.
 
+🌠 **November 2026:** See [Meteor Showers 2026 — November](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#november-2026).
+
 > [!TIP]
-> 🌠 **A meteor showers to photograph in October 2026!**
->
-> - **Orionids — October 21-22, 2026:** See [Orionids details](https://github.com/shin3tky/detect_meteors/wiki/Meteor-Showers-2026#orionids) for peak-night viewing conditions and photography tips.
+> If a visually confirmed meteor was missed, [inspect the original pair and settings](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611) before changing thresholds.
 
 ## Features
 
 - **Fully automated**: NPF Rule-based optimization analyzes EXIF metadata and scientifically tunes detection parameters
 - **Field-tested**: Reported 100% detection rate on the project's real-world test dataset (OM Digital OM-1, 1000+ RAW images); results depend on shooting conditions and parameters
-- **RAW format support**: Works with any format supported by [`rawpy`](https://github.com/letmaik/rawpy)
-- **Intelligent processing**: ROI cropping, Hough transform line detection, resumable batch processing
+- **RAW format support**: Collects the extensions listed in [`meteor_core/schema.py`](meteor_core/schema.py) and decodes them with [`rawpy`](https://github.com/letmaik/rawpy); camera support depends on LibRaw
+- **Intelligent processing**: ROI masking, Hough transform line detection, resumable batch processing
 - **High performance**: ~0.18 sec/image with multi-core parallel processing
 
 ## Requirements
@@ -34,6 +34,8 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 - Python 3.12, 3.13
 - macOS, Windows, or Linux
 - Dependencies: `numpy`, `opencv-python`, `rawpy`, `psutil`, `pillow`, `pydantic`, `pyyaml`
+
+Exact versions: [installation guide](docs/INSTALL.md#dependency-versions-v1611).
 
 ## Installation
 
@@ -79,6 +81,53 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-leng
 
 Check the `candidates/` folder for detected meteor images.
 
+### Inspect a Missed Candidate (v1.6.11)
+
+Supply a visually confirmed missed meteor, its preceding image, and the original
+progress file to see effective settings, their sources, and rejection reasons:
+
+```bash
+uv run python detect_meteors_cli.py \
+  --analyze-image rawfiles/frame002.ORF \
+  --reference-image rawfiles/frame001.ORF \
+  --analysis-progress previous_run/progress.json
+```
+
+This mode leaves candidates and progress untouched. `--verbose` shows contours
+and lines; `--tune-params` proposes bounded adjustments. Use an explicit
+`--analysis-sequence DIR` instead of `--reference-image` to select the preceding
+RAW by filename order. A missing reference reports `reference_missing` and exits
+with status 2 without a decision.
+
+#### Try Tuning with the Repository Sample
+
+From a repository checkout, this example deliberately raises the aspect-ratio
+threshold to create a missed candidate, then proposes a relaxation:
+
+```bash
+uv run python detect_meteors_cli.py \
+  --analyze-image rawfiles/2024GEMINI_AIRCRAFT/_C140338.ORF \
+  --reference-image rawfiles/2024GEMINI_AIRCRAFT/_C140337.ORF \
+  --diff-threshold 9 --min-area 3 --min-line-score 30 \
+  --min-aspect-ratio 20 --no-roi --tune-params
+```
+
+These values demonstrate the workflow; they are not camera or lens presets.
+The sample contains aircraft as well as a confirmed meteor: recovering a
+candidate frame does not identify which trail passed. RAW samples are available
+in the repository and excluded from Python distributions.
+
+Add `--analysis-output analysis/review-001` to save a JSON report and PNG evidence
+to a **new** directory. After reviewing the proposals, rerun with the same options
+and `--analysis-proposal 1` plus a fresh output directory to export the first
+returned proposal as `session.yaml`. Run normal detection separately with
+`uv run python detect_meteors_cli.py --config DIR/session.yaml`; outputs go under
+`DIR/run`. Proposals are never applied automatically.
+
+For sequence comparison, known-meteor labels, search limits, and ROI overrides,
+see the [analysis options](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611)
+and [release notes](docs/RELEASE_NOTES_1.6.md#version-1611-2026-11-07).
+
 ## Available Sensor Types
 
 | Sensor Type | Description |
@@ -122,6 +171,7 @@ current working directory, not from the configuration file's directory.
 
 - `target_folder`, `output_folder`, `debug_folder` (default: `rawfiles`, `candidates`, `debug_masks`)
 - `params` (detection parameters)
+- `roi_polygon`, `enable_roi_selection` (configured ROI and interactive selection)
 - `num_workers`, `batch_size`, `auto_batch_size`, `enable_parallel`
 - `progress_file`, `output_overwrite`
 - `input_loader_name`, `input_loader_config`
@@ -170,7 +220,10 @@ uv run python detect_meteors_cli.py --config config_examples/pipeline.yaml
 You can override plugin selections via CLI (e.g., `--input-loader`, `--detector`,
 `--output-handler`) and provide plugin configs as JSON/YAML strings or file paths.
 Legacy parameter flags (e.g., `--diff-threshold`) are still mapped into
-`PipelineConfig.params` but will be deprecated in favor of config files.
+`PipelineConfig.params`; normal runs warn that these legacy flags are deprecated
+in favor of config files. For normal-run config overrides, use full option names
+and separate values (for example, `--diff-threshold 12`); see the
+[syntax limitation](docs/COMMAND_OPTIONS.md#normal-run-override-syntax).
 
 **Usage (Python)**
 
@@ -237,19 +290,19 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 | [Aircraft sample validation](docs/aircraft_sample_validation.md) | Results and limitations on the local 12-frame sequence |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## What's New in v1.6.10
+## What's New in v1.6.11
 
-**Release date: October 6, 2026 (2026-10-06) — 🌠 Make Your Dream Come True Day.**
-Version 1.6.9 was skipped; this
-release follows v1.6.8.
+**Release date: November 7, 2026 (2026-11-07).**
 
-- **Sorted detection hooks**: New pipeline hooks for temporally-ordered detection analysis
-  - `on_batch_results_sorted`: Per-batch hook with frame-order guarantee
-  - `on_all_detections_sorted`: Post-pipeline hook for cross-frame analysis
-- **SortedDetection dataclass**: Lightweight, memory-efficient container for sorted hooks
-- **AircraftTrailHook improvements**: Enhanced robustness with error handling, logging, and 360° angle normalization
+- Consolidate the 1.6 detection foundation and propagate parallel save errors like sequential errors.
+- Update runtime/development dependencies, including [upstream security fixes](docs/CHANGELOG.md#security-updates-1611).
+- Inspect missed candidates with the original image pair, recorded settings, and ROI.
+- Derive bounded tuning proposals and compare their effects on a shooting sequence.
+- Save JSON/PNG evidence and an explicitly selected session configuration for reprocessing.
+- Reuse configured ROI and complete analysis options in Bash/Zsh, including `detect-meteors`.
 
-For detailed migration information, see [RELEASE_NOTES_1.6.md](docs/RELEASE_NOTES_1.6.md).
+See the [release notes](docs/RELEASE_NOTES_1.6.md#version-1611-2026-11-07)
+for the workflow and [CHANGELOG](docs/CHANGELOG.md#v1611---2026-11-07) for all changes.
 
 ### Previous Releases
 

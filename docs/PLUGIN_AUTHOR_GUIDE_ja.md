@@ -4,7 +4,7 @@
 
 > ⚠️ **実験的**：プラグイン構成は開発中であり、**v2.0の安定版までに互換性のない変更が入る可能性があります**。
 >
-> **現在の状態（v1.6.10）**：
+> **現在の状態（v1.6.11）**：
 >
 > - ✅ レジストリと基底クラスは安定しています。
 > - ✅ 入力ローダー、検出器、出力ハンドラーは記載どおり動作します。
@@ -252,7 +252,7 @@ For each image pair (current, previous):
     │                                                             │
     │  Returns: OutputResult                                      │
     │  Lifecycle Hooks (Output Handlers):                         │
-    │  • on_detection_result(context)                             │
+    │  • on_detection_result(context, result, filepath)           │
     │  • on_candidate_detected()                                  │
     │  • on_batch_complete()                                      │
     │  • on_pipeline_complete()                                   │
@@ -337,6 +337,32 @@ For each image pair (current, previous):
 **設計指針**：
 
 - **引数なしで生成できるConfigType** を推奨します。設定しやすく、利用者の手間を減らせます。
+
+<a id="hook-execution-and-state"></a>
+
+#### 実行場所と状態の生存期間（v1.6.11）
+
+| コールバック | 実行場所 | フックのインスタンス |
+| --- | --- | --- |
+| `on_file_found`、`on_all_detections_sorted` | メインプロセス | 同じ実行内で共有 |
+| `on_image_loaded`、`on_detection_complete` | 逐次時はメイン、並列時はワーカー | `process_image_batch()` の呼び出しごとに生成し、同じバッチの画像ペア間で共有 |
+| `on_output_saved`、`on_batch_results_sorted` | メインプロセス | 同じ実行内で共有。ただしファイル選別・最終解析のインスタンスとは別 |
+| 出力ハンドラーのライフサイクルイベント | メインプロセス | パイプラインが保持する出力ハンドラー |
+
+設定の一覧順に呼び出し、返されたコンテキスト・検出結果・ソート済み一覧を次のフックへ渡します。
+フックの状態は上表のグループ間や別バッチのワーカー間では共有されません。逐次処理のバッチは1ペアです。
+ROI選択・自動推定用の先頭画像やサンプルの読み込みには画像フックを適用せず、検出する画像ペアに適用します。
+
+成功した結果の処理順は次のとおりです。
+
+1. `OutputHandler.on_detection_result()`。画像配列を含まないコンテキスト辞書を渡します。
+2. 候補なら `save_candidate()` → `on_output_saved()` → `OutputHandler.on_candidate_detected()`。
+3. 進捗を記録し、バッチ内をソートして `on_batch_results_sorted()` → `OutputHandler.on_batch_complete()`。
+4. 正常完了時は `OutputHandler.on_pipeline_complete()` → `on_all_detections_sorted()` → 対応するextrasを進捗へ反映。
+
+再開時の最終ソート対象は、その実行で新たに処理した結果だけです。Ctrl-Cでは最終解析を実行しません。
+`warn` は例外を警告して次のフックへ進みますが、例外前の破壊的変更や外部への副作用を元に戻すものではありません。
+フック生成・設定の失敗は `warn` でも `MeteorConfigError` として送出します。
 
 **今後の拡張案**：
 
@@ -495,6 +521,7 @@ from meteor_core.hooks import DataclassHook
 from meteor_core.schema import SortedDetection
 from typing import List
 
+
 class MyBatchAnalyzer(DataclassHook[MyConfig]):
     plugin_name = "my_batch_analyzer"
 
@@ -604,6 +631,7 @@ pipeline.run(enable_roi_selection=False)
 ```python
 ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
 
+
 @dataclass
 class InputContext:
     """Input bundle for loader execution."""
@@ -679,6 +707,7 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 
 ```python
 ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
+
 
 @dataclass
 class DetectionContext:
@@ -779,9 +808,9 @@ class RuntimeParams:
 ```python
 {
     "schema_version": 1,
-    "global": { ... },        # Pipeline-wide params
+    "global": {...},          # Pipeline-wide params
     "detector": {
-        "<plugin_name>": { ... }  # Detector-specific overrides
+        "<plugin_name>": {...}    # Detector-specific overrides
     },
 }
 ```
@@ -804,13 +833,13 @@ class RuntimeParams:
 
 | キー | 型 | 既定値 | 説明 |
 |------|----|--------|------|
-| `diff_threshold` | `int` | `8` | 入力のdtypeに対応するフレーム差分しきい値 |
+| `diff_threshold` | `int` / `float` | `8` | 入力のdtypeに対応するフレーム差分閾値 |
 | `min_area` | `int` | `10` | 輪郭の最小面積（画素） |
-| `min_line_score` | `float` | `30.0` | 候補とする最小スコア |
-| `min_aspect_ratio` | `float` | `2.0` | 輪郭の最小縦横比 |
-| `hough_threshold` | `int` | `50` | Hough変換の投票しきい値 |
-| `hough_min_line_length` | `int` | `50` | 最小線分長（画素） |
-| `hough_max_line_gap` | `int` | `10` | 線分間の最大間隔（画素） |
+| `min_line_score` | `float` | `80.0` | 候補とする最小スコア |
+| `min_aspect_ratio` | `float` | `3.0` | 輪郭の最小縦横比 |
+| `hough_threshold` | `int` | `10` | Hough変換の投票閾値 |
+| `hough_min_line_length` | `int` | `15` | 最小線分長（画素） |
+| `hough_max_line_gap` | `int` | `5` | 線分間の最大間隔（画素） |
 
 **補足**：`compute_line_score` は通常 `detect` の内部ヘルパーです。パイプラインが呼ぶのは `detect` のみです。
 
@@ -1045,7 +1074,7 @@ output_handler_config:
 
 `*_config` は標準のルールで各 `ConfigType` へ変換します。[3.3 設定管理](#33-configuration-management-configtype)を参照してください。
 
-組み込みRAWローダーは `binning: 2` のみ対応し、正規化の既定は `false` です。Hough検出器の `ConfigType` はフィールドを持たないため、しきい値は `params` で設定します。`output_handler_name: file` を明示すると `output_handler_config` とハンドラーの既定値を使い、最上位の保存先・上書き設定は統合しません。最上位の設定を引き継ぐ場合は `output_handler_name` を省略してください。
+組み込みRAWローダーは `binning: 2` のみ対応し、正規化の既定は `false` です。Hough検出器の `ConfigType` はフィールドを持たないため、閾値は `params` で設定します。`output_handler_name: file` を明示すると `output_handler_config` とハンドラーの既定値を使い、最上位の保存先・上書き設定は統合しません。最上位の設定を引き継ぐ場合は `output_handler_name` を省略してください。
 
 組み込みは `raw`、`hough`、`simple_threshold`、`file` と、`allow_all_files`、`aircraft_trail` のフックです。このガイドのTIFF/FITS、ML、クラウド・通知は独自拡張の例です。
 
@@ -1127,13 +1156,14 @@ uv run python detect_meteors_cli.py \
 @dataclass
 class MyDetectorConfig:
     """Configuration for MyDetector.
-    
+
     YAML example:
         detector_name: my_detector
         detector_config:
           sensitivity: 0.8
           use_gpu: true
     """
+
     sensitivity: float = 0.5      # Detection sensitivity (0.0-1.0)
     use_gpu: bool = False         # Enable GPU acceleration
     model_path: str = ""          # Path to ML model (optional)
@@ -1243,6 +1273,7 @@ class InputContext:
 from meteor_core.schema import InputContext
 from meteor_core.inputs import DataclassInputLoader
 
+
 class MyLoader(DataclassInputLoader[MyConfig]):
     def load(self, filepath: str) -> InputContext:
         image = self._load_image(filepath)
@@ -1273,7 +1304,7 @@ class DetectionContext:
     previous_image: ImageLike                           # Previous frame for differencing
     roi_mask: Any                                       # ROI mask (typically np.ndarray uint8)
     runtime_params: Union[RuntimeParams, Dict[str, Any]]
-    metadata: Dict[str, Any]                            # {"current": {...}, "previous": {...}}
+    metadata: Dict[str, Any]                                # {"current": {...}, "previous": {...}}
     schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION  # Currently 1
 
     def to_dict(self) -> Dict[str, Any]: ...
@@ -1297,7 +1328,9 @@ class DetectionContext:
 class RuntimeParams:
     schema_version: int = 1
     global_params: Dict[str, Any] = field(default_factory=dict)  # Pipeline-wide params
-    detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # Per-detector overrides
+    detector: Dict[str, Dict[str, Any]] = field(
+        default_factory=dict
+    )  # Per-detector overrides
 ```
 
 `to_dict()` の形式：
@@ -1316,6 +1349,7 @@ class RuntimeParams:
 from meteor_core.schema import DetectionContext, DetectionResult
 from meteor_core.detectors import DataclassDetector
 from meteor_core.utils import ensure_numpy
+
 
 class MyDetector(DataclassDetector[MyConfig]):
     def detect(self, context: DetectionContext) -> DetectionResult:
@@ -1398,6 +1432,7 @@ class DetectionResult:
 ```python
 from meteor_core.schema import DetectionResult
 
+
 def detect(self, context: DetectionContext) -> DetectionResult:
     start_time = time.perf_counter()
 
@@ -1464,6 +1499,7 @@ class OutputResult:
 
 ```python
 from meteor_core.schema import OutputResult
+
 
 def save_candidate(
     self,
@@ -1598,6 +1634,7 @@ from meteor_core.hooks import DataclassHook
 from meteor_core.schema import SortedDetection
 from typing import List
 
+
 class MyAnalyzer(DataclassHook[MyConfig]):
     plugin_name = "my_analyzer"
 
@@ -1658,6 +1695,7 @@ from meteor_core.schema import (
     register_output_result_converter,
 )
 
+
 def upgrade_detection_context_v0_to_v1(context: DetectionContext) -> DetectionContext:
     """Convert v0 DetectionContext to v1 format."""
     return DetectionContext(
@@ -1669,6 +1707,7 @@ def upgrade_detection_context_v0_to_v1(context: DetectionContext) -> DetectionCo
         schema_version=1,
     )
 
+
 def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResult:
     """Convert v0 DetectionResult to v1 format."""
     return DetectionResult(
@@ -1678,9 +1717,10 @@ def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResul
         aspect_ratio=result.aspect_ratio,
         debug_image=result.debug_image,
         extras=result.extras,
-        metrics=result.metrics if hasattr(result, 'metrics') else {},
+        metrics=result.metrics if hasattr(result, "metrics") else {},
         schema_version=1,
     )
+
 
 register_detection_context_converter(0, upgrade_detection_context_v0_to_v1)
 register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
@@ -1704,6 +1744,7 @@ register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
 
 ```python
 """Custom TIFF image loader with metadata extraction, logging, and exceptions."""
+
 import logging
 import os
 from dataclasses import dataclass
@@ -1729,6 +1770,7 @@ logger = logging.getLogger("meteor_core.inputs.tiff_loader")
 @dataclass
 class TiffLoaderConfig:
     """Configuration for TIFF loader."""
+
     normalize: bool = False
     bit_depth: int = 16
 
@@ -1790,9 +1832,11 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
 
             # Normalize if configured
             if self.config.normalize:
-                max_val = 2 ** self.config.bit_depth - 1
+                max_val = 2**self.config.bit_depth - 1
                 image = (image / max_val * 65535).astype(np.uint16)
-                logger.debug(f"Normalized to uint16 (bit_depth={self.config.bit_depth})")
+                logger.debug(
+                    f"Normalized to uint16 (bit_depth={self.config.bit_depth})"
+                )
             else:
                 image = image.astype(np.uint16)
 
@@ -1864,6 +1908,7 @@ LoaderRegistry.register(TiffImageLoader)
 
 ```python
 """Simple threshold-based detector for bright meteors with logging."""
+
 import logging
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional, Any
@@ -1882,6 +1927,7 @@ logger = logging.getLogger("meteor_core.detectors.threshold")
 @dataclass
 class ThresholdDetectorConfig:
     """Configuration for threshold detector."""
+
     brightness_multiplier: float = 1.5
     min_contour_area: int = 50
 
@@ -1932,7 +1978,9 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
         try:
             # Compute absolute difference
             diff = cv2.absdiff(current_image, previous_image)
-            logger.debug(f"Computed frame difference: max={diff.max()}, mean={diff.mean():.1f}")
+            logger.debug(
+                f"Computed frame difference: max={diff.max()}, mean={diff.mean():.1f}"
+            )
 
             # Apply ROI mask
             diff = cv2.bitwise_and(diff, diff, mask=roi_mask)
@@ -1943,12 +1991,7 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             logger.debug(f"Applying threshold: {effective_threshold}")
 
             # Apply threshold
-            _, binary = cv2.threshold(
-                diff,
-                effective_threshold,
-                255,
-                cv2.THRESH_BINARY
-            )
+            _, binary = cv2.threshold(diff, effective_threshold, 255, cv2.THRESH_BINARY)
             binary = binary.astype(np.uint8)
 
             # Find contours
@@ -1959,7 +2002,8 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
             # Filter by area
             valid_contours = [
-                c for c in contours
+                c
+                for c in contours
                 if cv2.contourArea(c) >= self.config.min_contour_area
             ]
             logger.debug(
@@ -1995,7 +2039,9 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
                 aspect_ratios.append(max(w, h) / max(min(w, h), 1))
             max_aspect_ratio = max(aspect_ratios) if aspect_ratios else 0.0
 
-            logger.debug(f"Metrics: score={score:.1f}, max_aspect_ratio={max_aspect_ratio:.2f}")
+            logger.debug(
+                f"Metrics: score={score:.1f}, max_aspect_ratio={max_aspect_ratio:.2f}"
+            )
 
             # Create debug image
             debug_image = cv2.cvtColor(
@@ -2085,6 +2131,7 @@ DetectorRegistry.register(ThresholdDetector)
 
 ```python
 """Slack notification handler with full lifecycle support, logging, and exceptions."""
+
 import json
 import logging
 import os
@@ -2108,6 +2155,7 @@ logger = logging.getLogger("meteor_core.outputs.slack_handler")
 @dataclass
 class SlackOutputConfig:
     """Configuration for Slack notification handler."""
+
     output_folder: str = "./candidates"
     debug_folder: str = "./debug_masks"
     webhook_url: str = ""
@@ -2269,7 +2317,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             return ""
 
     # ========== LIFECYCLE HOOKS ==========
-    # These methods must NEVER raise exceptions!
+    # This notification handler logs callback failures and continues.
 
     def on_detection_result(
         self,
@@ -2296,7 +2344,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 runtime_params,
             )
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_detection_result hook failed: {e}")
 
     def on_candidate_detected(
@@ -2335,7 +2383,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 self._send_slack(message)
 
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_candidate_detected hook failed: {e}")
 
     def on_batch_complete(
@@ -2362,7 +2410,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             # Could implement periodic progress updates here
 
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_batch_complete hook failed: {e}")
 
     def on_pipeline_complete(
@@ -2402,7 +2450,7 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 self._send_slack(message)
 
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"on_pipeline_complete hook failed: {e}")
 
     def _send_slack(self, message: str) -> None:
@@ -2482,6 +2530,7 @@ Use Pydantic BaseModel
 ```python
 from dataclasses import dataclass
 
+
 @dataclass
 class MyConfig:
     output_folder: str = "./output"  # Always provide defaults
@@ -2493,6 +2542,7 @@ class MyConfig:
 
 ```python
 from pydantic import BaseModel, Field, field_validator
+
 
 class MyConfig(BaseModel):
     threshold: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -2714,14 +2764,20 @@ class MyDetector(DataclassDetector[MyConfig]):
 **出力ハンドラーのエラー処理**：
 
 重要なファイル・ストレージ操作をする **主ハンドラー** は例外を送出します。
+1.6.11では逐次・並列の両経路で、保存処理や `OutputResult` の正規化の例外を呼び出し元へ送出します。
+`hook_error_mode: warn` は保存失敗を無視する設定ではありません。失敗した候補は処理済みに記録しません。
+一方、`OutputResult(saved=False, ...)` は正常な「保存省略」の戻り値であり、保存後の通知を行い、候補件数にも含めます。
 
 ```python
 from meteor_core.exceptions import MeteorWriteError
 
+
 class MyFileHandler(DataclassOutputHandler[MyConfig]):
     """Primary handler - raises exceptions on critical failures."""
 
-    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> OutputResult:
+    def save_candidate(
+        self, source_path, filename, debug_image=None, roi_polygon=None
+    ) -> OutputResult:
         dest_path = os.path.join(self.config.output_folder, filename)
         try:
             shutil.copy2(source_path, dest_path)
@@ -2748,7 +2804,9 @@ class MyFileHandler(DataclassOutputHandler[MyConfig]):
 class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
     """Secondary handler - logs errors and continues."""
 
-    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> OutputResult:
+    def save_candidate(
+        self, source_path, filename, debug_image=None, roi_polygon=None
+    ) -> OutputResult:
         try:
             self._upload_to_cloud(source_path)
             return OutputResult(
@@ -2769,7 +2827,7 @@ class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
         try:
             self._send_notification(filename)
         except Exception as e:
-            # NEVER raise in lifecycle hooks
+            # Log optional notification failures without stopping the run
             logger.warning(f"Notification failed: {e}")
 ```
 
@@ -2961,7 +3019,7 @@ except MeteorLoadError as e:
 
 ### 6.6 スレッド安全性
 
-画像を並列処理する場合があります。プラグインのスレッド安全性を確保してください。
+パイプラインの並列処理は別プロセスで行い、ワーカー間でプラグインのインスタンス状態を共有しません。プラグイン自身がスレッドを作成する場合は、以下のように共有状態を保護してください。
 
 ```python
 class MyHandler(DataclassOutputHandler[MyConfig]):
@@ -3006,7 +3064,8 @@ uv run pre-commit run ty-check --all-files
 
   ```python
   from meteor_core.schema import DetectionContext, DetectionResult
-  
+
+
   def detect(self, context: DetectionContext) -> DetectionResult:
       # ty will validate your implementation
       ...
@@ -3022,8 +3081,7 @@ uv run pre-commit run ty-check --all-files
       filename: str,
       debug_image: Optional[np.ndarray] = None,
       roi_polygon: Optional[List[List[int]]] = None,
-  ) -> OutputResult:
-      ...
+  ) -> OutputResult: ...
   ```
 
 - 契約に対応する型を `meteor_core.schema` からインポート。
@@ -3114,30 +3172,36 @@ class MyDetector(DataclassDetector[MyDetectorConfig]):
 
 ### 6.8 ワーカー上限の設定
 
-v1.6.8から `meteor_core` が `MAX_NUM_WORKERS` を公開し、`PipelineConfig` が上限を検証します。
+v1.6.8から `meteor_core` が `MAX_NUM_WORKERS` を公開しています。現在の1.6.11では `max(1, multiprocessing.cpu_count())` が上限で、既定ワーカー数は `max(1, CPU数 - 1)` です。
 
 ```python
 from meteor_core import MAX_NUM_WORKERS
 
-# Default: 16 (reasonable limit for most systems)
+# Current v1.6.11: max(1, multiprocessing.cpu_count())
 print(f"Maximum workers allowed: {MAX_NUM_WORKERS}")
 ```
 
 **PipelineConfigの検証**：
 
-生成時に `num_workers` を `MAX_NUM_WORKERS` と比較します。
+直接生成時に `num_workers` の範囲（1～`MAX_NUM_WORKERS`）と `batch_size >= 1` を検証し、不正な値には `ValueError` を送出します。
 
 ```python
-from meteor_core.schema import PipelineConfig
-from meteor_core.exceptions import MeteorConfigError
+from meteor_core import MAX_NUM_WORKERS
+from meteor_core.schema import DetectionParams, PipelineConfig
 
-# This will raise MeteorConfigError if num_workers > MAX_NUM_WORKERS
-config = PipelineConfig(
-    target_folder="./raw",
-    output_folder="./candidates",
-    num_workers=32,  # Raises if > MAX_NUM_WORKERS
-)
+try:
+    config = PipelineConfig(
+        target_folder="./raw",
+        output_folder="./candidates",
+        debug_folder="./debug",
+        params=DetectionParams(),
+        num_workers=MAX_NUM_WORKERS + 1,
+    )
+except ValueError as exc:
+    print(exc)
 ```
+
+設定ファイルの読み込みに使う `from_partial_dict()` は、既定設定を生成した後に属性を代入し、同じ範囲検証を再実行しません。ファイルにも上記範囲と `hook_error_mode: warn|raise` を指定してください。
 
 **作者への留意点**：
 
@@ -3177,6 +3241,7 @@ from meteor_core.outputs import DataclassOutputHandler
 ```python
 from dataclasses import dataclass
 
+
 @dataclass
 class MyPluginConfig:
     option1: str = "default"
@@ -3189,6 +3254,7 @@ class MyPluginConfig:
 
 ```python
 from meteor_core.schema import InputContext
+
 
 class MyPlugin(DataclassInputLoader[MyPluginConfig]):
     plugin_name = "my_plugin"  # Required
@@ -3209,6 +3275,7 @@ class MyPlugin(DataclassInputLoader[MyPluginConfig]):
 
 ```python
 from meteor_core.inputs import LoaderRegistry
+
 LoaderRegistry.register(MyPlugin)
 ```
 
@@ -3253,6 +3320,7 @@ class TestMyPlugin(unittest.TestCase):
     def test_default_config(self):
         # Test with default configuration
         from meteor_core.inputs import LoaderRegistry
+
         LoaderRegistry.register(MyPlugin)
 
         loader = LoaderRegistry.create("my_plugin")  # Uses defaults
@@ -3290,6 +3358,7 @@ def test_plugin_in_pipeline():
 
 ```python
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 ```
 
@@ -3300,8 +3369,7 @@ from meteor_core.inputs import LoaderRegistry
 
 LoaderRegistry.discover()
 for name in LoaderRegistry.list_available():
-    cls = LoaderRegistry.get(name)
-    instance = cls(None)
+    instance = LoaderRegistry.create(name)
     print(instance.get_info())
 ```
 
