@@ -328,7 +328,7 @@ class TestAnalysisCli(unittest.TestCase):
         self.assertIn("Candidate: False", out)
         self.assertIn("Tuning status: proposals_available", out)
         self.assertIn("Proposal 1:", out)
-        self.assertIn("nothing is applied or saved", out)
+        self.assertIn("nothing is applied automatically", out)
         self.assertIn("No comparison sequence was evaluated", out)
 
     def test_tuning_region_distinguishes_another_candidate_and_rejects_bad_coordinates(

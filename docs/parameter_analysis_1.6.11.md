@@ -4,7 +4,8 @@
 
 Status: the explicit-pair replay API and read-only analysis CLI are reviewed.
 Bounded tuning and sequence comparison are implemented and reviewed.
-Saving reports and adjusted settings is not implemented yet.
+Analysis bundles and selected session configuration export are implemented and
+reviewed.
 This foundation change does not update the release number; the runtime version
 remains 1.6.10.
 
@@ -355,29 +356,94 @@ foundation change does not introduce a hard-coded `2.0` or score tailored to the
 reported data, automatic aircraft exclusion, or propagation of aircraft
 classification based solely on temporal adjacency.
 
-## Next Stage: Saving Reports and Configurations
+## Implementation Step 4: Analysis Bundles and Session Configuration
 
-Finalize CLI option names during implementation. Provide capabilities to analyze
-a target image, specify a reference image, read original progress, choose an
-analysis output location, and save a tuning proposal as configuration. Use an
-execution path separate from normal detection; running analysis alone must not
-copy candidate files or update the original progress.
+`meteor_core/analysis_reports.py` provides `save_analysis_bundle()`. Export is
+explicit: `--analysis-output DIR` creates a new bundle, and optional
+`--analysis-proposal baseline|N` saves the effective baseline or a one-based
+returned proposal as `session.yaml`. No selection means report/evidence only.
+Numeric indices require tuning; every selection requires an output directory.
 
-Use a separate, versioned analysis report format containing at least:
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/session/frame002.ORF \
+  --reference-image rawfiles/session/frame001.ORF \
+  --analysis-progress previous_run/progress.json \
+  --tune-params \
+  --analysis-output analysis/review-001 \
+  --analysis-proposal 1
 
-- The input pair, application and analysis-format versions, image dimensions, effective settings, and ROI.
-- EXIF and user-supplied information, the sources of original values, estimates, and overrides, and whether reproduction succeeded.
-- The original decision, rejection reasons, line and contour evidence, and references to masks.
-- Changes in each tuning proposal, re-evaluation results, search ranges, and unverified aspects.
-- Candidate additions and losses when a comparison sequence is available, and correspondence with visually confirmed regions.
+python detect_meteors_cli.py --config analysis/review-001/session.yaml
+```
 
-Save proposals as complete configurations that the existing `--config` option
-can load. Keep the original configuration and analysis report separate, and
-retain loader and detector settings. For items without a storage field in the
-current `PipelineConfig`, such as a session ROI, add a save-and-reload mechanism
-consistent with existing CLI arguments during implementation. Also verify that
-output destinations cannot overwrite input RAW files, original progress, or
-the original configuration.
+The second command is a separate normal run. Export does not apply settings,
+copy candidates, or update original progress. Indices refer to the current
+returned proposal order after comparison. Reports remain valid exploratory
+evidence even if no proposal is feasible or a reference is missing; a selected
+reusable configuration requires a measured pair.
+
+The JSON manifest uses format `detect_meteors.analysis`, schema version 1.
+It records application/Python/NumPy/OpenCV versions, detector and loader identity,
+the effective loader configuration, image dimensions/dtype, metadata, original
+progress path, exact effective/baseline parameters, value sources, ROI, changes,
+and limitations. `pipeline_config` reflects effective analysis parameters/ROI;
+fingerprinted source files retain the original configuration identities.
+Unsupported metadata values are converted to text with serialization notes.
+Live image contexts and loader objects are not serialized.
+
+`measurements` maps identifiers to difference/Hough settings, scores, full line
+coordinates, contour measurements, mask pixel counts, and lossless mask PNGs.
+Baseline/proposal decisions reference those identifiers and debug PNGs, including
+rejected-frame evidence. Gate-only proposals share masks; changed measurement
+settings use fresh evidence from the original snapshot. Tuning bounds, normalized
+grids, work counters, termination/truncation, region associations, and comparison
+coverage/results are retained. Explicit selection and `session.yaml` are linked
+from the manifest. Asset entries contain file sizes and SHA-256 hashes; the
+manifest does not hash or list itself.
+
+Images, progress, and supplied configuration sources receive read-time file
+identity/change stamps. Export verifies those stamps and hashes primary sources
+with SHA-256. Comparison records retain source stamps without hashing the whole
+sequence again. Source changes during load, repeated comparison, hashing, or
+export are errors. The original target snapshot must agree with comparison
+sources. These checks detect changes; they do not lock source files.
+
+Create the destination exclusively and never replace existing paths, including
+empty directories or symlinks. Write the manifest last. On failure, remove only
+files created by that invocation, checking their identities, and remove only
+empty new directories. This leaves original RAWs, progress, settings, and
+unowned files untouched. No force-overwrite mode is provided for bundles.
+
+Selected configurations preserve the built-in Hough rule and exact thresholds,
+the actual registered loader and its value/type-preserving configuration, and
+effective ROI. Reject unavailable loader state, coercion that changes values or
+types, active hooks, unsupported detector settings, and custom output handlers.
+The latter cannot have their output paths redirected generically. File handler
+outputs and progress use new absolute paths under `DIR/run`, with overwrite
+disabled; normal processing creates these paths later. Use one worker and
+sequential processing for portable replay. Preserve other supported settings.
+
+Add optional `PipelineConfig.roi_polygon` and `enable_roi_selection` fields.
+Existing configurations default to interactive ROI selection; saved sessions
+disable it. The normal CLI and pipeline honor configured ROI, with explicit
+`--roi`/`--no-roi` overrides. In analysis, recorded progress ROI precedes the
+configuration fallback, and explicit flags precede both. Accept the existing
+progress marker `full_image` as full-image ROI. The API's explicit empty polygon
+argument selects full image rather than falling back to configured ROI.
+
+Session targets use the explicit analysis sequence, otherwise an explicitly
+configured target, otherwise the analyzed image's parent. Top-level run paths
+are absolute; plugin-specific relative paths retain their existing semantics.
+The report records the working directory. See the
+[option reference](COMMAND_OPTIONS.md#analysis-bundles-and-session-configuration-v1611-development)
+for output contents, selection, and replay examples.
+
+Validation for this step:
+
+- Added 20 export/replay tests; all 658 tests passed. Covered PNG/JSON fidelity, hashes, exact float thresholds, loader/ROI round trips, normal pipeline/CLI replay without GUI, legacy progress, changed sources or parameters, existing-path refusal, and failed-write cleanup including preservation of unowned files.
+- Exported a selected proposal from the real sample and processed all 11 pairs through normal CLI using the saved configuration. The target's score, aspect ratio, and line count matched the selected report exactly.
+- Original config/progress/candidate/debug markers were unchanged; repeated export was refused. The user's RAW without a reference saved a truthful incomplete report with exit status 2.
+- Ruff lint/format checks, ty, shell completion syntax, and bilingual documentation were verified. The implementation is reviewed; release/version preparation remains separate.
 
 ## Acceptance Criteria for 1.6.11
 

@@ -5,6 +5,7 @@ write progress/candidate files. A measured frame is not a confirmed meteor.
 """
 
 from dataclasses import dataclass, field, replace
+from copy import deepcopy
 import json
 import math
 from numbers import Real
@@ -19,7 +20,12 @@ from .exceptions import MeteorConfigError, MeteorLoadError, MeteorValidationErro
 from .inputs.base import BaseInputLoader
 from .pipeline import _normalize_input_context, _resolve_input_loader
 from .roi_selector import create_full_roi_mask, create_roi_mask_from_polygon
-from .schema import DEFAULT_LOADER_NAME, DetectionContext, DetectionParams
+from .schema import (
+    DEFAULT_LOADER_NAME,
+    DetectionContext,
+    DetectionParams,
+    normalize_roi_polygon,
+)
 from .utils import ensure_numpy
 
 
@@ -35,6 +41,7 @@ class ReproductionSettings:
     changes: dict[str, dict[str, Any]]
     limitations: tuple[str, ...]
     progress_path: str | None
+    progress_stamp: tuple[int, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +64,9 @@ class HoughReproduction:
     decision: CandidateDecision | None
     _context: DetectionContext | None = field(default=None, repr=False, compare=False)
     _loader: BaseInputLoader | None = field(default=None, repr=False, compare=False)
+    source_stamps: dict[str, tuple[int, ...]] = field(default_factory=dict)
+    loader_config: Any = None
+    loader_config_available: bool = False
 
     @property
     def status(self) -> str:
@@ -113,27 +123,19 @@ def _validated_params(values: Mapping[str, Any]) -> DetectionParams:
 
 
 def _validated_roi(value: Any) -> tuple[tuple[int, int], ...] | None:
-    if value is None:
+    if isinstance(value, str) and value == "full_image":
         return None
-    valid = isinstance(value, (list, tuple)) and len(value) >= 3
-    if valid:
-        valid = all(
-            isinstance(point, (list, tuple))
-            and len(point) == 2
-            and all(
-                isinstance(coord, int)
-                and not isinstance(coord, bool)
-                and -(2**31) <= coord < 2**31
-                for coord in point
-            )
-            for point in value
-        )
-    if not valid:
-        raise MeteorConfigError(
-            "ROI must be null or a polygon with at least three integer points",
-            config_key="roi",
-        )
-    return tuple((point[0], point[1]) for point in value)
+    try:
+        polygon = normalize_roi_polygon(value)
+    except ValueError as exc:
+        raise MeteorConfigError(str(exc), config_key="roi") from exc
+    return tuple(map(tuple, polygon)) if polygon is not None else None
+
+
+def source_stamp(path: str | Path) -> tuple[int, ...]:
+    """A cheap identity/change check for evidence and configuration sources."""
+    stat = Path(path).stat()
+    return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
 
 
 def load_reproduction_settings(
@@ -143,6 +145,8 @@ def load_reproduction_settings(
     parameter_overrides: Mapping[str, Any] | None = None,
     roi_polygon: list[list[int]] | None = None,
     use_full_image: bool = False,
+    fallback_roi_polygon: list[list[int]] | None = None,
+    fallback_full_image: bool = False,
 ) -> ReproductionSettings:
     """Resolve a baseline without updating the input progress file.
 
@@ -161,15 +165,27 @@ def load_reproduction_settings(
     source = "supplied" if params is not None else "default"
     sources = dict.fromkeys(values, source)
     limitations = []
-    recorded_roi = None
-    roi_source = "default_full_image"
+    if fallback_roi_polygon is not None and fallback_full_image:
+        raise MeteorConfigError("Specify either a fallback polygon or full-image ROI")
+    recorded_roi = _validated_roi(fallback_roi_polygon)
+    roi_source = (
+        "supplied.roi"
+        if recorded_roi is not None
+        else ("supplied_full_image" if fallback_full_image else "default_full_image")
+    )
     resolved_progress = None
+    progress_stamp = None
 
     if progress_path is not None:
         path = Path(progress_path).expanduser().resolve()
         resolved_progress = str(path)
         try:
+            progress_stamp = source_stamp(path)
             progress = json.loads(path.read_text(encoding="utf-8"))
+            if progress_stamp != source_stamp(path):
+                raise MeteorConfigError(
+                    "Progress file changed while reading", filepath=str(path)
+                )
         except (OSError, ValueError) as exc:
             raise MeteorConfigError(
                 "Cannot read analysis progress file",
@@ -237,6 +253,7 @@ def load_reproduction_settings(
         changes=changes,
         limitations=tuple(limitations),
         progress_path=resolved_progress,
+        progress_stamp=progress_stamp,
     )
 
 
@@ -281,7 +298,18 @@ def reproduce_hough_pair(
         loader_name=loader_name or DEFAULT_LOADER_NAME,
         loader_config=loader_config,
     )
+    loader_config_available = hasattr(loader, "config")
+    try:
+        loader_config_snapshot = deepcopy(getattr(loader, "config", None))
+    except Exception:
+        loader_config_snapshot = None
+        loader_config_available = False
+    stamps = {str(target): source_stamp(target)}
     current_context = _normalize_input_context(loader.load(str(target)), str(target))
+    if stamps[str(target)] != source_stamp(target):
+        raise MeteorLoadError(
+            "Analysis image changed while loading", filepath=str(target)
+        )
     current = ensure_numpy(current_context.image_data)
     if current.ndim != 2:
         raise MeteorValidationError(
@@ -308,9 +336,14 @@ def reproduce_hough_pair(
     decision = None
     context = None
     if reference is not None:
+        stamps[str(reference)] = source_stamp(reference)
         previous_context = _normalize_input_context(
             loader.load(str(reference)), str(reference)
         )
+        if stamps[str(reference)] != source_stamp(reference):
+            raise MeteorLoadError(
+                "Analysis image changed while loading", filepath=str(reference)
+            )
         previous = ensure_numpy(previous_context.image_data)
         if previous.shape != current.shape or previous.dtype != current.dtype:
             raise MeteorValidationError(
@@ -347,4 +380,7 @@ def reproduce_hough_pair(
         decision=decision,
         _context=context,
         _loader=loader,
+        source_stamps=stamps,
+        loader_config=loader_config_snapshot,
+        loader_config_available=loader_config_available,
     )

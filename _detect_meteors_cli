@@ -26,6 +26,8 @@ _detect_meteors_cli() {
         '--analysis-region[Annotated target rectangle, end exclusive]:coordinates:_message -r "x0,y0,x1,y1"'
         '--comparison-sequence[RAW sequence for proposal comparison]:directory:_directories'
         '*--known-meteor[Known meteor frame for comparison]:image:_files'
+        '--analysis-output[Save evidence and report to a new directory]:directory:_directories'
+        '--analysis-proposal[Save baseline or a returned proposal as session.yaml]:selection:(baseline 1 2 3 4 5)'
         
         # Input/Output options
         '(-t --target)'{-t,--target}'[Input RAW image folder]:directory:_directories'

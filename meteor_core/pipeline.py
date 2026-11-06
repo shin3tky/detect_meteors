@@ -826,7 +826,7 @@ class DetectionPipeline(Protocol):
 
     def run(
         self,
-        enable_roi_selection: bool = True,
+        enable_roi_selection: Optional[bool] = None,
         roi_polygon_cli: Optional[List[List[int]]] = None,
         resume: bool = True,
         profile: bool = False,
@@ -2046,7 +2046,7 @@ class MeteorDetectionPipeline:
 
     def run(
         self,
-        enable_roi_selection: bool = True,
+        enable_roi_selection: Optional[bool] = None,
         roi_polygon_cli: Optional[List[List[int]]] = None,
         resume: bool = True,
         profile: bool = False,
@@ -2056,14 +2056,20 @@ class MeteorDetectionPipeline:
         Run the full detection pipeline.
 
         Args:
-            enable_roi_selection: Whether to enable interactive ROI selection
-            roi_polygon_cli: Pre-defined ROI polygon from CLI
+            enable_roi_selection: Interactive ROI selection; None uses configuration.
+            roi_polygon_cli: Explicit polygon, None uses configuration, [] selects full image.
             resume: Whether to resume from previous progress
             profile: Whether to collect performance metrics
 
         Returns:
             Number of detected candidates
         """
+        if enable_roi_selection is None:
+            enable_roi_selection = self._config.enable_roi_selection
+        if roi_polygon_cli is None:
+            roi_polygon_cli = self._config.roi_polygon
+        elif not roi_polygon_cli:
+            enable_roi_selection = False
         locale = _resolve_locale(None)
         timing = {}
         t_total = time.time()

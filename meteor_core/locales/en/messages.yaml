@@ -360,7 +360,7 @@ ui:
   tuning:
     header: "Bounded parameter tuning"
     scope: "Scope: {scope}; target region: {region}"
-    notice: "Exploratory settings only; nothing is applied or saved. Region overlap is contour evidence, not meteor identification. Candidate additions are not a false-positive rate."
+    notice: "Exploratory settings only; nothing is applied automatically. Artifacts are saved only when explicitly requested. Region overlap is contour evidence, not meteor identification. Candidate additions are not a false-positive rate."
     status: "Tuning status: {status}; stop reason: {stop}"
     work: "Measurements: {measurements}/{planned} planned; evaluations: {evaluations}; comparison measurements: {comparison}"
     truncated: "Additional feasible proposals were omitted by the proposal limit."
@@ -374,6 +374,7 @@ ui:
     known_missed_frames: "  Known meteor frames rejected by this proposal: {files}"
     known_unchecked_frames: "  Known meteor frames not checked: {files}"
   analysis:
+    saved: "Analysis bundle saved: {path}"
     header: "Hough image-pair analysis"
     scope: "Scope: built-in Hough detector only; hooks are not run. A candidate decision does not identify the meteor itself."
     target: "Target: {path}"

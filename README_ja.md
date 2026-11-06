@@ -98,7 +98,10 @@ python detect_meteors_cli.py \
 `--tune-params` で範囲を限定した調整案を生成し、`--comparison-sequence DIR` と
 繰り返し指定できる `--known-meteor IMAGE` で系列への影響を比較できます。
 探索上限は `--tuning-config config_examples/parameter_tuning.yaml` で指定します。
-調整案の自動適用は行わず、レポート・設定保存は次のステップで実装します。
+調整案は自動適用しません。`--analysis-output DIR` を明示すると、新規フォルダーに
+レポートとPNGの証拠画像を保存します。`--analysis-proposal baseline` または返された
+案の番号を付けると `DIR/session.yaml` も保存します。後で `--config DIR/session.yaml`
+を使って通常検出を実行でき、ROIと専用の実行結果の保存先も維持されます。
 
 ## 対応するセンサータイプ
 

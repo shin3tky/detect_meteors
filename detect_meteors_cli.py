@@ -164,6 +164,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
         metavar="IMAGE",
         help="Known meteor frame in a comparison (repeatable)",
     )
+    analysis_group.add_argument(
+        "--analysis-output",
+        metavar="DIR",
+        help="Save a report and evidence images to a new directory",
+    )
+    analysis_group.add_argument(
+        "--analysis-proposal",
+        metavar="BASELINE_OR_INDEX",
+        help="Also save session.yaml for baseline or a one-based returned proposal index",
+    )
 
     parser.add_argument(
         "-t",
@@ -780,6 +790,10 @@ def _build_pipeline_config(args, *, base_config=None) -> PipelineConfig:
         else (base_config.output_handler_name if base_config else None),
         output_handler_config=output_handler_config,
         hooks=hooks,
+        roi_polygon=base_config.roi_polygon if base_config else None,
+        enable_roi_selection=base_config.enable_roi_selection
+        if base_config
+        else DEFAULT_ENABLE_ROI_SELECTION,
     )
     return pipeline_config
 
@@ -2411,6 +2425,17 @@ def _validate_analysis_options(parser, args) -> None:
             args.known_meteor,
         )
     )
+    if (
+        args.analysis_output is not None or args.analysis_proposal is not None
+    ) and args.analyze_image is None:
+        parser.error("Analysis output options require --analyze-image")
+    if args.analysis_proposal is not None:
+        if args.analysis_output is None:
+            parser.error("--analysis-proposal requires --analysis-output")
+        if args.analysis_proposal != "baseline" and not args.tune_params:
+            parser.error(
+                "A proposal index requires --tune-params; use baseline for current settings"
+            )
     if (args.tune_params or tuning_modifiers) and args.analyze_image is None:
         parser.error("Tuning options require --analyze-image")
     if tuning_modifiers and not args.tune_params:
@@ -2469,7 +2494,29 @@ def _run_image_analysis(args):
     from meteor_core.pipeline import _resolve_detector
     from meteor_core.tuning import TuningOptions
 
+    sources = {}
+    if args.analysis_output is not None:
+        from meteor_core.analysis import source_stamp
+
+        for name in (
+            "config",
+            "tuning_config",
+            "input_loader_config",
+            "detector_config",
+            "output_handler_config",
+            "hook_config",
+        ):
+            value = getattr(args, name)
+            if value is not None:
+                try:
+                    path = Path(value).expanduser().resolve()
+                    if path.is_file():
+                        sources[str(path)] = source_stamp(path)
+                except OSError:
+                    pass
+
     base = load_pipeline_config(args.config) if args.config else None
+    data = {}
     if args.config:
         data = _load_config_mapping(Path(args.config))
         if any(
@@ -2516,6 +2563,9 @@ def _run_image_analysis(args):
         if args.roi is not None
         else None,
         use_full_image=args.no_roi,
+        fallback_roi_polygon=config.roi_polygon,
+        fallback_full_image=config.roi_polygon is None
+        and not config.enable_roi_selection,
     )
     reference, source = select_reference_image(
         args.analyze_image,
@@ -2532,12 +2582,36 @@ def _run_image_analysis(args):
     display_reproduction(
         replay, reference_source=source, locale=args.locale, verbose=args.verbose
     )
-    if args.tune_params:
-        _run_tuning_analysis(args, replay)
+    run = _run_tuning_analysis(args, replay) if args.tune_params else None
+    if args.analysis_output is not None:
+        from meteor_core.analysis_reports import save_analysis_bundle
+
+        target = args.analysis_sequence or (
+            config.target_folder if "target_folder" in data else None
+        )
+        bundle = save_analysis_bundle(
+            replay,
+            args.analysis_output,
+            tuning=run,
+            selection=args.analysis_proposal,
+            pipeline_config=config,
+            session_target=target,
+            source_files=sources,
+            context={
+                "reference_selection": source,
+                "analysis_sequence": args.analysis_sequence,
+                "comparison_sequence": args.comparison_sequence,
+                "known_meteors": args.known_meteor or [],
+                "session_target_source": "analysis_sequence"
+                if args.analysis_sequence
+                else ("configuration" if "target_folder" in data else "target_parent"),
+            },
+        )
+        print(get_message("ui.analysis.saved", locale=args.locale, path=str(bundle)))
     return replay
 
 
-def _run_tuning_analysis(args, replay) -> None:
+def _run_tuning_analysis(args, replay):
     from meteor_core.analysis_cli import display_tuning
     from meteor_core.tuning import (
         TuningOptions,
@@ -2580,6 +2654,7 @@ def _run_tuning_analysis(args, replay) -> None:
             run, pairs, known_meteors=args.known_meteor or ()
         )
     display_tuning(run, locale=args.locale)
+    return run
 
 
 def main():
@@ -2728,6 +2803,12 @@ def _run_main(args, cli_param_string: str):
     ) = validate_and_apply_sensor_preset(args, verbose=False, locale=locale)
 
     pipeline_config = _build_pipeline_config(args)
+
+    if args.roi is None and not args.no_roi:
+        roi_polygon_cli = pipeline_config.roi_polygon
+        enable_roi_selection = pipeline_config.enable_roi_selection
+    elif args.no_roi and args.roi is None:
+        roi_polygon_cli = []
 
     if args.auto_params:
         files = collect_files(pipeline_config.target_folder)

@@ -10,9 +10,11 @@
 - Add a read-only explicit-pair Hough replay API with recorded parameter/ROI loading, value provenance, explicit overrides, and missing-reference handling.
 - Add `--analyze-image`, `--reference-image`, `--analysis-sequence`, and `--analysis-progress` for read-only CLI analysis, with localized summaries, verbose contour/line evidence, explicit override tracking, and Bash/Zsh completion.
 - Add bounded contour-derived tuning, optional finite preprocessing/Hough grids, annotated target regions, and sequence comparison with explicit known-positive coverage. Expose these through `--tune-params`, `--tuning-config`, `--analysis-region`, `--comparison-sequence`, and repeatable `--known-meteor`.
-- Retain the loaded target-pair snapshot and original loader for fresh measurements and comparable sequence processing. Report inclusive work budgets, incomplete coverage, and omitted proposals without applying or saving settings.
+- Retain the loaded target-pair snapshot and original loader for fresh measurements and comparable sequence processing. Report inclusive work budgets, incomplete coverage, and omitted proposals without automatically applying changes.
+- Add explicit `--analysis-output` bundles with a versioned JSON manifest, PNG evidence, source/asset fingerprints, and failure cleanup. `--analysis-proposal baseline|N` also exports a selected `session.yaml` with exact thresholds, loader settings, persisted ROI, and dedicated output paths.
+- Add optional `roi_polygon` and `enable_roi_selection` pipeline settings for replay without interactive ROI selection, preserving explicit CLI overrides. Read the legacy `full_image` progress marker and detect changing inputs during analysis/comparison/export.
 - Fix the shared unknown-input-loader error path to use the registry's existing `list_available()` method.
-- Document the [missed-meteor analysis and session parameter tuning workflow](parameter_analysis_1.6.11.md). Report/configuration saving remains pending; the runtime version remains 1.6.10.
+- Document the [missed-meteor analysis and session parameter tuning workflow](parameter_analysis_1.6.11.md). All implementation steps are reviewed; the runtime version remains 1.6.10 pending release preparation.
 
 ## v1.6.10 - 2026-10-06 - 🌠 Make Your Dream Come True Day
 

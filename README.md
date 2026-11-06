@@ -102,7 +102,10 @@ for parameter precedence and limitations. Add `--tune-params` to generate bounde
 adjustment proposals, and `--comparison-sequence DIR` with repeatable
 `--known-meteor IMAGE` labels to inspect their effects. Search limits can be set
 with `--tuning-config config_examples/parameter_tuning.yaml`. Proposals are not
-applied automatically; report/configuration saving is a subsequent step.
+applied automatically. `--analysis-output DIR` explicitly saves a report and PNG
+evidence to a new directory; add `--analysis-proposal baseline` or a returned
+proposal index to save `DIR/session.yaml`. Run normal detection later with
+`--config DIR/session.yaml`; its ROI and dedicated run paths are retained.
 
 ## Available Sensor Types
 

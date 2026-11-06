@@ -44,14 +44,15 @@ Analysis rejects `--auto-params`, `--remove-progress`, `--show-exif`, `--show-np
 `--target`. Use the analysis-specific input options instead. Other pipeline
 output and performance settings do not start a processing run or output handler.
 The existing `--save-diagnostic` option can still explicitly request an error
-diagnostic file; analysis itself does not save reports or images.
+diagnostic file. Without `--analysis-output`, analysis does not save reports or
+images.
 
 Only the built-in Hough detector is supported. Configured hooks are rejected;
 use `--hooks ""` explicitly for a detector-only replay. Original progress alone
 cannot establish the original loader configuration or hook effects. The
 summary identifies those limits and any missing settings filled by defaults.
-Bounded tuning is available through the options below. Report/configuration
-saving is a later implementation step.
+Bounded tuning and explicit report/configuration export are available through
+the options below.
 See the [analysis design](parameter_analysis_1.6.11.md).
 
 ## Bounded Parameter Tuning (v1.6.11 Development)
@@ -124,8 +125,77 @@ the detected feature.
 The summary reports measurement/decision counts, planned grid size, proposal
 truncation, comparison coverage, and stop reasons. Budget exhaustion or no
 proposal does not turn a valid measured pair into a processing error; existing
-analysis exit statuses still apply. Saved reports/configurations are not yet
-implemented.
+analysis exit statuses still apply.
+
+## Analysis Bundles and Session Configuration (v1.6.11 Development)
+
+- **`--analysis-output DIR`**: Explicitly create a new analysis directory with `report.json` and PNG evidence. Existing files, directories, and symlinks are rejected, including empty directories. Parent directories may be created.
+- **`--analysis-proposal baseline|N`**: Also save `session.yaml` for the current effective baseline or a one-based index from the returned proposal list. Requires `--analysis-output`; numeric indices require `--tune-params`. With no selection, the bundle contains no executable session configuration.
+
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/session/frame002.ORF \
+  --reference-image rawfiles/session/frame001.ORF \
+  --analysis-progress previous_run/progress.json \
+  --tune-params \
+  --analysis-output analysis/review-001 \
+  --analysis-proposal 1
+
+python detect_meteors_cli.py --config analysis/review-001/session.yaml
+```
+
+The second command starts normal detection; export alone does not apply any
+settings, copy candidates, or update progress. Proposal indices refer to the
+current run's returned order, including comparison ordering. Use `baseline` to
+save the current settings explicitly. Review the proposal list before selecting
+an index. Existing output is never replaced, even with `--output-overwrite`.
+
+`report.json` has format `detect_meteors.analysis`, `schema_version: 1`, the
+application and runtime versions, input fingerprints, exact parameters and their
+sources, ROI, metadata, limitations, decisions, contours/lines, tuning bounds and
+work counters, proposal changes, and comparison coverage. Primary images,
+original progress, and configuration sources have SHA-256 hashes and file
+identity/change stamps. Comparison inputs have stamps; their `sha256` is null
+to avoid rereading the entire sequence. Changed or missing sources invalidate
+export rather than being linked to stale evidence.
+
+Measurement records reference lossless mask PNGs. Baseline/proposal records link
+debug PNGs, including rejected-frame evidence. Identical measurement settings
+share a mask. `assets` records each PNG/configuration's size and SHA-256; the
+manifest does not hash or list itself. Non-JSON metadata is represented as text
+with `serialization_notes`. Image arrays and live loader objects are not stored
+in JSON. The manifest is written last; failed writes remove only artifacts
+created by that invocation and empty newly created directories.
+
+`session.yaml` is a full `PipelineConfig` loaded by existing `--config`. Exact
+float thresholds, the actual registered loader and its serializable settings,
+the built-in Hough detector, and effective ROI are retained. Configuration
+coercion must reproduce loader values and types; unavailable/unserializable
+loader settings fail explicitly. Sessions with active hooks or custom output
+handlers cannot be exported as equivalent detector-only configurations.
+
+The saved session uses one worker and sequential processing. Its absolute
+candidate/debug/progress paths are under `DIR/run`, which is created only when
+normal processing starts, with overwrite disabled in both pipeline and file
+handler settings. Original run paths are not reused. The target folder is the
+explicit analysis sequence, otherwise the configured target if supplied in the
+original config, otherwise the analyzed image's parent. Plugin-specific relative
+paths keep their existing meaning; the report records the working directory.
+Review/edit the absolute paths when relocating a saved session.
+
+Two optional configuration fields persist ROI: `roi_polygon` (null or at least
+three integer points in loaded-image coordinates) and `enable_roi_selection`
+(boolean; default true). Saved sessions set the latter false. Normal processing
+uses configured ROI unless `--roi` or `--no-roi` explicitly overrides it. Analysis
+uses recorded progress ROI ahead of configured ROI, and explicit ROI flags
+ahead of both. Both null and the legacy progress marker `full_image` mean the
+full image. Existing configurations retain their previous defaults.
+
+A missing reference can still produce an honest report with no decision or
+measurement PNGs and exit status 2. It cannot produce a reusable selected
+session. Report/configuration validation errors exit with status 1 and do not
+replace inputs or existing artifacts. The bundle is a record of exploratory
+evidence, not automatic meteor classification or a claim of optimal settings.
 
 ## Input/Output Options
 - **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan.

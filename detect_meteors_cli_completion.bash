@@ -25,6 +25,8 @@ _detect_meteors_cli_completion() {
           --analysis-region
           --comparison-sequence
           --known-meteor
+          --analysis-output
+          --analysis-proposal
           -t --target
           -o --output
           --debug-dir
@@ -72,7 +74,7 @@ _detect_meteors_cli_completion() {
 
     # Provide directory completion for path arguments
     case "${prev}" in
-        -t|--target|-o|--output|--debug-dir|--analysis-sequence|--comparison-sequence)
+        -t|--target|-o|--output|--debug-dir|--analysis-sequence|--comparison-sequence|--analysis-output)
             # Complete with directories
             COMPREPLY=( $(compgen -d -- "${cur}") )
             return 0
@@ -129,6 +131,10 @@ _detect_meteors_cli_completion() {
             ;;
         --analysis-region)
             COMPREPLY=( "x0,y0,x1,y1" )
+            return 0
+            ;;
+        --analysis-proposal)
+            COMPREPLY=( $(compgen -W "baseline 1 2 3 4 5" -- "${cur}") )
             return 0
             ;;
     esac

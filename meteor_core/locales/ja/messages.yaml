@@ -360,7 +360,7 @@ ui:
   tuning:
     header: "範囲を限定したパラメータ調整"
     scope: "評価範囲: {scope}; 対象領域: {region}"
-    notice: "比較用の調整案です。自動適用・保存はしません。領域との重なりは輪郭の証拠であり、流星の特定ではありません。候補の増加数は誤検出率ではありません。"
+    notice: "比較用の調整案です。自動適用はせず、成果物は明示的な保存指定がある場合だけ保存します。領域との重なりは輪郭の証拠であり、流星の特定ではありません。候補の増加数は誤検出率ではありません。"
     status: "調整結果: {status}; 終了理由: {stop}"
     work: "計測回数: {measurements}/予定{planned}; 判定回数: {evaluations}; 系列比較の計測回数: {comparison}"
     truncated: "調整案の上限により、追加の実行可能な案を省略しました。"
@@ -374,6 +374,7 @@ ui:
     known_missed_frames: "  この案で不採用となる既知の流星フレーム: {files}"
     known_unchecked_frames: "  未確認の既知の流星フレーム: {files}"
   analysis:
+    saved: "分析結果を保存しました: {path}"
     header: "Hough画像ペア分析"
     scope: "対象は組み込みHough検出器本体です。フックは実行しません。候補判定だけでは流星そのものを特定できません。"
     target: "対象画像: {path}"

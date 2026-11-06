@@ -4,7 +4,7 @@ Proposals preserve the v1.x candidate rule. They are exploratory settings, not
 meteor classifications or an estimate of a false-positive rate.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from itertools import islice, product
 import math
 from pathlib import Path
@@ -102,6 +102,8 @@ class TuningRun:
     proposals: tuple[TuningProposal, ...]
     proposals_truncated: bool = False
     comparison_measurements: int = 0
+    measurement_grid: dict[str, tuple[int, ...]] = field(default_factory=dict)
+    comparison_inputs: dict[str, tuple[int, ...]] = field(default_factory=dict)
 
 
 def _measurement_key(params: DetectionParams) -> tuple[int, ...]:
@@ -266,6 +268,9 @@ def tune_reproduction(
         0,
         planned,
         (),
+        measurement_grid={
+            key: tuple(values) for key, values in zip(MEASUREMENT_PARAMETERS, columns)
+        },
     )
     if replay.analysis is None or replay.decision is None:
         return run
@@ -376,6 +381,7 @@ def compare_tuning_proposals(
     per_pair = len(set(groups) | {base_key})
     baseline_hits, proposed_hits, checked = set(), [set() for _ in run.proposals], set()
     measurements = count = 0
+    comparison_inputs = {}
     stop = "no_pairs" if not normalized else "completed"
     for current, previous in normalized:
         if count >= run.options.max_comparison_pairs:
@@ -385,6 +391,19 @@ def compare_tuning_proposals(
             stop = "measurement_limit"
             break
         replay = run.replay.reproduce_pair(current, previous)
+        for path, stamp in replay.source_stamps.items():
+            if (
+                path in run.replay.source_stamps
+                and run.replay.source_stamps[path] != stamp
+            ):
+                raise MeteorValidationError(
+                    "Target source changed before sequence comparison", filepath=path
+                )
+            if path in comparison_inputs and comparison_inputs[path] != stamp:
+                raise MeteorValidationError(
+                    "Comparison input changed during processing", filepath=path
+                )
+            comparison_inputs[path] = stamp
         if (
             replay.image_shape != run.replay.image_shape
             or replay.image_dtype != run.replay.image_dtype
@@ -434,5 +453,8 @@ def compare_tuning_proposals(
         )
     )
     return replace(
-        run, proposals=tuple(proposals), comparison_measurements=measurements
+        run,
+        proposals=tuple(proposals),
+        comparison_measurements=measurements,
+        comparison_inputs=comparison_inputs,
     )
