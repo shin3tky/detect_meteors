@@ -234,6 +234,7 @@ checked with the commands in the [aircraft guide](aircraft_light_trails_hook_des
 ### Standards
 
 - **Ruff** for linting and formatting (88 character line length)
+- Markdown code examples are excluded from Ruff formatting. Preserve manually aligned inline `#` comments for readability.
 - **Python 3.12 or 3.13** required (`>=3.12,<3.14`)
 - **Google-style docstrings**
 - **Type hints** throughout

@@ -558,8 +558,8 @@ The `hook_error_mode` setting controls behavior when hooks raise exceptions:
 ```python
 @dataclass
 class HookConfig:
-    name: str  # Hook plugin name
-    config: Optional[Dict[str, Any]] = None  # Hook-specific configuration
+    name: str                                    # Hook plugin name
+    config: Optional[Dict[str, Any]] = None      # Hook-specific configuration
 ```
 
 **PipelineConfig additions**:
@@ -567,8 +567,8 @@ class HookConfig:
 @dataclass
 class PipelineConfig:
     # ... existing fields ...
-    hooks: Optional[List[HookConfig]] = None  # Ordered hook list (None = skip hooks)
-    hook_error_mode: str = "raise"  # "raise" or "warn"
+    hooks: Optional[List[HookConfig]] = None     # Ordered hook list (None = skip hooks)
+    hook_error_mode: str = "raise"               # "raise" or "warn"
 ```
 
 ### Files Changed
@@ -955,11 +955,11 @@ Detection context metadata now includes frame indices:
 ```python
 context.metadata = {
     "current": {
-        "frame_index": 42,  # 0-based index of current frame
+        "frame_index": 42,      # 0-based index of current frame
         # ... other metadata
     },
     "previous": {
-        "frame_index": 41,  # 0-based index of previous frame
+        "frame_index": 41,      # 0-based index of previous frame
         # ... other metadata
     },
 }
@@ -1108,7 +1108,7 @@ Benefits:
 class RuntimeParams:
     """Runtime parameters passed into detector execution."""
 
-    schema_version: int = 1  # RUNTIME_PARAMS_SCHEMA_VERSION
+    schema_version: int = 1                             # RUNTIME_PARAMS_SCHEMA_VERSION
     global_params: Dict[str, Any] = field(default_factory=dict)
     detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
@@ -1268,11 +1268,11 @@ Benefits:
 ```python
 @dataclass
 class InputContext:
-    image_data: ImageLike  # Loaded image (numpy, torch, or PIL)
-    filepath: str  # Original file path
-    metadata: Dict[str, Any] = {}  # Loader-extracted metadata (EXIF, etc.)
-    loader_info: Dict[str, Any] = {}  # Loader identity (name, version)
-    schema_version: int = 1  # INPUT_CONTEXT_SCHEMA_VERSION
+    image_data: ImageLike              # Loaded image (numpy, torch, or PIL)
+    filepath: str                      # Original file path
+    metadata: Dict[str, Any] = {}      # Loader-extracted metadata (EXIF, etc.)
+    loader_info: Dict[str, Any] = {}   # Loader identity (name, version)
+    schema_version: int = 1            # INPUT_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize context for JSON/logging (excludes image_data)."""
@@ -1283,12 +1283,12 @@ class InputContext:
 ```python
 @dataclass
 class OutputResult:
-    saved: bool  # Whether file was persisted
-    output_path: Optional[str]  # Path to saved candidate
-    debug_path: Optional[str]  # Path to saved debug image
+    saved: bool                        # Whether file was persisted
+    output_path: Optional[str]         # Path to saved candidate
+    debug_path: Optional[str]          # Path to saved debug image
     handler_info: Dict[str, Any] = {}  # Handler identity (name, version)
-    metrics: Dict[str, Any] = {}  # Performance diagnostics
-    schema_version: int = 1  # OUTPUT_RESULT_SCHEMA_VERSION
+    metrics: Dict[str, Any] = {}       # Performance diagnostics
+    schema_version: int = 1            # OUTPUT_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize result for JSON/logging."""
@@ -1419,12 +1419,12 @@ This release prepares the plugin architecture for:
 ```python
 @dataclass
 class DetectionContext:
-    current_image: ImageLike  # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
-    previous_image: ImageLike  # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
+    current_image: ImageLike      # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
+    previous_image: ImageLike     # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
     roi_mask: Any
     runtime_params: Dict[str, Any]
     metadata: Dict[str, Any]
-    schema_version: int = 1  # NEW: For migration support
+    schema_version: int = 1       # NEW: For migration support
 ```
 
 **DetectionResult** (v1.6.1):
@@ -1437,8 +1437,8 @@ class DetectionResult:
     aspect_ratio: float
     debug_image: Optional[Any]
     extras: Dict[str, Any]
-    metrics: Dict[str, Any]  # NEW: Standard diagnostics
-    schema_version: int = 1  # NEW: For migration support
+    metrics: Dict[str, Any]       # NEW: Standard diagnostics
+    schema_version: int = 1       # NEW: For migration support
 
     def to_dict(self) -> Dict[str, Any]:  # NEW: Serialization
         ...

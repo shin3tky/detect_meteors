@@ -33,9 +33,9 @@ estimated_threshold = np.clip(estimated_threshold, 4, 25)
 #### After (v1.2.1)
 ```python
 # Multiple estimation methods
-method_1 = int(percentile_98)  # 98th percentile
-method_2 = int(mean_diff + 1.5 * std)  # 3σ → 1.5σ reduction
-method_3 = int(median_diff * 3.0)  # Median-based
+method_1 = int(percentile_98)           # 98th percentile
+method_2 = int(mean_diff + 1.5 * std)   # 3σ → 1.5σ reduction
+method_3 = int(median_diff * 3.0)       # Median-based
 
 # Select the most sensitive (lowest) threshold
 estimated_threshold = min(method_1, method_2, method_3)

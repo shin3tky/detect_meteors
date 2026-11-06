@@ -80,16 +80,16 @@ Impact:           LOW
 **Supported Metadata**:
 ```python
 {
-    "focal_length": float,  # Actual focal length (mm)
-    "focal_length_35mm": float,  # 35mm equivalent (mm)
-    "iso": int,  # ISO sensitivity
-    "exposure_time": float,  # Exposure time (seconds)
-    "f_number": float,  # Aperture F-number
-    "camera_make": str,  # Camera manufacturer
-    "camera_model": str,  # Camera model
-    "lens_model": str,  # Lens model
-    "image_width": int,  # Image width (pixels)
-    "image_height": int,  # Image height (pixels)
+    "focal_length": float,          # Actual focal length (mm)
+    "focal_length_35mm": float,     # 35mm equivalent (mm)
+    "iso": int,                     # ISO sensitivity
+    "exposure_time": float,         # Exposure time (seconds)
+    "f_number": float,              # Aperture F-number
+    "camera_make": str,             # Camera manufacturer
+    "camera_model": str,            # Camera model
+    "lens_model": str,              # Lens model
+    "image_width": int,             # Image width (pixels)
+    "image_height": int,            # Image height (pixels)
 }
 ```
 
@@ -145,11 +145,11 @@ def calculate_npf_rule(focal_length_mm, aperture, pixel_pitch_um):
 overshoot_factor = actual_exposure / npf_recommended
 
 if overshoot_factor <= 1.0:
-    compliance = "OK"  # Ideal conditions
+    compliance = "OK"           # Ideal conditions
 elif overshoot_factor <= 1.5:
-    compliance = "WARNING"  # Minor star trails
+    compliance = "WARNING"      # Minor star trails
 else:
-    compliance = "CRITICAL"  # Significant star trails
+    compliance = "CRITICAL"     # Significant star trails
 ```
 
 **Output Example**:
@@ -322,7 +322,7 @@ def optimize_min_area_npf(exif_data, npf_metrics):
     elif focal_length < 35:
         min_area = int(min_area * 0.85)  # Wide
     elif focal_length > 70:
-        min_area = int(min_area * 1.3)  # Telephoto
+        min_area = int(min_area * 1.3)   # Telephoto
 
     # NPF adjustment
     overshoot = npf_metrics.get("overshoot_factor", 1.0)
@@ -359,18 +359,18 @@ def optimize_min_line_score_npf(exif_data, npf_metrics):
     # Focal length adjustment
     focal_length = exif_data.get("focal_length_35mm", 50)
     if focal_length < 20:
-        min_score *= 0.7  # Ultra-wide
+        min_score *= 0.7   # Ultra-wide
     elif focal_length < 35:
         min_score *= 0.85  # Wide
     elif focal_length > 70:
-        min_score *= 1.2  # Telephoto
+        min_score *= 1.2   # Telephoto
 
     # Exposure time adjustment
     exposure = exif_data.get("exposure_time", 10.0)
     if exposure < 5:
-        min_score *= 0.8  # Short exposure
+        min_score *= 0.8   # Short exposure
     elif exposure > 20:
-        min_score *= 1.1  # Long exposure
+        min_score *= 1.1   # Long exposure
 
     # Clamp to range [30.0, 200.0]
     min_score = np.clip(min_score, 30.0, 200.0)
@@ -427,11 +427,11 @@ uv run python detect_meteors_cli.py --auto-params --pixel-pitch 3.30
 **Sensor Width Reference**:
 ```python
 SENSOR_WIDTHS = {
-    "MFT": 17.3,  # Micro Four Thirds
-    "APSC": 23.5,  # APS-C (Sony, Nikon, Fuji)
-    "APSC_CANON": 22.3,  # APS-C (Canon)
-    "APSH": 27.9,  # APS-H (Canon)
-    "FF": 36.0,  # Full Frame
+    "MFT": 17.3,           # Micro Four Thirds
+    "APSC": 23.5,          # APS-C (Sony, Nikon, Fuji)
+    "APSC_CANON": 22.3,    # APS-C (Canon)
+    "APSH": 27.9,          # APS-H (Canon)
+    "FF": 36.0,            # Full Frame
     "FULLFRAME": 36.0,
 }
 ```

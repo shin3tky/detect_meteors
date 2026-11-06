@@ -1284,7 +1284,7 @@ When `--fisheye` is enabled, `calculate_npf_metrics()` returns additional fields
     "fisheye": True,
     "fisheye_model": "EQUISOLID",
     "effective_focal_length": 11.3,  # Edge focal length
-    "trail_length_ratio": 1.414,  # Edge vs center ratio
+    "trail_length_ratio": 1.414,     # Edge vs center ratio
     # ... existing fields ...
 }
 ```

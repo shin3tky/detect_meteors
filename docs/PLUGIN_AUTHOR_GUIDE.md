@@ -481,16 +481,16 @@ order before the hook is invoked.
 class SortedDetection:
     """Lightweight detection record for sorted hook processing."""
 
-    frame_index: int  # 0-based index of current frame
-    prev_frame_index: int  # 0-based index of previous frame
-    filename: str  # Base filename
-    filepath: str  # Full path to image file
-    is_candidate: bool  # Whether marked as candidate
-    score: float  # Detection confidence score
-    aspect_ratio: float  # Max contour aspect ratio
-    lines: List[Tuple[int, int, int, int]]  # Detected line segments
+    frame_index: int                                    # 0-based index of current frame
+    prev_frame_index: int                               # 0-based index of previous frame
+    filename: str                                       # Base filename
+    filepath: str                                       # Full path to image file
+    is_candidate: bool                                  # Whether marked as candidate
+    score: float                                        # Detection confidence score
+    aspect_ratio: float                                 # Max contour aspect ratio
+    lines: List[Tuple[int, int, int, int]]              # Detected line segments
     extras: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1  # SORTED_DETECTION_SCHEMA_VERSION
+    schema_version: int = 1                             # SORTED_DETECTION_SCHEMA_VERSION
 ```
 
 **Why SortedDetection instead of DetectionResult?**
@@ -641,7 +641,7 @@ class InputContext:
     filepath: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     loader_info: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1  # INPUT_CONTEXT_SCHEMA_VERSION
+    schema_version: int = 1                             # INPUT_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize context for JSON/logging (excludes image_data)."""
@@ -709,10 +709,10 @@ class DetectionContext:
 
     current_image: ImageLike
     previous_image: ImageLike
-    roi_mask: Any  # Typically np.ndarray (uint8 mask)
+    roi_mask: Any                                       # Typically np.ndarray (uint8 mask)
     runtime_params: Union["RuntimeParams", Dict[str, Any]]
-    metadata: Dict[str, Any]  # {"current": {...}, "previous": {...}} in pipeline
-    schema_version: int = 1  # DETECTION_CONTEXT_SCHEMA_VERSION
+    metadata: Dict[str, Any]                            # {"current": {...}, "previous": {...}} in pipeline
+    schema_version: int = 1                             # DETECTION_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize context for JSON/logging (excludes current_image/previous_image/roi_mask)."""
@@ -747,10 +747,10 @@ class DetectionResult:
     score: float
     lines: List[Tuple[int, int, int, int]]
     aspect_ratio: float
-    debug_image: Optional[Any]  # Typically np.ndarray (BGR)
+    debug_image: Optional[Any]                          # Typically np.ndarray (BGR)
     extras: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1  # DETECTION_RESULT_SCHEMA_VERSION
+    schema_version: int = 1                             # DETECTION_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize result for JSON/logging (excludes debug_image)."""
@@ -796,7 +796,7 @@ Runtime parameters are carried as a `RuntimeParams` dataclass
 class RuntimeParams:
     """Runtime parameters passed into detector execution."""
 
-    schema_version: int = 1  # RUNTIME_PARAMS_SCHEMA_VERSION
+    schema_version: int = 1                             # RUNTIME_PARAMS_SCHEMA_VERSION
     global_params: Dict[str, Any] = field(default_factory=dict)
     detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
@@ -810,9 +810,9 @@ The serialized shape (via `to_dict()`) is:
 ```python
 {
     "schema_version": 1,
-    "global": {...},  # Pipeline-wide params
+    "global": {...},          # Pipeline-wide params
     "detector": {
-        "<plugin_name>": {...}  # Detector-specific overrides
+        "<plugin_name>": {...}    # Detector-specific overrides
     },
 }
 ```
@@ -874,7 +874,7 @@ class OutputResult:
     debug_path: Optional[str]
     handler_info: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1  # OUTPUT_RESULT_SCHEMA_VERSION
+    schema_version: int = 1                             # OUTPUT_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize result for JSON/logging."""
@@ -1149,9 +1149,9 @@ class MyDetectorConfig:
           use_gpu: true
     """
 
-    sensitivity: float = 0.5  # Detection sensitivity (0.0-1.0)
-    use_gpu: bool = False  # Enable GPU acceleration
-    model_path: str = ""  # Path to ML model (optional)
+    sensitivity: float = 0.5      # Detection sensitivity (0.0-1.0)
+    use_gpu: bool = False         # Enable GPU acceleration
+    model_path: str = ""          # Path to ML model (optional)
 ```
 
 ### 3.5 Plugin Discovery
@@ -1225,8 +1225,8 @@ from meteor_core.schema import (
 class InputContext:
     """Input bundle for loader execution."""
 
-    image_data: ImageLike  # Loaded image pixels
-    filepath: str  # Original file path
+    image_data: ImageLike                               # Loaded image pixels
+    filepath: str                                       # Original file path
     metadata: Dict[str, Any] = field(default_factory=dict)
     loader_info: Dict[str, Any] = field(default_factory=dict)
     schema_version: int = INPUT_CONTEXT_SCHEMA_VERSION  # Currently 1
@@ -1275,11 +1275,11 @@ class MyLoader(DataclassInputLoader[MyConfig]):
 class DetectionContext:
     """Input bundle for detector execution."""
 
-    current_image: ImageLike  # Current frame
-    previous_image: ImageLike  # Previous frame for differencing
-    roi_mask: Any  # ROI mask (typically np.ndarray uint8)
+    current_image: ImageLike                            # Current frame
+    previous_image: ImageLike                           # Previous frame for differencing
+    roi_mask: Any                                       # ROI mask (typically np.ndarray uint8)
     runtime_params: Union[RuntimeParams, Dict[str, Any]]
-    metadata: Dict[str, Any]  # {"current": {...}, "previous": {...}}
+    metadata: Dict[str, Any]                                # {"current": {...}, "previous": {...}}
     schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION  # Currently 1
 
     def to_dict(self) -> Dict[str, Any]: ...
@@ -1367,11 +1367,11 @@ class DetectionResult:
     normalized comparison surface.
     """
 
-    is_candidate: bool  # Detection decision
-    score: float  # Detection confidence score
-    lines: List[Tuple[int, int, int, int]]  # Detected line segments
-    aspect_ratio: float  # Max contour aspect ratio
-    debug_image: Optional[Any]  # Debug visualization (BGR)
+    is_candidate: bool                                  # Detection decision
+    score: float                                        # Detection confidence score
+    lines: List[Tuple[int, int, int, int]]              # Detected line segments
+    aspect_ratio: float                                 # Max contour aspect ratio
+    debug_image: Optional[Any]                          # Debug visualization (BGR)
     extras: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
     schema_version: int = DETECTION_RESULT_SCHEMA_VERSION  # Currently 1
@@ -1444,9 +1444,9 @@ def detect(self, context: DetectionContext) -> DetectionResult:
 class OutputResult:
     """Result returned by output handlers."""
 
-    saved: bool  # Whether save succeeded
-    output_path: Optional[str]  # Path to saved candidate
-    debug_path: Optional[str]  # Path to saved debug image
+    saved: bool                                         # Whether save succeeded
+    output_path: Optional[str]                          # Path to saved candidate
+    debug_path: Optional[str]                           # Path to saved debug image
     handler_info: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
     schema_version: int = OUTPUT_RESULT_SCHEMA_VERSION  # Currently 1
@@ -1525,14 +1525,14 @@ to minimize memory usage when collecting all detections for cross-frame analysis
 class SortedDetection:
     """Lightweight detection record for sorted hook processing."""
 
-    frame_index: int  # 0-based index of current frame
-    prev_frame_index: int  # 0-based index of previous frame
-    filename: str  # Base filename
-    filepath: str  # Full path to image file
-    is_candidate: bool  # Whether marked as candidate
-    score: float  # Detection confidence score
-    aspect_ratio: float  # Max contour aspect ratio
-    lines: List[Tuple[int, int, int, int]]  # Detected line segments
+    frame_index: int                                    # 0-based index of current frame
+    prev_frame_index: int                               # 0-based index of previous frame
+    filename: str                                       # Base filename
+    filepath: str                                       # Full path to image file
+    is_candidate: bool                                  # Whether marked as candidate
+    score: float                                        # Detection confidence score
+    aspect_ratio: float                                 # Max contour aspect ratio
+    lines: List[Tuple[int, int, int, int]]              # Detected line segments
     extras: Dict[str, Any] = field(default_factory=dict)
     schema_version: int = SORTED_DETECTION_SCHEMA_VERSION  # Currently 1
 
@@ -1742,9 +1742,9 @@ class TiffLoaderConfig:
 class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtractor):
     """Load TIFF images with optional normalization."""
 
-    plugin_name = "tiff"  # Required: unique identifier
-    name = "TIFF Image Loader"  # Optional: human-readable name
-    version = "1.0.0"  # Optional: version string
+    plugin_name = "tiff"           # Required: unique identifier
+    name = "TIFF Image Loader"     # Optional: human-readable name
+    version = "1.0.0"              # Optional: version string
     ConfigType = TiffLoaderConfig  # Optional: configuration class
 
     def __init__(self, config: TiffLoaderConfig = None):
@@ -2594,9 +2594,9 @@ from meteor_core.exceptions import MeteorWriteError, MeteorProgressError
 # File write error with destination path
 error = MeteorWriteError(
     "Failed to copy candidate file",
-    filepath="/source/image.CR2",  # Source path
-    destination_path="/output/image.CR2",  # Destination path
-    operation="copy",  # Operation type
+    filepath="/source/image.CR2",           # Source path
+    destination_path="/output/image.CR2",   # Destination path
+    operation="copy",                       # Operation type
     original_error=os_error,
     context={"error_category": "copy_failed"},
 )
@@ -2605,7 +2605,7 @@ error = MeteorWriteError(
 error = MeteorProgressError(
     "Failed to parse progress file",
     filepath="progress.json",
-    operation="parse",  # "load", "save", "parse", "serialize"
+    operation="parse",                      # "load", "save", "parse", "serialize"
     original_error=json_error,
     context={"error_category": "parse_failed"},
 )
@@ -3155,8 +3155,8 @@ from meteor_core.schema import InputContext
 
 class MyPlugin(DataclassInputLoader[MyPluginConfig]):
     plugin_name = "my_plugin"  # Required
-    name = "My Plugin"  # Optional
-    version = "1.0.0"  # Optional
+    name = "My Plugin"         # Optional
+    version = "1.0.0"          # Optional
     ConfigType = MyPluginConfig
 
     def load(self, filepath: str) -> InputContext:

@@ -89,6 +89,8 @@ detect-meteors = "detect_meteors_cli:main"
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+# Honor exclusions when editors or hooks pass individual files explicitly.
+force-exclude = true
 
 exclude = [
     ".git",
@@ -129,6 +131,8 @@ max-complexity = 40
 "meteor_core/__init__.py" = ["E402"]
 
 [tool.ruff.format]
+# Preserve manually aligned comments in Markdown code examples.
+exclude = ["*.md"]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
