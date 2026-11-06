@@ -65,7 +65,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff==0.17.4",
-    "ty==0.0.95",
+    "ty==0.0.98",
     "pre-commit==4.7.0",
     "coverage==7.17.2",
 ]
@@ -185,8 +185,8 @@ include = ["meteor_core", "detect_meteors_cli.py"]
 # -----------------------------------------------
 # Critical errors - always enforce
 # -----------------------------------------------
-# Note: unresolved-import demoted to warn for optional deps (torch)
-unresolved-import = "warn"
+# Note: import-not-found demoted to warn for optional deps (torch)
+import-not-found = "warn"
 invalid-return-type = "error"
 invalid-base = "error"
 
@@ -219,7 +219,7 @@ possibly-missing-attribute = "ignore"  # Dynamic attribute patterns
 include = ["tests/**"]
 
 [tool.ty.overrides.rules]
-unresolved-import = "warn"
+import-not-found = "warn"
 invalid-return-type = "error"
 invalid-base = "warn"
 
