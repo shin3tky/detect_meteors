@@ -2,6 +2,13 @@
 
 [日本語版](CHANGELOG_ja.md)
 
+## Unreleased — v1.6.11 foundation
+
+- Separate built-in Hough image measurements, candidate threshold evaluation, and debug rendering without changing the v1.x candidate rule or plugin contracts.
+- Allow explicit re-evaluation of area, aspect-ratio, and score thresholds against measured evidence, with rejection reasons and optional rendering for non-candidates.
+- Share Hough line scoring between the detector method and the compatibility function.
+- Document the planned [missed-meteor analysis and session parameter tuning workflow](parameter_analysis_1.6.11.md). The user-facing analysis/tuning feature is not implemented in this foundation change; the runtime version remains 1.6.10.
+
 ## v1.6.10 - 2026-10-06 - 🌠 Make Your Dream Come True Day
 
 Version 1.6.9 was skipped; v1.6.10 is the next release after v1.6.8.

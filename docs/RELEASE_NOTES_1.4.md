@@ -80,16 +80,16 @@ Impact:           LOW
 **Supported Metadata**:
 ```python
 {
-    'focal_length': float,          # Actual focal length (mm)
-    'focal_length_35mm': float,     # 35mm equivalent (mm)
-    'iso': int,                     # ISO sensitivity
-    'exposure_time': float,         # Exposure time (seconds)
-    'f_number': float,              # Aperture F-number
-    'camera_make': str,             # Camera manufacturer
-    'camera_model': str,            # Camera model
-    'lens_model': str,              # Lens model
-    'image_width': int,             # Image width (pixels)
-    'image_height': int,            # Image height (pixels)
+    "focal_length": float,  # Actual focal length (mm)
+    "focal_length_35mm": float,  # 35mm equivalent (mm)
+    "iso": int,  # ISO sensitivity
+    "exposure_time": float,  # Exposure time (seconds)
+    "f_number": float,  # Aperture F-number
+    "camera_make": str,  # Camera manufacturer
+    "camera_model": str,  # Camera model
+    "lens_model": str,  # Lens model
+    "image_width": int,  # Image width (pixels)
+    "image_height": int,  # Image height (pixels)
 }
 ```
 
@@ -133,6 +133,7 @@ def calculate_npf_rule(focal_length_mm, aperture, pixel_pitch_um):
     npf_time = numerator / focal_length_mm
     return npf_time
 
+
 # Example (OM Digital OM-1, 24mm f/2.8):
 # pixel_pitch = 17.3mm / 5240px = 3.30μm
 # npf_time = (35 × 2.8 + 30 × 3.30) / 24
@@ -144,11 +145,11 @@ def calculate_npf_rule(focal_length_mm, aperture, pixel_pitch_um):
 overshoot_factor = actual_exposure / npf_recommended
 
 if overshoot_factor <= 1.0:
-    compliance = "OK"           # Ideal conditions
+    compliance = "OK"  # Ideal conditions
 elif overshoot_factor <= 1.5:
-    compliance = "WARNING"      # Minor star trails
+    compliance = "WARNING"  # Minor star trails
 else:
-    compliance = "CRITICAL"     # Significant star trails
+    compliance = "CRITICAL"  # Significant star trails
 ```
 
 **Output Example**:
@@ -175,25 +176,26 @@ NPF Rule Analysis
 
 **Algorithm**:
 ```python
-def estimate_star_trail_length(focal_length_mm, exposure_time_sec, 
-                               image_width_px, declination_deg=0.0):
+def estimate_star_trail_length(
+    focal_length_mm, exposure_time_sec, image_width_px, declination_deg=0.0
+):
     """Estimate star trail length in pixels"""
     # Earth's rotation rate
     EARTH_ROTATION_DEG_PER_SEC = 15.0 / 3600.0  # 0.00417°/sec
-    
+
     # Angular movement during exposure
     star_movement_deg = EARTH_ROTATION_DEG_PER_SEC * exposure_time_sec
     star_movement_deg *= math.cos(math.radians(declination_deg))
-    
+
     # Field of view
     sensor_width_35mm = 36.0  # mm
     fov_rad = 2 * math.atan(sensor_width_35mm / (2 * focal_length_mm))
     fov_deg = math.degrees(fov_rad)
-    
+
     # Convert to pixels
     pixels_per_degree = image_width_px / fov_deg
     trail_length_px = star_movement_deg * pixels_per_degree
-    
+
     return trail_length_px
 ```
 
@@ -272,24 +274,24 @@ Shooting Quality Score: 1.00 (EXCELLENT)
 ```python
 def optimize_diff_threshold_npf(exif_data, npf_metrics, base=5.0):
     threshold = base
-    
+
     # ISO adjustment: +2 per ISO doubling from 800
-    iso = exif_data.get('iso', 1600)
+    iso = exif_data.get("iso", 1600)
     iso_adjustment = math.log2(iso / 800.0) * 2.0
     threshold += iso_adjustment
-    
+
     # Exposure time adjustment: +1 per doubling above 15s
-    exposure = exif_data.get('exposure_time', 10.0)
+    exposure = exif_data.get("exposure_time", 10.0)
     if exposure > 15.0:
         exp_adjustment = math.log2(exposure / 15.0) * 1.0
         threshold += exp_adjustment
-    
+
     # NPF overshoot adjustment: +1.5 per 1× overshoot above 1.5×
-    overshoot = npf_metrics.get('overshoot_factor', 1.0)
+    overshoot = npf_metrics.get("overshoot_factor", 1.0)
     if overshoot > 1.5:
         npf_adjustment = (overshoot - 1.5) * 1.5
         threshold += npf_adjustment
-    
+
     # Clamp to range [3, 25]
     threshold = int(np.clip(threshold, 3, 25))
     return threshold
@@ -310,25 +312,25 @@ Final:           5 + 2 = 7 ✓
 ```python
 def optimize_min_area_npf(exif_data, npf_metrics):
     # Base on star trail length
-    star_trail_px = npf_metrics.get('star_trail_px', 2.0)
+    star_trail_px = npf_metrics.get("star_trail_px", 2.0)
     min_area = max(3, int(star_trail_px * 0.5))
-    
+
     # Focal length adjustment
-    focal_length = exif_data.get('focal_length_35mm', 50)
+    focal_length = exif_data.get("focal_length_35mm", 50)
     if focal_length < 20:
         min_area = int(min_area * 0.7)  # Ultra-wide
     elif focal_length < 35:
         min_area = int(min_area * 0.85)  # Wide
     elif focal_length > 70:
-        min_area = int(min_area * 1.3)   # Telephoto
-    
+        min_area = int(min_area * 1.3)  # Telephoto
+
     # NPF adjustment
-    overshoot = npf_metrics.get('overshoot_factor', 1.0)
+    overshoot = npf_metrics.get("overshoot_factor", 1.0)
     if overshoot > 2.0:
         min_area = int(min_area * 1.2)
     elif overshoot < 0.8:
         min_area = int(min_area * 0.8)
-    
+
     # Clamp to range [3, 50]
     min_area = np.clip(min_area, 3, 50)
     return min_area
@@ -348,28 +350,28 @@ Final:              3 ✓
 ```python
 def optimize_min_line_score_npf(exif_data, npf_metrics):
     # Estimate meteor trail length (3× faster than stars)
-    star_trail_px = npf_metrics.get('star_trail_px', 5.0)
+    star_trail_px = npf_metrics.get("star_trail_px", 5.0)
     meteor_trail_px = star_trail_px * 3.0
-    
+
     # Set threshold at 60% of expected trail
     min_score = meteor_trail_px * 0.6
-    
+
     # Focal length adjustment
-    focal_length = exif_data.get('focal_length_35mm', 50)
+    focal_length = exif_data.get("focal_length_35mm", 50)
     if focal_length < 20:
-        min_score *= 0.7   # Ultra-wide
+        min_score *= 0.7  # Ultra-wide
     elif focal_length < 35:
         min_score *= 0.85  # Wide
     elif focal_length > 70:
-        min_score *= 1.2   # Telephoto
-    
+        min_score *= 1.2  # Telephoto
+
     # Exposure time adjustment
-    exposure = exif_data.get('exposure_time', 10.0)
+    exposure = exif_data.get("exposure_time", 10.0)
     if exposure < 5:
-        min_score *= 0.8   # Short exposure
+        min_score *= 0.8  # Short exposure
     elif exposure > 20:
-        min_score *= 1.1   # Long exposure
-    
+        min_score *= 1.1  # Long exposure
+
     # Clamp to range [30.0, 200.0]
     min_score = np.clip(min_score, 30.0, 200.0)
     return min_score
@@ -425,11 +427,11 @@ uv run python detect_meteors_cli.py --auto-params --pixel-pitch 3.30
 **Sensor Width Reference**:
 ```python
 SENSOR_WIDTHS = {
-    "MFT": 17.3,           # Micro Four Thirds
-    "APSC": 23.5,          # APS-C (Sony, Nikon, Fuji)
-    "APSC_CANON": 22.3,    # APS-C (Canon)
-    "APSH": 27.9,          # APS-H (Canon)
-    "FF": 36.0,            # Full Frame
+    "MFT": 17.3,  # Micro Four Thirds
+    "APSC": 23.5,  # APS-C (Sony, Nikon, Fuji)
+    "APSC_CANON": 22.3,  # APS-C (Canon)
+    "APSH": 27.9,  # APS-H (Canon)
+    "FF": 36.0,  # Full Frame
     "FULLFRAME": 36.0,
 }
 ```
@@ -638,16 +640,16 @@ uv run python detect_meteors_cli.py --auto-params --sensor-width [your_sensor_mm
    ```python
    # Automatic sensor detection
    CAMERA_DATABASE = {
-       'OM Digital OM-1': {
-           'sensor_width_mm': 17.3,
-           'pixel_pitch_um': 3.34,
-           'read_noise_e': 3.5,
+       "OM Digital OM-1": {
+           "sensor_width_mm": 17.3,
+           "pixel_pitch_um": 3.34,
+           "read_noise_e": 3.5,
        },
-       'Sony A7S III': {
-           'sensor_width_mm': 36.0,
-           'pixel_pitch_um': 8.4,
-           'read_noise_e': 2.1,
-       }
+       "Sony A7S III": {
+           "sensor_width_mm": 36.0,
+           "pixel_pitch_um": 8.4,
+           "read_noise_e": 2.1,
+       },
    }
    ```
 

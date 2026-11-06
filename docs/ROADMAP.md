@@ -2,6 +2,18 @@
 
 ## Version 1.x - Foundation and Auto-Parameter Optimization
 
+### Next target: v1.6.11 — Missed-meteor analysis and parameter tuning
+
+- [x] Separate built-in Hough measurements, candidate decisions, and debug rendering while preserving detection behavior.
+- [ ] Reproduce a visually confirmed missed meteor using the original image pair, ROI, and effective parameters.
+- [ ] Compare bounded parameter adjustments and their effects on the shooting sequence.
+- [ ] Save analysis evidence and a reusable session configuration.
+
+The current change covers design and the measurement/decision foundation only.
+The image-analysis and tuning workflow is not implemented yet. See the
+[v1.6.11 design](parameter_analysis_1.6.11.md) for responsibilities,
+input requirements, extension points, and acceptance criteria.
+
 -2025 4Q
 
 ### Core Detection System

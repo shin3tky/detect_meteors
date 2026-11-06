@@ -272,7 +272,7 @@ import logging
 
 # Enable debug logging for troubleshooting
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('meteor_core')
+logger = logging.getLogger("meteor_core")
 logger.setLevel(logging.DEBUG)
 ```
 
@@ -324,7 +324,11 @@ except MeteorError as e:
 **Creating custom exceptions with context**:
 
 ```python
-from meteor_core.exceptions import MeteorLoadError, MeteorWriteError, MeteorProgressError
+from meteor_core.exceptions import (
+    MeteorLoadError,
+    MeteorWriteError,
+    MeteorProgressError,
+)
 
 # Input loading error
 raise MeteorLoadError(
@@ -516,7 +520,9 @@ class MyCustomDetector(BaseDetector):
         previous_image: np.ndarray,
         roi_mask: np.ndarray,
         params: Dict[str, Any],
-    ) -> Tuple[bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]]:
+    ) -> Tuple[
+        bool, float, List[Tuple[int, int, int, int]], float, Optional[np.ndarray]
+    ]:
         """Detect meteor candidates."""
         # Your detection logic here
         pass
@@ -1057,6 +1063,7 @@ Enhanced type hints throughout the codebase using `TypedDict` for structured dat
 ```python
 from typing import TypedDict, Optional
 
+
 class NPFMetrics(TypedDict):
     pixel_pitch: float
     npf_recommended: float
@@ -1064,6 +1071,7 @@ class NPFMetrics(TypedDict):
     npf_ratio: float
     compliance: str
     impact: str
+
 
 class EXIFData(TypedDict, total=False):
     camera: Optional[str]
@@ -1083,12 +1091,13 @@ The `detectors/` subpackage introduces an abstract base class pattern for future
 # meteor_core/detectors/base.py
 from abc import ABC, abstractmethod
 
+
 class BaseDetector(ABC):
     @abstractmethod
     def detect(self, diff_image, params):
         """Detect meteors in difference image."""
         pass
-    
+
     @abstractmethod
     def get_name(self) -> str:
         """Return detector name."""
@@ -1272,10 +1281,10 @@ When `--fisheye` is enabled, `calculate_npf_metrics()` returns additional fields
 
 ```python
 {
-    'fisheye': True,
-    'fisheye_model': 'EQUISOLID',
-    'effective_focal_length': 11.3,  # Edge focal length
-    'trail_length_ratio': 1.414,     # Edge vs center ratio
+    "fisheye": True,
+    "fisheye_model": "EQUISOLID",
+    "effective_focal_length": 11.3,  # Edge focal length
+    "trail_length_ratio": 1.414,  # Edge vs center ratio
     # ... existing fields ...
 }
 ```
@@ -1481,7 +1490,9 @@ Now returns 5-tuple instead of 4-tuple:
 focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(args)
 
 # v1.5.2
-focal_factor, sensor_width, focal_length, pixel_pitch, preset = apply_sensor_preset(args)
+focal_factor, sensor_width, focal_length, pixel_pitch, preset = apply_sensor_preset(
+    args
+)
 ```
 
 The additional `preset` return value enables validation by providing access to the original preset values.
@@ -1514,7 +1525,9 @@ No action required. Existing code and scripts continue to work.
 focal_factor, sensor_width, focal_length, pixel_pitch = apply_sensor_preset(args)
 
 # To this
-focal_factor, sensor_width, focal_length, pixel_pitch, preset = apply_sensor_preset(args)
+focal_factor, sensor_width, focal_length, pixel_pitch, preset = apply_sensor_preset(
+    args
+)
 ```
 
 Or use tuple unpacking with underscore:

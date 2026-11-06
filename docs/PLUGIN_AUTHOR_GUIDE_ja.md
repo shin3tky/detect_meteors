@@ -467,16 +467,16 @@ For each image pair (current, previous):
 class SortedDetection:
     """Lightweight detection record for sorted hook processing."""
 
-    frame_index: int                                    # 0-based index of current frame
-    prev_frame_index: int                               # 0-based index of previous frame
-    filename: str                                       # Base filename
-    filepath: str                                       # Full path to image file
-    is_candidate: bool                                  # Whether marked as candidate
-    score: float                                        # Detection confidence score
-    aspect_ratio: float                                 # Max contour aspect ratio
-    lines: List[Tuple[int, int, int, int]]              # Detected line segments
+    frame_index: int  # 0-based index of current frame
+    prev_frame_index: int  # 0-based index of previous frame
+    filename: str  # Base filename
+    filepath: str  # Full path to image file
+    is_candidate: bool  # Whether marked as candidate
+    score: float  # Detection confidence score
+    aspect_ratio: float  # Max contour aspect ratio
+    lines: List[Tuple[int, int, int, int]]  # Detected line segments
     extras: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1                             # SORTED_DETECTION_SCHEMA_VERSION
+    schema_version: int = 1  # SORTED_DETECTION_SCHEMA_VERSION
 ```
 
 **DetectionResultではなくSortedDetectionを使う理由**：
@@ -494,6 +494,7 @@ class SortedDetection:
 from meteor_core.hooks import DataclassHook
 from meteor_core.schema import SortedDetection
 from typing import List
+
 
 class MyBatchAnalyzer(DataclassHook[MyConfig]):
     plugin_name = "my_batch_analyzer"
@@ -604,6 +605,7 @@ pipeline.run(enable_roi_selection=False)
 ```python
 ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
 
+
 @dataclass
 class InputContext:
     """Input bundle for loader execution."""
@@ -612,7 +614,7 @@ class InputContext:
     filepath: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     loader_info: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1                             # INPUT_CONTEXT_SCHEMA_VERSION
+    schema_version: int = 1  # INPUT_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize context for JSON/logging (excludes image_data)."""
@@ -680,16 +682,17 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 ```python
 ImageLike = Union[np.ndarray, "torch.Tensor", "PIL.Image.Image"]
 
+
 @dataclass
 class DetectionContext:
     """Input bundle for detector execution."""
 
     current_image: ImageLike
     previous_image: ImageLike
-    roi_mask: Any                                       # Typically np.ndarray (uint8 mask)
+    roi_mask: Any  # Typically np.ndarray (uint8 mask)
     runtime_params: Union["RuntimeParams", Dict[str, Any]]
-    metadata: Dict[str, Any]                            # {"current": {...}, "previous": {...}} in pipeline
-    schema_version: int = 1                             # DETECTION_CONTEXT_SCHEMA_VERSION
+    metadata: Dict[str, Any]  # {"current": {...}, "previous": {...}} in pipeline
+    schema_version: int = 1  # DETECTION_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize context for JSON/logging (excludes current_image/previous_image/roi_mask)."""
@@ -719,10 +722,10 @@ class DetectionResult:
     score: float
     lines: List[Tuple[int, int, int, int]]
     aspect_ratio: float
-    debug_image: Optional[Any]                          # Typically np.ndarray (BGR)
+    debug_image: Optional[Any]  # Typically np.ndarray (BGR)
     extras: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1                             # DETECTION_RESULT_SCHEMA_VERSION
+    schema_version: int = 1  # DETECTION_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize result for JSON/logging (excludes debug_image)."""
@@ -765,7 +768,7 @@ class DetectionResult:
 class RuntimeParams:
     """Runtime parameters passed into detector execution."""
 
-    schema_version: int = 1                             # RUNTIME_PARAMS_SCHEMA_VERSION
+    schema_version: int = 1  # RUNTIME_PARAMS_SCHEMA_VERSION
     global_params: Dict[str, Any] = field(default_factory=dict)
     detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
@@ -779,9 +782,9 @@ class RuntimeParams:
 ```python
 {
     "schema_version": 1,
-    "global": { ... },        # Pipeline-wide params
+    "global": {...},  # Pipeline-wide params
     "detector": {
-        "<plugin_name>": { ... }  # Detector-specific overrides
+        "<plugin_name>": {...}  # Detector-specific overrides
     },
 }
 ```
@@ -846,7 +849,7 @@ class OutputResult:
     debug_path: Optional[str]
     handler_info: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
-    schema_version: int = 1                             # OUTPUT_RESULT_SCHEMA_VERSION
+    schema_version: int = 1  # OUTPUT_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize result for JSON/logging."""
@@ -1127,16 +1130,17 @@ uv run python detect_meteors_cli.py \
 @dataclass
 class MyDetectorConfig:
     """Configuration for MyDetector.
-    
+
     YAML example:
         detector_name: my_detector
         detector_config:
           sensitivity: 0.8
           use_gpu: true
     """
-    sensitivity: float = 0.5      # Detection sensitivity (0.0-1.0)
-    use_gpu: bool = False         # Enable GPU acceleration
-    model_path: str = ""          # Path to ML model (optional)
+
+    sensitivity: float = 0.5  # Detection sensitivity (0.0-1.0)
+    use_gpu: bool = False  # Enable GPU acceleration
+    model_path: str = ""  # Path to ML model (optional)
 ```
 
 <a id="35-plugin-discovery"></a>
@@ -1218,8 +1222,8 @@ from meteor_core.schema import (
 class InputContext:
     """Input bundle for loader execution."""
 
-    image_data: ImageLike                               # Loaded image pixels
-    filepath: str                                       # Original file path
+    image_data: ImageLike  # Loaded image pixels
+    filepath: str  # Original file path
     metadata: Dict[str, Any] = field(default_factory=dict)
     loader_info: Dict[str, Any] = field(default_factory=dict)
     schema_version: int = INPUT_CONTEXT_SCHEMA_VERSION  # Currently 1
@@ -1242,6 +1246,7 @@ class InputContext:
 ```python
 from meteor_core.schema import InputContext
 from meteor_core.inputs import DataclassInputLoader
+
 
 class MyLoader(DataclassInputLoader[MyConfig]):
     def load(self, filepath: str) -> InputContext:
@@ -1269,11 +1274,11 @@ class MyLoader(DataclassInputLoader[MyConfig]):
 class DetectionContext:
     """Input bundle for detector execution."""
 
-    current_image: ImageLike                            # Current frame
-    previous_image: ImageLike                           # Previous frame for differencing
-    roi_mask: Any                                       # ROI mask (typically np.ndarray uint8)
+    current_image: ImageLike  # Current frame
+    previous_image: ImageLike  # Previous frame for differencing
+    roi_mask: Any  # ROI mask (typically np.ndarray uint8)
     runtime_params: Union[RuntimeParams, Dict[str, Any]]
-    metadata: Dict[str, Any]                            # {"current": {...}, "previous": {...}}
+    metadata: Dict[str, Any]  # {"current": {...}, "previous": {...}}
     schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION  # Currently 1
 
     def to_dict(self) -> Dict[str, Any]: ...
@@ -1297,7 +1302,9 @@ class DetectionContext:
 class RuntimeParams:
     schema_version: int = 1
     global_params: Dict[str, Any] = field(default_factory=dict)  # Pipeline-wide params
-    detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)  # Per-detector overrides
+    detector: Dict[str, Dict[str, Any]] = field(
+        default_factory=dict
+    )  # Per-detector overrides
 ```
 
 `to_dict()` の形式：
@@ -1316,6 +1323,7 @@ class RuntimeParams:
 from meteor_core.schema import DetectionContext, DetectionResult
 from meteor_core.detectors import DataclassDetector
 from meteor_core.utils import ensure_numpy
+
 
 class MyDetector(DataclassDetector[MyConfig]):
     def detect(self, context: DetectionContext) -> DetectionResult:
@@ -1361,11 +1369,11 @@ class DetectionResult:
     normalized comparison surface.
     """
 
-    is_candidate: bool                                  # Detection decision
-    score: float                                        # Detection confidence score
-    lines: List[Tuple[int, int, int, int]]              # Detected line segments
-    aspect_ratio: float                                 # Max contour aspect ratio
-    debug_image: Optional[Any]                          # Debug visualization (BGR)
+    is_candidate: bool  # Detection decision
+    score: float  # Detection confidence score
+    lines: List[Tuple[int, int, int, int]]  # Detected line segments
+    aspect_ratio: float  # Max contour aspect ratio
+    debug_image: Optional[Any]  # Debug visualization (BGR)
     extras: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
     schema_version: int = DETECTION_RESULT_SCHEMA_VERSION  # Currently 1
@@ -1397,6 +1405,7 @@ class DetectionResult:
 
 ```python
 from meteor_core.schema import DetectionResult
+
 
 def detect(self, context: DetectionContext) -> DetectionResult:
     start_time = time.perf_counter()
@@ -1439,9 +1448,9 @@ def detect(self, context: DetectionContext) -> DetectionResult:
 class OutputResult:
     """Result returned by output handlers."""
 
-    saved: bool                                         # Whether save succeeded
-    output_path: Optional[str]                          # Path to saved candidate
-    debug_path: Optional[str]                           # Path to saved debug image
+    saved: bool  # Whether save succeeded
+    output_path: Optional[str]  # Path to saved candidate
+    debug_path: Optional[str]  # Path to saved debug image
     handler_info: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
     schema_version: int = OUTPUT_RESULT_SCHEMA_VERSION  # Currently 1
@@ -1464,6 +1473,7 @@ class OutputResult:
 
 ```python
 from meteor_core.schema import OutputResult
+
 
 def save_candidate(
     self,
@@ -1520,14 +1530,14 @@ def save_candidate(
 class SortedDetection:
     """Lightweight detection record for sorted hook processing."""
 
-    frame_index: int                                    # 0-based index of current frame
-    prev_frame_index: int                               # 0-based index of previous frame
-    filename: str                                       # Base filename
-    filepath: str                                       # Full path to image file
-    is_candidate: bool                                  # Whether marked as candidate
-    score: float                                        # Detection confidence score
-    aspect_ratio: float                                 # Max contour aspect ratio
-    lines: List[Tuple[int, int, int, int]]              # Detected line segments
+    frame_index: int  # 0-based index of current frame
+    prev_frame_index: int  # 0-based index of previous frame
+    filename: str  # Base filename
+    filepath: str  # Full path to image file
+    is_candidate: bool  # Whether marked as candidate
+    score: float  # Detection confidence score
+    aspect_ratio: float  # Max contour aspect ratio
+    lines: List[Tuple[int, int, int, int]]  # Detected line segments
     extras: Dict[str, Any] = field(default_factory=dict)
     schema_version: int = SORTED_DETECTION_SCHEMA_VERSION  # Currently 1
 
@@ -1598,6 +1608,7 @@ from meteor_core.hooks import DataclassHook
 from meteor_core.schema import SortedDetection
 from typing import List
 
+
 class MyAnalyzer(DataclassHook[MyConfig]):
     plugin_name = "my_analyzer"
 
@@ -1658,6 +1669,7 @@ from meteor_core.schema import (
     register_output_result_converter,
 )
 
+
 def upgrade_detection_context_v0_to_v1(context: DetectionContext) -> DetectionContext:
     """Convert v0 DetectionContext to v1 format."""
     return DetectionContext(
@@ -1669,6 +1681,7 @@ def upgrade_detection_context_v0_to_v1(context: DetectionContext) -> DetectionCo
         schema_version=1,
     )
 
+
 def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResult:
     """Convert v0 DetectionResult to v1 format."""
     return DetectionResult(
@@ -1678,9 +1691,10 @@ def upgrade_detection_result_v0_to_v1(result: DetectionResult) -> DetectionResul
         aspect_ratio=result.aspect_ratio,
         debug_image=result.debug_image,
         extras=result.extras,
-        metrics=result.metrics if hasattr(result, 'metrics') else {},
+        metrics=result.metrics if hasattr(result, "metrics") else {},
         schema_version=1,
     )
+
 
 register_detection_context_converter(0, upgrade_detection_context_v0_to_v1)
 register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
@@ -1704,6 +1718,7 @@ register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
 
 ```python
 """Custom TIFF image loader with metadata extraction, logging, and exceptions."""
+
 import logging
 import os
 from dataclasses import dataclass
@@ -1729,6 +1744,7 @@ logger = logging.getLogger("meteor_core.inputs.tiff_loader")
 @dataclass
 class TiffLoaderConfig:
     """Configuration for TIFF loader."""
+
     normalize: bool = False
     bit_depth: int = 16
 
@@ -1736,9 +1752,9 @@ class TiffLoaderConfig:
 class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtractor):
     """Load TIFF images with optional normalization."""
 
-    plugin_name = "tiff"           # Required: unique identifier
-    name = "TIFF Image Loader"     # Optional: human-readable name
-    version = "1.0.0"              # Optional: version string
+    plugin_name = "tiff"  # Required: unique identifier
+    name = "TIFF Image Loader"  # Optional: human-readable name
+    version = "1.0.0"  # Optional: version string
     ConfigType = TiffLoaderConfig  # Optional: configuration class
 
     def __init__(self, config: TiffLoaderConfig = None):
@@ -1790,9 +1806,11 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
 
             # Normalize if configured
             if self.config.normalize:
-                max_val = 2 ** self.config.bit_depth - 1
+                max_val = 2**self.config.bit_depth - 1
                 image = (image / max_val * 65535).astype(np.uint16)
-                logger.debug(f"Normalized to uint16 (bit_depth={self.config.bit_depth})")
+                logger.debug(
+                    f"Normalized to uint16 (bit_depth={self.config.bit_depth})"
+                )
             else:
                 image = image.astype(np.uint16)
 
@@ -1864,6 +1882,7 @@ LoaderRegistry.register(TiffImageLoader)
 
 ```python
 """Simple threshold-based detector for bright meteors with logging."""
+
 import logging
 from dataclasses import dataclass
 from typing import Dict, List, Tuple, Optional, Any
@@ -1882,6 +1901,7 @@ logger = logging.getLogger("meteor_core.detectors.threshold")
 @dataclass
 class ThresholdDetectorConfig:
     """Configuration for threshold detector."""
+
     brightness_multiplier: float = 1.5
     min_contour_area: int = 50
 
@@ -1932,7 +1952,9 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
         try:
             # Compute absolute difference
             diff = cv2.absdiff(current_image, previous_image)
-            logger.debug(f"Computed frame difference: max={diff.max()}, mean={diff.mean():.1f}")
+            logger.debug(
+                f"Computed frame difference: max={diff.max()}, mean={diff.mean():.1f}"
+            )
 
             # Apply ROI mask
             diff = cv2.bitwise_and(diff, diff, mask=roi_mask)
@@ -1943,12 +1965,7 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             logger.debug(f"Applying threshold: {effective_threshold}")
 
             # Apply threshold
-            _, binary = cv2.threshold(
-                diff,
-                effective_threshold,
-                255,
-                cv2.THRESH_BINARY
-            )
+            _, binary = cv2.threshold(diff, effective_threshold, 255, cv2.THRESH_BINARY)
             binary = binary.astype(np.uint8)
 
             # Find contours
@@ -1959,7 +1976,8 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
             # Filter by area
             valid_contours = [
-                c for c in contours
+                c
+                for c in contours
                 if cv2.contourArea(c) >= self.config.min_contour_area
             ]
             logger.debug(
@@ -1995,7 +2013,9 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
                 aspect_ratios.append(max(w, h) / max(min(w, h), 1))
             max_aspect_ratio = max(aspect_ratios) if aspect_ratios else 0.0
 
-            logger.debug(f"Metrics: score={score:.1f}, max_aspect_ratio={max_aspect_ratio:.2f}")
+            logger.debug(
+                f"Metrics: score={score:.1f}, max_aspect_ratio={max_aspect_ratio:.2f}"
+            )
 
             # Create debug image
             debug_image = cv2.cvtColor(
@@ -2085,6 +2105,7 @@ DetectorRegistry.register(ThresholdDetector)
 
 ```python
 """Slack notification handler with full lifecycle support, logging, and exceptions."""
+
 import json
 import logging
 import os
@@ -2108,6 +2129,7 @@ logger = logging.getLogger("meteor_core.outputs.slack_handler")
 @dataclass
 class SlackOutputConfig:
     """Configuration for Slack notification handler."""
+
     output_folder: str = "./candidates"
     debug_folder: str = "./debug_masks"
     webhook_url: str = ""
@@ -2482,6 +2504,7 @@ Use Pydantic BaseModel
 ```python
 from dataclasses import dataclass
 
+
 @dataclass
 class MyConfig:
     output_folder: str = "./output"  # Always provide defaults
@@ -2493,6 +2516,7 @@ class MyConfig:
 
 ```python
 from pydantic import BaseModel, Field, field_validator
+
 
 class MyConfig(BaseModel):
     threshold: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -2593,9 +2617,9 @@ from meteor_core.exceptions import MeteorWriteError, MeteorProgressError
 # File write error with destination path
 error = MeteorWriteError(
     "Failed to copy candidate file",
-    filepath="/source/image.CR2",           # Source path
-    destination_path="/output/image.CR2",   # Destination path
-    operation="copy",                       # Operation type
+    filepath="/source/image.CR2",  # Source path
+    destination_path="/output/image.CR2",  # Destination path
+    operation="copy",  # Operation type
     original_error=os_error,
     context={"error_category": "copy_failed"},
 )
@@ -2604,7 +2628,7 @@ error = MeteorWriteError(
 error = MeteorProgressError(
     "Failed to parse progress file",
     filepath="progress.json",
-    operation="parse",                      # "load", "save", "parse", "serialize"
+    operation="parse",  # "load", "save", "parse", "serialize"
     original_error=json_error,
     context={"error_category": "parse_failed"},
 )
@@ -2718,10 +2742,13 @@ class MyDetector(DataclassDetector[MyConfig]):
 ```python
 from meteor_core.exceptions import MeteorWriteError
 
+
 class MyFileHandler(DataclassOutputHandler[MyConfig]):
     """Primary handler - raises exceptions on critical failures."""
 
-    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> OutputResult:
+    def save_candidate(
+        self, source_path, filename, debug_image, roi_polygon
+    ) -> OutputResult:
         dest_path = os.path.join(self.config.output_folder, filename)
         try:
             shutil.copy2(source_path, dest_path)
@@ -2748,7 +2775,9 @@ class MyFileHandler(DataclassOutputHandler[MyConfig]):
 class MyNotificationHandler(DataclassOutputHandler[MyConfig]):
     """Secondary handler - logs errors and continues."""
 
-    def save_candidate(self, source_path, filename, debug_image, roi_polygon) -> OutputResult:
+    def save_candidate(
+        self, source_path, filename, debug_image, roi_polygon
+    ) -> OutputResult:
         try:
             self._upload_to_cloud(source_path)
             return OutputResult(
@@ -3006,7 +3035,8 @@ uv run pre-commit run ty-check --all-files
 
   ```python
   from meteor_core.schema import DetectionContext, DetectionResult
-  
+
+
   def detect(self, context: DetectionContext) -> DetectionResult:
       # ty will validate your implementation
       ...
@@ -3022,8 +3052,7 @@ uv run pre-commit run ty-check --all-files
       filename: str,
       debug_image: Optional[np.ndarray] = None,
       roi_polygon: Optional[List[List[int]]] = None,
-  ) -> OutputResult:
-      ...
+  ) -> OutputResult: ...
   ```
 
 - 契約に対応する型を `meteor_core.schema` からインポート。
@@ -3177,6 +3206,7 @@ from meteor_core.outputs import DataclassOutputHandler
 ```python
 from dataclasses import dataclass
 
+
 @dataclass
 class MyPluginConfig:
     option1: str = "default"
@@ -3190,10 +3220,11 @@ class MyPluginConfig:
 ```python
 from meteor_core.schema import InputContext
 
+
 class MyPlugin(DataclassInputLoader[MyPluginConfig]):
     plugin_name = "my_plugin"  # Required
-    name = "My Plugin"         # Optional
-    version = "1.0.0"          # Optional
+    name = "My Plugin"  # Optional
+    version = "1.0.0"  # Optional
     ConfigType = MyPluginConfig
 
     def load(self, filepath: str) -> InputContext:
@@ -3209,6 +3240,7 @@ class MyPlugin(DataclassInputLoader[MyPluginConfig]):
 
 ```python
 from meteor_core.inputs import LoaderRegistry
+
 LoaderRegistry.register(MyPlugin)
 ```
 
@@ -3253,6 +3285,7 @@ class TestMyPlugin(unittest.TestCase):
     def test_default_config(self):
         # Test with default configuration
         from meteor_core.inputs import LoaderRegistry
+
         LoaderRegistry.register(MyPlugin)
 
         loader = LoaderRegistry.create("my_plugin")  # Uses defaults
@@ -3290,6 +3323,7 @@ def test_plugin_in_pipeline():
 
 ```python
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 ```
 

@@ -94,11 +94,12 @@ class DetectorRegistry(PluginRegistryBase):
         # Potential type conflicts with base class
         ...
 
+
 # After: Typed factory pattern
 class DetectorRegistry(PluginRegistryBase[Type[BaseDetector]]):
     def __init__(self):
         super().__init__(validator=self._validate_detector)
-    
+
     def _validate_detector(self, plugin_class: type) -> bool:
         # Clean validation without override conflicts
         return issubclass(plugin_class, BaseDetector)
@@ -156,8 +157,8 @@ roi_mask = select_roi(image_data)  # Guaranteed np.ndarray
 
 ```python
 # Before: Strict locale matching
-def get_message(key: str, locale: str) -> str:
-    ...
+def get_message(key: str, locale: str) -> str: ...
+
 
 # After: Optional locale with fallback normalization
 def get_message(key: str, locale: Optional[str] = None) -> str:
@@ -263,7 +264,8 @@ repos:
 
    ```python
    from meteor_core.schema import DetectionContext, DetectionResult
-   
+
+
    def detect(self, context: DetectionContext) -> DetectionResult:
        # ty will validate your implementation
        ...
@@ -440,9 +442,11 @@ from dataclasses import dataclass
 from meteor_core.hooks import DataclassHook, HookRegistry
 from meteor_core.schema import InputContext, DetectionResult, DetectionContext
 
+
 @dataclass
 class MyHookConfig:
     min_score_threshold: float = 50.0
+
 
 class ScoreFilterHook(DataclassHook[MyHookConfig]):
     plugin_name = "score_filter"
@@ -466,6 +470,7 @@ class ScoreFilterHook(DataclassHook[MyHookConfig]):
                 extras={**result.extras, "filtered_by": "score_filter"},
             )
         return result
+
 
 # Register for runtime use (single-process only)
 HookRegistry.register(ScoreFilterHook)
@@ -538,8 +543,8 @@ config = PipelineConfig(
 ```python
 @dataclass
 class HookConfig:
-    name: str                                    # Hook plugin name
-    config: Optional[Dict[str, Any]] = None      # Hook-specific configuration
+    name: str  # Hook plugin name
+    config: Optional[Dict[str, Any]] = None  # Hook-specific configuration
 ```
 
 **PipelineConfigへの追加**：
@@ -548,8 +553,8 @@ class HookConfig:
 @dataclass
 class PipelineConfig:
     # ... existing fields ...
-    hooks: Optional[List[HookConfig]] = None     # Ordered hook list (None = skip hooks)
-    hook_error_mode: str = "raise"               # "raise" or "warn"
+    hooks: Optional[List[HookConfig]] = None  # Ordered hook list (None = skip hooks)
+    hook_error_mode: str = "raise"  # "raise" or "warn"
 ```
 
 ### 変更ファイル
@@ -744,6 +749,7 @@ from meteor_core.schema import (
     normalize_detection_context,
 )
 
+
 # Register a converter for older schema versions
 def upgrade_v0_to_v1(context: DetectionContext) -> DetectionContext:
     # Migration logic
@@ -755,6 +761,7 @@ def upgrade_v0_to_v1(context: DetectionContext) -> DetectionContext:
         metadata=context.metadata,
         schema_version=1,
     )
+
 
 register_detection_context_converter(0, upgrade_v0_to_v1)
 
@@ -793,13 +800,14 @@ uv run python detect_meteors_cli.py --config pipeline.yaml
    @dataclass
    class MyDetectorConfig:
        """Configuration for MyDetector.
-       
+
        YAML example:
            detector_name: my_detector
            detector_config:
              sensitivity: 0.8
              use_gpu: true
        """
+
        sensitivity: float = 0.5
        use_gpu: bool = False
    ```
@@ -936,11 +944,11 @@ v1.6.4では `on_detection_result` を追加し、`DetectionResult` をパイプ
 ```python
 context.metadata = {
     "current": {
-        "frame_index": 42,      # 0-based index of current frame
+        "frame_index": 42,  # 0-based index of current frame
         # ... other metadata
     },
     "previous": {
-        "frame_index": 41,      # 0-based index of previous frame
+        "frame_index": 41,  # 0-based index of previous frame
         # ... other metadata
     },
 }
@@ -1094,7 +1102,7 @@ v1.6.3ではバージョン付き `RuntimeParams` とパイプラインの自動
 class RuntimeParams:
     """Runtime parameters passed into detector execution."""
 
-    schema_version: int = 1                             # RUNTIME_PARAMS_SCHEMA_VERSION
+    schema_version: int = 1  # RUNTIME_PARAMS_SCHEMA_VERSION
     global_params: Dict[str, Any] = field(default_factory=dict)
     detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
@@ -1171,9 +1179,7 @@ def save_candidate(self, source_path, filename, ...) -> bool:
    ```python
    def detect(self, context: DetectionContext) -> DetectionResult:
        # Use helper methods from BaseDetector
-       global_params, detector_params = self.split_runtime_params(
-           context.runtime_params
-       )
+       global_params, detector_params = self.split_runtime_params(context.runtime_params)
        params = {**global_params, **detector_params}
    ```
 
@@ -1264,11 +1270,11 @@ v1.6.1で始めたバージョン管理を完成させます。
 ```python
 @dataclass
 class InputContext:
-    image_data: ImageLike              # Loaded image (numpy, torch, or PIL)
-    filepath: str                      # Original file path
-    metadata: Dict[str, Any] = {}      # Loader-extracted metadata (EXIF, etc.)
-    loader_info: Dict[str, Any] = {}   # Loader identity (name, version)
-    schema_version: int = 1            # INPUT_CONTEXT_SCHEMA_VERSION
+    image_data: ImageLike  # Loaded image (numpy, torch, or PIL)
+    filepath: str  # Original file path
+    metadata: Dict[str, Any] = {}  # Loader-extracted metadata (EXIF, etc.)
+    loader_info: Dict[str, Any] = {}  # Loader identity (name, version)
+    schema_version: int = 1  # INPUT_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize context for JSON/logging (excludes image_data)."""
@@ -1280,12 +1286,12 @@ class InputContext:
 ```python
 @dataclass
 class OutputResult:
-    saved: bool                        # Whether file was persisted
-    output_path: Optional[str]         # Path to saved candidate
-    debug_path: Optional[str]          # Path to saved debug image
+    saved: bool  # Whether file was persisted
+    output_path: Optional[str]  # Path to saved candidate
+    debug_path: Optional[str]  # Path to saved debug image
     handler_info: Dict[str, Any] = {}  # Handler identity (name, version)
-    metrics: Dict[str, Any] = {}       # Performance diagnostics
-    schema_version: int = 1            # OUTPUT_RESULT_SCHEMA_VERSION
+    metrics: Dict[str, Any] = {}  # Performance diagnostics
+    schema_version: int = 1  # OUTPUT_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize result for JSON/logging."""
@@ -1336,6 +1342,7 @@ OUTPUT_RESULT_SCHEMA_VERSION = 1
 ```python
 from meteor_core.inputs import DataclassInputLoader
 from meteor_core.schema import InputContext
+
 
 class MyLoader(DataclassInputLoader[MyConfig]):
     def load(self, filepath: str) -> InputContext:
@@ -1419,12 +1426,12 @@ v1.6.1では検出器契約のバージョン管理と複数フレームワー�
 ```python
 @dataclass
 class DetectionContext:
-    current_image: ImageLike      # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
-    previous_image: ImageLike     # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
+    current_image: ImageLike  # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
+    previous_image: ImageLike  # NEW: Union[np.ndarray, torch.Tensor, PIL.Image]
     roi_mask: Any
     runtime_params: Dict[str, Any]
     metadata: Dict[str, Any]
-    schema_version: int = 1       # NEW: For migration support
+    schema_version: int = 1  # NEW: For migration support
 ```
 
 **DetectionResult**（v1.6.1）：
@@ -1438,8 +1445,9 @@ class DetectionResult:
     aspect_ratio: float
     debug_image: Optional[Any]
     extras: Dict[str, Any]
-    metrics: Dict[str, Any]       # NEW: Standard diagnostics
-    schema_version: int = 1       # NEW: For migration support
+    metrics: Dict[str, Any]  # NEW: Standard diagnostics
+    schema_version: int = 1  # NEW: For migration support
+
     def to_dict(self) -> Dict[str, Any]:  # NEW: Serialization
         ...
 ```

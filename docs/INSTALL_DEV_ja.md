@@ -236,9 +236,11 @@ uv build
 from dataclasses import dataclass
 from typing import Optional
 
+
 @dataclass
 class NPFMetrics:
     """NPF Rule calculation results."""
+
     pixel_pitch_um: Optional[float] = None
     npf_recommended_sec: Optional[float] = None
     compliance_level: str = "UNKNOWN"
