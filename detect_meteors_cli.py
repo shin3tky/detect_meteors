@@ -138,6 +138,32 @@ def build_arg_parser() -> argparse.ArgumentParser:
         metavar="JSON",
         help="Original progress file supplying recorded parameters and ROI",
     )
+    analysis_group.add_argument(
+        "--tune-params",
+        action="store_true",
+        help="Propose bounded parameter adjustments for --analyze-image",
+    )
+    analysis_group.add_argument(
+        "--tuning-config",
+        metavar="JSON_OR_YAML",
+        help="Tuning limits and measurement_grid as a mapping or config file",
+    )
+    analysis_group.add_argument(
+        "--analysis-region",
+        metavar="X0,Y0,X1,Y1",
+        help="Annotated target region in loaded-image coordinates (end exclusive)",
+    )
+    analysis_group.add_argument(
+        "--comparison-sequence",
+        metavar="DIR",
+        help="Explicit RAW sequence to compare before and after each proposal",
+    )
+    analysis_group.add_argument(
+        "--known-meteor",
+        action="append",
+        metavar="IMAGE",
+        help="Known meteor frame in a comparison (repeatable)",
+    )
 
     parser.add_argument(
         "-t",
@@ -481,7 +507,11 @@ def _parse_config_payload(value: Optional[str], arg_name: str) -> Any:
         return {}
 
     path = Path(value)
-    if path.exists():
+    try:
+        is_file_path = path.exists()
+    except OSError:
+        is_file_path = False
+    if is_file_path:
         suffix = path.suffix.lower()
         if suffix not in SUPPORTED_CONFIG_EXTENSIONS:
             raise MeteorConfigError(
@@ -2372,6 +2402,21 @@ def detect_meteors_advanced(
 
 def _validate_analysis_options(parser, args) -> None:
     """Check analysis routing before any action can delete or write files."""
+    tuning_modifiers = any(
+        value is not None
+        for value in (
+            args.tuning_config,
+            args.analysis_region,
+            args.comparison_sequence,
+            args.known_meteor,
+        )
+    )
+    if (args.tune_params or tuning_modifiers) and args.analyze_image is None:
+        parser.error("Tuning options require --analyze-image")
+    if tuning_modifiers and not args.tune_params:
+        parser.error("Tuning modifiers require --tune-params")
+    if args.known_meteor and args.comparison_sequence is None:
+        parser.error("--known-meteor requires --comparison-sequence")
     if args.analyze_image is None:
         if any(
             value is not None
@@ -2422,6 +2467,7 @@ def _run_image_analysis(args):
     from meteor_core.config_io import _load_config_mapping
     from meteor_core.detectors.hough_default import HoughDetector
     from meteor_core.pipeline import _resolve_detector
+    from meteor_core.tuning import TuningOptions
 
     base = load_pipeline_config(args.config) if args.config else None
     if args.config:
@@ -2431,6 +2477,13 @@ def _run_image_analysis(args):
         ):
             raise MeteorConfigError(
                 "Use --analysis-progress for a progress file, not --config"
+            )
+        if any(
+            key in data
+            for key in ("measurement_grid", *TuningOptions.__dataclass_fields__)
+        ):
+            raise MeteorConfigError(
+                "Use --tuning-config for tuning limits and the measurement grid"
             )
     config = _build_pipeline_config(args, base_config=base)
     try:
@@ -2479,7 +2532,54 @@ def _run_image_analysis(args):
     display_reproduction(
         replay, reference_source=source, locale=args.locale, verbose=args.verbose
     )
+    if args.tune_params:
+        _run_tuning_analysis(args, replay)
     return replay
+
+
+def _run_tuning_analysis(args, replay) -> None:
+    from meteor_core.analysis_cli import display_tuning
+    from meteor_core.tuning import (
+        TuningOptions,
+        compare_tuning_proposals,
+        tune_reproduction,
+    )
+
+    config = _parse_plugin_config(args.tuning_config, "tuning_config") or {}
+    grid = config.pop("measurement_grid", None)
+    try:
+        options = TuningOptions(**config)
+    except TypeError as exc:
+        raise MeteorConfigError(
+            "Unknown tuning configuration field", original_error=exc
+        ) from exc
+    region = None
+    if args.analysis_region is not None:
+        try:
+            region = tuple(
+                int(value.strip()) for value in args.analysis_region.split(",")
+            )
+        except ValueError as exc:
+            raise MeteorConfigError(
+                "Analysis region must be x0,y0,x1,y1", original_error=exc
+            ) from exc
+    run = tune_reproduction(
+        replay, options=options, measurement_grid=grid, target_region=region
+    )
+    if args.comparison_sequence is not None:
+        files = collect_files(
+            str(Path(args.comparison_sequence).expanduser().resolve())
+        )
+        pairs = list(zip(files[1:], files[:-1]))
+        for path in args.known_meteor or ():
+            if not Path(path).expanduser().is_file():
+                raise MeteorLoadError(
+                    "Known meteor image file not found", filepath=path
+                )
+        run = compare_tuning_proposals(
+            run, pairs, known_meteors=args.known_meteor or ()
+        )
+    display_tuning(run, locale=args.locale)
 
 
 def main():

@@ -4,7 +4,7 @@ This API does not run hooks, infer a reference frame, estimate parameters, or
 write progress/candidate files. A measured frame is not a confirmed meteor.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 import json
 import math
 from numbers import Real
@@ -52,12 +52,38 @@ class HoughReproduction:
     target_metadata: dict[str, Any]
     reference_metadata: dict[str, Any] | None
     image_shape: tuple[int, int]
+    image_dtype: str
     analysis: HoughAnalysis | None
     decision: CandidateDecision | None
+    _context: DetectionContext | None = field(default=None, repr=False, compare=False)
+    _loader: BaseInputLoader | None = field(default=None, repr=False, compare=False)
 
     @property
     def status(self) -> str:
         return "measured" if self.analysis is not None else "reference_missing"
+
+    def remeasure(self, params: DetectionParams) -> HoughAnalysis:
+        """Measure fresh evidence from the same loaded images and ROI snapshot."""
+        if self._context is None:
+            raise MeteorValidationError("Cannot remeasure without a reference image")
+        detector = HoughDetector()
+        context = replace(
+            self._context,
+            runtime_params=detector.build_runtime_params(
+                _validated_params(params.to_dict()).to_dict()
+            ),
+        )
+        return detector.analyze(context)
+
+    def reproduce_pair(
+        self, target: str | Path, reference: str | Path
+    ) -> "HoughReproduction":
+        """Replay another pair with the original loader instance and settings."""
+        if self._loader is None:
+            raise MeteorConfigError("The original input loader is unavailable")
+        return reproduce_hough_pair(
+            target, reference, settings=self.settings, input_loader=self._loader
+        )
 
 
 def _validated_params(values: Mapping[str, Any]) -> DetectionParams:
@@ -280,6 +306,7 @@ def reproduce_hough_pair(
     previous_context = None
     analysis = None
     decision = None
+    context = None
     if reference is not None:
         previous_context = _normalize_input_context(
             loader.load(str(reference)), str(reference)
@@ -315,6 +342,9 @@ def reproduce_hough_pair(
         if previous_context is not None
         else None,
         image_shape=shape,
+        image_dtype=str(current.dtype),
         analysis=analysis,
         decision=decision,
+        _context=context,
+        _loader=loader,
     )

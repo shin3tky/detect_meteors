@@ -2,9 +2,9 @@
 
 [日本語版](parameter_analysis_1.6.11_ja.md)
 
-Status: the explicit-pair replay API and read-only analysis CLI are
-implemented and reviewed. Tuning recommendations and saving adjusted
-settings are not implemented yet.
+Status: the explicit-pair replay API and read-only analysis CLI are reviewed.
+Bounded tuning and sequence comparison are implemented and reviewed.
+Saving reports and adjusted settings is not implemented yet.
 This foundation change does not update the release number; the runtime version
 remains 1.6.10.
 
@@ -249,7 +249,84 @@ or rerun `--auto-params`. Distinguish results of runs with hooks from the
 detector's own results. Do not silently replace an unsupported loader or detector
 with the built-in Hough implementation.
 
-## Next Stage: Generating Tuning Proposals
+## Implementation Step 3: Bounded Tuning and Sequence Comparison
+
+Add `meteor_core/tuning.py` with `TuningOptions`, `TuningProposal`, `TuningRun`,
+and `SequenceComparison`. `tune_reproduction()` generates proposals;
+`compare_tuning_proposals()` compares the returned proposals with the current
+effective baseline on an explicit list of `(current, previous)` pairs.
+
+Retain the target pair's loaded image/ROI snapshot and original loader in
+`HoughReproduction`, excluding these internal resources from its representation.
+`remeasure()` changes runtime parameters while preserving that snapshot;
+`reproduce_pair()` uses the same loader and settings for another pair. The result
+also records the loaded dtype. Images are retained for the lifetime of a replay;
+comparison processes one pair at a time rather than retaining the whole sequence.
+
+Default search limits are a 0.5 maximum fractional relaxation per candidate
+gate, eight target measurements, 256 target decisions, five returned proposals,
+100 comparison pairs, and 600 comparison measurements. Original target evidence
+counts toward the measurement and decision budgets. These configurable limits
+are computational/exploration bounds, not physical camera calibrations.
+
+For each eligible contour with Hough evidence, derive the least gate changes
+needed to pass the existing rule. An integer area threshold becomes at most
+`ceil(area) - 1`, aspect ratio at most the adjacent representable float below the
+measurement, and score at most the measured global score. Preserve already
+passing gate values. Discard changes outside the allowed relaxation range,
+deduplicate complete parameter sets, and evaluate candidates in normalized
+change-cost order. Report omitted proposals when the output limit is reached.
+
+Optional `measurement_grid` lists are limited to the four difference/Hough
+parameters. Include original values, order other values by distance, and visit
+the Cartesian product only up to the work limits. Recompute masks, lines, and
+contours for changed measurement settings; reuse evidence only for gate changes.
+Do not claim to find the global optimum of an unfinished or bounded search.
+
+An optional rectangle `(x0, y0, x1, y1)` uses loaded-image coordinates with
+exclusive end coordinates. Match contour foreground pixels in that region,
+using clipped contour bounds to avoid full-image allocation per contour. An
+unrelated accepted contour cannot satisfy this target. ROI stays fixed; reject
+invalid rectangles, report `target_outside_roi` when there is no ROI overlap,
+and evaluate only the original ROI when overlap is partial. Region overlap is
+an association with a shape, not proof of meteor identity. Without annotation,
+scope remains frame-level. An already passing target, missing reference, or no
+feasible proposal are explicit outcomes.
+
+Comparison evaluates the same complete pairs for every returned proposal.
+Reuse measurements only within a pair and only for identical difference/Hough
+settings; release each pair before proceeding. Count actual measurement runs,
+and stop before a pair that cannot fit the remaining budget. Record total and
+evaluated pairs, completion, and stop reason. Reject duplicate targets,
+resolution/dtype mismatches, and input errors rather than counting failures as
+negative detections.
+
+List added/lost baseline candidate frames. Explicit known-positive labels are
+classified as candidate, rejected, or unchecked for each proposal; do not infer
+ground truth from progress candidates. A label outside the evaluated pairs is
+unchecked. Rank fewer rejected known frames first, then smaller change cost,
+then fewer additional candidates. Comparison is limited to the returned
+proposals. Missing comparison or known labels remains unverified, not a clean
+accuracy result. These are frame-level results even for labeled meteor images.
+
+CLI options are `--tune-params`, `--tuning-config`, `--analysis-region`,
+`--comparison-sequence`, and repeatable `--known-meteor`. All modifiers require
+tuning mode; known labels also require comparison. Configuration formats are
+kept separate, with invalid fields and input-role swaps rejected. English and
+Japanese output and shell completion are provided. See
+[`parameter_tuning.yaml`](../config_examples/parameter_tuning.yaml) for defaults
+and the [option reference](COMMAND_OPTIONS.md#bounded-parameter-tuning-v1611-development)
+for usage. No proposal is applied and no report/configuration is saved.
+
+Validation for this step:
+
+- Added 16 core tests and eight CLI tests; all 638 tests passed. Coverage includes exact threshold boundaries, target-region disambiguation, work limits, snapshot reuse, known-frame coverage, and input failures.
+- With the real `_C140338.ORF`/`_C140337.ORF` pair and an intentionally strict ratio threshold of 20, derived a threshold of `13.29749164836932` from evidence and compared all 11 pairs in the sample sequence. This is a controlled frame-recovery check, not validation of the unavailable user-reported pair.
+- A two-pair comparison cap reported 2/11 pairs and left a later known meteor unchecked. The user's RAW without its reference returned no proposals. All three CLI subprocesses left an empty working directory unchanged and preserved the original user progress.
+- An explicit RAW difference-threshold grid stopped at two of three planned measurements; both returned proposals matched fresh file loads and exact candidate decisions.
+- Ruff lint/format checks, ty, shell completion syntax, bilingual messages/examples, sample defaults, and local documentation links passed verification.
+
+## Tuning Proposal Design
 
 Tune parameters per shooting session. Sky brightness, clouds, ground lighting,
 star motion, effective resolution, saturation, and noise vary alongside the

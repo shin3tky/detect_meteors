@@ -95,7 +95,10 @@ python detect_meteors_cli.py \
 ファイル名順で直前のRAWを選択します。参照がない場合は `reference_missing` と終了コード2を返し、判定しません。
 `--verbose` で輪郭と線分の詳細を表示し、`--roi` または `--no-roi` で元のROIを明示的に変更できます。
 `--locale ja` で日本語を指定できます。優先順位と制約は[分析CLIの設計](docs/parameter_analysis_1.6.11_ja.md#実装ステップ2-分析cli)を参照してください。
-調整案の自動生成とレポート保存は、今後のステップで実装します。
+`--tune-params` で範囲を限定した調整案を生成し、`--comparison-sequence DIR` と
+繰り返し指定できる `--known-meteor IMAGE` で系列への影響を比較できます。
+探索上限は `--tuning-config config_examples/parameter_tuning.yaml` で指定します。
+調整案の自動適用は行わず、レポート・設定保存は次のステップで実装します。
 
 ## 対応するセンサータイプ
 

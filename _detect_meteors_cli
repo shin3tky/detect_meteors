@@ -21,6 +21,11 @@ _detect_meteors_cli() {
         '(--analysis-sequence)--reference-image[Explicit preceding image for analysis]:image:_files'
         '(--reference-image)--analysis-sequence[Original sequence folder for preceding-frame selection]:directory:_directories'
         '--analysis-progress[Original progress supplying parameters and ROI]:file:_files -g "*.json"'
+        '--tune-params[Propose bounded adjustments for the analysis target]'
+        '--tuning-config[Tuning limits and measurement grid (JSON/YAML or file)]:config:_files'
+        '--analysis-region[Annotated target rectangle, end exclusive]:coordinates:_message -r "x0,y0,x1,y1"'
+        '--comparison-sequence[RAW sequence for proposal comparison]:directory:_directories'
+        '*--known-meteor[Known meteor frame for comparison]:image:_files'
         
         # Input/Output options
         '(-t --target)'{-t,--target}'[Input RAW image folder]:directory:_directories'

@@ -6,12 +6,13 @@
 
 - [x] Separate built-in Hough measurements, candidate decisions, and debug rendering while preserving detection behavior.
 - [x] Reproduce a visually confirmed missed meteor using the original image pair, ROI, and effective parameters.
-- [ ] Compare bounded parameter adjustments and their effects on the shooting sequence.
+- [x] Compare bounded parameter adjustments and their effects on the shooting sequence.
 - [ ] Save analysis evidence and a reusable session configuration.
 
 The measurement/decision foundation and explicit-pair replay API are reviewed.
-The read-only analysis CLI is implemented and reviewed; tuning and saved
-analysis reports are not implemented yet. See the
+The read-only analysis CLI is implemented and reviewed. Bounded tuning and
+sequence comparison are implemented and reviewed; saved analysis reports
+and session configurations are not implemented yet. See the
 [v1.6.11 design](parameter_analysis_1.6.11.md) for responsibilities,
 input requirements, extension points, and acceptance criteria.
 
@@ -19,7 +20,7 @@ Implementation and review sequence:
 
 1. **Explicit-pair replay API** — implemented and reviewed. Read recorded parameters and ROI, track overrides, and replay the built-in Hough decision without writing files.
 2. **Analysis CLI** — implemented and reviewed. Connect explicit image/reference or sequence selection and original-run settings to the API, and display localized evidence and missing-input conditions.
-3. **Bounded tuning and sequence comparison** — pending.
+3. **Bounded tuning and sequence comparison** — implemented and reviewed. Derive gate adjustments from measured contours, optionally remeasure a finite preprocessing/Hough grid, and report candidate changes and known-frame coverage under explicit budgets.
 4. **Analysis reports and reusable session configuration** — pending.
 
 Run the relevant tests and complete review of each step before starting the next.

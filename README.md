@@ -98,8 +98,11 @@ RAW by filename order in an explicitly supplied sequence. Without a reference,
 it reports `reference_missing` and exits with status 2 without making a decision.
 `--verbose` shows contour and line details; `--roi` or `--no-roi` explicitly
 override the original ROI. See the [analysis options](docs/COMMAND_OPTIONS.md#read-only-image-analysis-v1611-development)
-for parameter precedence and limitations. Automated tuning and report saving
-are planned for subsequent steps.
+for parameter precedence and limitations. Add `--tune-params` to generate bounded
+adjustment proposals, and `--comparison-sequence DIR` with repeatable
+`--known-meteor IMAGE` labels to inspect their effects. Search limits can be set
+with `--tuning-config config_examples/parameter_tuning.yaml`. Proposals are not
+applied automatically; report/configuration saving is a subsequent step.
 
 ## Available Sensor Types
 

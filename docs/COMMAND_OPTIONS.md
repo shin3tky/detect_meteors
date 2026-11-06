@@ -50,8 +50,82 @@ Only the built-in Hough detector is supported. Configured hooks are rejected;
 use `--hooks ""` explicitly for a detector-only replay. Original progress alone
 cannot establish the original loader configuration or hook effects. The
 summary identifies those limits and any missing settings filled by defaults.
-Tuning proposals and report/configuration saving are later implementation steps.
+Bounded tuning is available through the options below. Report/configuration
+saving is a later implementation step.
 See the [analysis design](parameter_analysis_1.6.11.md).
+
+## Bounded Parameter Tuning (v1.6.11 Development)
+
+- **`--tune-params`**: Generate bounded, evidence-derived proposals for `--analyze-image`. Nothing is applied or saved.
+- **`--tuning-config JSON_OR_YAML`**: A mapping or file containing limits and an optional `measurement_grid`; see [`parameter_tuning.yaml`](../config_examples/parameter_tuning.yaml).
+- **`--analysis-region X0,Y0,X1,Y1`**: Optional annotated target rectangle in loaded-image coordinates; end coordinates are exclusive. Without it, proposals recover a frame-level candidate, not a specific meteor.
+- **`--comparison-sequence DIR`**: Explicit RAW sequence to evaluate before/after each returned proposal, using normal adjacent filename-ordered pairs.
+- **`--known-meteor IMAGE`**: Known meteor frame for comparison, repeatable; requires `--comparison-sequence`. These are user-supplied positive labels, not `detected_files` inferred from progress.
+
+All modifiers require `--tune-params`, which requires `--analyze-image`.
+`--config`, `--analysis-progress`, and `--tuning-config` serve different purposes;
+passing tuning limits as pipeline configuration is rejected.
+
+```bash
+python detect_meteors_cli.py \
+  --analyze-image rawfiles/session/frame002.ORF \
+  --reference-image rawfiles/session/frame001.ORF \
+  --analysis-progress previous_run/progress.json \
+  --tune-params \
+  --tuning-config config_examples/parameter_tuning.yaml \
+  --comparison-sequence rawfiles/session \
+  --known-meteor rawfiles/session/frame002.ORF
+```
+
+| Configuration key | Default | Meaning |
+| --- | --- | --- |
+| `max_gate_relaxation` | `0.5` | Each area/ratio/score threshold stays at least this original value multiplied by `1 - max_gate_relaxation`; permitted fraction is 0 through 1 |
+| `max_measurements` | `8` | Target measurements, including the original measurement |
+| `max_evaluations` | `256` | Target candidate decisions, including the original decision |
+| `max_proposals` | `5` | Maximum returned proposals; omitted feasible proposals are reported |
+| `max_comparison_pairs` | `100` | Maximum complete comparison pairs |
+| `max_comparison_measurements` | `600` | Maximum measurement runs across comparison pairs |
+| `measurement_grid` | `{}` | Explicit finite integer lists for difference/Hough parameters; empty means gate-only tuning |
+
+Gate values come from measured contour area/aspect ratio and the image-wide line
+score. Strict area/ratio boundaries are preserved without rounding away a valid
+proposal. The default relaxation fraction is a configurable search limit, not a
+camera-specific recommendation. No proposal is generated without Hough line
+evidence. An already passing target needs no adjustment; no feasible proposal
+within the bounds is also a valid outcome.
+
+Grid keys are `diff_threshold`, `hough_threshold`, `hough_min_line_length`, and
+`hough_max_line_gap`. Original values are always included, with other values
+ordered by distance from the original. A bounded Cartesian product is explored.
+Each changed preprocessing/Hough setting receives fresh measurements from the
+same loaded image/ROI snapshot. Area/ratio/score-only changes reuse evidence.
+
+ROI is held fixed. An annotation fully outside ROI produces
+`target_outside_roi`; a partially overlapping annotation uses evidence within
+the original ROI. A contour must overlap actual foreground pixels in the
+annotated region, but this association alone does not identify a meteor.
+
+Proposals are initially ordered by the sum of
+`abs(after - before) / max(abs(before), 1)` across changed parameters. Comparison
+evaluates only the returned proposals; it does not claim a globally optimal
+configuration. After comparison, fewer rejected known-positive frames take
+precedence, then smaller change cost and fewer added candidates.
+
+Comparison lists added/lost candidate frames and known meteor frames selected,
+rejected, or unchecked. Limits apply to whole pairs shared by all proposals;
+an unprocessed known frame is unchecked, never a negative. Resolution/dtype
+changes and load failures are errors. Matching preprocessing/Hough settings
+share measurements within a pair, with the original loader and ROI retained.
+No comparison means candidate growth is unverified; no known-positive labels
+means their retention is unverified. Added candidates are not a false-positive
+rate, and selecting a known meteor frame does not prove that its meteor was
+the detected feature.
+
+The summary reports measurement/decision counts, planned grid size, proposal
+truncation, comparison coverage, and stop reasons. Budget exhaustion or no
+proposal does not turn a valid measured pair into a processing error; existing
+analysis exit statuses still apply. Saved reports/configurations are not yet
+implemented.
 
 ## Input/Output Options
 - **`-t`/`--target`** (default: `rawfiles`): Source folder that contains RAW images to scan.

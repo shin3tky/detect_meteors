@@ -322,6 +322,115 @@ class TestAnalysisCli(unittest.TestCase):
         self.assertIn("Hough線分（", out)
         self.assertNotIn("ui.analysis.", out)
 
+    def test_tuning_displays_proposals_without_applying_them(self):
+        code, out, err, _ = self.run_cli(self.pair_options() + ["--tune-params"])
+        self.assertEqual(code, 0, err)
+        self.assertIn("Candidate: False", out)
+        self.assertIn("Tuning status: proposals_available", out)
+        self.assertIn("Proposal 1:", out)
+        self.assertIn("nothing is applied or saved", out)
+        self.assertIn("No comparison sequence was evaluated", out)
+
+    def test_tuning_region_distinguishes_another_candidate_and_rejects_bad_coordinates(
+        self,
+    ):
+        self.loader.images[self.target.name][70:75, 10:80] = 1000
+        options = self.pair_options() + ["--tune-params"]
+        code, out, err, _ = self.run_cli(options)
+        self.assertEqual(code, 0, err)
+        self.assertIn("Tuning status: already_candidate", out)
+        code, out, err, _ = self.run_cli(options + ["--analysis-region", "10,20,70,45"])
+        self.assertEqual(code, 0, err)
+        self.assertIn("Scope: annotated_region", out)
+        self.assertIn("Tuning status: proposals_available", out)
+        for value in ("bad", "-1,0,2,2", "1,1,1,5"):
+            code, _, _, _ = self.run_cli(options + ["--analysis-region=" + value])
+            self.assertEqual(code, 1)
+
+    def test_tuning_modifiers_require_their_modes(self):
+        for options in (
+            ["--tune-params"],
+            ["--analyze-image", str(self.target), "--tuning-config", "{}"],
+            self.pair_options() + ["--comparison-sequence", str(self.directory)],
+            self.pair_options() + ["--tune-params", "--known-meteor", str(self.target)],
+        ):
+            with self.subTest(options=options):
+                code, _, _, create = self.run_cli(options)
+                self.assertEqual(code, 2)
+                create.assert_not_called()
+
+    def test_tuning_config_limits_and_invalid_fields_are_not_ignored(self):
+        options = self.pair_options() + ["--tune-params"]
+        code, out, err, _ = self.run_cli(
+            options + ["--tuning-config", '{"max_evaluations": 1}']
+        )
+        self.assertEqual(code, 0, err)
+        self.assertIn("stop reason: evaluation_limit", out)
+        self.assertNotIn("Proposal 1:", out)
+        for config in (
+            {"unknown": 3},
+            {"max_measurements": False},
+            {"measurement_grid": {"min_area": [1]}},
+        ):
+            code, _, _, _ = self.run_cli(
+                options + ["--tuning-config", json.dumps(config)]
+            )
+            self.assertEqual(code, 1)
+
+    def test_tuning_comparison_lists_changes_and_unchecked_known_frames(self):
+        later = self.directory / "frame003.ORF"
+        later.write_bytes(b"later")
+        options = self.pair_options() + [
+            "--tune-params",
+            "--comparison-sequence",
+            str(self.directory),
+            "--known-meteor",
+            str(later),
+            "--tuning-config",
+            '{"max_comparison_pairs": 1}',
+        ]
+        code, out, err, _ = self.run_cli(options)
+        self.assertEqual(code, 0, err)
+        self.assertIn(
+            "Comparison pairs: 1/2; complete=False; stop reason=pair_limit", out
+        )
+        self.assertIn("Added candidate frames: [", out)
+        self.assertIn("Known meteor frames not checked: [", out)
+        self.assertIn(str(later), out)
+        self.assertNotIn(str(later), self.loader.loaded)
+
+    def test_long_inline_tuning_config_does_not_become_a_filename_error(self):
+        config = json.dumps(
+            {
+                "measurement_grid": {"diff_threshold": list(range(100, 200))},
+                "max_measurements": 1,
+            }
+        )
+        self.assertGreater(len(config), 255)
+        code, out, err, _ = self.run_cli(
+            self.pair_options() + ["--tune-params", "--tuning-config", config]
+        )
+        self.assertEqual(code, 0, err)
+        self.assertIn("stop reason: measurement_limit", out)
+
+    def test_tuning_config_cannot_be_mistaken_for_pipeline_config(self):
+        self.config.write_text('{"max_measurements": 1, "measurement_grid": {}}')
+        code, _, err, create = self.run_cli(
+            self.pair_options() + ["--tune-params", "--config", str(self.config)]
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("Use --tuning-config", err)
+        create.assert_not_called()
+
+    def test_tuning_does_not_invent_proposals_without_a_reference(self):
+        code, out, _, _ = self.run_cli(
+            ["--analyze-image", str(self.target), "--tune-params"]
+        )
+        self.assertEqual(code, 2)
+        self.assertIn("Tuning status: reference_missing", out)
+        self.assertNotIn("Proposal 1:", out)
+        self.assertEqual(self.loader.loaded, [str(self.target)])
+
     def test_normal_detection_dispatch_remains_available(self):
         with (
             patch.object(sys, "argv", ["detect_meteors_cli.py"]),

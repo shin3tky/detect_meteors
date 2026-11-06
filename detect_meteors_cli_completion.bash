@@ -20,6 +20,11 @@ _detect_meteors_cli_completion() {
           --reference-image
           --analysis-sequence
           --analysis-progress
+          --tune-params
+          --tuning-config
+          --analysis-region
+          --comparison-sequence
+          --known-meteor
           -t --target
           -o --output
           --debug-dir
@@ -67,12 +72,12 @@ _detect_meteors_cli_completion() {
 
     # Provide directory completion for path arguments
     case "${prev}" in
-        -t|--target|-o|--output|--debug-dir|--analysis-sequence)
+        -t|--target|-o|--output|--debug-dir|--analysis-sequence|--comparison-sequence)
             # Complete with directories
             COMPREPLY=( $(compgen -d -- "${cur}") )
             return 0
             ;;
-        --config|--input-loader-config|--detector-config|--output-handler-config|--hook-config)
+        --config|--input-loader-config|--detector-config|--output-handler-config|--hook-config|--tuning-config)
             # Complete with config files
             COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
@@ -82,7 +87,7 @@ _detect_meteors_cli_completion() {
             COMPREPLY=( $(compgen -f -X '!*.json' -- "${cur}") )
             return 0
             ;;
-        --analyze-image|--reference-image)
+        --analyze-image|--reference-image|--known-meteor)
             COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
             ;;
@@ -120,6 +125,10 @@ _detect_meteors_cli_completion() {
         --roi)
             # ROI format hint
             COMPREPLY=( "x1,y1;x2,y2;x3,y3" )
+            return 0
+            ;;
+        --analysis-region)
+            COMPREPLY=( "x0,y0,x1,y1" )
             return 0
             ;;
     esac

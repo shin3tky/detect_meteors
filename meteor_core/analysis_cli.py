@@ -7,6 +7,7 @@ from .analysis import HoughReproduction
 from .exceptions import MeteorConfigError, MeteorValidationError
 from .i18n import get_message
 from .pipeline import collect_files
+from .tuning import TuningRun
 
 
 def select_reference_image(
@@ -141,3 +142,75 @@ def display_reproduction(
         print(message("lines_header"))
         for line in analysis.lines:
             print(f"  {line}")
+
+
+def display_tuning(run: TuningRun, *, locale: str | None = None) -> None:
+    """Show exploratory settings and comparison coverage without applying them."""
+
+    def message(key: str, **values) -> str:
+        return get_message(f"ui.tuning.{key}", locale=locale, **values)
+
+    print(message("header"))
+    print(message("scope", scope=run.scope, region=run.region))
+    print(message("notice"))
+    print(message("status", status=run.status, stop=run.stop_reason))
+    print(
+        message(
+            "work",
+            measurements=run.measurements_run,
+            planned=run.planned_measurements,
+            evaluations=run.evaluations_run,
+            comparison=run.comparison_measurements,
+        )
+    )
+    if run.proposals_truncated:
+        print(message("truncated"))
+    if run.proposals and run.proposals[0].comparison is None:
+        print(message("no_comparison"))
+    elif run.proposals:
+        comparison = run.proposals[0].comparison
+        if comparison is not None and not any(
+            (
+                comparison.known_candidate_frames,
+                comparison.known_missed_frames,
+                comparison.known_unchecked_frames,
+            )
+        ):
+            print(message("no_known_meteors"))
+    for index, proposal in enumerate(run.proposals, 1):
+        print(
+            message(
+                "proposal",
+                index=index,
+                cost=proposal.change_cost,
+                contours=proposal.matched_contours,
+            )
+        )
+        for name, change in proposal.changes.items():
+            print(f"  {name}: {change['before']} -> {change['after']}")
+        comparison = proposal.comparison
+        if comparison is not None:
+            print(
+                message(
+                    "comparison",
+                    evaluated=comparison.evaluated_pairs,
+                    total=comparison.total_pairs,
+                    complete=comparison.complete,
+                    stop=comparison.stop_reason,
+                )
+            )
+            for field in (
+                "added_candidates",
+                "lost_candidates",
+                "known_candidate_frames",
+                "known_missed_frames",
+                "known_unchecked_frames",
+            ):
+                print(
+                    message(
+                        field,
+                        files=json.dumps(
+                            getattr(comparison, field), ensure_ascii=False
+                        ),
+                    )
+                )
