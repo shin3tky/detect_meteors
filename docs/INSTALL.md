@@ -206,7 +206,29 @@ autoload -Uz compinit
 compinit
 ```
 
-Start a new shell after setup. Analysis, tuning, and report/session options are included.
+**Use completion while running through uv**
+
+After configuring completion above, add this shell function to `~/.bashrc`
+(Bash) or `~/.zshrc` (Zsh). The same definition works in both shells:
+
+```sh
+detect-meteors() {
+    uv run detect-meteors "$@"
+}
+```
+
+Start a new shell, then run `detect-meteors` from the project root:
+
+```sh
+detect-meteors --sensor-type MFT
+```
+
+For example, type `detect-meteors --sen` and press Tab to complete
+`--sensor-type` or `--sensor-width`. Analysis, tuning, and report/session options
+are also included. The function forwards all arguments to `uv run detect-meteors`,
+so uv still selects and synchronizes the project environment. Use the function
+name directly to get completion; typing `uv run detect-meteors` still requires
+separate integration with uv's completion.
 
 ---
 

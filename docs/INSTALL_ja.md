@@ -197,7 +197,28 @@ autoload -Uz compinit
 compinit
 ```
 
-設定後に新しいシェルを起動します。分析・調整・保存オプションも補完できます。
+**uv経由の実行で補完を使う**
+
+上記の補完を設定した後、Bashでは `~/.bashrc`、Zshでは `~/.zshrc` に次のシェル関数を追加します。
+両方のシェルで同じ定義を使えます。
+
+```sh
+detect-meteors() {
+    uv run detect-meteors "$@"
+}
+```
+
+新しいシェルを起動し、プロジェクトルートで `detect-meteors` を実行します。
+
+```sh
+detect-meteors --sensor-type MFT
+```
+
+例えば `detect-meteors --sen` まで入力してTabキーを押すと、`--sensor-type` や
+`--sensor-width` を補完できます。分析・調整・保存オプションも補完できます。
+関数はすべての引数を `uv run detect-meteors` に渡すため、uvによるプロジェクト環境の選択と同期も維持されます。
+補完を使うときは関数名から直接入力してください。`uv run detect-meteors` と入力する場合は、
+引き続きuv補完との別途連携が必要です。
 
 ---
 
