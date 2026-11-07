@@ -4,6 +4,15 @@
 
 This guide provides detailed installation instructions for Detect Meteors CLI on macOS and Windows.
 
+> [!IMPORTANT]
+> **macOS: choose a checkout location outside iCloud Drive.**
+> If iCloud Drive syncs your Documents and Desktop folders, do not clone or
+> extract `detect_meteors` anywhere under `~/Documents` or `~/Desktop`.
+> Use a location outside iCloud Drive, such as
+> `~/Development/shin3tky/detect_meteors`.
+> In synced locations, hidden attributes can be reapplied to files in `.venv`,
+> causing startup to fail with `ModuleNotFoundError` even after a successful installation.
+
 ## Install v1.6.11 from Source
 
 Install Git and uv using the platform-specific steps below, then obtain the

@@ -4,6 +4,15 @@
 
 Detect Meteors CLIをmacOSとWindowsにインストールする手順を説明します。
 
+> [!IMPORTANT]
+> **macOSでは、iCloud Driveの同期対象外にチェックアウトしてください。**
+> iCloud Driveで「書類」と「デスクトップ」を同期している場合、
+> `~/Documents` または `~/Desktop` の配下には `detect_meteors` をクローンしないでください。
+> ソースアーカイブの展開先も同様です。
+> `~/Development/shin3tky/detect_meteors` など、iCloud Driveの同期対象外の場所を使ってください。
+> 同期対象内では `.venv` 内のファイルに非表示属性が再付与され、
+> 導入に成功していても `ModuleNotFoundError` で起動できなくなる場合があります。
+
 ## v1.6.11のソースからインストールする
 
 以下のOS別の手順でGitとuvを用意した後、リリース済みのソースを取得し、
