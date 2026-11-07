@@ -1,5 +1,9 @@
 # Version 1.2.1 Release Notes
 
+Application command examples below use the current v1.6.11 entry point,
+`uv run detect-meteors`, after `uv sync --locked` in the project root.
+Feature descriptions and recorded results refer to the historical releases.
+
 ## Version 1.2.1 (2025-11-22) 🍣
 
 ## 🎉 Improved Auto-Parameter Estimation - Real-world validation Success
@@ -112,19 +116,19 @@ By selecting the **lowest value** among three methods:
 ### Basic Usage (No Change)
 
 ```bash
-uv run python detect_meteors_cli.py --auto-params
+uv run detect-meteors --auto-params
 ```
 
 ### Execution Example
 
 ```bash
 # v1.2.0 behavior
-$ uv run python detect_meteors_cli.py --auto-params
+$ uv run detect-meteors --auto-params
 ✓ Estimated threshold (μ + 3σ): 25
 Complete! 0 candidates extracted  # Missed meteors
 
 # v1.2.1 behavior
-$ uv run python detect_meteors_cli.py --auto-params
+$ uv run detect-meteors --auto-params
 ✓ Selected threshold: 15 (minimum of all methods)
 Complete! 3 candidates extracted  # Successfully detected!
 ```
@@ -160,7 +164,7 @@ cp detect_meteors_cli.py detect_meteors_cli.py.bak
 # Use the new version
 
 # Command-line options remain unchanged
-uv run python detect_meteors_cli.py --auto-params
+uv run detect-meteors --auto-params
 ```
 
 No changes to command-line options.

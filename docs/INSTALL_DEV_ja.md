@@ -249,7 +249,7 @@ uv run ty check
 uv build
 ```
 
-生成物は `dist/detect_meteors-1.6.11.tar.gz` と `dist/detect_meteors-1.6.11-py3-none-any.whl` です。配布前に独立した環境へwheelをインストールし、`detect-meteors --version` と `--help` で動作を確認してください。ソースアーカイブに記載済みの設定例が含まれ、RAW画像や生成済み候補が含まれないことも確認します。飛行機サンプルは[飛行機ガイド](aircraft_light_trails_hook_design.md)のコマンドで検証できます。
+生成物は `dist/detect_meteors-1.6.11.tar.gz` と `dist/detect_meteors-1.6.11-py3-none-any.whl` です。配布前に独立した環境へwheelをインストールし、`uv run detect-meteors --version` と `--help` で動作を確認してください。ソースアーカイブに記載済みの設定例が含まれ、RAW画像や生成済み候補が含まれないことも確認します。飛行機サンプルは[飛行機ガイド](aircraft_light_trails_hook_design.md)のコマンドで検証できます。
 
 ### 基準
 

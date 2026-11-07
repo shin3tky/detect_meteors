@@ -45,8 +45,8 @@ From the repository root, verify the checksums:
 From the repository root:
 
 ```bash
-uv sync
-uv run python detect_meteors_cli.py \
+uv sync --locked
+uv run detect-meteors \
   --config config_examples/aircraft_trail_sample.yaml \
   --no-roi --no-resume --debug-image --profile
 ```

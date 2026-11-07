@@ -43,6 +43,10 @@ See [INSTALL.md](docs/INSTALL.md) for detailed installation instructions.
 
 ## Quick Start
 
+After installing with `uv sync --locked`, run these commands from the project
+root containing `pyproject.toml`. Application examples consistently use
+`uv run detect-meteors` (with a hyphen).
+
 ### Step 0: Prepare Images
 
 Place the RAW images you want to analyze directly in the `rawfiles/` directory at the project root. Create the directory if it does not exist.
@@ -51,7 +55,7 @@ Files are processed in filename order, so use filenames that preserve the shooti
 ### Step 1: Check EXIF Metadata
 
 ```bash
-uv run python detect_meteors_cli.py --show-exif
+uv run detect-meteors --show-exif
 ```
 
 Verify focal length is detected. If missing, you'll need to specify it with `--focal-length`.
@@ -60,16 +64,16 @@ Verify focal length is detected. If missing, you'll need to specify it with `--f
 
 ```bash
 # Micro Four Thirds camera
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT
+uv run detect-meteors --auto-params --sensor-type MFT
 
 # APS-C camera (Sony/Nikon/Fuji)
-uv run python detect_meteors_cli.py --auto-params --sensor-type APS-C
+uv run detect-meteors --auto-params --sensor-type APS-C
 
 # Full Frame camera
-uv run python detect_meteors_cli.py --auto-params --sensor-type FF
+uv run detect-meteors --auto-params --sensor-type FF
 
 # With fisheye lens
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
+uv run detect-meteors --auto-params --sensor-type MFT --focal-length 16 --fisheye
 ```
 
 > [!IMPORTANT]
@@ -87,7 +91,7 @@ Supply a visually confirmed missed meteor, its preceding image, and the original
 progress file to see effective settings, their sources, and rejection reasons:
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/frame002.ORF \
   --reference-image rawfiles/frame001.ORF \
   --analysis-progress previous_run/progress.json
@@ -105,7 +109,7 @@ From a repository checkout, this example deliberately raises the aspect-ratio
 threshold to create a missed candidate, then proposes a relaxation:
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/2024GEMINI_AIRCRAFT/_C140338.ORF \
   --reference-image rawfiles/2024GEMINI_AIRCRAFT/_C140337.ORF \
   --diff-threshold 9 --min-area 3 --min-line-score 30 \
@@ -121,7 +125,7 @@ Add `--analysis-output analysis/review-001` to save a JSON report and PNG eviden
 to a **new** directory. After reviewing the proposals, rerun with the same options
 and `--analysis-proposal 1` plus a fresh output directory to export the first
 returned proposal as `session.yaml`. Run normal detection separately with
-`uv run python detect_meteors_cli.py --config DIR/session.yaml`; outputs go under
+`uv run detect-meteors --config DIR/session.yaml`; outputs go under
 `DIR/run`. Proposals are never applied automatically.
 
 For sequence comparison, known-meteor labels, search limits, and ROI overrides,
@@ -141,7 +145,7 @@ and [release notes](docs/RELEASE_NOTES_1.6.md#version-1611-2026-11-07).
 | `MF44X33` | Medium Format 44×33mm |
 | `MF54X40` | Medium Format 54×40mm |
 
-List all presets: `uv run python detect_meteors_cli.py --list-sensor-types`
+List all presets: `uv run detect-meteors --list-sensor-types`
 
 ## Inputs and Outputs
 
@@ -214,7 +218,7 @@ omitted fields. To inherit the top-level `output_folder`, `debug_folder`, and
 **Usage (CLI)**
 
 ```bash
-uv run python detect_meteors_cli.py --config config_examples/pipeline.yaml
+uv run detect-meteors --config config_examples/pipeline.yaml
 ```
 
 You can override plugin selections via CLI (e.g., `--input-loader`, `--detector`,
@@ -246,7 +250,7 @@ pipeline.run()
 Enable the built-in hook to annotate candidates with aircraft trail likelihood:
 
 ```bash
-uv run python detect_meteors_cli.py --hooks aircraft_trail --no-roi
+uv run detect-meteors --hooks aircraft_trail --no-roi
 ```
 
 The hook tracks line geometry in frame order after processing completes and
@@ -262,7 +266,7 @@ For a reproducible local example, use
 [`config_examples/aircraft_trail_sample.yaml`](config_examples/aircraft_trail_sample.yaml):
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --config config_examples/aircraft_trail_sample.yaml \
   --no-roi --no-resume --debug-image
 ```

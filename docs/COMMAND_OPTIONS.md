@@ -1,6 +1,7 @@
 # Command Line Options Reference
 
-All command-line flags for `detect_meteors_cli.py`, with defaults and guidance:
+All command-line flags for `uv run detect-meteors`, with defaults and guidance.
+Run from the project root after `uv sync --locked`.
 
 Defaults below apply when no configuration override is supplied. For pipeline
 settings, explicitly supplied CLI flags take precedence over the configuration
@@ -28,7 +29,7 @@ both `--option value` and `--option=value`.
 - **`--analysis-progress JSON`**: Read original effective parameters and ROI from a progress file. This is separate from `--config` and the normal processing option `--progress-file`.
 
 ```bash
-python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/frame002.ORF \
   --reference-image rawfiles/frame001.ORF \
   --analysis-progress previous_run/progress.json
@@ -81,7 +82,7 @@ All modifiers require `--tune-params`, which requires `--analyze-image`.
 passing tuning limits as pipeline configuration is rejected.
 
 ```bash
-python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/session/frame002.ORF \
   --reference-image rawfiles/session/frame001.ORF \
   --analysis-progress previous_run/progress.json \
@@ -146,7 +147,7 @@ analysis exit statuses still apply.
 - **`--analysis-proposal baseline|N`**: Also save `session.yaml` for the current effective baseline or a one-based index from the returned proposal list. Requires `--analysis-output`; numeric indices require `--tune-params`. With no selection, the bundle contains no executable session configuration.
 
 ```bash
-python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/session/frame002.ORF \
   --reference-image rawfiles/session/frame001.ORF \
   --analysis-progress previous_run/progress.json \
@@ -154,7 +155,7 @@ python detect_meteors_cli.py \
   --analysis-output analysis/review-001 \
   --analysis-proposal 1
 
-python detect_meteors_cli.py --config analysis/review-001/session.yaml
+uv run detect-meteors --config analysis/review-001/session.yaml
 ```
 
 The second command starts normal detection; export alone does not apply any

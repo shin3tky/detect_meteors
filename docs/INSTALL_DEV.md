@@ -255,7 +255,7 @@ uv build
 
 Build outputs are `dist/detect_meteors-1.6.11.tar.gz` and
 `dist/detect_meteors-1.6.11-py3-none-any.whl`. Before distributing them, verify the
-wheel in an isolated environment using `detect-meteors --version` and `--help`,
+wheel in an isolated environment using `uv run detect-meteors --version` and `--help`,
 and check that the source archive includes the documented sample config and
 excludes RAW files and generated candidates. The local aircraft sample can be
 checked with the commands in the [aircraft guide](aircraft_light_trails_hook_design.md).

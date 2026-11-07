@@ -43,6 +43,9 @@
 
 ## クイックスタート
 
+`uv sync --locked` で導入した後、`pyproject.toml` のあるプロジェクトルートで実行してください。
+アプリの起動例は `uv run detect-meteors` に統一しています。コマンド名にはハイフンを使います。
+
 ### 手順0：画像を準備する
 
 解析するRAW画像を、プロジェクトルートの `rawfiles/` ディレクトリ直下に配置してください。ディレクトリがない場合は作成してください。
@@ -51,7 +54,7 @@
 ### 手順1：EXIFメタデータを確認する
 
 ```bash
-uv run python detect_meteors_cli.py --show-exif
+uv run detect-meteors --show-exif
 ```
 
 焦点距離が取得できていることを確認します。取得できない場合は、`--focal-length` で指定してください。
@@ -60,16 +63,16 @@ uv run python detect_meteors_cli.py --show-exif
 
 ```bash
 # Micro Four Thirds camera
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT
+uv run detect-meteors --auto-params --sensor-type MFT
 
 # APS-C camera (Sony/Nikon/Fuji)
-uv run python detect_meteors_cli.py --auto-params --sensor-type APS-C
+uv run detect-meteors --auto-params --sensor-type APS-C
 
 # Full Frame camera
-uv run python detect_meteors_cli.py --auto-params --sensor-type FF
+uv run detect-meteors --auto-params --sensor-type FF
 
 # With fisheye lens
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
+uv run detect-meteors --auto-params --sensor-type MFT --focal-length 16 --fisheye
 ```
 
 > [!IMPORTANT]
@@ -87,7 +90,7 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-leng
 実効設定、値の出所、不採用の条件を確認できます。
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/frame002.ORF \
   --reference-image rawfiles/frame001.ORF \
   --analysis-progress previous_run/progress.json --locale ja
@@ -104,7 +107,7 @@ uv run python detect_meteors_cli.py \
 実測値に基づく緩和案を確認する例です。
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/2024GEMINI_AIRCRAFT/_C140338.ORF \
   --reference-image rawfiles/2024GEMINI_AIRCRAFT/_C140337.ORF \
   --diff-threshold 9 --min-area 3 --min-line-score 30 \
@@ -118,7 +121,7 @@ RAWサンプルはリポジトリに収録され、Python配布物には含ま�
 `--analysis-output analysis/review-001` を追加すると、**新規**フォルダーへJSONレポートと
 PNGの証拠画像を保存します。案を確認した後、同じオプションに `--analysis-proposal 1` を付け、
 別の新規出力先で再実行すると、先頭の調整案を `session.yaml` に保存できます。
-採用時は `uv run python detect_meteors_cli.py --config DIR/session.yaml` で通常検出を実行します。
+採用時は `uv run detect-meteors --config DIR/session.yaml` で通常検出を実行します。
 出力先は `DIR/run` です。調整案は自動適用しません。
 
 系列比較、既知流星の指定、探索上限、ROIの変更は
@@ -138,7 +141,7 @@ PNGの証拠画像を保存します。案を確認した後、同じオプシ�
 | `MF44X33` | 中判44×33mm |
 | `MF54X40` | 中判54×40mm |
 
-プリセット一覧：`uv run python detect_meteors_cli.py --list-sensor-types`
+プリセット一覧：`uv run detect-meteors --list-sensor-types`
 
 ## 入力と出力
 
@@ -197,7 +200,7 @@ RAWローダーの既定値は `normalize: false` です。`true` にすると�
 **CLIでの使用例**
 
 ```bash
-uv run python detect_meteors_cli.py --config config_examples/pipeline.yaml
+uv run detect-meteors --config config_examples/pipeline.yaml
 ```
 
 `--input-loader`、`--detector`、`--output-handler` などのCLIオプションで、使用するプラグインを上書きできます。プラグイン設定はJSON/YAML文字列またはファイルパスで渡せます。従来のパラメータオプション（`--diff-threshold` など）は引き続き `PipelineConfig.params` に反映されますが、通常実行では設定ファイルへの移行を促す非推奨警告を表示します。通常実行で設定値を上書きするときは `--diff-threshold 12` のように完全なオプション名と値を空白で区切ってください。[書式の制限](docs/COMMAND_OPTIONS.md#normal-run-override-syntax)も参照してください。
@@ -223,7 +226,7 @@ pipeline.run()
 組み込みフックを有効にすると、候補に飛行機の光跡らしさを示す情報を付加します。
 
 ```bash
-uv run python detect_meteors_cli.py --hooks aircraft_trail --no-roi
+uv run detect-meteors --hooks aircraft_trail --no-roi
 ```
 
 このフックは処理完了後にフレーム順で線分の形状を追跡し、`progress.json` の `detected_details` にある候補レコードへ `aircraft` 情報を書き込みます。候補判定、スコア、コピー済みRAWファイルは変えません。likelihoodはヒューリスティックなスコアであり、校正された確率ではありません。
@@ -232,7 +235,7 @@ uv run python detect_meteors_cli.py --hooks aircraft_trail --no-roi
 再現可能なサンプルとして、[`config_examples/aircraft_trail_sample.yaml`](config_examples/aircraft_trail_sample.yaml)を利用できます。
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --config config_examples/aircraft_trail_sample.yaml \
   --no-roi --no-resume --debug-image
 ```

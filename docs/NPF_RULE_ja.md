@@ -26,13 +26,13 @@ NPF Exposure (seconds) = (35 × F-number + 30 × Pixel Pitch) / Focal Length
 
 ```bash
 # Micro Four Thirds (17.3mm)
-uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3
+uv run detect-meteors --auto-params --sensor-width 17.3
 
 # APS-C (23.5mm)
-uv run python detect_meteors_cli.py --auto-params --sensor-width 23.5
+uv run detect-meteors --auto-params --sensor-width 23.5
 
 # Full Frame (36.0mm)
-uv run python detect_meteors_cli.py --auto-params --sensor-width 36.0
+uv run detect-meteors --auto-params --sensor-width 36.0
 ```
 
 `--sensor-width` を指定しない場合、既定の画素ピッチ4.0μmを使用します。
@@ -43,10 +43,10 @@ uv run python detect_meteors_cli.py --auto-params --sensor-width 36.0
 
 ```bash
 # Specify 35mm equivalent focal length directly
-uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-length 24
+uv run detect-meteors --auto-params --sensor-width 17.3 --focal-length 24
 
 # Or use crop factor (converts actual focal length to 35mm equivalent)
-uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-factor 2.0
+uv run detect-meteors --auto-params --sensor-width 17.3 --focal-factor 2.0
 ```
 
 ## NPF適合度の解析
@@ -54,7 +54,7 @@ uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-fa
 `--show-npf` で、検出処理をせずに詳しいNPF解析を表示できます。
 
 ```bash
-uv run python detect_meteors_cli.py --show-npf --sensor-width 17.3
+uv run detect-meteors --show-npf --sensor-width 17.3
 ```
 
 出力例：
@@ -113,13 +113,13 @@ NPF Rule Analysis
 
 ```bash
 # MFT camera with 8mm fisheye (16mm equiv.)
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
+uv run detect-meteors --auto-params --sensor-type MFT --focal-length 16 --fisheye
 
 # Full Frame with 8mm fisheye
-uv run python detect_meteors_cli.py --auto-params --sensor-type FF --focal-length 8 --fisheye
+uv run detect-meteors --auto-params --sensor-type FF --focal-length 8 --fisheye
 
 # Check NPF analysis with fisheye correction
-uv run python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye
+uv run detect-meteors --show-npf --sensor-type MFT --focal-length 16 --fisheye
 ```
 
 ### 例：魚眼補正あり・なしのNPF解析

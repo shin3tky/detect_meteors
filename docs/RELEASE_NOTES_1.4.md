@@ -1,5 +1,9 @@
 # Version 1.4 Release Notes
 
+Application command examples below use the current v1.6.11 entry point,
+`uv run detect-meteors`, after `uv sync --locked` in the project root.
+Feature descriptions and recorded results refer to the historical releases.
+
 ## Version 1.4.2 (2025-11-25) 🙏
 
 ### Output File Protection and Safety Enhancements
@@ -413,10 +417,10 @@ Each adjustment shows:
 **Command-line Options**:
 ```bash
 # Option 1: Sensor width (recommended)
-uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3
+uv run detect-meteors --auto-params --sensor-width 17.3
 
 # Option 2: Direct pixel pitch
-uv run python detect_meteors_cli.py --auto-params --pixel-pitch 3.30
+uv run detect-meteors --auto-params --pixel-pitch 3.30
 ```
 
 **Priority Order**:
@@ -441,7 +445,7 @@ SENSOR_WIDTHS = {
 ### Simplest Usage (Fully Automatic with EXIF)
 
 ```bash
-uv run python detect_meteors_cli.py --auto-params
+uv run detect-meteors --auto-params
 ```
 
 **What happens**:
@@ -454,7 +458,7 @@ uv run python detect_meteors_cli.py --auto-params
 
 ```bash
 # Micro Four Thirds
-uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3
+uv run detect-meteors --auto-params --sensor-width 17.3
 ```
 
 **Benefits**:
@@ -465,7 +469,7 @@ uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3
 ### NPF Analysis Only
 
 ```bash
-uv run python detect_meteors_cli.py --show-npf --sensor-width 17.3
+uv run detect-meteors --show-npf --sensor-width 17.3
 ```
 
 **Output**:
@@ -478,7 +482,7 @@ uv run python detect_meteors_cli.py --show-npf --sensor-width 17.3
 ### With Pre-defined ROI
 
 ```bash
-uv run python detect_meteors_cli.py --auto-params \
+uv run detect-meteors --auto-params \
   --roi "100,100;3900,100;3900,2900;100,2900" \
   --sensor-width 17.3
 ```
@@ -487,7 +491,7 @@ uv run python detect_meteors_cli.py --auto-params \
 
 ```bash
 # Override specific parameters
-uv run python detect_meteors_cli.py --auto-params \
+uv run detect-meteors --auto-params \
   --sensor-width 17.3 \
   --diff-threshold 12 \
   --min-area 15
@@ -601,14 +605,14 @@ cp detect_meteors_cli.py detect_meteors_cli_v1.3.1_backup.py
 # Use new v1.4.1 file
 
 # Same command works, but now with NPF optimization
-uv run python detect_meteors_cli.py --auto-params
+uv run detect-meteors --auto-params
 ```
 
 ### New Recommended Usage
 
 ```bash
 # Add sensor information for best results
-uv run python detect_meteors_cli.py --auto-params --sensor-width [your_sensor_mm]
+uv run detect-meteors --auto-params --sensor-width [your_sensor_mm]
 ```
 
 ## Known Limitations
@@ -698,12 +702,12 @@ Special thanks to the astrophotography community for sharing best practices on e
 
 | Feature | Command | Example |
 |---------|---------|---------|
-| Fully automatic | `--auto-params` | `uv run python detect_meteors_cli.py --auto-params` |
-| With sensor width | `--auto-params --sensor-width MM` | `uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3` |
-| With sensor type | `--auto-params --focal-factor TYPE` | `uv run python detect_meteors_cli.py --auto-params --focal-factor MFT` |
-| NPF analysis only | `--show-npf --sensor-width MM` | `uv run python detect_meteors_cli.py --show-npf --sensor-width 17.3` |
-| EXIF only | `--show-exif` | `uv run python detect_meteors_cli.py --show-exif` |
-| Manual override | `--auto-params --PARAM VALUE` | `uv run python detect_meteors_cli.py --auto-params --diff-threshold 12` |
+| Fully automatic | `--auto-params` | `uv run detect-meteors --auto-params` |
+| With sensor width | `--auto-params --sensor-width MM` | `uv run detect-meteors --auto-params --sensor-width 17.3` |
+| With sensor type | `--auto-params --focal-factor TYPE` | `uv run detect-meteors --auto-params --focal-factor MFT` |
+| NPF analysis only | `--show-npf --sensor-width MM` | `uv run detect-meteors --show-npf --sensor-width 17.3` |
+| EXIF only | `--show-exif` | `uv run detect-meteors --show-exif` |
+| Manual override | `--auto-params --PARAM VALUE` | `uv run detect-meteors --auto-params --diff-threshold 12` |
 
 ---
 

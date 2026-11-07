@@ -24,13 +24,13 @@ For best accuracy, specify your camera's sensor width:
 
 ```bash
 # Micro Four Thirds (17.3mm)
-uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3
+uv run detect-meteors --auto-params --sensor-width 17.3
 
 # APS-C (23.5mm)
-uv run python detect_meteors_cli.py --auto-params --sensor-width 23.5
+uv run detect-meteors --auto-params --sensor-width 23.5
 
 # Full Frame (36.0mm)
-uv run python detect_meteors_cli.py --auto-params --sensor-width 36.0
+uv run detect-meteors --auto-params --sensor-width 36.0
 ```
 
 If `--sensor-width` is not provided, the system uses a default pixel pitch of 4.0μm.
@@ -41,10 +41,10 @@ The software extracts focal length from EXIF metadata automatically. If not avai
 
 ```bash
 # Specify 35mm equivalent focal length directly
-uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-length 24
+uv run detect-meteors --auto-params --sensor-width 17.3 --focal-length 24
 
 # Or use crop factor (converts actual focal length to 35mm equivalent)
-uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-factor 2.0
+uv run detect-meteors --auto-params --sensor-width 17.3 --focal-factor 2.0
 ```
 
 ## NPF Compliance Analysis
@@ -52,7 +52,7 @@ uv run python detect_meteors_cli.py --auto-params --sensor-width 17.3 --focal-fa
 Use `--show-npf` to see detailed NPF analysis without processing:
 
 ```bash
-uv run python detect_meteors_cli.py --show-npf --sensor-width 17.3
+uv run detect-meteors --show-npf --sensor-width 17.3
 ```
 
 Example output:
@@ -107,13 +107,13 @@ Add the `--fisheye` flag to enable equisolid angle projection compensation:
 
 ```bash
 # MFT camera with 8mm fisheye (16mm equiv.)
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
+uv run detect-meteors --auto-params --sensor-type MFT --focal-length 16 --fisheye
 
 # Full Frame with 8mm fisheye
-uv run python detect_meteors_cli.py --auto-params --sensor-type FF --focal-length 8 --fisheye
+uv run detect-meteors --auto-params --sensor-type FF --focal-length 8 --fisheye
 
 # Check NPF analysis with fisheye correction
-uv run python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye
+uv run detect-meteors --show-npf --sensor-type MFT --focal-length 16 --fisheye
 ```
 
 ### Example: Fisheye vs Standard NPF Analysis

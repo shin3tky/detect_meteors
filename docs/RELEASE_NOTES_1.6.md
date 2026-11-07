@@ -33,7 +33,7 @@ Run from the repository root or an extracted source distribution, replacing the
 paths with your own original inputs:
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/session/frame002.ORF \
   --reference-image rawfiles/session/frame001.ORF \
   --analysis-progress previous_run/progress.json --verbose
@@ -101,7 +101,7 @@ have file-change stamps. Changed sources invalidate export.
 Start normal detection separately:
 
 ```bash
-uv run python detect_meteors_cli.py --config analysis/review-001/session.yaml
+uv run detect-meteors --config analysis/review-001/session.yaml
 ```
 
 The saved configuration retains the actual loader, exact thresholds, and fixed
@@ -164,7 +164,7 @@ Version 1.6.10 adds frame-ordered analysis hooks and a lightweight
 ### Usage
 
 ```bash
-uv run python detect_meteors_cli.py --hooks aircraft_trail --no-roi
+uv run detect-meteors --hooks aircraft_trail --no-roi
 ```
 
 The hooks are optional; existing configurations without hooks continue to skip
@@ -649,15 +649,15 @@ my_hook = "my_package.hooks:MyHook"
 
 ```bash
 # Specify hooks by name (comma-separated, in execution order)
-uv run python detect_meteors_cli.py --hooks score_filter,logger_hook
+uv run detect-meteors --hooks score_filter,logger_hook
 
 # Provide hook configuration
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --hooks score_filter \
     --hook-config '{"score_filter": {"min_score_threshold": 75.0}}'
 
 # Or via file
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --hooks score_filter \
     --hook-config hooks_config.yaml
 ```
@@ -811,10 +811,10 @@ output_handler_config:
 
 ```bash
 # Load entire configuration from file
-uv run python detect_meteors_cli.py --config pipeline.yaml
+uv run detect-meteors --config pipeline.yaml
 
 # Override specific settings via CLI
-uv run python detect_meteors_cli.py --config pipeline.yaml --detector threshold
+uv run detect-meteors --config pipeline.yaml --detector simple_threshold
 ```
 
 ### CLI Plugin Selection
@@ -823,23 +823,23 @@ Select and configure plugins directly from the command line:
 
 ```bash
 # Select plugins by name
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --input-loader raw \
     --detector hough \
     --output-handler file
 
 # Provide plugin configs as JSON strings
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --input-loader raw \
     --input-loader-config '{"binning": 2, "normalize": true}'
 
-# Or as YAML strings
-uv run python detect_meteors_cli.py \
+# Or as YAML strings (requires a custom slack output plugin)
+uv run detect-meteors \
     --output-handler slack \
     --output-handler-config "webhook_url: https://hooks.slack.com/..."
 
 # Or as file paths
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --detector-config my_detector_settings.yaml
 ```
 
@@ -867,10 +867,10 @@ This allows loading a base configuration and overriding specific settings:
 
 ```bash
 # Load base config, override detector
-uv run python detect_meteors_cli.py --config base.yaml --detector threshold
+uv run detect-meteors --config base.yaml --detector simple_threshold
 
 # Load base config, override detection threshold
-uv run python detect_meteors_cli.py --config base.yaml --diff-threshold 12
+uv run detect-meteors --config base.yaml --diff-threshold 12
 ```
 
 ### Python API
@@ -936,10 +936,10 @@ No immediate migration required. All existing CLI flags continue to work:
 
 ```bash
 # These still work (but are deprecated)
-uv run python detect_meteors_cli.py --diff-threshold 8 --min-area 10
+uv run detect-meteors --diff-threshold 8 --min-area 10
 
 # Recommended: Use config files for complex setups
-uv run python detect_meteors_cli.py --config pipeline.yaml
+uv run detect-meteors --config pipeline.yaml
 ```
 
 **For plugin authors**:
@@ -1723,7 +1723,7 @@ All Python commands should be prefixed with `uv run`:
 uv run python run_tests.py
 
 # Run the CLI
-uv run python detect_meteors_cli.py --help
+uv run detect-meteors --help
 
 # Run linter
 uv run ruff check .

@@ -163,7 +163,7 @@ if replay.decision is not None:
 レビュー済みのAPIを、通常検出とは別の読み取り専用CLI経路に接続する。
 
 ```bash
-python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/frame002.ORF \
   --reference-image rawfiles/frame001.ORF \
   --analysis-progress previous_run/progress.json
@@ -342,7 +342,7 @@ CLIは `--tune-params`、`--tuning-config`、`--analysis-region`、
 番号には調整モードを、すべての選択には出力先を要求する。
 
 ```bash
-python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/session/frame002.ORF \
   --reference-image rawfiles/session/frame001.ORF \
   --analysis-progress previous_run/progress.json \
@@ -350,7 +350,7 @@ python detect_meteors_cli.py \
   --analysis-output analysis/review-001 \
   --analysis-proposal 1
 
-python detect_meteors_cli.py --config analysis/review-001/session.yaml
+uv run detect-meteors --config analysis/review-001/session.yaml
 ```
 
 後半のコマンドが別の通常実行となる。保存だけでは設定の適用、候補コピー、元の

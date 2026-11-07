@@ -1,5 +1,9 @@
 # Version 1.5 Release Notes
 
+Application command examples below use the current v1.6.11 entry point,
+`uv run detect-meteors`, after `uv sync --locked` in the project root.
+Feature descriptions and recorded results refer to the historical releases.
+
 ## Version 1.5.13 (2025-12-19) ⛄️
 
 ### 🌐 Internationalization (i18n)
@@ -28,10 +32,10 @@ Version 1.5.13 adds multi-language support for CLI user-facing messages. The loc
 
 ```bash
 # Use Japanese for user messages
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --locale ja
+uv run detect-meteors --auto-params --sensor-type MFT --locale ja
 
 # Use English (default)
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --locale en
+uv run detect-meteors --auto-params --sensor-type MFT --locale en
 ```
 
 #### Setting the Default Locale via Environment Variable
@@ -41,7 +45,7 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --locale en
 export DETECT_METEORS_LOCALE=ja
 
 # Now runs use Japanese by default
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT
+uv run detect-meteors --auto-params --sensor-type MFT
 ```
 
 ### Example Output
@@ -194,7 +198,7 @@ Each exception includes:
 Enable detailed diagnostic information on errors and DEBUG-level logging:
 
 ```bash
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --verbose
+uv run detect-meteors --auto-params --sensor-type MFT --verbose
 ```
 
 When `--verbose` is enabled:
@@ -207,10 +211,10 @@ When `--verbose` is enabled:
 Save a diagnostic report file on error:
 
 ```bash
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --save-diagnostic
+uv run detect-meteors --auto-params --sensor-type MFT --save-diagnostic
 # Creates: meteor_diagnostic_20251218_123456.md
 
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --save-diagnostic my_report.md
+uv run detect-meteors --auto-params --sensor-type MFT --save-diagnostic my_report.md
 # Creates: my_report.md
 ```
 
@@ -1210,13 +1214,13 @@ Add `--fisheye` to enable equisolid angle projection compensation:
 
 ```bash
 # MFT camera with 8mm fisheye (16mm equiv.)
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye
+uv run detect-meteors --auto-params --sensor-type MFT --focal-length 16 --fisheye
 
 # Full Frame with 8mm fisheye
-uv run python detect_meteors_cli.py --auto-params --sensor-type FF --focal-length 8 --fisheye
+uv run detect-meteors --auto-params --sensor-type FF --focal-length 8 --fisheye
 
 # Check NPF analysis with fisheye correction
-uv run python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye
+uv run detect-meteors --show-npf --sensor-type MFT --focal-length 16 --fisheye
 ```
 
 ### Effect on NPF Calculations
@@ -1369,7 +1373,7 @@ When using `--sensor-type` with `--sensor-width` or `--pixel-pitch` overrides, t
 #### Example 1: No Warning (Small Deviation)
 ```bash
 # MFT preset: sensor_width=17.3mm
-uv run python detect_meteors_cli.py --auto-params \
+uv run detect-meteors --auto-params \
   --sensor-type MFT \
   --sensor-width 17.5  # 1.2% deviation → no warning
 ```
@@ -1377,7 +1381,7 @@ uv run python detect_meteors_cli.py --auto-params \
 #### Example 2: Warning Displayed (Large Deviation)
 ```bash
 # MFT preset: sensor_width=17.3mm
-uv run python detect_meteors_cli.py --auto-params \
+uv run detect-meteors --auto-params \
   --sensor-type MFT \
   --sensor-width 23.5  # 35.8% deviation → warning
 ```
@@ -1392,7 +1396,7 @@ uv run python detect_meteors_cli.py --auto-params \
 #### Example 3: Multiple Warnings
 ```bash
 # FF preset: sensor_width=36.0mm, pixel_pitch=4.3μm
-uv run python detect_meteors_cli.py --auto-params \
+uv run detect-meteors --auto-params \
   --sensor-type FF \
   --sensor-width 23.5 \
   --pixel-pitch 7.0
@@ -1564,16 +1568,16 @@ Version 1.5.1 adds support for medium format sensors, extending the tool's capab
 
 ```bash
 # Fujifilm GFX100 II
-uv run python detect_meteors_cli.py --auto-params --sensor-type MF44X33
+uv run detect-meteors --auto-params --sensor-type MF44X33
 
 # Pentax 645Z
-uv run python detect_meteors_cli.py --auto-params --sensor-type MF44X33
+uv run detect-meteors --auto-params --sensor-type MF44X33
 
 # Hasselblad X2D 100C
-uv run python detect_meteors_cli.py --auto-params --sensor-type MF44X33
+uv run detect-meteors --auto-params --sensor-type MF44X33
 
 # Hasselblad H6D-100c
-uv run python detect_meteors_cli.py --auto-params --sensor-type MF54X40
+uv run detect-meteors --auto-params --sensor-type MF54X40
 ```
 
 ### Sensor Size Ordering
@@ -1643,13 +1647,13 @@ Version 1.5.0 introduces **sensor type presets** that dramatically simplify NPF 
 **Usage**:
 ```bash
 # Before (v1.4.x) - Required multiple parameters
-uv run python detect_meteors_cli.py --auto-params \
+uv run detect-meteors --auto-params \
   --sensor-width 17.3 \
   --focal-factor 2.0 \
   --pixel-pitch 3.7
 
 # After (v1.5.0) - Single parameter
-uv run python detect_meteors_cli.py --auto-params --sensor-type MFT
+uv run detect-meteors --auto-params --sensor-type MFT
 ```
 
 ### 3. New `--list-sensor-types` Option (NEW)
@@ -1658,7 +1662,7 @@ uv run python detect_meteors_cli.py --auto-params --sensor-type MFT
 
 **Usage**:
 ```bash
-uv run python detect_meteors_cli.py --list-sensor-types
+uv run detect-meteors --list-sensor-types
 ```
 
 ## Technical Details
@@ -1793,16 +1797,16 @@ Displays available sensor presets in formatted output, ordered by sensor size.
 | Feature | Command | Example |
 |---------|---------|---------|
 | Use sensor preset | `--sensor-type TYPE` | `--sensor-type MFT` |
-| List presets | `--list-sensor-types` | `uv run python detect_meteors_cli.py --list-sensor-types` |
+| List presets | `--list-sensor-types` | `uv run detect-meteors --list-sensor-types` |
 | Preset + override | `--sensor-type TYPE --PARAM VALUE` | `--sensor-type FF --pixel-pitch 5.9` |
-| Full auto (MFT) | `--auto-params --sensor-type MFT` | `uv run python detect_meteors_cli.py --auto-params --sensor-type MFT` |
-| Medium Format | `--auto-params --sensor-type MF44X33` | `uv run python detect_meteors_cli.py --auto-params --sensor-type MF44X33` |
-| Fisheye lens | `--auto-params --fisheye` | `uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --focal-length 16 --fisheye` |
-| Verbose mode | `--verbose` | `uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --verbose` |
-| Save diagnostic | `--save-diagnostic [FILE]` | `uv run python detect_meteors_cli.py --auto-params --save-diagnostic my_report.md` |
-| NPF check | `--show-npf --sensor-type TYPE` | `uv run python detect_meteors_cli.py --show-npf --sensor-type APS-C` |
-| NPF + Fisheye | `--show-npf --fisheye` | `uv run python detect_meteors_cli.py --show-npf --sensor-type MFT --focal-length 16 --fisheye` |
-| Set locale | `--locale LANG` | `uv run python detect_meteors_cli.py --auto-params --sensor-type MFT --locale ja` |
+| Full auto (MFT) | `--auto-params --sensor-type MFT` | `uv run detect-meteors --auto-params --sensor-type MFT` |
+| Medium Format | `--auto-params --sensor-type MF44X33` | `uv run detect-meteors --auto-params --sensor-type MF44X33` |
+| Fisheye lens | `--auto-params --fisheye` | `uv run detect-meteors --auto-params --sensor-type MFT --focal-length 16 --fisheye` |
+| Verbose mode | `--verbose` | `uv run detect-meteors --auto-params --sensor-type MFT --verbose` |
+| Save diagnostic | `--save-diagnostic [FILE]` | `uv run detect-meteors --auto-params --save-diagnostic my_report.md` |
+| NPF check | `--show-npf --sensor-type TYPE` | `uv run detect-meteors --show-npf --sensor-type APS-C` |
+| NPF + Fisheye | `--show-npf --fisheye` | `uv run detect-meteors --show-npf --sensor-type MFT --focal-length 16 --fisheye` |
+| Set locale | `--locale LANG` | `uv run detect-meteors --auto-params --sensor-type MFT --locale ja` |
 | Locale (env) | `DETECT_METEORS_LOCALE` | `export DETECT_METEORS_LOCALE=ja` |
 
 ## Files Updated (v1.5.x Summary)

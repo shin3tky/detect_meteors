@@ -29,7 +29,7 @@ v1.6.11では、既存の差分・Hough検出器を使い、目視確認した�
 リポジトリまたは展開したソース配布版のルートで、パスを手元の元画像・進捗へ置き換えて実行します。
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/session/frame002.ORF \
   --reference-image rawfiles/session/frame001.ORF \
   --analysis-progress previous_run/progress.json --verbose --locale ja
@@ -88,7 +88,7 @@ uv run python detect_meteors_cli.py \
 通常検出は別の操作として実行します。
 
 ```bash
-uv run python detect_meteors_cli.py --config analysis/review-001/session.yaml
+uv run detect-meteors --config analysis/review-001/session.yaml
 ```
 
 設定には実際のローダー、正確な閾値、新しい `roi_polygon`／`enable_roi_selection` による
@@ -133,7 +133,7 @@ v1.6.10ではフレーム順の解析フックと、画像データを含まな�
 ### 使い方
 
 ```bash
-uv run python detect_meteors_cli.py --hooks aircraft_trail --no-roi
+uv run detect-meteors --hooks aircraft_trail --no-roi
 ```
 
 フックは任意です。フックを設定していない既存設定では実行しません。独自のソート済みフックは検出一覧を返し、注釈には `extras` を使ってください。この時点では出力ファイルと候補件数を記録済みです。飛行機フックの `likelihood_threshold` は現在未使用で、指定しても除外は行いません。
@@ -616,15 +616,15 @@ my_hook = "my_package.hooks:MyHook"
 
 ```bash
 # Specify hooks by name (comma-separated, in execution order)
-uv run python detect_meteors_cli.py --hooks score_filter,logger_hook
+uv run detect-meteors --hooks score_filter,logger_hook
 
 # Provide hook configuration
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --hooks score_filter \
     --hook-config '{"score_filter": {"min_score_threshold": 75.0}}'
 
 # Or via file
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --hooks score_filter \
     --hook-config hooks_config.yaml
 ```
@@ -781,10 +781,10 @@ output_handler_config:
 
 ```bash
 # Load entire configuration from file
-uv run python detect_meteors_cli.py --config pipeline.yaml
+uv run detect-meteors --config pipeline.yaml
 
 # Override specific settings via CLI
-uv run python detect_meteors_cli.py --config pipeline.yaml --detector threshold
+uv run detect-meteors --config pipeline.yaml --detector simple_threshold
 ```
 
 ### CLIでのプラグイン選択
@@ -793,23 +793,23 @@ uv run python detect_meteors_cli.py --config pipeline.yaml --detector threshold
 
 ```bash
 # Select plugins by name
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --input-loader raw \
     --detector hough \
     --output-handler file
 
 # Provide plugin configs as JSON strings
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --input-loader raw \
     --input-loader-config '{"binning": 2, "normalize": true}'
 
-# Or as YAML strings
-uv run python detect_meteors_cli.py \
+# Or as YAML strings (requires a custom slack output plugin)
+uv run detect-meteors \
     --output-handler slack \
     --output-handler-config "webhook_url: https://hooks.slack.com/..."
 
 # Or as file paths
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --detector-config my_detector_settings.yaml
 ```
 
@@ -837,10 +837,10 @@ uv run python detect_meteors_cli.py \
 
 ```bash
 # Load base config, override detector
-uv run python detect_meteors_cli.py --config base.yaml --detector threshold
+uv run detect-meteors --config base.yaml --detector simple_threshold
 
 # Load base config, override detection threshold
-uv run python detect_meteors_cli.py --config base.yaml --diff-threshold 12
+uv run detect-meteors --config base.yaml --diff-threshold 12
 ```
 
 ### Python API
@@ -906,10 +906,10 @@ normalized = normalize_detection_context(context)
 
 ```bash
 # These still work (but are deprecated)
-uv run python detect_meteors_cli.py --diff-threshold 8 --min-area 10
+uv run detect-meteors --diff-threshold 8 --min-area 10
 
 # Recommended: Use config files for complex setups
-uv run python detect_meteors_cli.py --config pipeline.yaml
+uv run detect-meteors --config pipeline.yaml
 ```
 
 **プラグイン作者向け**：
@@ -1718,7 +1718,7 @@ Pythonのコマンドには `uv run` を付けて実行してください。
 uv run python run_tests.py
 
 # Run the CLI
-uv run python detect_meteors_cli.py --help
+uv run detect-meteors --help
 
 # Run linter
 uv run ruff check .

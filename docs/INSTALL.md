@@ -31,8 +31,8 @@ and run the commands above starting with `uv python install 3.12`.
 uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 ```
 
-The existing `uv run python detect_meteors_cli.py ...` commands also work from
-the source directory. The source includes documentation, configuration examples,
+All application examples below use `uv run detect-meteors` (with a hyphen)
+from the source directory. The source includes documentation, configuration examples,
 tests, and the tracked `rawfiles/2024GEMINI_AIRCRAFT` sample.
 
 ### Optional: Install a Separately Provided Wheel
@@ -53,8 +53,8 @@ On macOS or Linux, activate with `source .venv/bin/activate`; on Windows
 PowerShell, use `.venv\Scripts\Activate.ps1`. Then run:
 
 ```bash
-detect-meteors --version
-detect-meteors --help
+uv run detect-meteors --version
+uv run detect-meteors --help
 ```
 
 The wheel includes the command but not the source tree, RAW sample, or generated
@@ -167,32 +167,26 @@ This will:
 Verify the installation:
 
 ```bash
-uv run python detect_meteors_cli.py --help
+uv run detect-meteors --help
 ```
 
 You should see the help message with all available options.
 
-**Note**: Use `uv run` to execute commands within the virtual environment, or activate it manually:
-```bash
-source .venv/bin/activate
-python detect_meteors_cli.py --help
-```
+**Note**: Run `uv run detect-meteors` from the project root; uv selects the
+project’s `.venv` environment.
 
 ### Optional: Shell Completion (Bash/Zsh)
 
 The Git checkout and release-page source archives include Bash and native Zsh
 completion. For wheel-only installations, obtain the completion files from a
-source archive. Both the installed `detect-meteors` and source `detect_meteors_cli.py`
-commands are supported, without taking over completion for `python`/`python3`.
+source archive. The scripts register completion for the installed
+`detect-meteors` command. Completing its arguments after `uv run` additionally
+requires integration with your shell’s uv completion.
 
 **Bash (`~/.bashrc`)**
 
 ```bash
 source /path/to/detect_meteors/detect_meteors_cli_completion.bash
-
-# Optional source-command alias
-alias detect_meteors='uv run python /path/to/detect_meteors/detect_meteors_cli.py'
-complete -F _detect_meteors_cli_completion detect_meteors
 ```
 
 **Zsh (`~/.zshrc`)**
@@ -210,10 +204,6 @@ In `~/.zshrc`, set `fpath` before any existing `compinit` invocation:
 fpath=(~/.zsh/completions $fpath)
 autoload -Uz compinit
 compinit
-
-# Optional source-command alias
-alias detect_meteors='uv run python /path/to/detect_meteors/detect_meteors_cli.py'
-compdef _detect_meteors_cli detect_meteors
 ```
 
 Start a new shell after setup. Analysis, tuning, and report/session options are included.
@@ -276,21 +266,13 @@ This will:
 Verify the installation:
 
 ```powershell
-uv run python detect_meteors_cli.py --help
+uv run detect-meteors --help
 ```
 
 You should see the help message with all available options.
 
-**Note**: Use `uv run` to execute commands within the virtual environment, or activate it manually:
-```powershell
-# Allow script execution for this terminal session only
-Set-ExecutionPolicy RemoteSigned -Scope Process
-
-# Activate virtual environment
-.\.venv\Scripts\Activate.ps1
-
-python detect_meteors_cli.py --help
-```
+**Note**: Run `uv run detect-meteors` from the project root; uv selects the
+project’s `.venv` environment.
 
 ---
 
@@ -305,7 +287,7 @@ python detect_meteors_cli.py --help
 
 - **Winget not available**: Ensure you're running Windows 10 (version 1809 or later) or Windows 11. Update Windows if necessary.
 - **Git or uv not in PATH**: After installation, restart your terminal or add the installation directories to your PATH manually.
-- **PowerShell execution policy**: Use `Set-ExecutionPolicy RemoteSigned -Scope Process` as mentioned in Step 6. This only affects the current terminal session and is the safest approach.
+- **PowerShell execution policy**: If the optional wheel setup requires manual environment activation, `Set-ExecutionPolicy RemoteSigned -Scope Process` applies to the current terminal session only.
 
 ## Next Steps
 

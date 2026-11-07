@@ -1,5 +1,9 @@
 # Version 1.3.1 Release Notes
 
+Application command examples below use the current v1.6.11 entry point,
+`uv run detect-meteors`, after `uv sync --locked` in the project root.
+Feature descriptions and recorded results refer to the historical releases.
+
 ## Version 1.3.1 (2025-11-23) 🙏
 
 ## 🎉 Comprehensive Auto-Parameter Estimation - Complete Automation Success
@@ -128,7 +132,7 @@ Image Geometry:
 
 **Usage**:
 ```bash
-uv run python detect_meteors_cli.py --auto-params --focal-length 24
+uv run detect-meteors --auto-params --focal-length 24
 ```
 
 **Effect by Focal Length**:
@@ -156,14 +160,14 @@ uv run python detect_meteors_cli.py --auto-params --focal-length 24
 **Usage**:
 ```bash
 # Normal operation (auto-resume enabled)
-uv run python detect_meteors_cli.py --auto-params
+uv run detect-meteors --auto-params
 
 # Interrupt with Ctrl-C
 ^C
 Interrupted by user. Progress saved to progress.json.
 
 # Resume automatically
-uv run python detect_meteors_cli.py --auto-params
+uv run detect-meteors --auto-params
 Resuming from progress file: progress.json (processed=45, detected=1)
 ```
 
@@ -211,7 +215,7 @@ valid_stars = [a for a in areas if 2.0 <= a <= 100.0]
 ### Simplest Usage (Fully Automatic)
 
 ```bash
-uv run python detect_meteors_cli.py --auto-params
+uv run detect-meteors --auto-params
 ```
 
 **Estimates**:
@@ -223,7 +227,7 @@ uv run python detect_meteors_cli.py --auto-params
 ### With Focal Length (Recommended)
 
 ```bash
-uv run python detect_meteors_cli.py --auto-params --focal-length 24
+uv run detect-meteors --auto-params --focal-length 24
 ```
 
 **Additional optimization**:
@@ -232,7 +236,7 @@ uv run python detect_meteors_cli.py --auto-params --focal-length 24
 ### With Pre-defined ROI
 
 ```bash
-uv run python detect_meteors_cli.py --auto-params \
+uv run detect-meteors --auto-params \
   --roi "100,100;3900,100;3900,2900;100,2900" \
   --focal-length 24
 ```
@@ -241,7 +245,7 @@ uv run python detect_meteors_cli.py --auto-params \
 
 ```bash
 # Override specific parameters
-uv run python detect_meteors_cli.py --auto-params \
+uv run detect-meteors --auto-params \
   --focal-length 24 \
   --diff-threshold 12 \
   --min-area 15
@@ -314,14 +318,14 @@ cp detect_meteors_cli.py detect_meteors_cli_v1.2.1_backup.py
 # Use new v1.3.1 file
 
 # Same command works, but now estimates more parameters
-uv run python detect_meteors_cli.py --auto-params
+uv run detect-meteors --auto-params
 ```
 
 ### New Recommended Usage
 
 ```bash
 # Add focal length for optimal results
-uv run python detect_meteors_cli.py --auto-params --focal-length [your_lens_mm]
+uv run detect-meteors --auto-params --focal-length [your_lens_mm]
 ```
 
 ## Known Limitations
@@ -396,12 +400,12 @@ Special thanks to the user who provided detailed test results showing the focal 
 
 | Feature | Command | Example |
 |---------|---------|---------|
-| Fully automatic | `--auto-params` | `uv run python detect_meteors_cli.py --auto-params` |
-| With focal length | `--auto-params --focal-length MM` | `uv run python detect_meteors_cli.py --auto-params --focal-length 24` |
-| With ROI | `--auto-params --roi "..."` | `uv run python detect_meteors_cli.py --auto-params --roi "..."` |
-| Manual override | `--auto-params --PARAM VALUE` | `uv run python detect_meteors_cli.py --auto-params --diff-threshold 12` |
+| Fully automatic | `--auto-params` | `uv run detect-meteors --auto-params` |
+| With focal length | `--auto-params --focal-length MM` | `uv run detect-meteors --auto-params --focal-length 24` |
+| With ROI | `--auto-params --roi "..."` | `uv run detect-meteors --auto-params --roi "..."` |
+| Manual override | `--auto-params --PARAM VALUE` | `uv run detect-meteors --auto-params --diff-threshold 12` |
 | Resume processing | (automatic) | Same command resumes from progress.json |
-| Fresh start | `--no-resume` | `uv run python detect_meteors_cli.py --auto-params --no-resume` |
+| Fresh start | `--no-resume` | `uv run detect-meteors --auto-params --no-resume` |
 
 ---
 

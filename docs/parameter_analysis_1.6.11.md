@@ -173,7 +173,7 @@ Validation for this step:
 Connect the reviewed API to a separate read-only CLI path:
 
 ```bash
-python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/frame002.ORF \
   --reference-image rawfiles/frame001.ORF \
   --analysis-progress previous_run/progress.json
@@ -365,7 +365,7 @@ returned proposal as `session.yaml`. No selection means report/evidence only.
 Numeric indices require tuning; every selection requires an output directory.
 
 ```bash
-python detect_meteors_cli.py \
+uv run detect-meteors \
   --analyze-image rawfiles/session/frame002.ORF \
   --reference-image rawfiles/session/frame001.ORF \
   --analysis-progress previous_run/progress.json \
@@ -373,7 +373,7 @@ python detect_meteors_cli.py \
   --analysis-output analysis/review-001 \
   --analysis-proposal 1
 
-python detect_meteors_cli.py --config analysis/review-001/session.yaml
+uv run detect-meteors --config analysis/review-001/session.yaml
 ```
 
 The second command is a separate normal run. Export does not apply settings,

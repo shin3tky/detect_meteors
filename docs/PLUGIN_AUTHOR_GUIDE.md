@@ -1114,23 +1114,23 @@ Users can also specify plugins directly via CLI arguments:
 
 ```bash
 # Select plugins by name
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --input-loader raw \
     --detector hough \
     --output-handler file
 
 # Provide plugin configs as JSON strings
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --input-loader raw \
     --input-loader-config '{"binning": 2, "normalize": true}'
 
 # Or as YAML strings (requires a custom slack output plugin)
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --output-handler slack \
     --output-handler-config "webhook_url: https://hooks.slack.com/..."
 
 # Or as file paths containing the RAW loader configuration
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
     --input-loader-config raw_loader_settings.yaml
 ```
 

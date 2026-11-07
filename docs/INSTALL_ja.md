@@ -31,7 +31,7 @@ Gitを使わずに取得する場合は、[1.6.11のリリースページ](https
 uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 ```
 
-従来の `uv run python detect_meteors_cli.py ...` も同じディレクトリから利用できます。
+以降のアプリ起動例も `uv run detect-meteors` に統一しています。コマンド名はハイフン付きです。
 ソースにはドキュメント、設定例、テストと、Gitで管理している `rawfiles/2024GEMINI_AIRCRAFT` のサンプルを含みます。
 
 ### 補足：別途提供されたwheelをインストールする場合
@@ -51,8 +51,8 @@ macOSとLinuxでは `source .venv/bin/activate`、Windows PowerShellでは
 `.venv\Scripts\Activate.ps1` で仮想環境を有効にし、次のコマンドを実行します。
 
 ```bash
-detect-meteors --version
-detect-meteors --help
+uv run detect-meteors --version
+uv run detect-meteors --help
 ```
 
 wheelにはコマンドを含みますが、ソース一式、RAWサンプル、生成済み候補は含みません。
@@ -161,33 +161,23 @@ uv sync --locked
 次のコマンドでインストール結果を確認します。
 
 ```bash
-uv run python detect_meteors_cli.py --help
+uv run detect-meteors --help
 ```
 
 利用可能なすべてのオプションを含むヘルプが表示されます。
 
-**補足**：仮想環境内のコマンドは `uv run` で実行できます。手動で仮想環境を有効にして実行することもできます。
-
-```bash
-source .venv/bin/activate
-python detect_meteors_cli.py --help
-```
+**補足**：プロジェクトルートで `uv run detect-meteors` を実行すると、uvが `.venv` の実行環境を選択します。
 
 ### 任意：シェル補完（Bash/Zsh）
 
 Gitで取得したソースとリリースページのソースアーカイブにはBash用とZsh標準の補完を収録しています。
 wheelだけを使う場合はソースアーカイブから補完ファイルを取り出してください。
-インストール後の `detect-meteors` とソースの `detect_meteors_cli.py` の両方に対応します。
-`python`／`python3` 全体の補完は変更しません。
+補完はインストール後の `detect-meteors` に登録します。`uv run` の後ろでの補完は、シェル側のuv補完との連携が別途必要です。
 
 **Bash (`~/.bashrc`)**
 
 ```bash
 source /path/to/detect_meteors/detect_meteors_cli_completion.bash
-
-# Optional source-command alias
-alias detect_meteors='uv run python /path/to/detect_meteors/detect_meteors_cli.py'
-complete -F _detect_meteors_cli_completion detect_meteors
 ```
 
 **Zsh (`~/.zshrc`)**
@@ -205,10 +195,6 @@ cp /path/to/detect_meteors/_detect_meteors_cli ~/.zsh/completions/
 fpath=(~/.zsh/completions $fpath)
 autoload -Uz compinit
 compinit
-
-# Optional source-command alias
-alias detect_meteors='uv run python /path/to/detect_meteors/detect_meteors_cli.py'
-compdef _detect_meteors_cli detect_meteors
 ```
 
 設定後に新しいシェルを起動します。分析・調整・保存オプションも補完できます。
@@ -272,22 +258,12 @@ uv sync --locked
 次のコマンドでインストール結果を確認します。
 
 ```powershell
-uv run python detect_meteors_cli.py --help
+uv run detect-meteors --help
 ```
 
 利用可能なすべてのオプションを含むヘルプが表示されます。
 
-**補足**：仮想環境内のコマンドは `uv run` で実行できます。手動で仮想環境を有効にして実行することもできます。
-
-```powershell
-# Allow script execution for this terminal session only
-Set-ExecutionPolicy RemoteSigned -Scope Process
-
-# Activate virtual environment
-.\.venv\Scripts\Activate.ps1
-
-python detect_meteors_cli.py --help
-```
+**補足**：プロジェクトルートで `uv run detect-meteors` を実行すると、uvが `.venv` の実行環境を選択します。
 
 ---
 
@@ -302,7 +278,7 @@ python detect_meteors_cli.py --help
 
 - **Wingetを利用できない**：Windows 10（バージョン1809以降）またはWindows 11を使用していることを確認し、必要ならWindowsを更新してください。
 - **GitやuvがPATHにない**：インストール後にターミナルを再起動するか、インストール先のディレクトリを手動でPATHへ追加してください。
-- **PowerShellの実行ポリシー**：手順6の `Set-ExecutionPolicy RemoteSigned -Scope Process` を使ってください。現在のターミナルセッションにのみ適用され、影響を限定できます。
+- **PowerShellの実行ポリシー**：補足のwheel導入で手動の仮想環境有効化が必要な場合は、`Set-ExecutionPolicy RemoteSigned -Scope Process` で現在のセッションにだけ適用できます。
 
 ## 次の手順
 

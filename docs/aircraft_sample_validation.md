@@ -29,7 +29,7 @@ checkout first. All commands below use the project root as the working directory
 ### Default Aircraft Matching
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --target rawfiles/2024GEMINI_AIRCRAFT \
   --output candidates/aircraft_v1.6.10/default \
   --debug-dir debug_masks/aircraft_v1.6.10/default \
@@ -41,7 +41,7 @@ uv run python detect_meteors_cli.py \
 ### Sample Matching Tolerances
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --config config_examples/aircraft_trail_sample.yaml \
   --no-roi --no-resume --debug-image --profile
 ```
@@ -54,7 +54,7 @@ not new product defaults or validated settings for other cameras/sequences.
 ### Control Without the Hook
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --config config_examples/aircraft_trail_sample.yaml --hooks "" \
   --output candidates/aircraft_v1.6.10/no_hook \
   --debug-dir debug_masks/aircraft_v1.6.10/no_hook \

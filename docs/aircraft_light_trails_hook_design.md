@@ -15,7 +15,7 @@ Implementation: `meteor_core/hooks/aircraft_trail.py`.
 ## Enable the Hook
 
 ```bash
-uv run python detect_meteors_cli.py --hooks aircraft_trail --no-roi
+uv run detect-meteors --hooks aircraft_trail --no-roi
 ```
 
 Or add the following to a pipeline YAML configuration:
@@ -37,7 +37,7 @@ discovered from `~/.detect_meteors/hook_plugins/`.
 Use `--hook-config` to set matching tolerances without a pipeline file:
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --target rawfiles/2024GEMINI_AIRCRAFT \
   --output candidates/aircraft_v1.6.10/cli \
   --debug-dir debug_masks/aircraft_v1.6.10/cli \
@@ -64,7 +64,7 @@ The RAW images are excluded from the Python wheel and source distribution.
 From the repository or extracted source distribution directory, run:
 
 ```bash
-uv run python detect_meteors_cli.py \
+uv run detect-meteors \
   --config config_examples/aircraft_trail_sample.yaml \
   --no-roi --no-resume --debug-image --profile
 ```
