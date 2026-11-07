@@ -4,34 +4,62 @@
 
 This guide provides detailed installation instructions for Detect Meteors CLI on macOS and Windows.
 
-## Install a v1.6.11 Distribution
+## Install v1.6.11 from Source
 
-If you have the release wheel, install it into a Python 3.12 or 3.13 virtual
-environment. Dependency installation requires access to the package index:
+Install Git and uv using the platform-specific steps below, then obtain the
+released source and install its locked dependencies. Python 3.12 or 3.13 is
+required; dependency installation needs access to the package index.
+
+```bash
+git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
+cd detect_meteors
+uv python install 3.12
+uv sync --locked
+uv run detect-meteors --version
+uv run detect-meteors --help
+```
+
+Alternatively, download **Source code (zip)** or **Source code (tar.gz)** from the
+[1.6.11 release page](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.11).
+Extract it, open a terminal in the extracted directory containing `pyproject.toml`,
+and run the commands above starting with `uv python install 3.12`.
+
+`uv sync --locked` installs the project and the `detect-meteors` command into
+`.venv`. From the source directory, run detection with:
+
+```bash
+uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
+```
+
+The existing `uv run python detect_meteors_cli.py ...` commands also work from
+the source directory. The source includes documentation, configuration examples,
+tests, and the tracked `rawfiles/2024GEMINI_AIRCRAFT` sample.
+
+### Optional: Install a Separately Provided Wheel
+
+Use this method only if a maintainer has provided a wheel file. Download that
+file first and open a terminal in the directory where you saved it. Cloning the
+repository does not provide a wheel; `dist/` is a local build-output directory
+for maintainers. Building distributions is covered in the
+[developer guide](INSTALL_DEV.md#building-a-release).
 
 ```bash
 uv venv --python 3.12
-uv pip install dist/detect_meteors-1.6.11-py3-none-any.whl
+uv pip install ./detect_meteors-1.6.11-py3-none-any.whl
 ```
 
-Use the actual path to your downloaded wheel if it is not in `dist/`. On macOS
-or Linux, activate with `source .venv/bin/activate`; on Windows PowerShell, use
-`.venv\Scripts\Activate.ps1`. Then run:
+If you saved the wheel elsewhere, replace the filename with its actual path.
+On macOS or Linux, activate with `source .venv/bin/activate`; on Windows
+PowerShell, use `.venv\Scripts\Activate.ps1`. Then run:
 
 ```bash
 detect-meteors --version
 detect-meteors --help
-detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 ```
 
-The `detect-meteors` command is included in the wheel. Existing source-based
-commands (`uv run python detect_meteors_cli.py ...`) remain available. The source
-distribution includes documentation, configuration examples, and tests; extract
-`detect_meteors-1.6.11.tar.gz`, enter its directory, and follow the `uv sync`
-instructions below. RAW images and generated candidates are excluded from these
-distributions. To reproduce the aircraft sample, clone the repository, which
-tracks `rawfiles/2024GEMINI_AIRCRAFT` with file checksums, or copy that directory
-from a repository checkout into the extracted source tree.
+The wheel includes the command but not the source tree, RAW sample, or generated
+candidates. Use the source instructions above for documentation, configuration
+examples, tests, and sample images.
 
 ## Dependency Versions (v1.6.11)
 
@@ -63,11 +91,13 @@ uv sync --locked --all-extras
 ```
 
 Choose the command for your environment. It installs direct and transitive
-versions recorded in `uv.lock`. For a wheel installation, install the new
-release file into your existing virtual environment:
+versions recorded in `uv.lock`. For a wheel installation, download the new
+wheel if one is provided, activate your existing virtual environment, and run
+the following from the directory where you saved the wheel. Use its actual path
+if it is saved elsewhere:
 
 ```bash
-uv pip install --upgrade /path/to/detect_meteors-1.6.11-py3-none-any.whl
+uv pip install --upgrade ./detect_meteors-1.6.11-py3-none-any.whl
 ```
 
 The wheel pins direct runtime dependencies; transitive packages resolve according
@@ -94,7 +124,7 @@ brew install git
 
 ```bash
 # Clone the repository
-git clone https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -124,13 +154,13 @@ uv manages Python versions and virtual environments automatically:
 uv python install 3.12
 
 # Create virtual environment and install dependencies
-uv sync
+uv sync --locked
 ```
 
 This will:
 - Download and install the latest Python 3.12.x patch release
 - Create a virtual environment in `.venv`
-- Install all dependencies from `pyproject.toml`
+- Install runtime dependencies according to `uv.lock`
 
 ### Step 7: Verification
 
@@ -150,9 +180,9 @@ python detect_meteors_cli.py --help
 
 ### Optional: Shell Completion (Bash/Zsh)
 
-The repository and source distribution include Bash and native Zsh completion.
-For wheel-only installations, obtain the completion files from the source
-distribution. Both the installed `detect-meteors` and source `detect_meteors_cli.py`
+The Git checkout and release-page source archives include Bash and native Zsh
+completion. For wheel-only installations, obtain the completion files from a
+source archive. Both the installed `detect-meteors` and source `detect_meteors_cli.py`
 commands are supported, without taking over completion for `python`/`python3`.
 
 **Bash (`~/.bashrc`)**
@@ -216,7 +246,7 @@ After installation, restart your terminal or open a new one to ensure uv is in y
 
 ```powershell
 # Clone the repository
-git clone https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -233,13 +263,13 @@ uv manages Python versions and virtual environments automatically:
 uv python install 3.12
 
 # Create virtual environment and install dependencies
-uv sync
+uv sync --locked
 ```
 
 This will:
 - Download and install the latest Python 3.12.x patch release
 - Create a virtual environment in `.venv`
-- Install all dependencies from `pyproject.toml`
+- Install runtime dependencies according to `uv.lock`
 
 ### Step 6: Verification
 

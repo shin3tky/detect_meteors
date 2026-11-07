@@ -4,26 +4,59 @@
 
 Detect Meteors CLIをmacOSとWindowsにインストールする手順を説明します。
 
-## v1.6.11の配布ファイルからインストールする
+## v1.6.11のソースからインストールする
 
-リリースのwheelファイルを持っている場合は、Python 3.12または3.13の仮想環境へインストールしてください。依存ライブラリのインストールにはパッケージインデックスへの接続が必要です。
+以下のOS別の手順でGitとuvを用意した後、リリース済みのソースを取得し、
+ロックファイルに従って依存パッケージをインストールします。
+Python 3.12または3.13が必要です。依存パッケージの取得にはパッケージインデックスへの接続が必要です。
+
+```bash
+git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
+cd detect_meteors
+uv python install 3.12
+uv sync --locked
+uv run detect-meteors --version
+uv run detect-meteors --help
+```
+
+Gitを使わずに取得する場合は、[1.6.11のリリースページ](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.11)の
+**Source code (zip)** または **Source code (tar.gz)** をダウンロードして展開してください。
+展開先の `pyproject.toml` があるディレクトリでターミナルを開き、
+上記の `uv python install 3.12` 以降のコマンドを実行します。
+
+`uv sync --locked` はプロジェクトと `detect-meteors` コマンドを `.venv` にインストールします。
+取得したソースのディレクトリから、次のように実行できます。
+
+```bash
+uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
+```
+
+従来の `uv run python detect_meteors_cli.py ...` も同じディレクトリから利用できます。
+ソースにはドキュメント、設定例、テストと、Gitで管理している `rawfiles/2024GEMINI_AIRCRAFT` のサンプルを含みます。
+
+### 補足：別途提供されたwheelをインストールする場合
+
+この方法は、メンテナーからwheelファイルが提供されている場合に使います。
+まずファイルをダウンロードし、その保存先でターミナルを開いてください。
+リポジトリをクローンしてもwheelは取得できません。`dist/` はメンテナーがビルド時に作成する出力先です。
+配布ファイルのビルド方法は[開発者向けガイド](INSTALL_DEV_ja.md#building-a-release)に記載しています。
 
 ```bash
 uv venv --python 3.12
-uv pip install dist/detect_meteors-1.6.11-py3-none-any.whl
+uv pip install ./detect_meteors-1.6.11-py3-none-any.whl
 ```
 
-ダウンロードしたwheelが `dist/` にない場合は、実際の保存先を指定してください。macOSとLinuxでは `source .venv/bin/activate`、Windows PowerShellでは `.venv\Scripts\Activate.ps1` で仮想環境を有効にし、次のコマンドを実行します。
+wheelを別の場所に保存した場合は、実際のファイルパスに置き換えてください。
+macOSとLinuxでは `source .venv/bin/activate`、Windows PowerShellでは
+`.venv\Scripts\Activate.ps1` で仮想環境を有効にし、次のコマンドを実行します。
 
 ```bash
 detect-meteors --version
 detect-meteors --help
-detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 ```
 
-wheelには `detect-meteors` コマンドを含めています。従来のソースからの実行（`uv run python detect_meteors_cli.py ...`）も利用できます。
-ソース配布版にはドキュメント、設定例、テストが含まれます。`detect_meteors-1.6.11.tar.gz` を展開してそのディレクトリへ移動し、以下の `uv sync` の手順に従ってください。
-これらの配布ファイルにRAW画像や生成済み候補は含めません。飛行機サンプルを再現するには、チェックサムとともに `rawfiles/2024GEMINI_AIRCRAFT` を管理しているリポジトリをクローンするか、そのディレクトリを展開済みソースへコピーしてください。
+wheelにはコマンドを含みますが、ソース一式、RAWサンプル、生成済み候補は含みません。
+ドキュメント、設定例、テスト、サンプル画像を使う場合は、上記のソース取得手順に従ってください。
 
 ## 依存ライブラリのバージョン（v1.6.11）
 
@@ -54,10 +87,10 @@ uv sync --locked --all-extras
 ```
 
 用途に合わせてどちらかを選びます。`uv.lock` に記録した直接・間接依存を反映します。
-wheelで導入している場合は、使用中の仮想環境へ新しい配布ファイルをインストールしてください。
+wheelで導入している場合は、新しいwheelが提供されているときにダウンロードし、使用中の仮想環境を有効にして保存先で次を実行してください。ファイルを別の場所に保存した場合は実際のパスを指定します。
 
 ```bash
-uv pip install --upgrade /path/to/detect_meteors-1.6.11-py3-none-any.whl
+uv pip install --upgrade ./detect_meteors-1.6.11-py3-none-any.whl
 ```
 
 wheelでは直接の実行時依存を固定し、間接依存は各パッケージの制約に従って解決します。
@@ -84,7 +117,7 @@ brew install git
 
 ```bash
 # Clone the repository
-git clone https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -114,14 +147,14 @@ uvはPythonのバージョンと仮想環境を自動管理します。
 uv python install 3.12
 
 # Create virtual environment and install dependencies
-uv sync
+uv sync --locked
 ```
 
 この操作で、次の処理を行います。
 
 - 最新のPython 3.12.xパッチリリースをダウンロードしてインストール。
 - `.venv` に仮想環境を作成。
-- `pyproject.toml` の依存ライブラリをすべてインストール。
+- `uv.lock` に従って実行時の依存パッケージをインストール。
 
 ### 手順7：動作を確認する
 
@@ -142,8 +175,8 @@ python detect_meteors_cli.py --help
 
 ### 任意：シェル補完（Bash/Zsh）
 
-リポジトリとソース配布版にはBash用とZsh標準の補完を収録しています。
-wheelだけを使う場合はソース配布版から補完ファイルを取り出してください。
+Gitで取得したソースとリリースページのソースアーカイブにはBash用とZsh標準の補完を収録しています。
+wheelだけを使う場合はソースアーカイブから補完ファイルを取り出してください。
 インストール後の `detect-meteors` とソースの `detect_meteors_cli.py` の両方に対応します。
 `python`／`python3` 全体の補完は変更しません。
 
@@ -208,7 +241,7 @@ winget install --id astral-sh.uv -e --source winget
 
 ```powershell
 # Clone the repository
-git clone https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -225,14 +258,14 @@ uvはPythonのバージョンと仮想環境を自動管理します。
 uv python install 3.12
 
 # Create virtual environment and install dependencies
-uv sync
+uv sync --locked
 ```
 
 この操作で、次の処理を行います。
 
 - 最新のPython 3.12.xパッチリリースをダウンロードしてインストール。
 - `.venv` に仮想環境を作成。
-- `pyproject.toml` の依存ライブラリをすべてインストール。
+- `uv.lock` に従って実行時の依存パッケージをインストール。
 
 ### 手順6：動作を確認する
 
