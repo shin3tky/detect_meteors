@@ -95,9 +95,8 @@ class BaseHook(ABC, Generic[ConfigType]):
         batch-local analysis that does not require global frame continuity.
 
         .. note::
-            In parallel processing mode, different batches may be processed
-            by different workers. This hook is called once per batch in each
-            worker process.
+            In parallel processing mode, workers detect the pairs. The main
+            process calls this hook once for each completed batch.
 
         Args:
             detections: List of SortedDetection objects from the current batch,

@@ -244,6 +244,7 @@ uv run coverage html
 | `test_plugin_contract_validation_v1x.py` | 3 | Plugin contract validation |
 | `test_plugin_registry_base.py` | 4 | Plugin registry base class |
 | `test_registry_default_contracts_v1x.py` | 2 | Registry default contracts |
+| `test_worker_plugin_compatibility_v1x.py` | 4 | Plugin sources, converters, state transport, and recovery with spawn workers |
 
 #### CLI, config, localization, and utilities
 
@@ -267,7 +268,7 @@ uv run coverage html
 | `test_tuning_v1x.py` | 16 | Bounded proposals and comparison |
 | `test_analysis_reports_v1x.py` | 20 | Bundles, fingerprints, session export and replay |
 
-**Current checkout: 685 tests, with no expected failures.**
+**Current checkout: 689 tests, with no expected failures.**
 
 ## Code Style
 

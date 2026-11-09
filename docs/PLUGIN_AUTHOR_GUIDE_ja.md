@@ -179,9 +179,7 @@ filepath ──▶ Input Loader ──▶ InputContext
 
 ### 1.5 フックの検出（パイプライン）
 
-標準のプラグイン検出方式で、メイン・ワーカープロセスの双方から利用できるようにします。
-
-> **重要**：`HookRegistry.register()` による実行時登録は **単一プロセスのみ** で、**ワーカーへ伝わりません**。実運用やマルチプロセスではプラグイン検出を使ってください。
+メインプロセスが設定されたフックを選びます。並列実行では、ワーカーが記録されたモジュールから同じクラスを読み込み、バッチごとにインスタンスを生成します。Pythonコードから `HookRegistry.register()` で選んだクラスも、ワーカーから読み込める場合は並列実行で使えます。
 
 **検出方法**：
 
@@ -190,7 +188,7 @@ filepath ──▶ Input Loader ──▶ InputContext
 
 **マルチプロセスでの使用例**：
 
-- エントリーポイント（`detect_meteors.hook`）としてインストールするか、`~/.detect_meteors/hook_plugins` にファイルを置き、各ワーカーが起動時に検出できるようにします。`num_workers > 1` の場合は、`MyHook` をパッケージ化して登録するか、`my_hook.py` をそのディレクトリに保存してください。
+- エントリーポイント（`detect_meteors.hook`）としてインストールするか、`~/.detect_meteors/hook_plugins` にファイルを置きます。実行中は選択されたソースを利用できる状態に保ってください。プラグインファイルの変更などでワーカーを準備できない場合は、設定エラーを送出します。
 
 **設定による動的な切り替え**：
 
@@ -234,6 +232,7 @@ filepath ──▶ Input Loader ──▶ InputContext
 設定の一覧順に呼び出し、返されたコンテキスト・検出結果・ソート済み一覧を次のフックへ渡します。
 フックの状態は上表のグループ間や別バッチのワーカー間では共有されません。逐次処理のバッチは1ペアです。
 ROI選択・自動推定用の先頭画像やサンプルの読み込みには画像フックを適用せず、検出する画像ペアに適用します。
+並列実行では、バッチごとにメインプロセスから送られたローダーと検出器の状態を復元します。ローダーには先頭画像の読み込みで設定された状態も含まれます。
 
 成功した結果の処理順は次のとおりです。
 
@@ -267,7 +266,7 @@ ROI選択・自動推定用の先頭画像やサンプルの読み込みには�
 **登録**：
 
 - マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
-- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- 実行時登録については [フックの検出](#15-hook-discovery-pipeline) を参照してください。
 - 登録順に呼び出します。
 - dataclass/Pydanticベースの `ConfigType` など、ほかのプラグインと同じ設定方式です。
 
@@ -292,7 +291,7 @@ ROI選択・自動推定用の先頭画像やサンプルの読み込みには�
 **登録**：
 
 - マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
-- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- 実行時登録については [フックの検出](#15-hook-discovery-pipeline) を参照してください。
 - フレームごとに登録順で実行します。
 
 ---
@@ -316,7 +315,7 @@ ROI選択・自動推定用の先頭画像やサンプルの読み込みには�
 **登録**：
 
 - マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
-- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- 実行時登録については [フックの検出](#15-hook-discovery-pipeline) を参照してください。
 - フレームごとに登録順で実行します。
 
 ---
@@ -339,7 +338,7 @@ ROI選択・自動推定用の先頭画像やサンプルの読み込みには�
 **登録**：
 
 - マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
-- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- 実行時登録については [フックの検出](#15-hook-discovery-pipeline) を参照してください。
 - 候補の保存を試みるごとに、登録順で呼び出します。
 
 ---
@@ -417,7 +416,7 @@ class MyBatchAnalyzer(DataclassHook[MyConfig]):
 **登録**：
 
 - マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
-- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- 実行時登録については [フックの検出](#15-hook-discovery-pipeline) を参照してください。
 
 ---
 
@@ -475,7 +474,7 @@ pipeline.run(enable_roi_selection=False)
 **登録**：
 
 - マルチプロセスではエントリーポイントか `~/.detect_meteors/hook_plugins` で検出可能にしてください。
-- `meteor_core.hooks.HookRegistry.register(MyHook)` はテスト・単一プロセス向けです。
+- 実行時登録については [フックの検出](#15-hook-discovery-pipeline) を参照してください。
 
 ---
 
@@ -1603,6 +1602,8 @@ class MyAnalyzer(DataclassHook[MyConfig]):
 5. 公開の正規化関数は未対応のバージョンに対して `ValueError` を送出します。パイプラインはこのエラーを `MeteorConfigError` に変換し、検出ペアや出力処理の失敗時の扱いに従います。
 
 **後方互換用の変換登録**：
+
+並列実行では、ワーカーから読み込める変換関数を実行前に登録します。ワーカーは、メインプロセスがバッチ投入前に確定した変換表を使います。spawnで起動したワーカーが名前で参照できるよう、関数をモジュール直下に定義してください。
 
 ```python
 from meteor_core.schema import (

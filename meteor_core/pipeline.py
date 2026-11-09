@@ -23,6 +23,7 @@ from typing import (
     List,
     Optional,
     Protocol,
+    Sequence,
     Tuple,
     Type,
     Union,
@@ -65,7 +66,13 @@ from .schema import (
 from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
-from .hooks import HookRegistry
+from .hooks import BaseHook, HookRegistry
+from ._worker_plugins import (
+    WorkerPluginError,
+    WorkerPluginState,
+    WorkerPlugins,
+    restore_worker_plugins,
+)
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, DetectorRegistry
 from .utils import _display_width, _pad_label, ensure_numpy
@@ -512,15 +519,23 @@ def _build_sorted_detections_from_batch(
 
 
 def _resolve_hooks(
-    hook_configs: Optional[List[HookConfig]],
+    hook_configs: Optional[Sequence[HookConfig]],
     hook_error_mode: str = "raise",
-) -> List[Any]:
+    *,
+    selected_classes: Optional[Sequence[type[BaseHook]]] = None,
+) -> List[BaseHook]:
     if hook_configs is None:
         return []
-    instances: List[Any] = []
-    for hook in hook_configs:
+    instances: List[BaseHook] = []
+    for index, hook in enumerate(hook_configs):
         try:
-            instances.append(HookRegistry.create(hook.name, hook.config))
+            if selected_classes is None:
+                instance = HookRegistry.create(hook.name, hook.config)
+            else:
+                instance = HookRegistry._create_from_class(
+                    selected_classes[index], hook.config
+                )
+            instances.append(instance)
         except Exception as exc:
             raise MeteorConfigError(
                 "Invalid hook configuration",
@@ -974,13 +989,57 @@ def process_image_batch(
     Raises:
         MeteorHookError: If a hook fails in "raise" mode.
     """
-    results = []
-
     loader = _resolve_input_loader(input_loader)
     det = _resolve_detector(detector=detector)
-    runtime_params = _build_runtime_params(params, det)
     hooks = _resolve_hooks(hook_configs, hook_error_mode=hook_error_mode)
+    return _process_resolved_batch(
+        batch_data,
+        roi_mask,
+        params,
+        loader,
+        det,
+        debug_image_enabled,
+        hooks,
+        hook_error_mode,
+    )
 
+
+def _process_worker_batch(
+    batch_data: List[Tuple[int, str, str]],
+    roi_mask: np.ndarray,
+    params: dict,
+    plan: WorkerPlugins,
+    plugin_state: bytes | WorkerPluginState,
+    debug_image_enabled: bool,
+    hook_error_mode: str,
+):
+    """Prepare the selected plugins before executing a worker batch."""
+    with restore_worker_plugins(plan, plugin_state) as (loader, detector, hooks):
+        return _process_resolved_batch(
+            batch_data,
+            roi_mask,
+            params,
+            loader,
+            detector,
+            debug_image_enabled,
+            hooks,
+            hook_error_mode,
+        )
+
+
+def _process_resolved_batch(
+    batch_data: List[Tuple[int, str, str]],
+    roi_mask: np.ndarray,
+    params: dict,
+    loader: BaseInputLoader,
+    det: BaseDetector,
+    debug_image_enabled: bool,
+    hooks: List[BaseHook],
+    hook_error_mode: str,
+):
+    """Detect frame pairs using the supplied plugin instances."""
+    results = []
+    runtime_params = _build_runtime_params(params, det)
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
     for frame_index, curr_file, prev_file in batch_data:
@@ -2060,8 +2119,9 @@ class MeteorDetectionPipeline:
         )
         files = collect_files(self._config.target_folder)
 
+        hook_configs = tuple(self._config.hooks or ())
         hooks = _resolve_hooks(
-            self._config.hooks,
+            hook_configs,
             hook_error_mode=self._config.hook_error_mode,
         )
         files = _apply_file_found_hooks(files, hooks, self._config.hook_error_mode)
@@ -2148,6 +2208,8 @@ class MeteorDetectionPipeline:
                     input_loader,
                     self.detector,
                     debug_image_enabled,
+                    hook_configs,
+                    hooks,
                     locale=locale,
                 )
             else:
@@ -2373,14 +2435,17 @@ class MeteorDetectionPipeline:
         input_loader: Optional[BaseInputLoader],
         detector: Optional[BaseDetector],
         debug_image_enabled: bool,
+        hook_configs: tuple[HookConfig, ...],
+        file_hooks: List[BaseHook],
         locale: Optional[str] = None,
     ) -> int:
         """Collect completed worker batches and handle output in this process."""
         locale = _resolve_locale(locale)
         start_time = time.time()
         hooks = _resolve_hooks(
-            self._config.hooks,
+            hook_configs,
             hook_error_mode=self._config.hook_error_mode,
+            selected_classes=[type(hook) for hook in file_hooks],
         )
         batches = [
             image_pairs[i : i + self._config.batch_size]
@@ -2394,6 +2459,10 @@ class MeteorDetectionPipeline:
                 count=len(batches),
             )
         )
+        if not batches:
+            return self.progress_manager.get_total_detected()
+        plan = WorkerPlugins.capture(input_loader, detector, file_hooks)
+        plugin_state = WorkerPluginState(input_loader, detector, hook_configs)
 
         executor = ProcessPoolExecutor(
             max_workers=self._config.num_workers,
@@ -2415,14 +2484,13 @@ class MeteorDetectionPipeline:
                     flush=True,
                 )
                 future = executor.submit(
-                    process_image_batch,
+                    _process_worker_batch,
                     batch,
                     roi_mask,
                     params,
-                    input_loader,
-                    detector,
+                    plan,
+                    plugin_state,
                     debug_image_enabled,
-                    self._config.hooks,
                     self._config.hook_error_mode,
                 )
                 pending_futures.add(future)
@@ -2453,6 +2521,8 @@ class MeteorDetectionPipeline:
                 completed_batches += 1
                 try:
                     batch_results = future.result()
+                except WorkerPluginError:
+                    raise
                 except Exception as e:
                     if self._config.hook_error_mode == "raise" and isinstance(
                         e, MeteorHookError
@@ -2632,6 +2702,10 @@ class MeteorDetectionPipeline:
                         message="on_batch_complete hook failed for batch %s: %s",
                         message_args=(completed_batches, exc),
                     )
+        except WorkerPluginError:
+            for future in pending_futures:
+                future.cancel()
+            raise
         except KeyboardInterrupt:
             print(
                 "\n"

@@ -225,6 +225,7 @@ uv run coverage html
 | `test_plugin_contract_validation_v1x.py` | 3 | プラグイン契約の検証 |
 | `test_plugin_registry_base.py` | 4 | レジストリの基底クラス |
 | `test_registry_default_contracts_v1x.py` | 2 | レジストリの既定契約 |
+| `test_worker_plugin_compatibility_v1x.py` | 4 | spawnでのプラグイン選択、変換、状態の受け渡し、失敗後の再開 |
 
 #### CLI、設定、多言語対応、ユーティリティ
 
@@ -248,7 +249,7 @@ uv run coverage html
 | `test_tuning_v1x.py` | 16 | 上限付きの調整案と比較 |
 | `test_analysis_reports_v1x.py` | 20 | 証拠保存・識別情報・設定保存と再実行 |
 
-**現在のチェックアウトでは685テスト（期待失敗なし）。**
+**現在のチェックアウトでは689テスト（期待失敗なし）。**
 
 ## コードスタイル
 

@@ -8,8 +8,6 @@
 
 from __future__ import annotations
 
-import importlib
-import importlib.util
 import inspect
 import logging
 import warnings
@@ -21,6 +19,7 @@ try:  # pragma: no cover - fallback for older Python
 except ImportError:  # pragma: no cover
     import importlib_metadata as metadata  # type: ignore
 
+from .._plugin_import import load_local_plugin as _load_module_from_file
 from .base import BaseOutputHandler, _is_valid_output_handler
 from .file_handler import FileOutputHandler
 
@@ -139,26 +138,6 @@ def _add_handler(
         handler_cls.__name__,
     )
     registry[plugin_name_lower] = handler_cls
-
-
-def _load_module_from_file(filepath: Path):
-    """Load a Python module from a file path.
-
-    Args:
-        filepath: Path to the Python file to load.
-
-    Returns:
-        The loaded module object.
-
-    Raises:
-        ImportError: If the module cannot be loaded.
-    """
-    spec = importlib.util.spec_from_file_location(filepath.stem, filepath)
-    if spec and spec.loader:
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-    raise ImportError(f"Could not load spec for {filepath}")
 
 
 def discover_handlers(

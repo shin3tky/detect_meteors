@@ -13,7 +13,7 @@ from meteor_core.exceptions import (
     MeteorLoadError,
     MeteorWriteError,
 )
-from meteor_core.pipeline import process_image_batch
+from meteor_core.pipeline import _process_worker_batch, process_image_batch
 from meteor_core.schema import HookConfig
 from tests.pipeline_fixtures import (
     MemoryLoader,
@@ -339,11 +339,11 @@ class TestWorkerAndOutputFailures(PipelineTestCase):
         def fail_first_batch(batch, *args):
             if batch[0][0] == 1:
                 raise RuntimeError("worker batch failed")
-            return process_image_batch(batch, *args)
+            return _process_worker_batch(batch, *args)
 
         output = io.StringIO()
         with patch(
-            "meteor_core.pipeline.process_image_batch", side_effect=fail_first_batch
+            "meteor_core.pipeline._process_worker_batch", side_effect=fail_first_batch
         ):
             with contextlib.redirect_stdout(output):
                 self.assertEqual(pipeline.run(resume=False), 1)

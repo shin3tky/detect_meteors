@@ -41,6 +41,17 @@ _DETECTION_RESULT_CONVERTERS: Dict[
 ] = {}
 _OUTPUT_RESULT_CONVERTERS: Dict[int, Callable[["OutputResult"], "OutputResult"]] = {}
 
+
+def _converter_registries() -> dict[str, dict[int, Callable]]:
+    """Return the process-local converter tables used by the pipeline."""
+    return {
+        "InputContext": _INPUT_CONTEXT_CONVERTERS,
+        "DetectionContext": _DETECTION_CONTEXT_CONVERTERS,
+        "DetectionResult": _DETECTION_RESULT_CONVERTERS,
+        "OutputResult": _OUTPUT_RESULT_CONVERTERS,
+    }
+
+
 # ==========================================
 # Default Settings
 # ==========================================

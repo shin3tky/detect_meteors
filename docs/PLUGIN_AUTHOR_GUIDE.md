@@ -177,12 +177,10 @@ filtering, transformation, and analysis.
 
 ### 1.5 Hook Discovery (Pipeline)
 
-Hooks are discovered (and therefore available to both the main process and any
-worker processes) via the standard plugin discovery mechanisms.
-
-> **Important:** Runtime registration with `HookRegistry.register()` is
-> **single-process only** and **does not propagate to worker processes**. Use
-> discovery for production usage and multiprocessing.
+The main process resolves each configured hook. Parallel workers load those
+selected classes from their recorded modules and instantiate them for each
+batch. `HookRegistry.register()` can select a hook in Python code, including for
+parallel runs when its class is importable by a worker.
 
 **Discovery options**:
 - **Entry points**: register the hook class under the `detect_meteors.hook`
@@ -191,11 +189,10 @@ worker processes) via the standard plugin discovery mechanisms.
   `~/.detect_meteors/hook_plugins`.
 
 **Multiprocessing usage example**:
-- Install your hook as an entry point (`detect_meteors.hook`) **or** drop a file
-  into `~/.detect_meteors/hook_plugins` so every worker discovers it at startup.
-  For example, package `MyHook` under the `detect_meteors.hook` entry point,
-  or place `my_hook.py` in `~/.detect_meteors/hook_plugins` when running with
-  `num_workers > 1`.
+- Install your hook under the `detect_meteors.hook` entry-point group or place
+  its file in `~/.detect_meteors/hook_plugins`. Keep the selected source
+  available for the duration of the run. Worker preparation failures,
+  including a changed plugin file, raise a configuration error.
 
 **Dynamic switching via config**:
 - If you need to toggle hooks at runtime, switch them through config rather than
@@ -241,6 +238,8 @@ Hooks run in configuration order; returned contexts, results, and sorted lists
 feed the next hook. Do not rely on instance state crossing the groups above or
 separate worker batches. A sequential batch contains one pair. Image hooks apply
 to detection pairs, not the initial ROI-selection or auto-estimation sample loads.
+Each parallel batch restores the loader and detector state sent by the main
+process, including loader state established while reading the first image.
 
 Successful result handling follows this order:
 
@@ -275,8 +274,7 @@ from the input directory. This allows you to exclude files **before**
 **Registration**:
 - Hooks should be made available through discovery (entry points or
   `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
+- See [Hook Discovery](#15-hook-discovery-pipeline) for runtime registration.
 - Registered hooks are invoked in order during pipeline execution.
 - Hooks follow the same config patterns as other plugins, using dataclass
   or Pydantic-based `ConfigType` definitions.
@@ -305,8 +303,7 @@ transform image data or enrich metadata for downstream detectors/output hooks.
 **Registration**:
 - Hooks should be made available through discovery (entry points or
   `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
+- See [Hook Discovery](#15-hook-discovery-pipeline) for runtime registration.
 - Registered hooks are invoked in order for each frame.
 
 ---
@@ -334,8 +331,7 @@ attach metadata for downstream consumers.
 **Registration**:
 - Hooks should be made available through discovery (entry points or
   `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
+- See [Hook Discovery](#15-hook-discovery-pipeline) for runtime registration.
 - Registered hooks are invoked in order for each frame.
 
 ---
@@ -363,8 +359,7 @@ telemetry, or notifications based on what was saved.
 **Registration**:
 - Hooks should be made available through discovery (entry points or
   `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
+- See [Hook Discovery](#15-hook-discovery-pipeline) for runtime registration.
 - Registered hooks are invoked in order for each candidate save attempt.
 
 ---
@@ -449,8 +444,7 @@ class MyBatchAnalyzer(DataclassHook[MyConfig]):
 **Registration**:
 - Hooks should be made available through discovery (entry points or
   `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
+- See [Hook Discovery](#15-hook-discovery-pipeline) for runtime registration.
 
 ---
 
@@ -525,8 +519,7 @@ for the actual configuration fields and tracking limitations.
 **Registration**:
 - Hooks should be made available through discovery (entry points or
   `~/.detect_meteors/hook_plugins`) so they work in multiprocessing.
-- Runtime registration via `meteor_core.hooks.HookRegistry.register(MyHook)` is
-  suitable for tests or single-process runs.
+- See [Hook Discovery](#15-hook-discovery-pipeline) for runtime registration.
 
 ---
 
@@ -1646,6 +1639,11 @@ All four dataclasses include a `schema_version` field (currently `1`) to enable 
    output failure handling determines whether processing continues.
 
 **Registering converters** (for backward compatibility):
+
+For parallel runs, register converters before the run using importable
+functions. Workers use the converter table captured by the main process
+before submitting batches. Put converters at module scope so a spawned
+worker can resolve them by name.
 
 ```python
 from meteor_core.schema import (
