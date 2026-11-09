@@ -296,6 +296,11 @@ class RuntimeParams:
     detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def to_dict(self, include_schema_version: bool = True) -> Dict[str, Any]:
+        """Return the namespaced parameter payload with shared nested mappings.
+
+        Args:
+            include_schema_version: Include the version field when True.
+        """
         payload = {
             "global": self.global_params,
             "detector": self.detector,
@@ -317,6 +322,11 @@ class DetectionContext:
     schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
+        """Return runtime settings and metadata without frame or ROI arrays.
+
+        Nested values are shared with the context. The payload can travel with
+        a detection result across process boundaries without copying pixels.
+        """
         runtime_params = self.runtime_params
         if isinstance(runtime_params, RuntimeParams):
             runtime_params = runtime_params.to_dict()
@@ -338,6 +348,7 @@ class InputContext:
     schema_version: int = INPUT_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
+        """Return the path, metadata, and loader identity without image data."""
         return {
             "filepath": self.filepath,
             "metadata": self.metadata,
@@ -755,6 +766,10 @@ class DetectionResult:
     schema_version: int = DETECTION_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
+        """Return the detection payload without the optional debug image.
+
+        The line list, metrics, and extras are shared with the result.
+        """
         return {
             "is_candidate": self.is_candidate,
             "score": self.score,

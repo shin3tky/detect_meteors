@@ -27,23 +27,20 @@ except ImportError:
 
 
 def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
-    """
-    Load RAW file & 2x2 binning.
+    """Decode the RAW sensor plane and average each 2×2 pixel block.
 
     Args:
-        filepath: Path to the RAW file
+        filepath: Path to the RAW file.
 
     Returns:
-        Binned image as numpy array (uint16)
+        A standalone uint16 array with half the input height and width.
+        The integer average is rounded down. The sensor plane must have
+        even dimensions.
 
     Raises:
         MeteorUnsupportedFormatError: If the file format is not supported by rawpy.
         MeteorLoadError: If the file cannot be loaded due to I/O errors,
             data corruption, or other loading failures.
-
-    Note:
-        - Minimizes memory allocation
-        - Optimizes casting operations
     """
     import os
 
@@ -80,34 +77,26 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
             context={"error_category": "permission_denied"},
         )
 
-    # Get supported formats for error messages
-    supported_formats = [ext.replace("*.", ".") for ext in EXTENSIONS]
-
     try:
         with rawpy.imread(filepath) as raw:
             bayer = raw.raw_image
-
-            # Binning process (reduce memory copying with view operations)
-            h, w = bayer.shape
-            h_half, w_half = h // 2, w // 2
+            height, width = bayer.shape
 
             logger.debug(
                 "Processing image: original=%dx%d, binned=%dx%d",
-                w,
-                h,
-                w_half,
-                h_half,
+                width,
+                height,
+                width // 2,
+                height // 2,
             )
 
-            # Calculate directly with uint16 (add incrementally to prevent overflow)
-            result = np.empty((h_half, w_half), dtype=np.uint16)
-
-            # Single operation calculation (directly without going through uint32)
-            temp = bayer[0::2, 0::2].astype(np.uint32)
-            temp += bayer[0::2, 1::2]
-            temp += bayer[1::2, 0::2]
-            temp += bayer[1::2, 1::2]
-            result[:] = temp // 4
+            # Four uint16 pixels can overflow uint16 before averaging.
+            block_sum = bayer[0::2, 0::2].astype(np.uint32)
+            block_sum += bayer[0::2, 1::2]
+            block_sum += bayer[1::2, 0::2]
+            block_sum += bayer[1::2, 1::2]
+            result = np.empty((height // 2, width // 2), dtype=np.uint16)
+            np.floor_divide(block_sum, 4, out=result)
 
             logger.info("Successfully loaded and binned: %s", filepath)
             return result
@@ -131,7 +120,7 @@ def load_and_bin_raw_fast(filepath: str) -> np.ndarray:
             filepath=filepath,
             original_error=e,
             detected_format=ext.upper() if ext else None,
-            supported_formats=supported_formats,
+            supported_formats=[ext.replace("*.", ".") for ext in EXTENSIONS],
         ) from e
 
     except rawpy.LibRawIOError as e:

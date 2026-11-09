@@ -292,7 +292,9 @@ class PipelineTestCase(unittest.TestCase):
         self.enterContext(
             patch(
                 "meteor_core.pipeline.as_completed",
-                side_effect=lambda futures: iter(futures[::-1] if reverse else futures),
+                side_effect=lambda _: iter(
+                    executor.futures[::-1] if reverse else executor.futures
+                ),
             )
         )
         return executor

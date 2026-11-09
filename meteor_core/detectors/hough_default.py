@@ -70,7 +70,18 @@ class HoughDetector(BaseDetector):
         self,
         context: DetectionContext,
     ) -> DetectionResult:
-        """Measure the image pair and apply the existing v1.x candidate rule."""
+        """Measure a frame pair and apply the v1.x candidate rule.
+
+        Args:
+            context: Frame pair, ROI mask, and effective detection parameters.
+
+        Returns:
+            Candidate flag, total Hough line length, line segments, and contour
+            metrics. A BGR debug overlay is included for candidates.
+
+        Raises:
+            ValueError: If the shapes differ or required parameters are missing.
+        """
         start_time = time.perf_counter()
         analysis = self.analyze(context)
         decision = analysis.evaluate()
@@ -98,18 +109,19 @@ class HoughDetector(BaseDetector):
         )
 
     def analyze(self, context: DetectionContext) -> HoughAnalysis:
-        """
-        Measure an image pair independently of candidate thresholds.
+        """Measure the mask, Hough lines, and contours for a frame pair.
 
         Args:
-            context: DetectionContext containing image data, ROI mask,
-                runtime parameters, and metadata.
+            context: Same-shaped grayscale frames and a uint8 ROI mask.
+                The difference threshold uses the input frame's intensity scale.
 
         Returns:
             HoughAnalysis with the mask, line evidence, and contour geometry.
-            The caller may re-evaluate area, ratio, and score thresholds without
-            recomputing image measurements. This is a built-in Hough extension;
-            the BaseDetector plugin contract remains unchanged.
+            Use its evaluate() method to try area, ratio, and score thresholds
+            against the same measurements.
+
+        Raises:
+            ValueError: If the shapes differ or required parameters are missing.
         """
         current_image = ensure_numpy(context.current_image)
         previous_image = ensure_numpy(context.previous_image)
@@ -165,20 +177,15 @@ class HoughDetector(BaseDetector):
             raise ValueError("Invalid detection parameters supplied to HoughDetector")
 
         try:
-            # Calculate difference
-            diff = cv2.absdiff(current_image, previous_image)
-
-            # Binarize
+            # Reuse the difference buffer for thresholding, then the uint8 mask
+            # for ROI clipping and morphological opening.
+            mask = cv2.absdiff(current_image, previous_image)
             _, mask = cv2.threshold(
-                diff, params["diff_threshold"], 255, cv2.THRESH_BINARY
+                mask, params["diff_threshold"], 255, cv2.THRESH_BINARY, dst=mask
             )
-            mask = mask.astype(np.uint8)
-
-            # Apply ROI
+            mask = mask.astype(np.uint8, copy=False)
             cv2.bitwise_and(mask, roi_mask, dst=mask)
-
-            # Noise removal with morphological opening
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self._kernel)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self._kernel, dst=mask)
 
             # Hough transform
             hough_params = {
@@ -227,11 +234,15 @@ class HoughDetector(BaseDetector):
 def compute_line_score_fast(
     mask: np.ndarray, hough_params: Dict[str, int]
 ) -> Tuple[float, List[Tuple[int, int, int, int]]]:
-    """
-    Line detection using Hough transform (standalone function).
+    """Detect line segments in a binary mask with the probabilistic Hough transform.
 
-    This function is kept for backward compatibility.
-    Consider using HoughDetector.compute_line_score() instead.
+    Args:
+        mask: Single-channel uint8 mask. Nonzero pixels are treated as edges.
+        hough_params: Threshold (votes), minimum line length, and maximum line
+            gap. The length and gap are measured in binned-image pixels.
+
+    Returns:
+        Total Euclidean length and a list of (x1, y1, x2, y2) segments.
     """
     # Early return if few edges
     if np.count_nonzero(mask) < hough_params["min_line_length"]:

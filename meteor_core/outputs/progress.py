@@ -228,11 +228,11 @@ class ProgressManager:
         )
 
     def load(self) -> bool:
-        """
-        Load progress from file.
+        """Restore progress and rebuild the filename lookup sets.
 
         Returns:
-            True if progress was loaded successfully, False otherwise.
+            True after loading and normalizing a progress file. Returns False
+            for a missing, unreadable, or invalid file.
         """
         if not os.path.exists(self.progress_file):
             logger.debug(
@@ -385,12 +385,12 @@ class ProgressManager:
         detection_result: Optional[DetectionResult] = None,
         extras: Optional[Dict[str, Any]] = None,
     ) -> int:
-        """
-        Record the result of processing a file.
+        """Record a frame result and save the current progress to disk.
 
         Args:
             filename: Name of the processed file.
-            is_candidate: Whether the file was detected as a candidate.
+            is_candidate: Whether to record the file as a candidate. A later
+                non-candidate result leaves an existing candidate entry intact.
             score: Line score of detected meteor candidate.
             lines: Number of lines detected.
             ratio: Aspect ratio of detected meteor candidate.
@@ -402,13 +402,13 @@ class ProgressManager:
         Returns:
             Current total detected count.
         """
-        self.processed_set.add(filename)
-        if filename not in self.progress_data["processed_files"]:
+        if filename not in self.processed_set:
+            self.processed_set.add(filename)
             self.progress_data["processed_files"].append(filename)
 
         if is_candidate:
-            self.detected_set.add(filename)
-            if filename not in self.progress_data["detected_files"]:
+            if filename not in self.detected_set:
+                self.detected_set.add(filename)
                 self.progress_data["detected_files"].append(filename)
             entry: Optional[Dict[str, Any]] = self._detected_details_map.get(filename)
             if not entry:

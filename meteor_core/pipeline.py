@@ -16,6 +16,7 @@ import signal
 import time
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from itertools import pairwise
 from typing import (
     Any,
     Dict,
@@ -189,6 +190,7 @@ def _get_default_detector() -> BaseDetector:
 def _build_runtime_params(
     params: Dict[str, Any], detector: BaseDetector
 ) -> Dict[str, Any]:
+    """Expose the flat pipeline settings in the global and detector namespaces."""
     detector_name = getattr(detector, "plugin_name", "") or DEFAULT_DETECTOR_NAME
     return RuntimeParams(
         schema_version=RUNTIME_PARAMS_SCHEMA_VERSION,
@@ -919,37 +921,27 @@ def process_image_batch(
         Optional[Dict[str, Any]],
     ]
 ]:
-    """
-    Process a batch of images (handle multiple pairs at once).
+    """Load and detect frame pairs in the supplied order.
 
     Args:
-        batch_data: List of [(frame_index, curr_file, prev_file), ...]
-        roi_mask: ROI mask
-        params: Parameter dictionary
-        input_loader: Optional input loader instance
-        detector: Optional detector instance (defaults to HoughDetector)
-        debug_image_enabled: Whether to include debug images in results
+        batch_data: (frame_index, current_path, previous_path) for each pair.
+        roi_mask: Mask in the coordinate system of the loaded images.
+        params: Flat runtime parameters for the detector.
+        input_loader: Loader instance. Defaults to the built-in RAW loader.
+        detector: Detector instance. Defaults to the built-in Hough detector.
+        debug_image_enabled: Whether to retain debug images in returned results.
+        hook_configs: Hook configurations to resolve for this batch.
+        hook_error_mode: Whether a hook failure is raised ("raise") or logged
+            and skipped ("warn").
 
     Returns:
-        List of processing results for each image:
-        [
-            (
-                is_candidate,
-                filename,
-                filepath,
-                line_score,
-                debug_img,
-                aspect_ratio,
-                num_lines,
-                detection_result,
-                detection_context_payload,
-            ),
-            ...
-        ]
+        One tuple per pair containing the candidate flag, filename, filepath,
+        score, debug image, aspect ratio, line count, detector result, and
+        context metadata. Loading or detection failures are logged and produce
+        a non-candidate row with no detector result or context metadata.
 
-    Note:
-        Errors during processing are logged but do not stop batch processing.
-        Failed images are returned with is_candidate=False.
+    Raises:
+        MeteorHookError: If a hook fails in "raise" mode.
     """
     results = []
 
@@ -1020,11 +1012,8 @@ def process_image_batch(
                 hook_error_mode=hook_error_mode,
             )
             context_payload = context.to_dict()
-            debug_image = result.debug_image if result.is_candidate else None
             if not result.is_candidate or not debug_image_enabled:
                 result.debug_image = None
-                if not debug_image_enabled:
-                    debug_image = None
 
             results.append(
                 (
@@ -1032,7 +1021,7 @@ def process_image_batch(
                     filename,
                     curr_file,
                     result.score,
-                    debug_image,
+                    result.debug_image,
                     result.aspect_ratio,
                     len(result.lines),
                     result,
@@ -1080,6 +1069,7 @@ def process_image_batch(
 def _extract_frame_indices(
     detection_context_payload: Optional[Dict[str, Any]],
 ) -> Tuple[Optional[int], Optional[int]]:
+    """Read the pair's sequence indices from serialized context metadata."""
     ctx_frame_index = None
     ctx_prev_frame_index = None
     if detection_context_payload and isinstance(detection_context_payload, dict):
@@ -1096,19 +1086,18 @@ def estimate_diff_threshold_from_samples(
     input_loader: Optional[BaseInputLoader] = None,
     locale: Optional[str] = None,
 ) -> int:
-    """
-    Estimation using percentile-based approach.
-
-    Real-world sky brightness distributions are highly peaked, so
-    percentile-based estimation is more appropriate than 3-sigma rule.
+    """Estimate a difference threshold from the first valid sample pairs.
 
     Args:
-        files: List of RAW file paths
-        roi_mask: ROI mask to focus on sky area
-        sample_size: Number of initial images to analyze
+        files: Ordered image paths.
+        roi_mask: Pixels with value 255 are included in the estimate.
+        sample_size: Maximum number of initial files to load.
+        input_loader: Loader for sample images. Defaults to the built-in RAW loader.
+        locale: Locale for the printed sample statistics.
 
     Returns:
-        Estimated diff_threshold value
+        The smallest of three estimates from the ROI differences, clamped to
+        [3, 18]. Uses the default threshold when fewer than two samples load.
     """
     locale = _resolve_locale(locale)
     print(f"\n{'=' * 50}")
@@ -1176,14 +1165,16 @@ def estimate_diff_threshold_from_samples(
         end="",
         flush=True,
     )
-    diff_values = []
-    for i in range(1, len(samples)):
-        diff = cv2.absdiff(samples[i], samples[i - 1])
-        roi_diff = diff[roi_mask == 255]
-        diff_values.extend(roi_diff.flatten())
+    roi_pixels = roi_mask == 255
+    differences = []
+    for previous, current in pairwise(samples):
+        diff = cv2.absdiff(current, previous)
+        differences.append(diff[roi_pixels])
     print(get_message("ui.pipeline.estimate.done", locale=locale))
 
-    diff_array = np.array(diff_values, dtype=np.float32)
+    # Keep the samples as arrays to avoid one Python scalar per pixel.
+    diff_array = np.concatenate(differences, axis=None, dtype=np.float32)
+    differences.clear()
 
     # Calculate statistics
     # float() keeps these as plain Python floats (np.mean/np.std/np.median
@@ -1193,11 +1184,10 @@ def estimate_diff_threshold_from_samples(
     std_diff = float(np.std(diff_array))
     median_diff = float(np.median(diff_array))
 
-    # Percentiles
-    p90 = float(np.percentile(diff_array, 90))
-    p95 = float(np.percentile(diff_array, 95))
-    p98 = float(np.percentile(diff_array, 98))
-    p99 = float(np.percentile(diff_array, 99))
+    # Compute all four percentiles in one partition after the other statistics.
+    p90, p95, p98, p99 = np.percentile(
+        diff_array, [90, 95, 98, 99], overwrite_input=True
+    )
 
     # Multiple estimation methods
     # Method 1: 98th percentile (works well for peaked distributions)
@@ -1213,14 +1203,14 @@ def estimate_diff_threshold_from_samples(
     estimated_threshold = min(method_1, method_2, method_3)
 
     # Clamp to reasonable range (adjusted based on real-world feedback)
-    estimated_threshold = np.clip(estimated_threshold, 3, 18)
+    estimated_threshold = max(3, min(estimated_threshold, 18))
 
     print(f"\n{'─' * 50}")
     print(
         get_message(
             "ui.pipeline.estimate.diff_threshold.stats.header",
             locale=locale,
-            pixel_count=len(diff_values),
+            pixel_count=diff_array.size,
         )
     )
     print(f"{'─' * 50}")
@@ -1304,17 +1294,20 @@ def estimate_min_area_from_samples(
     input_loader: Optional[BaseInputLoader] = None,
     locale: Optional[str] = None,
 ) -> int:
-    """
-    Improved min_area estimation with better star detection.
+    """Estimate a contour-area threshold from bright stars in the ROI.
 
     Args:
-        files: List of RAW file paths
-        roi_mask: ROI mask to focus on sky area
-        diff_threshold: Threshold for star detection
-        sample_size: Number of images to analyze
+        files: Ordered image paths.
+        roi_mask: Pixels with value 255 are used to estimate sky brightness.
+        diff_threshold: Legacy argument retained for callers. Each image uses
+            its own 98th-percentile brightness as the star threshold.
+        sample_size: Maximum number of initial files to load.
+        input_loader: Loader for sample images. Defaults to the built-in RAW loader.
+        locale: Locale for the printed sample statistics.
 
     Returns:
-        Estimated min_area value
+        Twice the 75th-percentile star contour area, clamped to [8, 50].
+        Uses the default when fewer than ten suitable contours are found.
     """
     locale = _resolve_locale(locale)
     print(f"\n{'=' * 50}")
@@ -1378,9 +1371,10 @@ def estimate_min_area_from_samples(
         flush=True,
     )
     all_star_areas = []
+    roi_pixels_mask = roi_mask == 255
 
     for img in samples:
-        roi_pixels = img[roi_mask == 255]
+        roi_pixels = img[roi_pixels_mask]
 
         if len(roi_pixels) < 100:
             continue
@@ -1416,8 +1410,7 @@ def estimate_min_area_from_samples(
     star_areas = np.array(all_star_areas)
     median_star = np.median(star_areas)
     mean_star = np.mean(star_areas)
-    p75_star = np.percentile(star_areas, 75)
-    p90_star = np.percentile(star_areas, 90)
+    p75_star, p90_star = np.percentile(star_areas, [75, 90])
 
     # Use 75th percentile × 2.0 for more robust estimation
     estimated_min_area = int(p75_star * 2.0)
@@ -1426,7 +1419,7 @@ def estimate_min_area_from_samples(
     estimated_min_area = max(estimated_min_area, DEFAULT_MIN_AREA)
 
     # Clamp to reasonable range
-    estimated_min_area = np.clip(estimated_min_area, 8, 50)
+    estimated_min_area = max(8, min(estimated_min_area, 50))
 
     print(f"\n{'─' * 50}")
     print(
@@ -1986,17 +1979,19 @@ class MeteorDetectionPipeline:
         profile: bool = False,
         debug_image_enabled: bool = True,
     ) -> int:
-        """
-        Run the full detection pipeline.
+        """Run detection, record progress, and return the candidate count.
 
         Args:
-            enable_roi_selection: Interactive ROI selection; None uses configuration.
-            roi_polygon_cli: Explicit polygon, None uses configuration, [] selects full image.
-            resume: Whether to resume from previous progress
-            profile: Whether to collect performance metrics
+            enable_roi_selection: Whether to open the ROI picker. None uses
+                the pipeline configuration.
+            roi_polygon_cli: Polygon in loaded image coordinates. None uses the
+                configured polygon. An empty list forces the full image.
+            resume: Load compatible progress and skip previously processed pairs.
+            profile: Print elapsed times for loading and processing.
+            debug_image_enabled: Whether to pass candidate overlays to the writer.
 
         Returns:
-            Number of detected candidates
+            Number of detected candidates, including resumed candidates.
         """
         if enable_roi_selection is None:
             enable_roi_selection = self._config.enable_roi_selection
@@ -2091,7 +2086,7 @@ class MeteorDetectionPipeline:
         height, width = prev_img.shape
 
         # ROI setup
-        roi_mask = create_full_roi_mask((height, width))
+        roi_mask = None
         roi_polygon = None
 
         if roi_polygon_cli:
@@ -2120,6 +2115,9 @@ class MeteorDetectionPipeline:
                 print(get_message("ui.pipeline.roi.none_selected", locale=locale))
         else:
             print(get_message("ui.pipeline.roi.skipped", locale=locale))
+
+        if roi_mask is None:
+            roi_mask = create_full_roi_mask((height, width))
 
         # Get params dict (unscaled for progress tracking)
         params = self._config.params.to_dict()
@@ -2161,12 +2159,10 @@ class MeteorDetectionPipeline:
         self.progress_manager.filter_existing_files(existing_basenames)
         self.progress_manager.save()
 
-        # Build image pairs
-        image_pairs = [(i, files[i], files[i - 1]) for i in range(1, len(files))]
         image_pairs = [
-            pair
-            for pair in image_pairs
-            if not self.progress_manager.is_processed(os.path.basename(pair[1]))
+            (frame_index, current, previous)
+            for frame_index, (previous, current) in enumerate(pairwise(files), start=1)
+            if not self.progress_manager.is_processed(os.path.basename(current))
         ]
 
         resume_offset = self.progress_manager.get_total_processed()
@@ -2341,7 +2337,7 @@ class MeteorDetectionPipeline:
         debug_image_enabled: bool,
         locale: Optional[str] = None,
     ) -> int:
-        """Process images in parallel using ProcessPoolExecutor."""
+        """Collect completed worker batches and handle output in this process."""
         locale = _resolve_locale(locale)
         start_time = time.time()
         hooks = _resolve_hooks(
@@ -2365,7 +2361,7 @@ class MeteorDetectionPipeline:
             max_workers=self._config.num_workers,
             initializer=_init_worker_ignore_interrupt,
         )
-        futures: List = []
+        pending_futures = set()
         wait_for_tasks = True
 
         try:
@@ -2391,7 +2387,7 @@ class MeteorDetectionPipeline:
                     self._config.hooks,
                     self._config.hook_error_mode,
                 )
-                futures.append(future)
+                pending_futures.add(future)
 
             # Clear the submitting line
             print()
@@ -2413,7 +2409,9 @@ class MeteorDetectionPipeline:
                 flush=True,
             )
 
-            for future in as_completed(futures):
+            for future in as_completed(pending_futures):
+                # Futures retain their batch results, including debug images.
+                pending_futures.remove(future)
                 completed_batches += 1
                 try:
                     batch_results = future.result()
@@ -2605,7 +2603,7 @@ class MeteorDetectionPipeline:
                 )
             )
             wait_for_tasks = False
-            for future in futures:
+            for future in pending_futures:
                 future.cancel()
             raise
         finally:

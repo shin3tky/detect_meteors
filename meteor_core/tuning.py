@@ -245,11 +245,21 @@ def tune_reproduction(
     measurement_grid: Mapping[str, Sequence[int]] | None = None,
     target_region: Sequence[int] | None = None,
 ) -> TuningRun:
-    """Propose minimal gate relaxations per contour within a bounded grid.
+    """Propose minimal threshold relaxations within a bounded search grid.
 
     The baseline measurements count toward both budgets. New difference/Hough
-    settings always remeasure the original image snapshot. Gate-only changes
-    reuse evidence. Region matching establishes contour overlap, not meteor ID.
+    settings remeasure the original image snapshot. Changes to candidate
+    thresholds reuse the measured contours and line score.
+
+    Args:
+        replay: Baseline measurement and the image snapshot used to reproduce it.
+        options: Limits on the search and the proposals returned.
+        measurement_grid: Trial values for the difference and Hough parameters.
+        target_region: Optional (left, top, right, bottom) bounds in binned-image
+            pixels. Right and bottom are exclusive. Matching uses contour overlap.
+
+    Returns:
+        Search status, work counts, and proposals ordered by change cost.
     """
     options = options if options is not None else TuningOptions()
     region = _region(target_region, replay.image_shape)

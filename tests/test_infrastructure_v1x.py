@@ -170,6 +170,19 @@ class TestProgressPersistence(unittest.TestCase):
         result = load_progress(os.path.join(self.test_dir, "missing.json"))
         self.assertIsNone(result)
 
+    def test_record_result_updates_a_loaded_candidate_without_duplicate_names(self):
+        manager = ProgressManager(self.progress_path)
+        manager.record_result("a.ORF", True, score=10.0)
+
+        resumed = ProgressManager(self.progress_path)
+        self.assertTrue(resumed.load())
+        self.assertEqual(resumed.record_result("a.ORF", True, score=20.0), 1)
+
+        progress = load_progress(self.progress_path)
+        self.assertEqual(progress["processed_files"], ["a.ORF"])
+        self.assertEqual(progress["detected_files"], ["a.ORF"])
+        self.assertEqual(progress["detected_details"][0]["score"], 20.0)
+
     def test_save_creates_directories(self):
         """Test that save_progress creates nested directories if needed."""
         nested_path = os.path.join(self.test_dir, "subdir", "progress.json")
@@ -314,32 +327,43 @@ class TestAutoEstimationLogic(unittest.TestCase):
         # With std=10, diffs will be around 10-15.
         # The function clamps between 3 and 18.
         self.assertGreaterEqual(threshold, 3)
-        self.assertLessEqual(threshold, 25)
+        self.assertLessEqual(threshold, 18)
+        self.assertIs(type(threshold), int)
+
+    def test_diff_threshold_uses_every_pair_and_only_full_roi_pixels(self):
+        roi = np.array([[255, 1], [255, 0]], dtype=np.uint8)
+        images = [
+            np.array([[0, 0], [0, 0]], dtype=np.uint16),
+            np.array([[6, 100], [6, 100]], dtype=np.uint16),
+            np.array([[14, 200], [14, 200]], dtype=np.uint16),
+        ]
+        threshold = estimate_diff_threshold_from_samples(
+            ["f1", "f2", "f3"], roi, input_loader=_IteratorLoader(images)
+        )
+        self.assertEqual(threshold, 8)
 
     def test_estimate_min_area(self):
         """Test min_area estimation based on star sizes."""
-        # Scenario: Create images with "stars" of specific sizes
         images = []
         for _ in range(3):
             img = np.zeros(self.shape, dtype=np.uint16)
-            # Add stars of size ~20 pixels
-            cv2.circle(img, (20, 20), 3, 255, -1)  # Area ~28
-            cv2.circle(img, (50, 50), 3, 255, -1)  # Area ~28
-            cv2.circle(img, (80, 80), 2, 255, -1)  # Area ~12
+            cv2.circle(img, (20, 20), 3, 255, -1)
+            cv2.circle(img, (50, 50), 3, 255, -1)
+            cv2.circle(img, (80, 80), 2, 255, -1)
+            cv2.circle(img, (20, 80), 2, 255, -1)
             images.append(img)
 
         loader = _IteratorLoader(images)
 
-        # Use a low threshold so stars are detected
         files = ["f1", "f2", "f3"]
         min_area = estimate_min_area_from_samples(
             files, self.roi_mask, diff_threshold=5, sample_size=3, input_loader=loader
         )
 
-        # Logic uses 75th percentile * 2.0.
-        # Stars are around 28px and 12px.
+        # The 75th-percentile contour area is 20 square pixels.
         # Should detect meaningful area size, not default
-        self.assertGreater(min_area, 5)
+        self.assertEqual(min_area, 40)
+        self.assertIs(type(min_area), int)
 
     def test_estimate_defaults_on_error(self):
         """Test that estimation falls back to defaults on loading error."""

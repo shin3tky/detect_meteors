@@ -344,8 +344,10 @@ class TestPipelineHookLifecycle(PipelineTestCase):
                     )
                 )
                 if executor is not None:
-                    for future in executor.futures:
-                        future.cancel.assert_called_once()
+                    first, interrupted, remaining = executor.futures
+                    first.cancel.assert_not_called()
+                    interrupted.cancel.assert_not_called()
+                    remaining.cancel.assert_called_once()
                     executor.shutdown.assert_called_once_with(
                         wait=False, cancel_futures=True
                     )

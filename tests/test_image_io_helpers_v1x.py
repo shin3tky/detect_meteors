@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 import types
 import unittest
+from unittest.mock import patch
 
 
 missing_deps = [
@@ -26,10 +29,25 @@ if importlib.util.find_spec("yaml") is None:
     )
 
 image_io = importlib.import_module("meteor_core.image_io")
+np = importlib.import_module("numpy")
 
 
 class TestImageIoHelpers(unittest.TestCase):
     """Coverage for EXIF helper utilities in image_io."""
+
+    def test_raw_binning_averages_without_overflow_and_rounds_down(self) -> None:
+        bayer = np.array([[65535, 65535, 1, 2], [65535, 65535, 3, 5]], np.uint16)
+        with (
+            TemporaryDirectory() as directory,
+            patch.object(image_io.rawpy, "imread") as imread,
+        ):
+            path = Path(directory) / "image.ORF"
+            path.touch()
+            imread.return_value.__enter__.return_value.raw_image = bayer
+            result = image_io.load_and_bin_raw_fast(str(path))
+
+        self.assertEqual(result.dtype, np.uint16)
+        np.testing.assert_array_equal(result, [[65535, 2]])
 
     def test_exif_ratio_to_float_handles_tuples_and_scalars(self) -> None:
         self.assertEqual(image_io._exif_ratio_to_float((10, 2)), 5.0)
