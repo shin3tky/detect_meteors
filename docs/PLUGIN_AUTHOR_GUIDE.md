@@ -2,28 +2,13 @@
 
 [日本語版](PLUGIN_AUTHOR_GUIDE_ja.md)
 
-> ⚠️ **Experimental**: The plugin architecture is under active development and **may undergo breaking changes before the v2.0 stable release**.
->
-> **Current status (v1.6.11)**:
->
-> - ✅ Registry system and base classes are stable
-> - ✅ Input Loaders, Detectors, Output Handlers work as documented
-> - ✅ `on_detection_result` and `on_candidate_detected` output handler hooks are invoked (v1.6.4)
-> - ✅ **Pipeline configuration files** (YAML/JSON) supported via `--config` (v1.6.5)
-> - ✅ **CLI plugin selection** with `--input-loader`, `--detector`, `--output-handler` (v1.6.5)
-> - ✅ **Pipeline hook system** with `on_file_found`, `on_image_loaded`, `on_detection_complete`, `on_output_saved` (v1.6.6)
-> - ✅ **HookRegistry** for centralized hook discovery and management (v1.6.6)
-> - ✅ **Static type checking with ty** integrated in development toolchain (v1.6.8)
-> - ✅ **MAX_NUM_WORKERS** constant for worker limit validation (v1.6.8)
-> - ✅ **Sorted detection hooks** with `on_batch_results_sorted`, `on_all_detections_sorted` for stateful analysis (v1.6.10)
-> - ✅ **SortedDetection** lightweight dataclass for memory-efficient sorted hook processing (v1.6.10)
-> - ⚠️ Detector/runtime parameter contracts may still evolve
-> - ✅ `on_batch_complete` and `on_pipeline_complete` output handler hooks are invoked by `MeteorDetectionPipeline`
+This guide covers input loaders, detectors, output handlers, and pipeline hooks on
+the 1.6.12 development branch. The current package version is `1.6.11` and the
+data contract schema versions are `1`. The plugin API is under active development.
 
-This guide provides comprehensive instructions for developing custom plugins for Detect Meteors CLI.
-
+Set up the environment using the [developer installation guide](INSTALL_DEV.md).
 Unless stated otherwise, run CLI and Python examples from the repository root
-or the root of an extracted source distribution, not from `docs/`.
+or the root of an extracted source distribution.
 
 ---
 
@@ -60,7 +45,7 @@ filepath ──▶ Input Loader ──▶ InputContext
                                     │
                                     ▼
                             ┌────────────────┐
-                            │DetectionContext│  (current + previous InputContext + ROI + params)
+                            │DetectionContext│  (frame pixels + metadata + ROI + runtime params)
                             └────────────────┘
                                     │
                                     ▼
@@ -121,128 +106,39 @@ Understanding the detection pipeline lifecycle is essential for effective plugin
 
 ### 1.1 Pipeline + Hook Overview
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                 Detection Pipeline (with Hook insertion points)              │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐            │
-│  │ 1. Initialize│───▶│ 2. Collect   │───▶│ 3. ROI Selection     │            │
-│  │    Pipeline  │    │    Files     │    │    (if enabled)      │            │
-│  └──────────────┘    └──────────────┘    └──────────────────────┘            │
-│         │                  │                      │                          │
-│         │                  │                      ▼                          │
-│         │                  │          ┌──────────────────────┐               │
-│         │                  │          │ 4. Process Batches   │               │
-│         │                  │          │    (parallel/seq)    │               │
-│         │                  │          └──────────────────────┘               │
-│         │                  │                      │                          │
-│         │                  │                      ▼                          │
-│  ┌──────────────────────┐  │   ┌─────────────────────────────┐               │
-│  │ Hook: on_file_found  │◀─┘   │ Hook: on_image_loaded       │               │
-│  └──────────────────────┘      └─────────────────────────────┘               │
-│                                        │                                     │
-│                                        ▼                                     │
-│                               ┌────────────────┐                             │
-│                               │ Detector       │                             │
-│                               └────────────────┘                             │
-│                                        │                                     │
-│                                        ▼                                     │
-│                               ┌─────────────────────────────┐                │
-│                               │ Hook: on_detection_complete │                │
-│                               └─────────────────────────────┘                │
-│                                        │                                     │
-│                                        ▼                                     │
-│                               ┌────────────────┐                             │
-│                               │ Output Handler │                             │
-│                               └────────────────┘                             │
-│                                        │                                     │
-│                                        ▼                                     │
-│                               ┌─────────────────────────────┐                │
-│                               │ Hook: on_output_saved       │                │
-│                               └─────────────────────────────┘                │
-│                                        │                                     │
-│                                        ▼                                     │
-│                      ┌─────────────────────────────────────┐                 │
-│                      │ Hook: on_batch_results_sorted       │  (per batch)    │
-│                      └─────────────────────────────────────┘                 │
-│                                        │                                     │
-│                                        ▼                                     │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐            │
-│  │ 6. Finalize  │◀───│ 5. Save      │◀───│ Results              │            │
-│  │    & Report  │    │    Results   │    └──────────────────────┘            │
-│  └──────────────┘    └──────────────┘                                        │
-│         │                                                                    │
-│         ▼                                                                    │
-│  ┌─────────────────────────────────────┐                                     │
-│  │ Hook: on_all_detections_sorted      │  (after pipeline complete)          │
-│  └─────────────────────────────────────┘                                     │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+```text
+Main process   Collect and filter files → Load first frame and set ROI → Restore progress
+Per batch      Load each pair → Image hooks → Detect → Detection result hooks
+Main process   Notify handler → Save candidates → Record progress → Sorted batch hooks
+Main process   Notify handler of completion → Sorted run hooks → Update progress
 ```
 
-This diagram highlights *where* hooks are inserted relative to the pipeline.
-The next section explains the pipeline flow in detail, followed by a focused
-breakdown of each hook.
+Sequential runs process one pair per batch. In parallel runs, workers load
+pairs and run detection and its hooks. The main process handles completed
+batches and writes output.
 
 ### 1.2 Pipeline Steps
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Detection Pipeline                             │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
-│  │ 1. Initialize│───▶│ 2. Collect   │───▶│ 3. ROI Selection     │   │
-│  │    Pipeline  │    │    Files     │    │    (if enabled)      │   │
-│  └──────────────┘    └──────────────┘    └──────────────────────┘   │
-│                                                      │              │
-│                                                      ▼              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
-│  │ 6. Finalize  │◀───│ 5. Save      │◀───│ 4. Process Batches   │   │
-│  │    & Report  │    │    Results   │    │    (parallel/seq)    │   │
-│  └──────────────┘    └──────────────┘    └──────────────────────┘   │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
+1. Collect files that match the supported RAW extensions in the target directory
+   and sort them by path. `on_file_found()` receives normalized absolute paths.
+2. Load the first accepted file and resolve the ROI from a supplied polygon,
+   interactive selection, or the full image. This initial load bypasses
+   `on_image_loaded()`.
+3. When resuming, compare the configured parameters and ROI with the progress
+   hash. Build adjacent pairs from the accepted files and skip pairs whose
+   current frame is already processed.
 
 ### 1.3 Processing Flow Detail
 
-```
-For each image pair (current, previous):
-
-    ┌─────────────────────────────────────────────────────────────┐
-    │                    Input Loader                             │
-    │  • Load current image  ───▶  InputContext                   │
-    │  • Load previous image ───▶  InputContext                   │
-    │  • Extract metadata (optional)                              │
-    └─────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-    ┌─────────────────────────────────────────────────────────────┐
-    │                      Detector                               │
-    │  • Compute frame difference                                 │
-    │  • Apply ROI mask                                           │
-    │  • Detect meteor candidates                                 │
-    │  • Generate debug visualization                             │
-    │                                                             │
-    │  Returns: DetectionResult                                   │
-    └─────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-    ┌─────────────────────────────────────────────────────────────┐
-    │                   Output Handler                            │
-    │  • save_candidate() ── Save detected meteor image           │
-    │  • save_debug_image() ── Save debug visualization           │
-    │                                                             │
-    │  Returns: OutputResult                                      │
-    │  Lifecycle Hooks (Output Handlers):                         │
-    │  • on_detection_result(context, result, filepath)           │
-    │  • on_candidate_detected()                                  │
-    │  • on_batch_complete()                                      │
-    │  • on_pipeline_complete()                                   │
-    └─────────────────────────────────────────────────────────────┘
-```
+1. Call `load()` for the current and previous frame, in that order. Run
+   `on_image_loaded()` on each returned `InputContext`.
+2. Build a `DetectionContext` from pixels, ROI, runtime parameters, and frame
+   metadata. Call `detect()`, normalize its `DetectionResult`, and pass the
+   result through `on_detection_complete()`.
+3. In the main process, notify the output handler for each successful result
+   and pass candidates to `save_candidate()`. The handler owns candidate and
+   debug output. See [Execution and Instance Lifetime](#hook-execution-and-state)
+   for the callback order.
 
 ### 1.4 Hook Overview
 
@@ -251,8 +147,8 @@ The pipeline provides two categories of hooks:
 **Output Handler Hooks** (defined on `BaseOutputHandler`):
 
 Output Handlers define lifecycle hooks for per-frame and batch-level events.
-The `on_detection_result` hook receives a serialized context payload (from
-`DetectionContext.to_dict()`), not raw image arrays.
+The `on_detection_result` hook receives the context dictionary returned by
+`DetectionContext.to_dict()`.
 
 | Event | Current Status | Intended Use Case |
 |-------|----------------|-------------------|
@@ -332,7 +228,7 @@ worker processes) via the standard plugin discovery mechanisms.
 
 <a id="hook-execution-and-state"></a>
 
-#### Execution and Instance Lifetime (v1.6.11)
+#### Execution and Instance Lifetime
 
 | Callback | Process | Hook instance lifetime |
 | --- | --- | --- |
@@ -358,13 +254,6 @@ Ctrl-C skips final analysis. `warn` logs an exception and continues to the next
 hook; it does not roll back in-place mutations or external side effects made
 before failure. Hook construction/configuration failures raise `MeteorConfigError`
 even in `warn` mode.
-
-**Future enhancement ideas**:
-- Consider extending `HookRegistry` with a way to **distribute a temporary plugin
-  directory to workers** (e.g., passing a path that workers add to discovery).
-- Consider adding an **environment-variable-based plugin search path** (see
-  `meteor_core/hooks/discovery.py` and the `PLUGIN_DIR` default) to support
-  runtime-configurable discovery roots.
 
 ---
 
@@ -463,7 +352,9 @@ telemetry, or notifications based on what was saved.
 
 **Notes**:
 - The hook receives a snapshot of `OutputResult`; mutations do **not** affect
-  downstream control flow (`saved`/paths are not altered).
+  downstream control flow. Its `handler_info` and `metrics` dictionaries are
+  shallow copies. Treat nested values as read-only. A skipped save also
+  calls this hook, with `saved=False`.
 - If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
   to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
   The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
@@ -652,6 +543,12 @@ The plugin system provides three extension points:
 - Apply pre-processing during load (debayer, normalize)
 - Extract custom metadata
 
+The standard CLI and `MeteorDetectionPipeline.run()` use the fixed RAW
+patterns in [`meteor_core.schema.EXTENSIONS`](../meteor_core/schema.py) and
+search the target directory itself. Selecting a loader changes how the
+selected files are read. To use TIFF, FITS, or other extensions, pass explicit
+paths to your loader or to `process_image_batch()` in a custom workflow.
+
 **Required methods**:
 | Method | Signature | Description |
 |--------|-----------|-------------|
@@ -688,7 +585,8 @@ class InputContext:
 
 **Normalization point**: The pipeline calls `meteor_core.schema.normalize_input_context` immediately after `load` returns. If `schema_version` is older, the pipeline uses any converter registered via `meteor_core.schema.register_input_context_converter`; otherwise it rejects the input with a configuration error.
 
-**Serialization**: Use `context.to_dict()` to get a JSON-serializable representation (excludes `image_data` to avoid large binary data in logs).
+**Serialization**: `context.to_dict()` omits `image_data` and includes the
+loader's metadata and identity dictionaries.
 
 **Optional features**:
 - Implement `BaseMetadataExtractor` for EXIF-like metadata extraction
@@ -706,10 +604,14 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 ```
 
 **When is `extract_metadata` called?**
-- The pipeline calls it for each image pair; if your loader does **not** implement
-  `BaseMetadataExtractor`, the pipeline falls back to `meteor_core.image_io.extract_exif_metadata`.
-- Detectors receive metadata as `context.metadata = {"current": ..., "previous": ...}`.
-- You can also call it manually for custom processing.
+- During detection, the pipeline uses metadata from each returned
+  `InputContext`. Call `self.extract_metadata(filepath)` from your loader's
+  `load()` if you want that metadata included in every pair.
+- Detectors receive the `current` and `previous` metadata dictionaries plus
+  `frame_index` and `prev_frame_index`.
+- The separate `MeteorDetectionPipeline.extract_metadata(filepath)` API calls
+  the configured loader's extractor when it implements `BaseMetadataExtractor`.
+  Otherwise that API uses the built-in EXIF extractor.
 - If extraction fails, return `{}` to keep the pipeline moving.
 
 ### 2.2 Detectors
@@ -725,7 +627,7 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `detect` | `(context: DetectionContext) -> DetectionResult` | Main detection (see below) |
-| `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | Line scoring (called internally by `detect`) |
+| `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | Required abstract method. Implement scoring or return `(0.0, [])` when the algorithm has no separate line score. |
 
 **DetectionContext type** (input to `detect`):
 ```python
@@ -813,12 +715,12 @@ Recommended keys:
 - `mask_area`: Non-zero pixel count in the mask used for line/contour analysis.
 - `hough_votes`: Hough line evidence count (e.g., number of detected lines).
 
-**Serialization**: Use `result.to_dict()` to get a JSON-serializable representation (excludes `debug_image` to avoid large binary data in logs).
+**Serialization**: `result.to_dict()` omits `debug_image` and includes the
+original `lines`, `metrics`, and `extras` values.
 
 **Runtime parameters** (`context.runtime_params`):
 
-Runtime parameters are carried as a `RuntimeParams` dataclass
-(`meteor_core.schema.RuntimeParams`):
+`meteor_core.schema.RuntimeParams` defines the namespaced structure:
 
 ```python
 @dataclass
@@ -855,12 +757,17 @@ The serialized shape (via `to_dict()`) is:
 **Compatibility rules**:
 - `context.runtime_params` may be either a `RuntimeParams` instance or a plain
   dict with the same keys.
-- Legacy detectors may still receive a flat dict; prefer reading from the
-  namespaced structure when available.
+- The pipeline sends a dictionary with `global` and `detector`. It puts the
+  effective pipeline parameters in both `global` and the active detector's
+  namespace and omits the inner `schema_version` key. A custom caller can use
+  the detector namespace for overrides or provide a legacy flat dictionary.
+- When the loader declares normalization or the first loaded frame is detected
+  as normalized, the pipeline scales a `diff_threshold` greater than `1` by
+  dividing by `65535`. Progress keeps the configured value.
 
 `BaseDetector` provides helpers to make this easy:
 - `split_runtime_params(runtime_params)` → `(global_params, detector_params)`
-- `build_runtime_params(flat_params)` → `RuntimeParams`
+- `build_runtime_params(flat_params)` → namespaced dictionary
 - `detect_legacy(current_image, previous_image, roi_mask, params)` → adapter for
   the old signature
 
@@ -875,6 +782,26 @@ The serialized shape (via `to_dict()`) is:
 | `hough_max_line_gap` | `int` | `5` | Maximum gap between line segments |
 
 **Note**: `compute_line_score` is a helper method typically called within your `detect` implementation. The pipeline calls only `detect`.
+
+#### Built-in Hough measurements and replay
+
+[`HoughDetector.analyze(context)`](../meteor_core/detectors/hough_default.py)
+returns a `HoughAnalysis` containing the processed mask, Hough lines, total
+line length, and contour measurements. Use `analysis.evaluate()` for the
+configured decision or pass a `CandidateThresholds` to reevaluate minimum
+area, aspect ratio, and line score against the same measurements.
+Changing the frame difference threshold, ROI, or Hough settings requires new
+measurements. Area and aspect ratio use strict `>` on the same contour, and
+the frame-wide line score uses `>=`.
+
+This is a built-in Hough API. The plugin contract uses `detect(context)`.
+The `--analyze-image` and `--tune-params` routes also require the built-in
+Hough detector and use the selected input loader. Run replay with hooks
+disabled. If a pipeline config enables them, pass `--hooks ""`.
+
+Replay passes the configured integer `diff_threshold` directly to Hough.
+A normal run that scaled this threshold for normalized input can therefore
+produce a different mask in replay. See [analysis and tuning options](COMMAND_OPTIONS.md).
 
 ### 2.3 Output Handlers
 
@@ -891,6 +818,9 @@ The serialized shape (via `to_dict()`) is:
 |--------|-----------|-------------|
 | `save_candidate` | `(source_path, filename, ...) -> OutputResult` | Save meteor candidate |
 | `save_debug_image` | `(debug_image, filename, ...) -> str` | Save debug image |
+
+The pipeline calls `save_candidate()` and supplies the optional debug image
+and ROI polygon. The handler decides when to call `save_debug_image()`.
 
 **OutputResult type** (return value of `save_candidate`):
 ```python
@@ -922,7 +852,8 @@ class OutputResult:
 
 **Normalization point**: The pipeline calls `meteor_core.schema.normalize_output_result` immediately after `save_candidate` returns. If `schema_version` is older, it uses converters registered via `meteor_core.schema.register_output_result_converter`; without a converter, the pipeline rejects the result.
 
-**Serialization**: Use `result.to_dict()` to get a JSON-serializable representation for logging and debugging.
+**Serialization**: `result.to_dict()` returns the output paths and diagnostics
+as a dictionary.
 
 **Lifecycle hooks (optional)**:
 | Hook | Signature |
@@ -933,9 +864,13 @@ class OutputResult:
 | `on_pipeline_complete` | `(total_processed, total_detected, elapsed_seconds) -> None` |
 
 **Invocation order (per frame)**:
-1. `on_detection_result()` — called immediately after the detector returns and the pipeline normalizes `DetectionResult`. The `context` parameter is the result of `DetectionContext.to_dict()` and excludes image/ROI arrays.
+1. `on_detection_result()` receives each successful pair after
+   `on_detection_complete()`. The context dictionary omits image and ROI
+   arrays. The pipeline clears the result's debug image for non-candidates
+   and when debug output is disabled.
 2. `save_candidate()` — only if `result.is_candidate` is `True`.
-3. `on_candidate_detected()` — called after `save_candidate()` returns (with `saved` reflecting the output decision).
+3. `on_output_saved()` receives the normalized output result, then
+   `on_candidate_detected()` receives the candidate and the `saved` flag.
 
 ---
 
@@ -949,6 +884,7 @@ Each plugin type has its own registry:
 from meteor_core.inputs import LoaderRegistry
 from meteor_core.detectors import DetectorRegistry
 from meteor_core.outputs import OutputHandlerRegistry
+from meteor_core.hooks import HookRegistry
 ```
 
 **Registry Operations**:
@@ -979,37 +915,31 @@ LoaderRegistry.discover()
 
 ### 3.2 Base Class Hierarchy
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Input Loaders                              │
-├─────────────────────────────────────────────────────────────────┤
-│  BaseInputLoader (ABC)                                          │
-│  ├── DataclassInputLoader[ConfigType] ── Dataclass config       │
-│  │   └── RawImageLoader ── Built-in RAW loader                  │
-│  └── PydanticInputLoader[ConfigType] ── Pydantic config         │
-│                                                                 │
-│  BaseMetadataExtractor (ABC) ── Optional mixin for metadata     │
-└─────────────────────────────────────────────────────────────────┘
+```text
+BaseInputLoader
+├── DataclassInputLoader[ConfigType]
+│   └── RawImageLoader
+└── PydanticInputLoader[ConfigType]
 
-┌─────────────────────────────────────────────────────────────────┐
-│                        Detectors                                │
-├─────────────────────────────────────────────────────────────────┤
-│  BaseDetector (ABC)                                             │
-│  ├── DataclassDetector[ConfigType] ── Dataclass config          │
-│  │   ├── HoughDetector ── Built-in Hough detector               │
-│  │   └── SimpleThresholdDetector ── Built-in threshold detector │
-│  └── PydanticDetector[ConfigType] ── Pydantic config            │
-└─────────────────────────────────────────────────────────────────┘
+BaseDetector
+├── HoughDetector
+├── DataclassDetector[ConfigType]
+│   └── SimpleThresholdDetector
+└── PydanticDetector[ConfigType]
 
-┌─────────────────────────────────────────────────────────────────┐
-│                     Output Handlers                             │
-├─────────────────────────────────────────────────────────────────┤
-│  BaseOutputHandler (ABC) ── Includes lifecycle hooks            │
-│  ├── DataclassOutputHandler[ConfigType] ── Dataclass config     │
-│  │   └── FileOutputHandler ── Built-in file handler             │
-│  └── PydanticOutputHandler[ConfigType] ── Pydantic config       │
-└─────────────────────────────────────────────────────────────────┘
+BaseOutputHandler
+├── DataclassOutputHandler[ConfigType]
+│   └── FileOutputHandler
+└── PydanticOutputHandler[ConfigType]
+
+BaseHook
+├── DataclassHook[ConfigType]
+│   ├── AllowAllFilesFoundHook
+│   └── AircraftTrailHook
+└── PydanticHook[ConfigType]
 ```
+
+A loader can also inherit `BaseMetadataExtractor` for separate metadata extraction.
 
 ### 3.3 Configuration Management (ConfigType)
 
@@ -1037,8 +967,6 @@ not, `create_default()` raises a `TypeError` to avoid silently creating a
 misconfigured plugin.
 
 ### 3.4 Pipeline Configuration and CLI Plugin Selection
-
-As of v1.6.5, users can configure the entire pipeline—including plugin selection—via configuration files or CLI arguments. This is a major step toward the v2.0 plugin architecture.
 
 #### Configuration Files (YAML/JSON)
 
@@ -1084,6 +1012,8 @@ output_handler_config:
 | `detector_config` | Dict passed to plugin's `ConfigType` |
 | `output_handler_name` | Plugin name (e.g., `"file"`, `"slack"`) |
 | `output_handler_config` | Dict passed to plugin's `ConfigType` |
+| `hooks` | Ordered list of hook names or `{name, config}` entries, or a mapping of names to configs |
+| `hook_error_mode` | `"raise"` (default) or `"warn"` for callback exceptions |
 
 The `*_config` dicts are coerced into each plugin's `ConfigType` using the standard coercion rules (see [3.3 Configuration Management](#33-configuration-management-configtype)).
 
@@ -1132,6 +1062,11 @@ uv run detect-meteors \
 # Or as file paths containing the RAW loader configuration
 uv run detect-meteors \
     --input-loader-config raw_loader_settings.yaml
+
+# Select hooks and supply per-hook settings
+uv run detect-meteors \
+    --hooks allow_all_files,aircraft_trail \
+    --hook-config '{"aircraft_trail": {"min_track_frames": 3}}'
 ```
 
 **CLI plugin options**:
@@ -1144,6 +1079,8 @@ uv run detect-meteors \
 | `--detector-config VALUE` | JSON/YAML string or file path |
 | `--output-handler NAME` | Select output handler plugin |
 | `--output-handler-config VALUE` | JSON/YAML string or file path |
+| `--hooks NAMES` | Comma-separated names in execution order. Use `--hooks ""` to clear configured hooks. |
+| `--hook-config VALUE` | Hook list or name-to-config mapping as JSON/YAML or a file path |
 
 #### Configuration Precedence
 
@@ -1153,7 +1090,10 @@ When multiple sources provide configuration, this precedence applies (highest to
 2. **Configuration file** (`--config pipeline.yaml`)
 3. **Built-in defaults**
 
-This allows users to load a base configuration file and override specific settings via CLI.
+A CLI plugin-config argument replaces the corresponding configuration mapping.
+When supplied, `--hooks` selects the ordered list and `--hook-config` supplies
+the matching configurations. With just `--hook-config`, its entries define
+the hook list. These options replace the hook settings from the pipeline file.
 
 #### Plugin Author Considerations
 
@@ -1185,12 +1125,15 @@ class MyDetectorConfig:
 
 ### 3.5 Plugin Discovery
 
-Plugins are discovered in this order (duplicates warn but don't overwrite):
+Each registry discovers plugins in this order:
 
-1. **Built-in plugins** (RawImageLoader, HoughDetector, SimpleThresholdDetector, FileOutputHandler)
+1. **Built-in plugins**
 2. **Entry points** (sorted alphabetically by name)
 3. **Plugin directories** (sorted alphabetically by filename)
-4. **Runtime registrations** via `Registry.register()` (overrides discovered entries)
+
+Input loaders, detectors, and output handlers keep the first discovered class
+for a name. Hook discovery uses the last class for a duplicate name. Runtime
+registrations take precedence in registry lookups within the current process.
 
 **Plugin Directories**:
 | Plugin Type | Directory |
@@ -1198,6 +1141,7 @@ Plugins are discovered in this order (duplicates warn but don't overwrite):
 | Input Loaders | `~/.detect_meteors/input_plugins/` |
 | Detectors | `~/.detect_meteors/detector_plugins/` |
 | Output Handlers | `~/.detect_meteors/output_plugins/` |
+| Pipeline Hooks | `~/.detect_meteors/hook_plugins/` |
 
 **How plugin directory discovery works**:
 1. Place your `.py` file in the appropriate directory (create it if needed).
@@ -1225,6 +1169,16 @@ my_detector = "my_package.detectors:MyDetector"
 
 [project.entry-points."detect_meteors.output"]
 my_handler = "my_package.handlers:MyHandler"
+
+[project.entry-points."detect_meteors.hook"]
+my_hook = "my_package.hooks:MyHook"
+```
+
+Install the plugin into the environment that runs Detect Meteors. For a local
+package in a sibling directory, verify discovery from the Detect Meteors root:
+
+```bash
+uv run --with-editable ../my-plugin python -c "from meteor_core.inputs import LoaderRegistry; print(LoaderRegistry.list_available())"
 ```
 
 ---
@@ -1291,7 +1245,8 @@ class MyLoader(DataclassInputLoader[MyConfig]):
         )
 ```
 
-**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `image_data` to avoid large binary data in logs).
+**Serialization**: `context.to_dict()` omits `image_data` and shares the
+metadata and loader identity dictionaries.
 
 ### 4.2 DetectionContext
 
@@ -1322,7 +1277,7 @@ class DetectionContext:
 | `previous_image` | `ImageLike` | — | Previous frame for frame differencing. |
 | `roi_mask` | `Any` | — | ROI mask (typically `np.ndarray` with dtype `uint8`). |
 | `runtime_params` | `RuntimeParams \| Dict` | — | Runtime parameters (see below). |
-| `metadata` | `Dict[str, Any]` | — | Metadata dict with keys `"current"` and `"previous"` containing per-frame metadata. |
+| `metadata` | `Dict[str, Any]` | — | The pipeline provides `current`, `previous`, `frame_index`, and `prev_frame_index`. |
 | `schema_version` | `int` | `1` | Contract version for future migrations. |
 
 **RuntimeParams Structure**:
@@ -1341,8 +1296,8 @@ Serialized form via `to_dict()`:
 ```python
 {
     "schema_version": 1,
-    "global": {"diff_threshold": 8, "min_area": 10, ...},
-    "detector": {"hough": {"hough_threshold": 50}, ...},
+    "global": {"diff_threshold": 8, "min_area": 10},
+    "detector": {"hough": {"hough_threshold": 50}},
 }
 ```
 
@@ -1375,7 +1330,11 @@ class MyDetector(DataclassDetector[MyConfig]):
         return DetectionResult(...)
 ```
 
-**Serialization**: `context.to_dict()` returns a JSON-serializable dict (excludes `current_image`, `previous_image`, and `roi_mask`). The pipeline uses this payload when invoking `on_detection_result()` to avoid transferring large image arrays.
+**Serialization**: `context.to_dict()` omits `current_image`, `previous_image`,
+and `roi_mask`. The payload shares metadata and nested runtime values with the
+context in the same process. In parallel runs, returned payloads and results
+must be picklable. Use JSON-compatible metadata, metrics, and extras when
+sending them to JSON logs or reports.
 
 **Normalization**: The pipeline normalizes `DetectionContext` internally before passing it into `detect` using `meteor_core.schema.normalize_detection_context()`. Plugin authors typically don't need to call the function directly, but you can use it (and register converters with `register_detection_context_converter()`) in custom tooling that processes serialized contexts.
 
@@ -1460,7 +1419,8 @@ def detect(self, context: DetectionContext) -> DetectionResult:
     )
 ```
 
-**Serialization**: `result.to_dict()` returns a JSON-serializable dict (excludes `debug_image`).
+**Serialization**: `result.to_dict()` omits `debug_image` and shares the
+line list and diagnostic dictionaries with the result.
 
 ### 4.4 OutputResult
 
@@ -1540,7 +1500,7 @@ def save_candidate(
         )
 ```
 
-**Serialization**: `result.to_dict()` returns a JSON-serializable dict.
+**Serialization**: `result.to_dict()` includes the paths, handler info, and metrics.
 
 ### 4.5 SortedDetection
 
@@ -1605,8 +1565,9 @@ collecting thousands of detections:
 | `roi_mask` | Binary mask array |
 | `metrics` | Diagnostics not needed for cross-frame analysis |
 
-This design allows the pipeline to store ~10,000 detections in ~2MB of memory,
-enabling efficient cross-frame analysis in the `on_all_detections_sorted` hook.
+Frame indices refer to the file sequence after `on_file_found()` filtering
+and before resume skips. The first file has index 0. A resumed run can
+therefore deliver nonconsecutive indices to the sorted hooks.
 
 **Factory method**:
 
@@ -1657,7 +1618,8 @@ class MyAnalyzer(DataclassHook[MyConfig]):
         return detections
 ```
 
-**Serialization**: `detection.to_dict()` returns a JSON-serializable dict.
+**Serialization**: `detection.to_dict()` includes the original `lines` and
+`extras` values.
 
 ### 4.6 Schema Versioning and Normalization
 
@@ -1679,7 +1641,9 @@ All four dataclasses include a `schema_version` field (currently `1`) to enable 
 2. The pipeline calls `normalize_*()` functions immediately after plugin methods return.
 3. If `schema_version` matches the current version, the instance passes through unchanged.
 4. If `schema_version` is older, registered converters upgrade the instance.
-5. If no converter exists for an older version, the pipeline raises `ValueError` (or `MeteorConfigError` when normalizing `DetectionContext` inside the pipeline).
+5. The public normalizers raise `ValueError` for unsupported versions. The
+   pipeline wraps version errors in `MeteorConfigError`; its per-pair and
+   output failure handling determines whether processing continues.
 
 **Registering converters** (for backward compatibility):
 
@@ -1735,6 +1699,10 @@ register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
 
 ### 5.1 Input Loader (Complete Example)
 
+This loader accepts explicit TIFF paths. Add `tifffile` to the plugin
+package's dependencies. With `normalize=True`, set `bit_depth` to the
+input bit depth to produce `float32` pixels in [0, 1].
+
 ```python
 """Custom TIFF image loader with metadata extraction, logging, and exceptions."""
 
@@ -1774,9 +1742,9 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
     plugin_name = "tiff"           # Required: unique identifier
     name = "TIFF Image Loader"     # Optional: human-readable name
     version = "1.0.0"              # Optional: version string
-    ConfigType = TiffLoaderConfig  # Optional: configuration class
+    ConfigType = TiffLoaderConfig  # Required by DataclassInputLoader
 
-    def __init__(self, config: TiffLoaderConfig = None):
+    def __init__(self, config: TiffLoaderConfig):
         super().__init__(config)
         logger.debug(f"TiffImageLoader initialized with config: {self.config}")
 
@@ -1826,9 +1794,9 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
             # Normalize if configured
             if self.config.normalize:
                 max_val = 2**self.config.bit_depth - 1
-                image = (image / max_val * 65535).astype(np.uint16)
+                image = image.astype(np.float32) / max_val
                 logger.debug(
-                    f"Normalized to uint16 (bit_depth={self.config.bit_depth})"
+                    f"Normalized to float32 (bit_depth={self.config.bit_depth})"
                 )
             else:
                 image = image.astype(np.uint16)
@@ -1847,7 +1815,7 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
                 "tifffile package is required for TIFF support",
                 filepath=filepath,
                 original_error=e,
-                context={"install_hint": "pip install tifffile"},
+                context={"install_hint": "uv add tifffile"},
             )
         except Exception as e:
             logger.exception(f"Failed to load TIFF file: {filepath}")
@@ -1957,6 +1925,9 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
         current_image = ensure_numpy(context.current_image)
         previous_image = ensure_numpy(context.previous_image)
         roi_mask = ensure_numpy(context.roi_mask)
+        if current_image.dtype not in (np.uint16, np.float32):
+            raise ValueError("Expected uint16 or normalized float32 input")
+
         global_params, detector_params = self.split_runtime_params(
             context.runtime_params
         )
@@ -1978,7 +1949,7 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
             # Get threshold from params
             threshold = params.get("diff_threshold", 8)
-            effective_threshold = int(threshold * self.config.brightness_multiplier)
+            effective_threshold = float(threshold) * self.config.brightness_multiplier
             logger.debug(f"Applying threshold: {effective_threshold}")
 
             # Apply threshold
@@ -2035,16 +2006,19 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             )
 
             # Create debug image
-            debug_image = cv2.cvtColor(
-                (current_image // 256).astype(np.uint8), cv2.COLOR_GRAY2BGR
-            )
+            if current_image.dtype == np.float32:
+                preview = (np.clip(current_image, 0, 1) * 255).astype(np.uint8)
+            else:
+                preview = (current_image // 256).astype(np.uint8)
+            debug_image = cv2.cvtColor(preview, cv2.COLOR_GRAY2BGR)
             cv2.drawContours(debug_image, valid_contours, -1, (0, 255, 0), 2)
 
-            # Simple line representation (bounding box diagonal)
-            lines = []
-            for c in valid_contours:
-                x, y, w, h = cv2.boundingRect(c)
-                lines.append((x, y, x + w, y + h))
+            bounding_boxes = []
+            for contour in valid_contours:
+                x, y, width, height = cv2.boundingRect(contour)
+                bounding_boxes.append(
+                    {"x1": x, "y1": y, "x2": x + width, "y2": y + height}
+                )
 
             min_score = params.get("min_line_score", 30.0)
             is_candidate = score >= min_score
@@ -2057,10 +2031,10 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             return DetectionResult(
                 is_candidate=is_candidate,
                 score=score,
-                lines=lines,
+                lines=[],
                 aspect_ratio=max_aspect_ratio,
                 debug_image=debug_image,
-                extras={"valid_contours": len(valid_contours)},
+                extras={"bounding_boxes": bounding_boxes},
                 metrics={
                     "duration_ms": 0.0,
                     "num_contours": len(valid_contours),
@@ -2228,15 +2202,17 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             shutil.copy2(source_path, dest_path)
             logger.info(f"Saved candidate: {filename}")
 
-            # Save debug image if provided
+            debug_path = None
             if debug_image is not None and self.config.debug_folder:
                 debug_filename = os.path.splitext(filename)[0] + "_debug.png"
-                self.save_debug_image(debug_image, debug_filename, roi_polygon)
+                debug_path = self.save_debug_image(
+                    debug_image, debug_filename, roi_polygon
+                ) or None
 
             return OutputResult(
                 saved=True,
                 output_path=dest_path,
-                debug_path=None,
+                debug_path=debug_path,
             )
 
         except OSError as e:
@@ -2292,7 +2268,9 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 pts = np.array(roi_polygon, dtype=np.int32)
                 cv2.polylines(debug_image, [pts], True, (255, 0, 0), 2)
 
-            cv2.imwrite(path, debug_image)
+            if not cv2.imwrite(path, debug_image):
+                logger.warning("Could not write debug image: %s", path)
+                return ""
             logger.debug(f"Saved debug image: {path}")
             return path
 
@@ -2655,7 +2633,7 @@ Each plugin type has different expectations for when to raise exceptions vs. con
 | **Input Loader** | `extract_metadata()` | **Return empty dict** - Metadata is optional |
 | **Detector** | `detect()` | **Raise or return DetectionResult** - Pipeline marks failures as no detection |
 | **Output Handler** | `save_candidate()` | **Depends on criticality** - See below |
-| **Output Handler** | Lifecycle hooks | **Never raise** - Log errors, continue processing |
+| **Output Handler** | Lifecycle hooks | Callback errors follow `hook_error_mode`. Handle optional notification failures inside the handler if they should be non-fatal. |
 
 **Output Handler Exception Policy (Critical vs. Non-Critical)**:
 
@@ -2743,7 +2721,7 @@ class MyDetector(DataclassDetector[MyConfig]):
 **Output Handler error handling**:
 
 For **primary handlers** (critical file/storage operations), raise exceptions.
-In 1.6.11, both sequential and parallel processing propagate exceptions from
+Both sequential and parallel processing propagate exceptions from
 saving and `OutputResult` normalization. `hook_error_mode: warn` does not suppress
 save failures, and failed candidates are not marked processed. In contrast,
 `OutputResult(saved=False, ...)` is a normal skipped save: notifications still
@@ -3122,13 +3100,13 @@ class MyDetector(DataclassDetector[MyDetectorConfig]):
 ### 6.8 Worker Limit Configuration
 
 The `MAX_NUM_WORKERS` constant has been exported from `meteor_core` since v1.6.8.
-In the current v1.6.11 code, its value is `max(1, multiprocessing.cpu_count())`;
+Its value is `max(1, multiprocessing.cpu_count())`;
 the default worker count is `max(1, CPU count - 1)`.
 
 ```python
 from meteor_core import MAX_NUM_WORKERS
 
-# Current v1.6.11: max(1, multiprocessing.cpu_count())
+# Upper bound: max(1, multiprocessing.cpu_count())
 print(f"Maximum workers allowed: {MAX_NUM_WORKERS}")
 ```
 
@@ -3187,28 +3165,48 @@ from meteor_core.outputs import DataclassOutputHandler
 ```python
 from dataclasses import dataclass
 
+import numpy as np
+
+from meteor_core.exceptions import MeteorLoadError
+from meteor_core.inputs import DataclassInputLoader
+from meteor_core.schema import InputContext
+
 
 @dataclass
 class MyPluginConfig:
-    option1: str = "default"
-    option2: int = 10
+    normalize: bool = False
 ```
 
 #### Step 3: Implement the Plugin Class
 
+Save the config class from step 2 and the following code in `my_plugin.py`.
+This loader reads an explicit `.npy` file.
+
 ```python
-from meteor_core.schema import InputContext
-
-
 class MyPlugin(DataclassInputLoader[MyPluginConfig]):
-    plugin_name = "my_plugin"  # Required
-    name = "My Plugin"         # Optional
-    version = "1.0.0"          # Optional
+    plugin_name = "my_plugin"
+    name = "NumPy Frame Loader"
+    version = "1.0.0"
     ConfigType = MyPluginConfig
 
     def load(self, filepath: str) -> InputContext:
-        # Implementation
-        ...
+        """Load one 2D uint16 NumPy frame with optional normalization."""
+        try:
+            image = np.load(filepath, allow_pickle=False)
+        except (OSError, ValueError) as exc:
+            raise MeteorLoadError(
+                "Could not read NumPy frame",
+                filepath=filepath,
+                original_error=exc,
+            ) from exc
+
+        if image.ndim != 2 or image.dtype != np.uint16:
+            raise MeteorLoadError("Expected a 2D uint16 frame", filepath=filepath)
+
+        if self.config.normalize:
+            image = image.astype(np.float32) / 65535
+
+        return InputContext(image, filepath, loader_info=self.get_info())
 ```
 
 #### Step 4: Register the Plugin
@@ -3216,6 +3214,7 @@ class MyPlugin(DataclassInputLoader[MyPluginConfig]):
 **Option A: Runtime registration**
 ```python
 from meteor_core.inputs import LoaderRegistry
+from my_plugin import MyPlugin
 
 LoaderRegistry.register(MyPlugin)
 ```
@@ -3224,7 +3223,7 @@ LoaderRegistry.register(MyPlugin)
 ```toml
 # pyproject.toml
 [project.entry-points."detect_meteors.input"]
-my_plugin = "my_package:MyPlugin"
+my_plugin = "my_plugin:MyPlugin"
 ```
 
 **Option C: Plugin directory (for user plugins)**
@@ -3236,51 +3235,53 @@ my_plugin = "my_package:MyPlugin"
 
 #### Unit Test Example
 
+Save as `test_my_plugin.py` beside `my_plugin.py` and run
+`uv run python -m unittest test_my_plugin`.
+
 ```python
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 import numpy as np
+
 from my_plugin import MyPlugin, MyPluginConfig
 
 
 class TestMyPlugin(unittest.TestCase):
-    def test_load_returns_correct_shape(self):
-        config = MyPluginConfig(option1="test")
-        plugin = MyPlugin(config)
+    def test_load_returns_uint16_or_normalized_float32(self):
+        pixels = np.array([[0, 65535]], dtype=np.uint16)
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "frame.npy"
+            np.save(path, pixels)
 
-        context = plugin.load("test_image.tiff")
+            original = MyPlugin(MyPluginConfig()).load(str(path))
+            normalized = MyPlugin(MyPluginConfig(normalize=True)).load(str(path))
 
-        self.assertEqual(len(context.image_data.shape), 2)  # Grayscale
-        self.assertEqual(context.image_data.dtype, np.uint16)
-
-    def test_default_config(self):
-        # Test with default configuration
-        from meteor_core.inputs import LoaderRegistry
-
-        LoaderRegistry.register(MyPlugin)
-
-        loader = LoaderRegistry.create("my_plugin")  # Uses defaults
-        self.assertIsNotNone(loader)
+        np.testing.assert_array_equal(original.image_data, pixels)
+        self.assertEqual(original.image_data.dtype, np.uint16)
+        np.testing.assert_array_equal(normalized.image_data, [[0.0, 1.0]])
+        self.assertEqual(normalized.image_data.dtype, np.float32)
 
 
 if __name__ == "__main__":
     unittest.main()
 ```
 
-#### Integration Test
+<a id="integration-test"></a>
+
+#### Registry Smoke Test
 
 ```python
-def test_plugin_in_pipeline():
-    from meteor_core.inputs import LoaderRegistry
-    from my_plugin import MyPlugin
+from meteor_core.inputs import LoaderRegistry
+from my_plugin import MyPlugin
 
-    LoaderRegistry.register(MyPlugin)
 
-    # Verify registration
-    assert "my_plugin" in LoaderRegistry.list_available()
+LoaderRegistry.register(MyPlugin)
+assert "my_plugin" in LoaderRegistry.list_available()
 
-    # Create instance
-    loader = LoaderRegistry.create("my_plugin", {"option1": "test"})
-    assert loader.config.option1 == "test"
+loader = LoaderRegistry.create("my_plugin", {"normalize": True})
+assert loader.config.normalize
 ```
 
 ### 7.3 Debugging Tips

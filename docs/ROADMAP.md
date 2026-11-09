@@ -238,20 +238,43 @@ The following features were originally planned for v1.x but have been deferred:
 
 2026 1Q-
 
-### Plugin/Hook Foundation (Already in v1.5.6–v1.6.6)
+### Plugin and Pipeline Foundation (Already in 1.x)
+
 - [x] Input/Detector/Output plugin contracts and discovery via entry points + plugin dirs
 - [x] Pipeline configuration files and CLI plugin selection/configuration
 - [x] Hook registry and lifecycle hooks (file filter, image transform, result adjust, post-save)
+- [x] Frame-ordered hooks and built-in aircraft trail analysis in v1.6.10
+
+### Compatibility and Versioning
+
+Prepare this work in 1.x before adding new pipeline composition features.
+Supported 1.x configurations and plugins should run in 2.x with their
+existing semantics. Multi-detector chains and other new stages are opt-in.
+
+- [ ] Record the supported 1.x contract and publish a compatibility matrix.
+  Cover plugin interfaces and data contracts, plugin lookup and configuration,
+  CLI overrides, and hook order, process boundaries, and error handling.
+- [ ] Give saved pipeline YAML/JSON its own schema version, separate from the
+  application version and plugin data contract versions. Read existing
+  unversioned 1.x files as the legacy format. Migrate them in memory and report
+  unsupported schema versions clearly. Keep progress files and analysis bundles
+  on their own format and migration paths.
+- [ ] Extend plugin contracts through optional fields or explicit adapters.
+  Preserve existing plugin signatures and defaults for supported 1.x plugins.
+- [ ] Capture representative 1.x configurations and plugins as regression
+  fixtures. Verify equivalent effective settings, candidate results, and hook
+  behavior in sequential and spawned-worker runs. Verify supported saved
+  progress and analysis sessions with separate fixtures.
 
 ### Pipeline Modularity
+
 - [ ] Swappable detector stacks (multi-detector chaining and fallback order)
 - [ ] Pluggable pre/post processors (noise reduction, masking, ROI transforms)
 - [ ] Pipeline presets and profiles (named configs with overrides)
-- [ ] Versioned pipeline schemas with migration helpers
 
 ### Plugin Ecosystem Expansion
+
 - [ ] SDK templates and validation tooling for third-party plugins
-- [ ] Compatibility matrix for plugin contract versions
 - [ ] Plugin capability discovery (declared features/requirements)
 - [ ] Distribution guidelines and example plugin gallery
 
@@ -283,4 +306,5 @@ The following features were originally planned for v1.x but have been deferred:
 ---
 
 **Current Status**: v1.6.11, released 2026-11-07 — Missed-Meteor Analysis and Parameter Tuning
-**Next Focus**: v2.0 Architecture and Extensibility - Pipeline modularity and plugin ecosystem
+
+**Next Focus**: Define and verify the 1.x compatibility baseline for 2.x pipeline composition.

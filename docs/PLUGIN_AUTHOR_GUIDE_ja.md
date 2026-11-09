@@ -2,27 +2,9 @@
 
 [English](PLUGIN_AUTHOR_GUIDE.md)
 
-> ⚠️ **実験的**：プラグイン構成は開発中であり、**v2.0の安定版までに互換性のない変更が入る可能性があります**。
->
-> **現在の状態（v1.6.11）**：
->
-> - ✅ レジストリと基底クラスは安定しています。
-> - ✅ 入力ローダー、検出器、出力ハンドラーは記載どおり動作します。
-> - ✅ 出力ハンドラーの `on_detection_result`、`on_candidate_detected` を呼び出します（v1.6.4）。
-> - ✅ `--config` による **YAML/JSON設定ファイル** に対応（v1.6.5）。
-> - ✅ `--input-loader`、`--detector`、`--output-handler` による **CLIでのプラグイン選択**（v1.6.5）。
-> - ✅ `on_file_found`、`on_image_loaded`、`on_detection_complete`、`on_output_saved` の **パイプラインフック**（v1.6.6）。
-> - ✅ フック検出と管理を集約する **HookRegistry**（v1.6.6）。
-> - ✅ 開発環境に **tyによる静的型検査** を統合（v1.6.8）。
-> - ✅ ワーカー上限を検証する **MAX_NUM_WORKERS**（v1.6.8）。
-> - ✅ 状態を持つ解析用の **ソート済み検出フック** `on_batch_results_sorted`、`on_all_detections_sorted`（v1.6.10）。
-> - ✅ ソート済み解析用の軽量な **SortedDetection**（v1.6.10）。
-> - ⚠️ 検出器・実行パラメータの契約は今後も変わる可能性があります。
-> - ✅ `MeteorDetectionPipeline` は出力ハンドラーの `on_batch_complete`、`on_pipeline_complete` を呼び出します。
+このガイドは1.6.12開発ブランチの入力ローダー、検出器、出力ハンドラー、パイプラインフックを対象とします。現在のパッケージバージョンは `1.6.11`、データ契約のスキーマバージョンは `1` です。プラグインAPIは開発中です。
 
-Detect Meteors CLIの独自プラグイン開発を詳しく説明します。
-
-特に指定がない限り、CLI・Pythonの実行例は `docs/` 内ではなく、リポジトリのルート、または展開したソース配布版のルートで実行してください。
+環境は [開発者向けインストールガイド](INSTALL_DEV_ja.md) の手順で構築します。特に指定がない限り、CLI・Pythonの実行例はリポジトリまたは展開したソース配布版のルートで実行してください。
 
 ---
 
@@ -65,7 +47,7 @@ filepath ──▶ Input Loader ──▶ InputContext
                                     │
                                     ▼
                             ┌────────────────┐
-                            │DetectionContext│  (current + previous InputContext + ROI + params)
+                            │DetectionContext│  (frame pixels + metadata + ROI + runtime params)
                             └────────────────┘
                                     │
                                     ▼
@@ -134,130 +116,30 @@ filepath ──▶ Input Loader ──▶ InputContext
 
 ### 1.1 パイプラインとフックの全体像
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                 Detection Pipeline (with Hook insertion points)              │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐            │
-│  │ 1. Initialize│───▶│ 2. Collect   │───▶│ 3. ROI Selection     │            │
-│  │    Pipeline  │    │    Files     │    │    (if enabled)      │            │
-│  └──────────────┘    └──────────────┘    └──────────────────────┘            │
-│         │                  │                      │                          │
-│         │                  │                      ▼                          │
-│         │                  │          ┌──────────────────────┐               │
-│         │                  │          │ 4. Process Batches   │               │
-│         │                  │          │    (parallel/seq)    │               │
-│         │                  │          └──────────────────────┘               │
-│         │                  │                      │                          │
-│         │                  │                      ▼                          │
-│  ┌──────────────────────┐  │   ┌─────────────────────────────┐               │
-│  │ Hook: on_file_found  │◀─┘   │ Hook: on_image_loaded       │               │
-│  └──────────────────────┘      └─────────────────────────────┘               │
-│                                        │                                     │
-│                                        ▼                                     │
-│                               ┌────────────────┐                             │
-│                               │ Detector       │                             │
-│                               └────────────────┘                             │
-│                                        │                                     │
-│                                        ▼                                     │
-│                               ┌─────────────────────────────┐                │
-│                               │ Hook: on_detection_complete │                │
-│                               └─────────────────────────────┘                │
-│                                        │                                     │
-│                                        ▼                                     │
-│                               ┌────────────────┐                             │
-│                               │ Output Handler │                             │
-│                               └────────────────┘                             │
-│                                        │                                     │
-│                                        ▼                                     │
-│                               ┌─────────────────────────────┐                │
-│                               │ Hook: on_output_saved       │                │
-│                               └─────────────────────────────┘                │
-│                                        │                                     │
-│                                        ▼                                     │
-│                      ┌─────────────────────────────────────┐                 │
-│                      │ Hook: on_batch_results_sorted       │  (per batch)    │
-│                      └─────────────────────────────────────┘                 │
-│                                        │                                     │
-│                                        ▼                                     │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐            │
-│  │ 6. Finalize  │◀───│ 5. Save      │◀───│ Results              │            │
-│  │    & Report  │    │    Results   │    └──────────────────────┘            │
-│  └──────────────┘    └──────────────┘                                        │
-│         │                                                                    │
-│         ▼                                                                    │
-│  ┌─────────────────────────────────────┐                                     │
-│  │ Hook: on_all_detections_sorted      │  (after pipeline complete)          │
-│  └─────────────────────────────────────┘                                     │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+```text
+メイン       ファイル収集・選別 → 初回画像・ROI → 進捗の復元
+各バッチ     ペアを読み込む → 画像フック → 検出 → 検出結果フック
+メイン       結果通知 → 候補の保存 → 進捗記録 → バッチ内ソート済みフック
+メイン       出力ハンドラーの完了通知 → 全体ソート済みフック → 進捗へ反映
 ```
 
-フックがパイプラインのどこに入るかを示しています。次に処理の流れを説明し、その後で各フックを詳しく説明します。
+逐次実行では1ペアが1バッチです。並列実行ではワーカーがペアの読み込みから検出結果フックまでを担当し、メインプロセスが完了したバッチを受け取ります。
 
 <a id="12-pipeline-steps"></a>
 
 ### 1.2 パイプラインの処理段階
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Detection Pipeline                             │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
-│  │ 1. Initialize│───▶│ 2. Collect   │───▶│ 3. ROI Selection     │   │
-│  │    Pipeline  │    │    Files     │    │    (if enabled)      │   │
-│  └──────────────┘    └──────────────┘    └──────────────────────┘   │
-│                                                      │              │
-│                                                      ▼              │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐   │
-│  │ 6. Finalize  │◀───│ 5. Save      │◀───│ 4. Process Batches   │   │
-│  │    & Report  │    │    Results   │    │    (parallel/seq)    │   │
-│  └──────────────┘    └──────────────┘    └──────────────────────┘   │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
+1. 対象ディレクトリ直下で対応RAW拡張子に一致するファイルを集め、パス順に並べます。`on_file_found()` が受け取るのは正規化した絶対パスです。
+2. 選別後の最初の画像を読み込み、指定ポリゴン、対話選択、全画面のいずれかでROIを決めます。初回の読み込みは `on_image_loaded()` の対象外です。
+3. 進捗を復元する場合は設定とROIのハッシュを照合します。選別後の連続フレームからペアを作り、処理済みの現在フレームを除外します。
 
 <a id="13-processing-flow-detail"></a>
 
 ### 1.3 処理の流れの詳細
 
-```
-For each image pair (current, previous):
-
-    ┌─────────────────────────────────────────────────────────────┐
-    │                    Input Loader                             │
-    │  • Load current image  ───▶  InputContext                   │
-    │  • Load previous image ───▶  InputContext                   │
-    │  • Extract metadata (optional)                              │
-    └─────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-    ┌─────────────────────────────────────────────────────────────┐
-    │                      Detector                               │
-    │  • Compute frame difference                                 │
-    │  • Apply ROI mask                                           │
-    │  • Detect meteor candidates                                 │
-    │  • Generate debug visualization                             │
-    │                                                             │
-    │  Returns: DetectionResult                                   │
-    └─────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-    ┌─────────────────────────────────────────────────────────────┐
-    │                   Output Handler                            │
-    │  • save_candidate() ── Save detected meteor image           │
-    │  • save_debug_image() ── Save debug visualization           │
-    │                                                             │
-    │  Returns: OutputResult                                      │
-    │  Lifecycle Hooks (Output Handlers):                         │
-    │  • on_detection_result(context, result, filepath)           │
-    │  • on_candidate_detected()                                  │
-    │  • on_batch_complete()                                      │
-    │  • on_pipeline_complete()                                   │
-    └─────────────────────────────────────────────────────────────┘
-```
+1. 現在フレーム、前フレームの順に `load()` で読み込み、それぞれの `InputContext` を `on_image_loaded()` に渡します。
+2. 画素、ROI、実行時設定、フレームのメタデータを `DetectionContext` にまとめて `detect()` を呼びます。正規化した `DetectionResult` は `on_detection_complete()` で更新できます。
+3. メインプロセスが各ペアの結果を出力ハンドラーに通知し、候補を `save_candidate()` に渡します。候補の保存とデバッグ画像の扱いは出力ハンドラーが担当します。フックの呼び出し順は [実行場所と状態の生存期間](#hook-execution-and-state) を参照してください。
 
 <a id="14-hook-overview"></a>
 
@@ -267,7 +149,7 @@ For each image pair (current, previous):
 
 **出力ハンドラーのフック**（`BaseOutputHandler` で定義）：
 
-フレーム・バッチ単位のイベントを扱います。`on_detection_result` は画像配列ではなく、`DetectionContext.to_dict()` のシリアライズ済みコンテキストを受け取ります。
+フレーム・バッチ単位のイベントを扱います。`on_detection_result` は `DetectionContext.to_dict()` が返すコンテキスト辞書を受け取ります。
 
 | イベント | 現在の状態 | 用途 |
 |----------|------------|------|
@@ -340,7 +222,7 @@ For each image pair (current, previous):
 
 <a id="hook-execution-and-state"></a>
 
-#### 実行場所と状態の生存期間（v1.6.11）
+#### 実行場所と状態の生存期間
 
 | コールバック | 実行場所 | フックのインスタンス |
 | --- | --- | --- |
@@ -363,11 +245,6 @@ ROI選択・自動推定用の先頭画像やサンプルの読み込みには�
 再開時の最終ソート対象は、その実行で新たに処理した結果だけです。Ctrl-Cでは最終解析を実行しません。
 `warn` は例外を警告して次のフックへ進みますが、例外前の破壊的変更や外部への副作用を元に戻すものではありません。
 フック生成・設定の失敗は `warn` でも `MeteorConfigError` として送出します。
-
-**今後の拡張案**：
-
-- `HookRegistry` に **一時的なプラグインディレクトリをワーカーへ配布する機能**（パスを渡して検索対象へ追加するなど）。
-- **環境変数による検索パス**（`meteor_core/hooks/discovery.py` と既定の `PLUGIN_DIR` を参照）で、実行時に検索元を設定する仕組み。
 
 ---
 
@@ -456,7 +333,7 @@ ROI選択・自動推定用の先頭画像やサンプルの読み込みには�
 
 **補足**：
 
-- `OutputResult` のスナップショットを受け取ります。変更しても後続の制御には影響せず、`saved` やパスは変わりません。
+- `OutputResult` のスナップショットを受け取ります。`handler_info` と `metrics` は浅いコピーなので、入れ子の値は読み取り専用として扱ってください。保存をスキップした場合も `saved=False` で呼び出します。
 - 例外時は `PipelineConfig.hook_error_mode` で `"warn"`（警告して継続）か `"raise"`（送出）を選びます。既定は `"raise"`。実運用では `"warn"` を推奨します。
 
 **登録**：
@@ -620,6 +497,8 @@ pipeline.run(enable_roi_selection=False)
 - デベイヤー、正規化などの読み込み時の前処理。
 - 独自メタデータの抽出。
 
+標準CLIと `MeteorDetectionPipeline.run()` は、対象ディレクトリ直下で [`meteor_core.schema.EXTENSIONS`](../meteor_core/schema.py) のRAWパターンに一致するファイルを探します。ローダーの選択で変わるのは、選ばれたファイルの読み込み方法です。TIFFやFITSなどは、ローダーへパスを直接渡すか、独自の処理で `process_image_batch()` にペアを明示して使います。
+
 **必須メソッド**：
 
 | メソッド | シグネチャ | 説明 |
@@ -659,7 +538,9 @@ class InputContext:
 
 **正規化の時点**：`load` の直後に `meteor_core.schema.normalize_input_context` を呼びます。古い `schema_version` には `meteor_core.schema.register_input_context_converter` で登録した変換を使い、対応できない場合は設定エラーとして拒否します。
 
-**シリアライズ**：`context.to_dict()` はJSON互換です。大きなバイナリをログに含めないため `image_data` を除外します。
+**辞書への変換**
+
+`context.to_dict()` は `image_data` を除き、メタデータとローダー情報の辞書を含めます。
 
 **任意の機能**：
 
@@ -679,9 +560,9 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 
 **`extract_metadata` の呼び出し時点**：
 
-- 各画像ペアで呼び出します。`BaseMetadataExtractor` を実装していない場合は `meteor_core.image_io.extract_exif_metadata` へフォールバックします。
-- 検出器には `context.metadata = {"current": ..., "previous": ...}` の形式で渡します。
-- 独自処理から手動で呼ぶこともできます。
+- 検出時に使うのは各 `InputContext` に含まれるメタデータです。ペアごとに抽出結果を渡すには、ローダーの `load()` で `self.extract_metadata(filepath)` を呼びます。
+- 検出器には `current`、`previous` のメタデータと、`frame_index`、`prev_frame_index` を渡します。
+- 個別の `MeteorDetectionPipeline.extract_metadata(filepath)` APIでは、ローダーが `BaseMetadataExtractor` を実装していればそのメソッドを、そうでなければ組み込みのEXIF抽出を使います。
 - 抽出に失敗した場合は `{}` を返し、処理を続けられるようにしてください。
 
 <a id="22-detectors"></a>
@@ -701,7 +582,7 @@ class MyLoader(DataclassInputLoader[MyConfig], BaseMetadataExtractor):
 | メソッド | シグネチャ | 説明 |
 |----------|------------|------|
 | `detect` | `(context: DetectionContext) -> DetectionResult` | 主な検出処理（下記参照） |
-| `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | `detect` 内部から使う線分スコア算出 |
+| `compute_line_score` | `(mask, hough_params) -> Tuple[float, List]` | 実装が必要な抽象メソッド。個別の線分スコアがない場合は `(0.0, [])` を返せます。 |
 
 **DetectionContext**（`detect` の入力）：
 
@@ -783,11 +664,13 @@ class DetectionResult:
 - `mask_area`：線分・輪郭解析のマスクの非ゼロ画素数。
 - `hough_votes`：Houghの線分の根拠数（検出した線分の数など）。
 
-**シリアライズ**：`result.to_dict()` はJSON互換です。大きなバイナリを避けるため `debug_image` を除外します。
+**辞書への変換**
+
+`result.to_dict()` は `debug_image` を除き、元の `lines`、`metrics`、`extras` を含めます。
 
 **実行時パラメータ**（`context.runtime_params`）：
 
-`RuntimeParams`（`meteor_core.schema.RuntimeParams`）で渡します。
+`meteor_core.schema.RuntimeParams` が名前空間付きの構造を定義します。
 
 ```python
 @dataclass
@@ -823,12 +706,13 @@ class RuntimeParams:
 **互換性のルール**：
 
 - `context.runtime_params` は `RuntimeParams` または同じキーを持つ辞書です。
-- 従来の検出器には平坦な辞書も渡せますが、可能なら名前空間付き構造を使ってください。
+- パイプラインが渡すのは `global` と `detector` を持つ辞書です。有効なパラメータを `global` と使用中の検出器の名前空間の両方に入れ、内側の `schema_version` は省きます。独自の呼び出し側では検出器別の上書きや従来の平坦な辞書も使えます。
+- ローダーが正規化を指定しているか、最初の画像を正規化済みと判定した場合、`diff_threshold` が `1` を超えていればパイプラインが `65535` で割ります。進捗ファイルには設定値を記録します。
 
 `BaseDetector` のヘルパー：
 
 - `split_runtime_params(runtime_params)` → `(global_params, detector_params)`。
-- `build_runtime_params(flat_params)` → `RuntimeParams`。
+- `build_runtime_params(flat_params)` → 名前空間付きの辞書。
 - `detect_legacy(current_image, previous_image, roi_mask, params)` → 旧シグネチャのアダプター。
 
 | キー | 型 | 既定値 | 説明 |
@@ -842,6 +726,14 @@ class RuntimeParams:
 | `hough_max_line_gap` | `int` | `5` | 線分間の最大間隔（画素） |
 
 **補足**：`compute_line_score` は通常 `detect` の内部ヘルパーです。パイプラインが呼ぶのは `detect` のみです。
+
+#### 組み込みHoughの計測と再現
+
+[`HoughDetector.analyze(context)`](../meteor_core/detectors/hough_default.py) は、処理済みマスク、Hough線分、線分長の合計、輪郭の計測値を含む `HoughAnalysis` を返します。`analysis.evaluate()` は設定済みのしきい値で判定し、`CandidateThresholds` を渡すと同じ計測結果に対して面積、縦横比、線分スコアのしきい値を再評価できます。差分しきい値、ROI、Hough設定を変えた場合は再計測します。面積と縦横比は同一輪郭で `>`、フレーム全体の線分スコアは `>=` で比較します。
+
+これは組み込みHoughのAPIです。プラグインの契約は `detect(context)` です。`--analyze-image` と `--tune-params` でも組み込みHoughを使い、入力ローダーは選択できます。フックを有効にした設定を再現に使うときは `--hooks ""` で無効にします。
+
+再現では、設定された整数の `diff_threshold` をそのままHoughに渡します。通常検出で正規化入力向けにしきい値が自動換算された場合は、再現時のマスクが変わる可能性があります。詳細は [分析・調整オプション](COMMAND_OPTIONS.md) を参照してください。
 
 <a id="23-output-handlers"></a>
 
@@ -862,6 +754,8 @@ class RuntimeParams:
 |----------|------------|------|
 | `save_candidate` | `(source_path, filename, ...) -> OutputResult` | 流星候補の保存 |
 | `save_debug_image` | `(debug_image, filename, ...) -> str` | デバッグ画像の保存 |
+
+パイプラインは `save_candidate()` に任意のデバッグ画像とROIポリゴンを渡します。`save_debug_image()` を呼ぶタイミングはハンドラーが決めます。
 
 **OutputResult**（`save_candidate` の戻り値）：
 
@@ -895,7 +789,9 @@ class OutputResult:
 
 **正規化の時点**：`save_candidate` の直後に `meteor_core.schema.normalize_output_result` を呼びます。古い結果には `meteor_core.schema.register_output_result_converter` の変換を使い、なければ拒否します。
 
-**シリアライズ**：ログ・デバッグにはJSON互換の `result.to_dict()` を使います。
+**辞書への変換**
+
+`result.to_dict()` は出力パスと診断値を辞書で返します。
 
 **任意のライフサイクルフック**：
 
@@ -908,9 +804,9 @@ class OutputResult:
 
 **フレームごとの呼び出し順**：
 
-1. `on_detection_result()`：検出結果を正規化した直後。`context` は画像・ROIを除く `DetectionContext.to_dict()` です。
-2. `save_candidate()`：`result.is_candidate` が `True` の場合のみ。
-3. `on_candidate_detected()`：保存処理の後。`saved` が保存の成否を示します。
+1. 正常に結果が得られたペアを `on_detection_complete()` の後で `on_detection_result()` に渡します。コンテキスト辞書は画像とROI配列を除きます。候補以外の結果やデバッグ出力を無効にした実行では、結果のデバッグ画像を取り除いてから渡します。
+2. `result.is_candidate` が `True` の場合に `save_candidate()` を呼びます。
+3. 正規化した出力結果を `on_output_saved()` に渡し、その後 `on_candidate_detected()` に候補と `saved` を渡します。
 
 ---
 
@@ -928,6 +824,7 @@ class OutputResult:
 from meteor_core.inputs import LoaderRegistry
 from meteor_core.detectors import DetectorRegistry
 from meteor_core.outputs import OutputHandlerRegistry
+from meteor_core.hooks import HookRegistry
 ```
 
 **操作**：
@@ -961,37 +858,31 @@ LoaderRegistry.discover()
 
 ### 3.2 基底クラスの階層
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Input Loaders                              │
-├─────────────────────────────────────────────────────────────────┤
-│  BaseInputLoader (ABC)                                          │
-│  ├── DataclassInputLoader[ConfigType] ── Dataclass config       │
-│  │   └── RawImageLoader ── Built-in RAW loader                  │
-│  └── PydanticInputLoader[ConfigType] ── Pydantic config         │
-│                                                                 │
-│  BaseMetadataExtractor (ABC) ── Optional mixin for metadata     │
-└─────────────────────────────────────────────────────────────────┘
+```text
+BaseInputLoader
+├── DataclassInputLoader[ConfigType]
+│   └── RawImageLoader
+└── PydanticInputLoader[ConfigType]
 
-┌─────────────────────────────────────────────────────────────────┐
-│                        Detectors                                │
-├─────────────────────────────────────────────────────────────────┤
-│  BaseDetector (ABC)                                             │
-│  ├── DataclassDetector[ConfigType] ── Dataclass config          │
-│  │   ├── HoughDetector ── Built-in Hough detector               │
-│  │   └── SimpleThresholdDetector ── Built-in threshold detector │
-│  └── PydanticDetector[ConfigType] ── Pydantic config            │
-└─────────────────────────────────────────────────────────────────┘
+BaseDetector
+├── HoughDetector
+├── DataclassDetector[ConfigType]
+│   └── SimpleThresholdDetector
+└── PydanticDetector[ConfigType]
 
-┌─────────────────────────────────────────────────────────────────┐
-│                     Output Handlers                             │
-├─────────────────────────────────────────────────────────────────┤
-│  BaseOutputHandler (ABC) ── Includes lifecycle hooks            │
-│  ├── DataclassOutputHandler[ConfigType] ── Dataclass config     │
-│  │   └── FileOutputHandler ── Built-in file handler             │
-│  └── PydanticOutputHandler[ConfigType] ── Pydantic config       │
-└─────────────────────────────────────────────────────────────────┘
+BaseOutputHandler
+├── DataclassOutputHandler[ConfigType]
+│   └── FileOutputHandler
+└── PydanticOutputHandler[ConfigType]
+
+BaseHook
+├── DataclassHook[ConfigType]
+│   ├── AllowAllFilesFoundHook
+│   └── AircraftTrailHook
+└── PydanticHook[ConfigType]
 ```
+
+画像のメタデータを別途抽出するローダーは、`BaseMetadataExtractor` も継承できます。
 
 <a id="33-configuration-management-configtype"></a>
 
@@ -1023,8 +914,6 @@ LoaderRegistry.discover()
 <a id="34-pipeline-configuration-and-cli-plugin-selection"></a>
 
 ### 3.4 パイプライン設定とCLIのプラグイン選択
-
-v1.6.5から、プラグインを含むパイプライン全体を設定ファイルとCLIで管理できます。v2.0に向けた基盤です。
 
 <a id="configuration-files-yamljson"></a>
 
@@ -1071,6 +960,8 @@ output_handler_config:
 | `detector_config` | 検出器の `ConfigType` へ渡す辞書 |
 | `output_handler_name` | 名前（`"file"`、`"slack"` など） |
 | `output_handler_config` | ハンドラーの `ConfigType` へ渡す辞書 |
+| `hooks` | フック名や `{name, config}` の順序付きリスト、または名前から設定へのマッピング |
+| `hook_error_mode` | コールバック例外を送出する `"raise"`（既定）、または警告して続行する `"warn"` |
 
 `*_config` は標準のルールで各 `ConfigType` へ変換します。[3.3 設定管理](#33-configuration-management-configtype)を参照してください。
 
@@ -1114,6 +1005,11 @@ uv run detect-meteors \
 # Or as file paths containing the RAW loader configuration
 uv run detect-meteors \
     --input-loader-config raw_loader_settings.yaml
+
+# Select hooks and supply per-hook settings
+uv run detect-meteors \
+    --hooks allow_all_files,aircraft_trail \
+    --hook-config '{"aircraft_trail": {"min_track_frames": 3}}'
 ```
 
 **オプション**：
@@ -1126,6 +1022,8 @@ uv run detect-meteors \
 | `--detector-config VALUE` | JSON/YAML文字列またはパス |
 | `--output-handler NAME` | 出力ハンドラーの選択 |
 | `--output-handler-config VALUE` | JSON/YAML文字列またはパス |
+| `--hooks NAMES` | 実行順に並べたカンマ区切りのフック名。`--hooks ""` で設定済みのフックを解除 |
+| `--hook-config VALUE` | フックのリストまたは名前と設定のマッピング。JSON/YAML文字列またはパス |
 
 <a id="configuration-precedence"></a>
 
@@ -1137,7 +1035,7 @@ uv run detect-meteors \
 2. **設定ファイル**（`--config pipeline.yaml`）。
 3. **組み込みの既定値**。
 
-基本設定を読み込み、一部をCLIで上書きできます。
+CLIでプラグイン設定を指定すると、対応する設定のマッピングを置き換えます。`--hooks` で実行順を指定し、`--hook-config` で各フックの設定を渡します。`--hook-config` だけを指定した場合は、その項目がフック一覧になります。いずれもパイプライン設定ファイルのフック設定を置き換えます。
 
 <a id="plugin-author-considerations"></a>
 
@@ -1173,12 +1071,13 @@ class MyDetectorConfig:
 
 ### 3.5 プラグインの検出
 
-次の順に検出します（重複は警告し、上書きしません）。
+各レジストリは次の順に検出します。
 
-1. **組み込み**（RawImageLoader、HoughDetector、SimpleThresholdDetector、FileOutputHandler）。
+1. **組み込み**。
 2. **エントリーポイント**（名前のアルファベット順）。
 3. **ディレクトリ**（ファイル名のアルファベット順）。
-4. **実行時登録** `Registry.register()`（検出済みの項目を上書き）。
+
+同名のクラスがある場合、入力ローダー・検出器・出力ハンドラーでは先に検出したクラスを、フックでは後から検出したクラスを使います。`Registry.register()` で実行時に登録したクラスは、そのプロセス内の検索で優先されます。
 
 **ディレクトリ**：
 
@@ -1187,6 +1086,7 @@ class MyDetectorConfig:
 | 入力 | `~/.detect_meteors/input_plugins/` |
 | 検出器 | `~/.detect_meteors/detector_plugins/` |
 | 出力 | `~/.detect_meteors/output_plugins/` |
+| パイプラインフック | `~/.detect_meteors/hook_plugins/` |
 
 **ディレクトリでの検出の仕組み**：
 
@@ -1215,6 +1115,15 @@ my_detector = "my_package.detectors:MyDetector"
 
 [project.entry-points."detect_meteors.output"]
 my_handler = "my_package.handlers:MyHandler"
+
+[project.entry-points."detect_meteors.hook"]
+my_hook = "my_package.hooks:MyHook"
+```
+
+Detect Meteorsを実行する環境にプラグインをインストールします。隣のディレクトリにあるローカルパッケージなら、Detect Meteorsのソースルートから次のように検出を確認できます。
+
+```bash
+uv run --with-editable ../my-plugin python -c "from meteor_core.inputs import LoaderRegistry; print(LoaderRegistry.list_available())"
 ```
 
 ---
@@ -1285,7 +1194,9 @@ class MyLoader(DataclassInputLoader[MyConfig]):
         )
 ```
 
-**シリアライズ**：`context.to_dict()` はJSON互換の辞書です。大きなバイナリを避けるため `image_data` を除外します。
+**辞書への変換**
+
+`context.to_dict()` は `image_data` を除き、メタデータとローダー情報の辞書を共有します。
 
 <a id="42-detectioncontext"></a>
 
@@ -1318,7 +1229,7 @@ class DetectionContext:
 | `previous_image` | `ImageLike` | — | 差分用の前フレーム |
 | `roi_mask` | `Any` | — | ROIマスク（通常dtypeが `uint8` の `np.ndarray`） |
 | `runtime_params` | `RuntimeParams \| Dict` | — | 実行パラメータ（下記参照） |
-| `metadata` | `Dict[str, Any]` | — | `"current"`、`"previous"` に各フレームの情報を格納 |
+| `metadata` | `Dict[str, Any]` | — | パイプラインが `current`、`previous`、`frame_index`、`prev_frame_index` を設定 |
 | `schema_version` | `int` | `1` | 将来の移行用の契約バージョン |
 
 **RuntimeParamsの構造**：
@@ -1338,8 +1249,8 @@ class RuntimeParams:
 ```python
 {
     "schema_version": 1,
-    "global": {"diff_threshold": 8, "min_area": 10, ...},
-    "detector": {"hough": {"hough_threshold": 50}, ...},
+    "global": {"diff_threshold": 8, "min_area": 10},
+    "detector": {"hough": {"hough_threshold": 50}},
 }
 ```
 
@@ -1372,7 +1283,9 @@ class MyDetector(DataclassDetector[MyConfig]):
         return DetectionResult(...)
 ```
 
-**シリアライズ**：`context.to_dict()` は `current_image`、`previous_image`、`roi_mask` を除外したJSON互換辞書です。パイプラインは `on_detection_result()` にこの形式を渡し、大きな画像の転送を避けます。
+**辞書への変換**
+
+`context.to_dict()` は `current_image`、`previous_image`、`roi_mask` を除きます。同じプロセス内では、メタデータと入れ子の実行時設定をコンテキストと共有します。並列実行で返すペイロードと結果はpickle化できる必要があります。JSONのログやレポートに渡すメタデータ、`metrics`、`extras` はJSON互換の値にしてください。
 
 **正規化**：`detect` の前に `meteor_core.schema.normalize_detection_context()` で内部正規化します。通常プラグインが直接呼ぶ必要はありませんが、シリアライズ済みコンテキストを扱う独自ツールで利用でき、`register_detection_context_converter()` で変換も登録できます。
 
@@ -1459,7 +1372,9 @@ def detect(self, context: DetectionContext) -> DetectionResult:
     )
 ```
 
-**シリアライズ**：`result.to_dict()` は `debug_image` を除くJSON互換辞書です。
+**辞書への変換**
+
+`result.to_dict()` は `debug_image` を除き、線分リストと診断用の辞書を結果と共有します。
 
 <a id="44-outputresult"></a>
 
@@ -1541,7 +1456,9 @@ def save_candidate(
         )
 ```
 
-**シリアライズ**：`result.to_dict()` はJSON互換の辞書です。
+**辞書への変換**
+
+`result.to_dict()` は出力パス、ハンドラー情報、`metrics` を含めます。
 
 <a id="45-sorteddetection"></a>
 
@@ -1606,7 +1523,7 @@ class SortedDetection:
 | `roi_mask` | 二値マスク配列 |
 | `metrics` | フレーム間解析に不要な診断 |
 
-この設計により、約10,000件を約2MBで保持し、`on_all_detections_sorted` で効率的に解析することを意図しています。
+フレーム番号は `on_file_found()` で選別した後、再開時に処理済みフレームを除外する前の並びを表します。先頭ファイルは0です。そのため、再開時のソート済みフックには飛び番があり得ます。
 
 **ファクトリーメソッド**：
 
@@ -1656,7 +1573,9 @@ class MyAnalyzer(DataclassHook[MyConfig]):
         return detections
 ```
 
-**シリアライズ**：`detection.to_dict()` はJSON互換の辞書です。
+**辞書への変換**
+
+`detection.to_dict()` は元の `lines` と `extras` を含めます。
 
 <a id="46-schema-versioning-and-normalization"></a>
 
@@ -1681,7 +1600,7 @@ class MyAnalyzer(DataclassHook[MyConfig]):
 2. 戻り値を受け取った直後に `normalize_*()` を呼びます。
 3. 現行バージョンならそのまま通します。
 4. 古いバージョンなら登録した変換で更新します。
-5. 変換がなければ `ValueError`、またはパイプライン内で `DetectionContext` を正規化する場合は `MeteorConfigError` を送出します。
+5. 公開の正規化関数は未対応のバージョンに対して `ValueError` を送出します。パイプラインはこのエラーを `MeteorConfigError` に変換し、検出ペアや出力処理の失敗時の扱いに従います。
 
 **後方互換用の変換登録**：
 
@@ -1742,6 +1661,8 @@ register_detection_result_converter(0, upgrade_detection_result_v0_to_v1)
 
 ### 5.1 入力ローダー（完全な例）
 
+このローダーはTIFFのパスを直接受け取ります。プラグインパッケージの依存に `tifffile` を追加してください。`normalize=True` の場合は入力のビット深度を `bit_depth` で指定し、画素を `float32` の [0, 1] に正規化します。
+
 ```python
 """Custom TIFF image loader with metadata extraction, logging, and exceptions."""
 
@@ -1781,9 +1702,9 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
     plugin_name = "tiff"           # Required: unique identifier
     name = "TIFF Image Loader"     # Optional: human-readable name
     version = "1.0.0"              # Optional: version string
-    ConfigType = TiffLoaderConfig  # Optional: configuration class
+    ConfigType = TiffLoaderConfig  # Required by DataclassInputLoader
 
-    def __init__(self, config: TiffLoaderConfig = None):
+    def __init__(self, config: TiffLoaderConfig):
         super().__init__(config)
         logger.debug(f"TiffImageLoader initialized with config: {self.config}")
 
@@ -1833,9 +1754,9 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
             # Normalize if configured
             if self.config.normalize:
                 max_val = 2**self.config.bit_depth - 1
-                image = (image / max_val * 65535).astype(np.uint16)
+                image = image.astype(np.float32) / max_val
                 logger.debug(
-                    f"Normalized to uint16 (bit_depth={self.config.bit_depth})"
+                    f"Normalized to float32 (bit_depth={self.config.bit_depth})"
                 )
             else:
                 image = image.astype(np.uint16)
@@ -1854,7 +1775,7 @@ class TiffImageLoader(DataclassInputLoader[TiffLoaderConfig], BaseMetadataExtrac
                 "tifffile package is required for TIFF support",
                 filepath=filepath,
                 original_error=e,
-                context={"install_hint": "pip install tifffile"},
+                context={"install_hint": "uv add tifffile"},
             )
         except Exception as e:
             logger.exception(f"Failed to load TIFF file: {filepath}")
@@ -1966,6 +1887,9 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
         current_image = ensure_numpy(context.current_image)
         previous_image = ensure_numpy(context.previous_image)
         roi_mask = ensure_numpy(context.roi_mask)
+        if current_image.dtype not in (np.uint16, np.float32):
+            raise ValueError("Expected uint16 or normalized float32 input")
+
         global_params, detector_params = self.split_runtime_params(
             context.runtime_params
         )
@@ -1987,7 +1911,7 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
 
             # Get threshold from params
             threshold = params.get("diff_threshold", 8)
-            effective_threshold = int(threshold * self.config.brightness_multiplier)
+            effective_threshold = float(threshold) * self.config.brightness_multiplier
             logger.debug(f"Applying threshold: {effective_threshold}")
 
             # Apply threshold
@@ -2044,16 +1968,19 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             )
 
             # Create debug image
-            debug_image = cv2.cvtColor(
-                (current_image // 256).astype(np.uint8), cv2.COLOR_GRAY2BGR
-            )
+            if current_image.dtype == np.float32:
+                preview = (np.clip(current_image, 0, 1) * 255).astype(np.uint8)
+            else:
+                preview = (current_image // 256).astype(np.uint8)
+            debug_image = cv2.cvtColor(preview, cv2.COLOR_GRAY2BGR)
             cv2.drawContours(debug_image, valid_contours, -1, (0, 255, 0), 2)
 
-            # Simple line representation (bounding box diagonal)
-            lines = []
-            for c in valid_contours:
-                x, y, w, h = cv2.boundingRect(c)
-                lines.append((x, y, x + w, y + h))
+            bounding_boxes = []
+            for contour in valid_contours:
+                x, y, width, height = cv2.boundingRect(contour)
+                bounding_boxes.append(
+                    {"x1": x, "y1": y, "x2": x + width, "y2": y + height}
+                )
 
             min_score = params.get("min_line_score", 30.0)
             is_candidate = score >= min_score
@@ -2066,10 +1993,10 @@ class ThresholdDetector(DataclassDetector[ThresholdDetectorConfig]):
             return DetectionResult(
                 is_candidate=is_candidate,
                 score=score,
-                lines=lines,
+                lines=[],
                 aspect_ratio=max_aspect_ratio,
                 debug_image=debug_image,
-                extras={"valid_contours": len(valid_contours)},
+                extras={"bounding_boxes": bounding_boxes},
                 metrics={
                     "duration_ms": 0.0,
                     "num_contours": len(valid_contours),
@@ -2234,15 +2161,17 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
             shutil.copy2(source_path, dest_path)
             logger.info(f"Saved candidate: {filename}")
 
-            # Save debug image if provided
+            debug_path = None
             if debug_image is not None and self.config.debug_folder:
                 debug_filename = os.path.splitext(filename)[0] + "_debug.png"
-                self.save_debug_image(debug_image, debug_filename, roi_polygon)
+                debug_path = self.save_debug_image(
+                    debug_image, debug_filename, roi_polygon
+                ) or None
 
             return OutputResult(
                 saved=True,
                 output_path=dest_path,
-                debug_path=None,
+                debug_path=debug_path,
             )
 
         except OSError as e:
@@ -2298,7 +2227,9 @@ class SlackNotificationHandler(DataclassOutputHandler[SlackOutputConfig]):
                 pts = np.array(roi_polygon, dtype=np.int32)
                 cv2.polylines(debug_image, [pts], True, (255, 0, 0), 2)
 
-            cv2.imwrite(path, debug_image)
+            if not cv2.imwrite(path, debug_image):
+                logger.warning("Could not write debug image: %s", path)
+                return ""
             logger.debug(f"Saved debug image: {path}")
             return path
 
@@ -2677,7 +2608,7 @@ error = MeteorProgressError(
 | **入力ローダー** | `extract_metadata()` | **空辞書**：メタデータは任意 |
 | **検出器** | `detect()` | **送出またはDetectionResult**：失敗を未検出として扱う |
 | **出力ハンドラー** | `save_candidate()` | **重要度による**：下記参照 |
-| **出力ハンドラー** | ライフサイクルフック | **送出しない**：ログを記録して継続 |
+| **出力ハンドラー** | ライフサイクルフック | 例外は `hook_error_mode` に従う。任意の通知失敗で停止させたくない場合はハンドラー内で処理する |
 
 **重要・非重要な出力ハンドラーの方針**：
 
@@ -2764,7 +2695,7 @@ class MyDetector(DataclassDetector[MyConfig]):
 **出力ハンドラーのエラー処理**：
 
 重要なファイル・ストレージ操作をする **主ハンドラー** は例外を送出します。
-1.6.11では逐次・並列の両経路で、保存処理や `OutputResult` の正規化の例外を呼び出し元へ送出します。
+逐次・並列の両経路で、保存処理や `OutputResult` の正規化の例外を呼び出し元へ送出します。
 `hook_error_mode: warn` は保存失敗を無視する設定ではありません。失敗した候補は処理済みに記録しません。
 一方、`OutputResult(saved=False, ...)` は正常な「保存省略」の戻り値であり、保存後の通知を行い、候補件数にも含めます。
 
@@ -3172,12 +3103,12 @@ class MyDetector(DataclassDetector[MyDetectorConfig]):
 
 ### 6.8 ワーカー上限の設定
 
-v1.6.8から `meteor_core` が `MAX_NUM_WORKERS` を公開しています。現在の1.6.11では `max(1, multiprocessing.cpu_count())` が上限で、既定ワーカー数は `max(1, CPU数 - 1)` です。
+`meteor_core` が公開する `MAX_NUM_WORKERS` は `max(1, multiprocessing.cpu_count())` です。既定ワーカー数は `max(1, CPU数 - 1)` です。
 
 ```python
 from meteor_core import MAX_NUM_WORKERS
 
-# Current v1.6.11: max(1, multiprocessing.cpu_count())
+# Upper bound: max(1, multiprocessing.cpu_count())
 print(f"Maximum workers allowed: {MAX_NUM_WORKERS}")
 ```
 
@@ -3241,30 +3172,49 @@ from meteor_core.outputs import DataclassOutputHandler
 ```python
 from dataclasses import dataclass
 
+import numpy as np
+
+from meteor_core.exceptions import MeteorLoadError
+from meteor_core.inputs import DataclassInputLoader
+from meteor_core.schema import InputContext
+
 
 @dataclass
 class MyPluginConfig:
-    option1: str = "default"
-    option2: int = 10
+    normalize: bool = False
 ```
 
 <a id="step-3-implement-the-plugin-class"></a>
 
 #### 手順3：クラスを実装する
 
+手順2の設定クラスと以下のコードを `my_plugin.py` に保存します。このローダーは明示した `.npy` ファイルを読み込みます。
+
 ```python
-from meteor_core.schema import InputContext
-
-
 class MyPlugin(DataclassInputLoader[MyPluginConfig]):
-    plugin_name = "my_plugin"  # Required
-    name = "My Plugin"         # Optional
-    version = "1.0.0"          # Optional
+    plugin_name = "my_plugin"
+    name = "NumPy Frame Loader"
+    version = "1.0.0"
     ConfigType = MyPluginConfig
 
     def load(self, filepath: str) -> InputContext:
-        # Implementation
-        ...
+        """Load one 2D uint16 NumPy frame with optional normalization."""
+        try:
+            image = np.load(filepath, allow_pickle=False)
+        except (OSError, ValueError) as exc:
+            raise MeteorLoadError(
+                "Could not read NumPy frame",
+                filepath=filepath,
+                original_error=exc,
+            ) from exc
+
+        if image.ndim != 2 or image.dtype != np.uint16:
+            raise MeteorLoadError("Expected a 2D uint16 frame", filepath=filepath)
+
+        if self.config.normalize:
+            image = image.astype(np.float32) / 65535
+
+        return InputContext(image, filepath, loader_info=self.get_info())
 ```
 
 <a id="step-4-register-the-plugin"></a>
@@ -3275,6 +3225,7 @@ class MyPlugin(DataclassInputLoader[MyPluginConfig]):
 
 ```python
 from meteor_core.inputs import LoaderRegistry
+from my_plugin import MyPlugin
 
 LoaderRegistry.register(MyPlugin)
 ```
@@ -3284,7 +3235,7 @@ LoaderRegistry.register(MyPlugin)
 ```toml
 # pyproject.toml
 [project.entry-points."detect_meteors.input"]
-my_plugin = "my_package:MyPlugin"
+my_plugin = "my_plugin:MyPlugin"
 ```
 
 **方法C：利用者のプラグインディレクトリ**
@@ -3301,30 +3252,32 @@ my_plugin = "my_package:MyPlugin"
 
 #### ユニットテストの例
 
+`my_plugin.py` の隣に `test_my_plugin.py` として保存し、`uv run python -m unittest test_my_plugin` を実行します。
+
 ```python
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 import numpy as np
+
 from my_plugin import MyPlugin, MyPluginConfig
 
 
 class TestMyPlugin(unittest.TestCase):
-    def test_load_returns_correct_shape(self):
-        config = MyPluginConfig(option1="test")
-        plugin = MyPlugin(config)
+    def test_load_returns_uint16_or_normalized_float32(self):
+        pixels = np.array([[0, 65535]], dtype=np.uint16)
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "frame.npy"
+            np.save(path, pixels)
 
-        context = plugin.load("test_image.tiff")
+            original = MyPlugin(MyPluginConfig()).load(str(path))
+            normalized = MyPlugin(MyPluginConfig(normalize=True)).load(str(path))
 
-        self.assertEqual(len(context.image_data.shape), 2)  # Grayscale
-        self.assertEqual(context.image_data.dtype, np.uint16)
-
-    def test_default_config(self):
-        # Test with default configuration
-        from meteor_core.inputs import LoaderRegistry
-
-        LoaderRegistry.register(MyPlugin)
-
-        loader = LoaderRegistry.create("my_plugin")  # Uses defaults
-        self.assertIsNotNone(loader)
+        np.testing.assert_array_equal(original.image_data, pixels)
+        self.assertEqual(original.image_data.dtype, np.uint16)
+        np.testing.assert_array_equal(normalized.image_data, [[0.0, 1.0]])
+        self.assertEqual(normalized.image_data.dtype, np.float32)
 
 
 if __name__ == "__main__":
@@ -3333,21 +3286,18 @@ if __name__ == "__main__":
 
 <a id="integration-test"></a>
 
-#### 統合テスト
+#### レジストリでの動作確認
 
 ```python
-def test_plugin_in_pipeline():
-    from meteor_core.inputs import LoaderRegistry
-    from my_plugin import MyPlugin
+from meteor_core.inputs import LoaderRegistry
+from my_plugin import MyPlugin
 
-    LoaderRegistry.register(MyPlugin)
 
-    # Verify registration
-    assert "my_plugin" in LoaderRegistry.list_available()
+LoaderRegistry.register(MyPlugin)
+assert "my_plugin" in LoaderRegistry.list_available()
 
-    # Create instance
-    loader = LoaderRegistry.create("my_plugin", {"option1": "test"})
-    assert loader.config.option1 == "test"
+loader = LoaderRegistry.create("my_plugin", {"normalize": True})
+assert loader.config.normalize
 ```
 
 <a id="73-debugging-tips"></a>

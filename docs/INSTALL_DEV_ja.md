@@ -10,19 +10,29 @@ Detect Meteors CLIの開発者・貢献者向けに、環境構築の手順を�
 
 ## 前提条件
 
-まず[INSTALL_ja.md](INSTALL_ja.md)の基本的なインストールを済ませてから、この文書の開発用設定を進めてください。
+Gitとuvを用意し、リポジトリまたは自分のフォークをクローンして、開発対象のブランチに切り替えます。OSごとの準備とmacOSでの配置先は [INSTALL_ja.md](INSTALL_ja.md) を参照してください。
+
+```bash
+git clone https://github.com/shin3tky/detect_meteors.git
+cd detect_meteors
+```
+
+バージョンと依存関係はチェックアウトしたソースに従います。1.6.12の開発ブランチでは、現在のCLIとパッケージのバージョン表示は `1.6.11` です。
 
 ## 開発環境の構築
 
 ### 手順1：開発用の依存ライブラリをインストールする
 
-リポジトリをクローンした後、開発ツールを含むすべての依存ライブラリをインストールします。
+チェックアウトのルートで、ロックファイルに従って実行時・開発用の依存ライブラリをインストールします。`.python-version` はPython 3.12を指定しています。CIではPython 3.12と3.13でテストを実行します。
 
 ```bash
-uv sync --all-extras
+uv python install 3.12
+uv sync --locked --all-extras
+uv run detect-meteors --version
+uv run detect-meteors --help
 ```
 
-プロジェクトを編集可能モードでインストールし、Ruff、ty、pre-commit、coverageも導入します。
+`.venv` にプロジェクトを編集可能モードでインストールし、Ruff、ty、pre-commit、coverageも導入します。Python 3.13で確認するときは `uv python install 3.13` を実行し、`uv sync` と `uv run` に `--python 3.13` を付けます。
 
 ### 開発ツールのバージョン（v1.6.11）
 
@@ -36,13 +46,11 @@ uv sync --all-extras
 `pyproject.toml` の `dev` と `uv.lock` に従います。実行時依存は
 [インストールガイド](INSTALL_ja.md#依存ライブラリのバージョンv1611)を参照。
 
-開発用の間接依存の更新（filelock、virtualenvなど）と上流セキュリティ修正は
-[CHANGELOG](CHANGELOG_ja.md#security-updates-1611)を参照してください。
-1.6.10の環境を更新する際は、1.6.11のソースルートで `uv sync --locked --all-extras` を実行します。
+ブランチを切り替えたときやロックファイルを更新したときは、チェックアウトのルートで `uv sync --locked --all-extras` を再実行します。
 
 ### 手順2：pre-commitフックを設定する
 
-[pre-commit](https://pre-commit.com/)と[Ruff](https://docs.astral.sh/ruff/)で自動整形・静的解析を行い、tyで型を検査します。
+macOSまたはLinuxのGitチェックアウトでpre-commitフックを導入します。フックは `.venv/bin` のRuffとtyを実行します。Windowsネイティブ環境や展開したソース配布版では、手順3のコマンドで直接検査します。
 
 ```bash
 # Install the git hooks
@@ -54,11 +62,20 @@ uv run pre-commit --version
 
 ### 手順3：環境構築の結果を確認する
 
-すべてのファイルに静的解析と整形チェックを実行します。
+ソースルートで静的解析、整形チェック、型検査、テストを実行します。
 
 ```bash
-uv run pre-commit run --all-files
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check
+uv run python run_tests.py
 ```
+
+POSIX形式の仮想環境を使うGitチェックアウトでは、`uv run pre-commit run --all-files` でCIのLintジョブと同じフックを実行できます。
+
+### IDEのPythonインタープリター
+
+VS CodeやPyCharmではリポジトリのルートを開き、macOS/Linuxでは `.venv/bin/python`、Windowsでは `.venv\Scripts\python.exe` を既存のインタープリターとして選びます。チェックアウト内の環境を選ぶと、インポート、docstringの参照、テスト実行に同期済みの環境を使えます。uvが使用するパスは `uv run python -c "import sys; print(sys.executable)"` で確認できます。
 
 ## pre-commitフック
 
@@ -94,7 +111,7 @@ git commit -m "Add new feature"
 ### 手動での整形と静的解析
 
 ```bash
-# Run both linter and formatter via pre-commit
+# Run lint, formatting, and type checking via pre-commit
 uv run pre-commit run --all-files
 
 # Or run Ruff directly
@@ -116,7 +133,7 @@ uv run ty check
 uv run ty check meteor_core/
 ```
 
-型検査ルールは `pyproject.toml` の `[tool.ty]` にあります。
+型検査のルールと対象パスは `pyproject.toml` の `[tool.ty.*]` にあります。`ty-check` フックは、設定された対象パス全体を検査します。
 
 ## テストの実行
 
@@ -175,7 +192,7 @@ uv run coverage html
 
 | ファイル | テスト数 | 内容 |
 |----------|----------|------|
-| `test_image_io_helpers_v1x.py` | 3 | 画像I/Oヘルパー |
+| `test_image_io_helpers_v1x.py` | 4 | RAWビニングとEXIFヘルパー |
 | `test_inputs_base_v1x.py` | 12 | 入力ローダーの基底クラス |
 | `test_inputs_logging_v1x.py` | 8 | ログ設定 |
 | `test_loader_registry_v1x.py` | 30 | 入力ローダーのレジストリ |
@@ -187,7 +204,7 @@ uv run coverage html
 
 | ファイル | テスト数 | 内容 |
 |----------|----------|------|
-| `test_infrastructure_v1x.py` | 25 | ROI、進捗、ファイル収集 |
+| `test_infrastructure_v1x.py` | 27 | ROI、進捗、ファイル収集、パラメータ推定 |
 | `test_integration_v1x.py` | 44 | 流星検出の一連の処理 |
 | `test_memory_batch_size_v1x.py` | 6 | メモリに基づくバッチサイズ調整 |
 | `test_pipeline_execution_v1x.py` | 7 | パイプラインの実行と結果 |
@@ -225,13 +242,13 @@ uv run coverage html
 
 | ファイル | テスト数 | 内容 |
 | --- | --- | --- |
-| `test_hough_analysis_v1x.py` | 6 | 計測・判定・描画の共通基盤 |
+| `test_hough_analysis_v1x.py` | 7 | 計測・判定・描画の共通基盤、正規化入力 |
 | `test_analysis_reproduction_v1x.py` | 14 | 読み取り専用のペア再現と出所 |
 | `test_analysis_cli_v1x.py` | 27 | 分析・調整CLIとROIの変更 |
 | `test_tuning_v1x.py` | 16 | 上限付きの調整案と比較 |
 | `test_analysis_reports_v1x.py` | 20 | 証拠保存・識別情報・設定保存と再実行 |
 
-**合計：681テスト（v1.6.11、期待失敗なし）**
+**現在のチェックアウトでは685テスト（期待失敗なし）。**
 
 ## コードスタイル
 
@@ -239,9 +256,11 @@ uv run coverage html
 
 ### リリース版のビルド
 
-バージョン `1.6.11` を `pyproject.toml`、`meteor_core/schema.py`、`uv.lock` で一致させてください。setuptoolsのバックエンドがCLIモジュールをパッケージ化し、`detect-meteors` コマンドをインストールします。`MANIFEST.in` はソース配布版にドキュメント、設定例、テストを含めます。
+リリースするバージョンを `pyproject.toml` と `meteor_core/schema.py` に設定し、`uv.lock` を再生成します。setuptoolsのバックエンドがCLIモジュールをパッケージ化し、`detect-meteors` コマンドをインストールします。`MANIFEST.in` はソース配布版にドキュメント、設定例、テストを含めます。
 
 ```bash
+uv lock
+uv sync --locked --all-extras
 uv run python run_tests.py
 uv run ruff check .
 uv run ruff format --check .
@@ -249,7 +268,9 @@ uv run ty check
 uv build
 ```
 
-生成物は `dist/detect_meteors-1.6.11.tar.gz` と `dist/detect_meteors-1.6.11-py3-none-any.whl` です。配布前に独立した環境へwheelをインストールし、`uv run detect-meteors --version` と `--help` で動作を確認してください。ソースアーカイブに記載済みの設定例が含まれ、RAW画像や生成済み候補が含まれないことも確認します。飛行機サンプルは[飛行機ガイド](aircraft_light_trails_hook_design.md)のコマンドで検証できます。
+`dist/` にリリースバージョンを含むファイル名で生成されます。wheelの確認には別ディレクトリに仮想環境を作成し、そこで `uv pip install /path/to/the-built.whl` を実行します。その環境を有効化し、同じディレクトリから `detect-meteors --version` と `detect-meteors --help` を実行します。
+
+ソースアーカイブに設定例、ドキュメント、テスト、飛行機サンプルのREADMEとチェックサムが含まれることを確認します。RAW画像と生成済みの候補は配布物の対象外です。手元の飛行機サンプルを使う検証手順は [飛行機ガイド](aircraft_light_trails_hook_design.md) を参照してください。
 
 ### 基準
 
@@ -317,8 +338,13 @@ detect_meteors/
 │   ├── __init__.py                # Package entry point
 │   ├── i18n.py                    # Locale resolution and message formatting
 │   ├── schema.py                  # Type definitions, constants
+│   ├── config_io.py               # YAML/JSON pipeline configuration
 │   ├── exceptions.py              # Custom exception hierarchy
 │   ├── pipeline.py                # Pipeline orchestration
+│   ├── analysis.py                # Reproduce a Hough decision for an explicit pair
+│   ├── analysis_cli.py            # Analysis input selection and CLI reporting
+│   ├── analysis_reports.py        # Analysis bundles and replay configuration
+│   ├── tuning.py                   # Bounded parameter search and comparisons
 │   ├── image_io.py                # Image IO, EXIF utilities
 │   ├── roi_selector.py            # ROI selection
 │   ├── utils.py                   # Utility functions
@@ -361,7 +387,7 @@ detect_meteors/
 5. **変更を加え**、テストを追加します。
 6. **テストを実行** します：`uv run python run_tests.py`
 7. **カバレッジを測定** します：`uv run coverage run -m unittest discover tests && uv run coverage report`
-8. **コミット** します（pre-commitがRuffを自動実行）。
+8. **コミット** します（インストール済みのフックがRuffとtyを実行）。
 9. Forkしたリポジトリへ **Push** します。
 10. **Pull Requestを作成** します。
 
@@ -369,7 +395,7 @@ detect_meteors/
 
 ### Ruffのバージョンを更新する
 
-Ruffのバージョンは `pyproject.toml` の開発依存にある `ruff==X.Y.Z` で固定しています。`.pre-commit-config.yaml` のローカルフックは `.venv/bin/ruff` と `.venv/bin/ty` を実行し、別のバージョン指定はありません。依存バージョンを変更し、`uv sync --all-extras` でpre-commitが使うツールを更新してください。
+Ruffのバージョンは `pyproject.toml` の開発依存にある `ruff==X.Y.Z` で固定しています。`.pre-commit-config.yaml` のローカルフックは `.venv/bin/ruff` と `.venv/bin/ty` を実行します。依存バージョンを変更したら、`uv lock` でロックファイルを再生成し、`uv sync --locked --all-extras` でフックが使うツールを更新します。
 
 ### pre-commitの問題
 
@@ -379,17 +405,17 @@ uv run pre-commit uninstall
 uv run pre-commit install
 
 # Refresh the locally pinned tools
-uv sync --all-extras
+uv sync --locked --all-extras
 ```
 
 ### テストの問題
 
 ```bash
 # Ensure dependencies are installed
-uv sync --all-extras
+uv sync --locked --all-extras
 
 # Reinstall if needed
-uv sync --reinstall
+uv sync --locked --all-extras --reinstall
 ```
 
 ### インポートエラー

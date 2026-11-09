@@ -12,19 +12,36 @@ For plugin development, see [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md).
 
 ## Prerequisites
 
-Complete the basic installation from [INSTALL.md](INSTALL.md) first, then follow this guide for development-specific setup.
+Install Git and uv, then clone the repository or your fork and check out the
+branch you want to develop. For platform setup and where to keep the checkout
+on macOS, see [INSTALL.md](INSTALL.md).
+
+```bash
+git clone https://github.com/shin3tky/detect_meteors.git
+cd detect_meteors
+```
+
+The checkout supplies the version and dependency lockfile. The 1.6.12
+development branch currently reports `1.6.11` in the CLI and package metadata.
 
 ## Development Environment Setup
 
 ### Step 1: Install Development Dependencies
 
-After cloning the repository, install all dependencies including dev tools:
+From the checkout root, install the locked runtime and development dependencies.
+The repository selects Python 3.12 in `.python-version`. CI runs the test suite
+with both Python 3.12 and 3.13.
 
 ```bash
-uv sync --all-extras
+uv python install 3.12
+uv sync --locked --all-extras
+uv run detect-meteors --version
+uv run detect-meteors --help
 ```
 
-This installs the project in editable mode plus the dev toolchain (Ruff, ty, pre-commit, coverage).
+This installs the project in editable mode in `.venv`, including Ruff, ty,
+pre-commit, and coverage. To test on Python 3.13, install it with
+`uv python install 3.13` and add `--python 3.13` to the sync and run commands.
 
 ### Development Tool Versions (v1.6.11)
 
@@ -38,14 +55,14 @@ This installs the project in editable mode plus the dev toolchain (Ruff, ty, pre
 These match the `dev` extra in `pyproject.toml` and `uv.lock`. Runtime pins are
 listed in [installation](INSTALL.md#dependency-versions-v1611).
 
-See the [CHANGELOG](CHANGELOG.md#security-updates-1611) for development-only
-transitive updates (including filelock and virtualenv) and upstream security fixes.
-To update a 1.6.10 environment, run `uv sync --locked --all-extras` from the
-1.6.11 source root.
+After switching branches or pulling a lockfile update, run
+`uv sync --locked --all-extras` again from the checkout root.
 
 ### Step 2: Set Up Pre-commit Hooks
 
-This project uses [pre-commit](https://pre-commit.com/) with [Ruff](https://docs.astral.sh/ruff/) for automatic code formatting and linting, plus ty for type checking.
+From a Git checkout on macOS or Linux, install the pre-commit hook. The hook
+invokes Ruff and ty from `.venv/bin`. On native Windows or in an extracted
+source distribution, use the direct checks in [Step 3](#step-3-verify-setup).
 
 ```bash
 # Install the git hooks
@@ -57,11 +74,26 @@ uv run pre-commit --version
 
 ### Step 3: Verify Setup
 
-Run the linter and formatter on all files to verify the setup:
+Run the formatter check, lint, type check, and tests from the project root.
 
 ```bash
-uv run pre-commit run --all-files
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check
+uv run python run_tests.py
 ```
+
+In a Git checkout with the POSIX environment layout, run the same hook suite
+as the lint workflow with `uv run pre-commit run --all-files`.
+
+### IDE Interpreter
+
+Open the repository root as the project in VS Code or PyCharm. Select the
+existing project interpreter at `.venv/bin/python` on macOS/Linux or
+`.venv\Scripts\python.exe` on Windows. Use the interpreter from your checkout
+so imports, docstrings, and test runs resolve against the synced environment.
+To check the path uv is using, run
+`uv run python -c "import sys; print(sys.executable)"`.
 
 ## Pre-commit Hooks
 
@@ -97,7 +129,7 @@ git commit -m "Add new feature"
 ### Manual Formatting and Linting
 
 ```bash
-# Run both linter and formatter via pre-commit
+# Run lint, formatting, and type checking via pre-commit
 uv run pre-commit run --all-files
 
 # Or run Ruff directly
@@ -119,7 +151,8 @@ uv run ty check
 uv run ty check meteor_core/
 ```
 
-Type checking rules are configured in `pyproject.toml` under `[tool.ty]`.
+Type checking rules and source paths are configured under `[tool.ty.*]` in
+`pyproject.toml`. The `ty-check` hook checks those source paths as a whole.
 
 ## Running Tests
 
@@ -178,7 +211,7 @@ uv run coverage html
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `test_image_io_helpers_v1x.py` | 3 | Image I/O helpers |
+| `test_image_io_helpers_v1x.py` | 4 | RAW binning and EXIF helpers |
 | `test_inputs_base_v1x.py` | 12 | Input loader base class |
 | `test_inputs_logging_v1x.py` | 8 | Logging configuration |
 | `test_loader_registry_v1x.py` | 30 | Input loader registry |
@@ -190,7 +223,7 @@ uv run coverage html
 
 | File | Tests | Description |
 |------|-------|-------------|
-| `test_infrastructure_v1x.py` | 25 | ROI, progress, file collection |
+| `test_infrastructure_v1x.py` | 27 | ROI, progress, file collection, parameter estimation |
 | `test_integration_v1x.py` | 44 | End-to-end meteor detection |
 | `test_memory_batch_size_v1x.py` | 6 | Memory-based batch sizing |
 | `test_pipeline_execution_v1x.py` | 7 | Pipeline execution and results |
@@ -228,24 +261,26 @@ uv run coverage html
 
 | File | Tests | Description |
 | --- | --- | --- |
-| `test_hough_analysis_v1x.py` | 6 | Shared measurement/decision/rendering |
+| `test_hough_analysis_v1x.py` | 7 | Shared measurement/decision/rendering, normalized inputs |
 | `test_analysis_reproduction_v1x.py` | 14 | Read-only pair replay and provenance |
 | `test_analysis_cli_v1x.py` | 27 | Analysis/tuning CLI and ROI overrides |
 | `test_tuning_v1x.py` | 16 | Bounded proposals and comparison |
 | `test_analysis_reports_v1x.py` | 20 | Bundles, fingerprints, session export and replay |
 
-**Total: 681 tests (v1.6.11; no expected failures)**
+**Current checkout: 685 tests, with no expected failures.**
 
 ## Code Style
 
 ### Building a Release
 
-Version `1.6.11` must agree in `pyproject.toml`, `meteor_core/schema.py`, and
-`uv.lock`. The setuptools backend packages the CLI module and installs the
-`detect-meteors` command. `MANIFEST.in` includes documentation, configuration
+Set the release version in `pyproject.toml` and `meteor_core/schema.py`, then
+regenerate `uv.lock`. The setuptools backend packages the CLI module and installs
+the `detect-meteors` command. `MANIFEST.in` includes documentation, configuration
 examples, and tests in the source distribution.
 
 ```bash
+uv lock
+uv sync --locked --all-extras
 uv run python run_tests.py
 uv run ruff check .
 uv run ruff format --check .
@@ -253,12 +288,14 @@ uv run ty check
 uv build
 ```
 
-Build outputs are `dist/detect_meteors-1.6.11.tar.gz` and
-`dist/detect_meteors-1.6.11-py3-none-any.whl`. Before distributing them, verify the
-wheel in an isolated environment using `uv run detect-meteors --version` and `--help`,
-and check that the source archive includes the documented sample config and
-excludes RAW files and generated candidates. The local aircraft sample can be
-checked with the commands in the [aircraft guide](aircraft_light_trails_hook_design.md).
+The output filenames in `dist/` include the release version. To verify the wheel,
+create a virtual environment in a separate directory, install the wheel there
+with `uv pip install /path/to/the-built.whl`, activate that environment, and run
+`detect-meteors --version` and `detect-meteors --help` from that directory.
+Check the source archive for the sample configuration, documentation, tests,
+and the aircraft sample's README and checksums. RAW images and generated
+candidates belong outside the distribution. For commands to run against the
+local sample, see the [aircraft guide](aircraft_light_trails_hook_design.md).
 
 ### Standards
 
@@ -326,8 +363,13 @@ detect_meteors/
 │   ├── __init__.py                # Package entry point
 │   ├── i18n.py                    # Locale resolution and message formatting
 │   ├── schema.py                  # Type definitions, constants
+│   ├── config_io.py               # YAML/JSON pipeline configuration
 │   ├── exceptions.py              # Custom exception hierarchy
 │   ├── pipeline.py                # Pipeline orchestration
+│   ├── analysis.py                # Reproduce a Hough decision for an explicit pair
+│   ├── analysis_cli.py            # Analysis input selection and CLI reporting
+│   ├── analysis_reports.py        # Analysis bundles and replay configuration
+│   ├── tuning.py                   # Bounded parameter search and comparisons
 │   ├── image_io.py                # Image IO, EXIF utilities
 │   ├── roi_selector.py            # ROI selection
 │   ├── utils.py                   # Utility functions
@@ -370,7 +412,7 @@ For creating custom plugins (input loaders, detectors, output handlers, pipeline
 5. **Make** changes and add tests
 6. **Run** tests: `uv run python run_tests.py`
 7. **Measure** coverage: `uv run coverage run -m unittest discover tests && uv run coverage report`
-8. **Commit** (pre-commit will run Ruff automatically)
+8. **Commit** (the installed hook runs Ruff and ty)
 9. **Push** to your fork
 10. **Create** a Pull Request
 
@@ -381,7 +423,8 @@ For creating custom plugins (input loaders, detectors, output handlers, pipeline
 Ruff is pinned in `pyproject.toml` (`ruff==X.Y.Z` in dev dependencies).
 The local hooks in `.pre-commit-config.yaml` invoke `.venv/bin/ruff` and
 `.venv/bin/ty`; they do not have separate version pins. Update the dependency
-pin and run `uv sync --all-extras` to refresh the tools used by pre-commit.
+pin, regenerate `uv.lock` with `uv lock`, and run
+`uv sync --locked --all-extras` to refresh the tools used by pre-commit.
 
 ### Pre-commit Issues
 
@@ -391,17 +434,17 @@ uv run pre-commit uninstall
 uv run pre-commit install
 
 # Refresh the locally pinned tools
-uv sync --all-extras
+uv sync --locked --all-extras
 ```
 
 ### Test Issues
 
 ```bash
 # Ensure dependencies are installed
-uv sync --all-extras
+uv sync --locked --all-extras
 
 # Reinstall if needed
-uv sync --reinstall
+uv sync --locked --all-extras --reinstall
 ```
 
 ### Import Errors
