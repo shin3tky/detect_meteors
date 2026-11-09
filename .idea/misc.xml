@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="uv (detect_meteors)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="uv (detect_meteors)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="~/Development/shin3tky/detect_meteors/.venv" project-jdk-type="Python SDK" />
 </project>
