@@ -143,6 +143,43 @@ class HoughDetector(BaseDetector):
             )
             raise ValueError("roi_mask must match the shape of the input images")
 
+        hough_params = self._resolve_hough_params(params)
+
+        try:
+            # Threshold the absolute difference, restrict it to the ROI, and
+            # remove small features with a morphological opening.
+            mask = cv2.absdiff(current_image, previous_image)
+            _, mask = cv2.threshold(
+                mask, params["diff_threshold"], 255, cv2.THRESH_BINARY, dst=mask
+            )
+            mask = mask.astype(np.uint8, copy=False)
+            cv2.bitwise_and(mask, roi_mask, dst=mask)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self._kernel, dst=mask)
+
+            line_score, hough_lines = self.compute_line_score(mask, hough_params)
+            contours, _ = cv2.findContours(
+                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+            measurements = tuple(
+                ContourMeasurement.from_contour(contour) for contour in contours
+            )
+            return HoughAnalysis(
+                mask=mask,
+                score=line_score,
+                lines=hough_lines,
+                contours=measurements,
+                thresholds=CandidateThresholds.from_params(params),
+            )
+        except Exception as exc:  # pragma: no cover - safety net
+            logger.exception("Error during HoughDetector detection: %s", exc)
+            raise
+
+    def _resolve_hough_params(self, params: Dict[str, Any]) -> Dict[str, int]:
+        """Validate merged detection settings and resolve the Hough options.
+
+        A flat ``hough_*`` key takes precedence over the corresponding key in
+        the nested ``hough`` mapping. A missing or None Hough option is invalid.
+        """
         if not self.validate_params(params):
             raise ValueError("Invalid detection parameters supplied to HoughDetector")
 
@@ -162,57 +199,16 @@ class HoughDetector(BaseDetector):
             logger.error("Missing required detection parameters: %s", missing)
             raise ValueError("Invalid detection parameters supplied to HoughDetector")
 
-        def _get_hough_param(key: str, fallback_key: str) -> Any:
-            if key in params:
-                return params[key]
-            return hough_runtime.get(fallback_key)
-
-        hough_threshold = _get_hough_param("hough_threshold", "threshold")
-        hough_min_line_length = _get_hough_param(
-            "hough_min_line_length", "min_line_length"
-        )
-        hough_max_line_gap = _get_hough_param("hough_max_line_gap", "max_line_gap")
-        if None in (hough_threshold, hough_min_line_length, hough_max_line_gap):
+        hough_params = {}
+        for name in ("threshold", "min_line_length", "max_line_gap"):
+            flat_name = f"hough_{name}"
+            hough_params[name] = (
+                params[flat_name] if flat_name in params else hough_runtime.get(name)
+            )
+        if None in hough_params.values():
             logger.error("Missing required Hough detection parameters.")
             raise ValueError("Invalid detection parameters supplied to HoughDetector")
-
-        try:
-            # Reuse the difference buffer for thresholding, then the uint8 mask
-            # for ROI clipping and morphological opening.
-            mask = cv2.absdiff(current_image, previous_image)
-            _, mask = cv2.threshold(
-                mask, params["diff_threshold"], 255, cv2.THRESH_BINARY, dst=mask
-            )
-            mask = mask.astype(np.uint8, copy=False)
-            cv2.bitwise_and(mask, roi_mask, dst=mask)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self._kernel, dst=mask)
-
-            # Hough transform
-            hough_params = {
-                "threshold": hough_threshold,
-                "min_line_length": hough_min_line_length,
-                "max_line_gap": hough_max_line_gap,
-            }
-            line_score, hough_lines = self.compute_line_score(mask, hough_params)
-
-            # Shape detection
-            contours, _ = cv2.findContours(
-                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-
-            measurements = tuple(
-                ContourMeasurement.from_contour(contour) for contour in contours
-            )
-            return HoughAnalysis(
-                mask=mask,
-                score=line_score,
-                lines=hough_lines,
-                contours=measurements,
-                thresholds=CandidateThresholds.from_params(params),
-            )
-        except Exception as exc:  # pragma: no cover - safety net
-            logger.exception("Error during HoughDetector detection: %s", exc)
-            raise
+        return hough_params
 
     def compute_line_score(
         self, mask: np.ndarray, hough_params: Dict[str, int]

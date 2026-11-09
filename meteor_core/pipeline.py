@@ -266,6 +266,37 @@ def _ensure_frame_role(context: InputContext, role: str) -> InputContext:
     )
 
 
+def _apply_file_found_hooks(
+    files: List[str], hooks: List[Any], hook_error_mode: str
+) -> List[str]:
+    """Give hooks absolute paths and return the accepted files in input order.
+
+    A false result excludes the file and stops further hooks for that path.
+    Hook failures follow the configured error mode.
+    """
+    normalized_files = [os.path.normpath(os.path.abspath(path)) for path in files]
+    accepted_files = []
+    for filepath in normalized_files:
+        keep = True
+        for hook in hooks:
+            try:
+                if not hook.on_file_found(filepath):
+                    keep = False
+                    break
+            except Exception as exc:
+                _handle_hook_exception(
+                    exc,
+                    hook_name="on_file_found",
+                    hook_error_mode=hook_error_mode,
+                    message="on_file_found hook failed for %s: %s",
+                    message_args=(filepath, exc),
+                    filepath=filepath,
+                )
+        if keep:
+            accepted_files.append(filepath)
+    return accepted_files
+
+
 def _apply_image_loaded_hooks(
     context: InputContext,
     hooks: List[Any],
@@ -2033,27 +2064,7 @@ class MeteorDetectionPipeline:
             self._config.hooks,
             hook_error_mode=self._config.hook_error_mode,
         )
-        normalized_files = [os.path.normpath(os.path.abspath(path)) for path in files]
-        filtered_files = []
-        for filepath in normalized_files:
-            keep = True
-            for hook in hooks:
-                try:
-                    if not hook.on_file_found(filepath):
-                        keep = False
-                        break
-                except Exception as exc:
-                    _handle_hook_exception(
-                        exc,
-                        hook_name="on_file_found",
-                        hook_error_mode=self._config.hook_error_mode,
-                        message="on_file_found hook failed for %s: %s",
-                        message_args=(filepath, exc),
-                        filepath=filepath,
-                    )
-            if keep:
-                filtered_files.append(filepath)
-        files = filtered_files
+        files = _apply_file_found_hooks(files, hooks, self._config.hook_error_mode)
 
         if len(files) < 2:
             print(get_message("ui.pipeline.need_two_images", locale=locale))
@@ -2064,7 +2075,7 @@ class MeteorDetectionPipeline:
         # Load first image
         t_load = time.time()
         try:
-            prev_context = _normalize_input_context(
+            first_context = _normalize_input_context(
                 input_loader.load(files[0]),
                 filepath=files[0],
             )
@@ -2081,83 +2092,20 @@ class MeteorDetectionPipeline:
 
         if profile:
             timing["first_load"] = time.time() - t_load
-        prev_img = ensure_numpy(prev_context.image_data)
-        prev_context.image_data = prev_img
-        height, width = prev_img.shape
+        first_image = ensure_numpy(first_context.image_data)
+        first_context.image_data = first_image
+        roi_mask, roi_polygon = self._resolve_roi(
+            first_image, roi_polygon_cli, enable_roi_selection, locale
+        )
 
-        # ROI setup
-        roi_mask = None
-        roi_polygon = None
-
-        if roi_polygon_cli:
-            print(
-                get_message(
-                    "ui.pipeline.roi.cli_specified",
-                    locale=locale,
-                    polygon=format_polygon_string(roi_polygon_cli),
-                )
-            )
-            roi_mask = create_roi_mask_from_polygon(roi_polygon_cli, (height, width))
-            roi_polygon = roi_polygon_cli
-        elif enable_roi_selection:
-            roi_selection = select_roi(prev_img, locale=locale)
-            if roi_selection:
-                roi_mask = roi_selection["mask"]
-                roi_polygon = roi_selection["polygon"]
-                print(
-                    get_message(
-                        "ui.pipeline.roi.setup_complete",
-                        locale=locale,
-                        polygon=format_polygon_string(roi_polygon),
-                    )
-                )
-            else:
-                print(get_message("ui.pipeline.roi.none_selected", locale=locale))
-        else:
-            print(get_message("ui.pipeline.roi.skipped", locale=locale))
-
-        if roi_mask is None:
-            roi_mask = create_full_roi_mask((height, width))
-
-        # Get params dict (unscaled for progress tracking)
+        # Progress records the configured thresholds in their original units.
         params = self._config.params.to_dict()
         normalized_input = _loader_normalizes(input_loader) or _is_normalized_image(
-            prev_context.image_data
+            first_context.image_data
         )
         runtime_params = _apply_normalized_diff_threshold(params, normalized_input)
 
-        # Progress tracking setup
-        params_for_hash = params.copy()
-        if roi_polygon:
-            params_for_hash["roi_polygon"] = roi_polygon
-
-        self.progress_manager.set_params(params)
-        self.progress_manager.set_roi(roi_polygon or "full_image")
-        self.progress_manager.set_processing_params(params)
-        params_hash = compute_params_hash(params_for_hash)
-        self.progress_manager.set_params_hash(params_hash)
-
-        if resume:
-            loaded = self.progress_manager.load()
-            if loaded and self.progress_manager.get_params_hash() == params_hash:
-                print(
-                    get_message(
-                        "ui.pipeline.progress.resuming",
-                        locale=locale,
-                        path=self._config.progress_file,
-                        processed=self.progress_manager.get_total_processed(),
-                        detected=self.progress_manager.get_total_detected(),
-                    )
-                )
-            elif loaded:
-                print(get_message("ui.pipeline.progress.param_mismatch", locale=locale))
-                self.progress_manager.reset()
-                self.progress_manager.set_params_hash(params_hash)
-
-        # Filter existing files
-        existing_basenames = {os.path.basename(path) for path in files}
-        self.progress_manager.filter_existing_files(existing_basenames)
-        self.progress_manager.save()
+        self._prepare_progress(files, params, roi_polygon, resume, locale)
 
         image_pairs = [
             (frame_index, current, previous)
@@ -2323,6 +2271,96 @@ class MeteorDetectionPipeline:
             )
         )
         return detected_count
+
+    def _resolve_roi(
+        self,
+        image: np.ndarray,
+        requested_polygon: Optional[List[List[int]]],
+        enable_roi_selection: bool,
+        locale: str,
+    ) -> Tuple[np.ndarray, Optional[List[List[int]]]]:
+        """Return the requested or interactive ROI, with the full image as fallback.
+
+        The polygon uses loaded-image coordinates. The returned polygon is None
+        when the full-image fallback is used.
+        """
+        height, width = image.shape
+        image_shape = (height, width)
+
+        if requested_polygon:
+            print(
+                get_message(
+                    "ui.pipeline.roi.cli_specified",
+                    locale=locale,
+                    polygon=format_polygon_string(requested_polygon),
+                )
+            )
+            return (
+                create_roi_mask_from_polygon(requested_polygon, image_shape),
+                requested_polygon,
+            )
+
+        if enable_roi_selection:
+            roi_selection = select_roi(image, locale=locale)
+            if roi_selection:
+                roi_polygon = roi_selection["polygon"]
+                print(
+                    get_message(
+                        "ui.pipeline.roi.setup_complete",
+                        locale=locale,
+                        polygon=format_polygon_string(roi_polygon),
+                    )
+                )
+                return roi_selection["mask"], roi_polygon
+            print(get_message("ui.pipeline.roi.none_selected", locale=locale))
+        else:
+            print(get_message("ui.pipeline.roi.skipped", locale=locale))
+
+        return create_full_roi_mask(image_shape), None
+
+    def _prepare_progress(
+        self,
+        files: List[str],
+        params: Dict[str, Any],
+        roi_polygon: Optional[List[List[int]]],
+        resume: bool,
+        locale: str,
+    ) -> None:
+        """Prepare the progress file before building the remaining frame pairs.
+
+        The hash combines configured thresholds and the effective ROI. A
+        mismatch resets saved results. Entries for files outside the current
+        input set are removed before progress is written.
+        """
+        params_for_hash = params.copy()
+        if roi_polygon:
+            params_for_hash["roi_polygon"] = roi_polygon
+
+        self.progress_manager.set_params(params)
+        self.progress_manager.set_roi(roi_polygon or "full_image")
+        self.progress_manager.set_processing_params(params)
+        params_hash = compute_params_hash(params_for_hash)
+        self.progress_manager.set_params_hash(params_hash)
+
+        if resume and self.progress_manager.load():
+            if self.progress_manager.get_params_hash() == params_hash:
+                print(
+                    get_message(
+                        "ui.pipeline.progress.resuming",
+                        locale=locale,
+                        path=self._config.progress_file,
+                        processed=self.progress_manager.get_total_processed(),
+                        detected=self.progress_manager.get_total_detected(),
+                    )
+                )
+            else:
+                print(get_message("ui.pipeline.progress.param_mismatch", locale=locale))
+                self.progress_manager.reset()
+                self.progress_manager.set_params_hash(params_hash)
+
+        existing_basenames = {os.path.basename(path) for path in files}
+        self.progress_manager.filter_existing_files(existing_basenames)
+        self.progress_manager.save()
 
     def _process_parallel(
         self,
