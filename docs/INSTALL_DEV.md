@@ -453,6 +453,57 @@ Once the checks pass, record the public checksum result, the operating system
 and Python versions tested, and the CLI startup results in the release notes.
 Confirm that the release page shows the intended commit and all three assets.
 
+#### Post-publication workflow test results
+
+- **Matching files.** A test-only pre-release used tag `0.0.0` and the three
+  files from [build run `42987994182`](https://github.com/shin3tky/detect_meteors/actions/runs/42987994182).
+  All three public downloads matched the artifact byte for byte, and both
+  distributions matched the published `SHA256SUMS`. The wheel and source
+  distribution each installed in a fresh environment on Python 3.12 and 3.13.
+  Dependency checks and `detect-meteors --version` and `--help` passed in all
+  four environments.
+  [Verification run `42988554691`](https://github.com/shin3tky/detect_meteors/actions/runs/42988554691)
+- **Mismatched files.** Verification of the published `1.6.12` files used an
+  artifact from a separate build of the same tag, run `42985162758`. The
+  workflow reported differences in the wheel, source distribution, and
+  `SHA256SUMS`. It failed during the file comparison, before checking the
+  checksums, and skipped the installation and CLI checks.
+  [Verification run `42987577894`](https://github.com/shin3tky/detect_meteors/actions/runs/42987577894)
+
+#### Remove the test pre-release and tag
+
+1. Save the build and verification run links. For the final comparison, use
+   the production tag target, notes, and attachment details recorded before
+   the test. In **Releases**, confirm the
+   test pre-release title and tag. Click its trash icon and choose
+   **Delete this release** to remove the release and its three attachments.
+   [GitHub's release deletion instructions](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#deleting-a-release)
+2. From the Git checkout, use the test tag and confirm that `origin` points to
+   the repository where the test was run. Inspect the tag's remote reference
+   before deleting it. The example uses the test tag `0.0.0`.
+
+   ```bash
+   test_tag=0.0.0
+   git remote get-url origin
+   git ls-remote --exit-code --refs origin "refs/tags/$test_tag"
+   ```
+
+   Once the repository and reference match the test, delete the remote tag.
+
+   ```bash
+   git push --no-follow-tags origin ":refs/tags/$test_tag"
+   git ls-remote --exit-code --refs origin "refs/tags/$test_tag"
+   ```
+
+   The last command should print no matching reference and exit with status 2.
+   If you also created the tag in this checkout, delete it there with
+   `git tag -d "$test_tag"`.
+3. Check that the test release page and all three attachment URLs return
+   HTTP `404`. Compare the production release's tag target, notes, and
+   attachments with their pre-test values, and confirm that GitHub still marks
+   the production release as **Latest**. After this test, `1.6.12` passed those
+   checks.
+
 ## Code Style
 
 ### Standards

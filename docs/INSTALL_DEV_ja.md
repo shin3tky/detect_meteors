@@ -420,6 +420,45 @@ cp "$artifact_dir/$wheel" "$artifact_dir/$sdist" "$artifact_dir/SHA256SUMS" "$re
 検証が通ったら、公開ファイルのチェックサム照合結果、確認に使った OS と Python のバージョン、CLI の起動結果をリリースノートに追記します。
 リリースページで、タグが意図したコミットを指し、添付3件が揃っていることを確認します。
 
+#### 公開後検証ワークフローの確認結果
+
+- **正常系**では、テスト用プレリリース `0.0.0` にビルド実行 `42987994182` のアーティファクトから3ファイルを添付しました。
+  公開 URL から取得した3ファイルはアーティファクトとバイト単位で一致し、両配布物の SHA-256 は公開された `SHA256SUMS` の記載値と一致しました。
+  Python 3.12・3.13 それぞれで wheel とソース配布物を個別の新しい環境にインストールし、全4通りで依存関係の確認と `detect-meteors --version`、`--help` の実行に成功しました。
+  [ビルド実行 `42987994182`](https://github.com/shin3tky/detect_meteors/actions/runs/42987994182)・[検証実行 `42988554691`](https://github.com/shin3tky/detect_meteors/actions/runs/42988554691)
+- **異常系**では、公開済みの `1.6.12` のファイルを、同じタグから別途ビルドした実行 `42985162758` のアーティファクトと比較しました。
+  wheel、ソース配布物、`SHA256SUMS` のすべてで差異が報告されました。
+  ワークフローはファイルの比較で失敗し、チェックサムの照合、インストール、CLI の起動確認には進みませんでした。
+  [検証実行 `42987577894`](https://github.com/shin3tky/detect_meteors/actions/runs/42987577894)
+
+#### テスト用プレリリースとタグを削除する
+
+1. ビルドと検証の実行ページへのリンクを記録します。削除後の照合には、テスト前に記録した本番リリースのタグの参照先、リリースノート、添付ファイルの情報を使います。
+   GitHub の **Releases** でテスト用プレリリースのタイトルとタグを確認します。
+   対象のごみ箱アイコンから **Delete this release** を選び、リリースを添付3ファイルごと削除します。
+   [GitHub のリリース削除手順](https://docs.github.com/ja/repositories/releasing-projects-on-github/managing-releases-in-a-repository#deleting-a-release)
+2. ローカルのチェックアウトで、`origin` がテストを実施したリポジトリを指していることと、削除するタグの参照先を確認します。
+   以下の例ではテストタグ `0.0.0` を使います。
+
+   ```bash
+   test_tag=0.0.0
+   git remote get-url origin
+   git ls-remote --exit-code --refs origin "refs/tags/$test_tag"
+   ```
+
+   リポジトリと参照先がテスト時の記録と一致したら、リモートのタグを削除します。
+
+   ```bash
+   git push --no-follow-tags origin ":refs/tags/$test_tag"
+   git ls-remote --exit-code --refs origin "refs/tags/$test_tag"
+   ```
+
+   最後のコマンドは、該当する参照を表示せず終了コード `2` を返します。
+   このチェックアウトでもタグを作成していた場合は、`git tag -d "$test_tag"` で削除します。
+3. テスト用リリースページと添付3ファイルの公開 URL がすべて HTTP `404` を返すことを確認します。
+   本番リリースのタグの参照先、リリースノート、添付ファイルをテスト前の記録と照合し、GitHub で引き続き **Latest** と表示されることを確認します。
+   今回は `1.6.12` についてこれらを確認しました。
+
 ## コードスタイル
 
 ### 基準
