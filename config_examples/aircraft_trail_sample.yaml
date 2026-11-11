@@ -1,4 +1,5 @@
 # Git-tracked validation sequence; RAW images are excluded from Python distributions.
+schema_version: 1
 target_folder: ./rawfiles/2024GEMINI_AIRCRAFT
 output_folder: ./candidates/aircraft_v1.6.10/tuned
 debug_folder: ./debug_masks/aircraft_v1.6.10/tuned

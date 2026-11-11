@@ -157,11 +157,13 @@ PNGの証拠画像を保存します。案を確認した後、同じオプシ�
 
 ## 設定ファイル（YAML/JSON）
 
-CLIは設定ファイルからパイプライン設定を読み込めます。ファイルは `PipelineConfig` のフィールドに対応するキーを持つ、JSONまたはYAMLのオブジェクトにしてください。
+CLIはJSONまたはYAMLのオブジェクトからパイプライン設定を読み込みます。
+新しいファイルでは最上位の `schema_version` に整数の `1` を指定してください。省略したファイルはバージョン1として読み込みます。未対応の版や整数以外の値を指定すると、設定エラーになります。
 CLIと `load_pipeline_config()` は一部の設定だけを指定したファイルにも対応し、省略したフィールドには組み込みの既定値を使います。相対パスは設定ファイルのあるディレクトリではなく、現在の作業ディレクトリを基準に解決します。
 
 **最上位のキー**
 
+- `schema_version`（パイプライン設定ファイル形式の版。省略時は `1`）
 - `target_folder`、`output_folder`、`debug_folder`（既定：`rawfiles`、`candidates`、`debug_masks`）
 - `params`（検出パラメータ）
 - `roi_polygon`、`enable_roi_selection`（保存ROIと対話選択の設定）
@@ -176,6 +178,7 @@ CLIと `load_pipeline_config()` は一部の設定だけを指定したファイ
 **YAMLの例**
 
 ```yaml
+schema_version: 1
 target_folder: ./rawfiles
 output_folder: ./candidates
 debug_folder: ./debug_masks

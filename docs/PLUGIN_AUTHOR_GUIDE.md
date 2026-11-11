@@ -963,13 +963,21 @@ misconfigured plugin.
 
 #### Configuration Files (YAML/JSON)
 
-The CLI accepts a `--config` option to load pipeline settings from a YAML or JSON file. The file structure mirrors `PipelineConfig` fields:
+The CLI accepts `--config` to load pipeline settings from a YAML or JSON file.
+Its top-level `schema_version` identifies the pipeline file format. Use the
+integer `1` in new files. Existing files without the key are read as version 1,
+and other explicit values raise a configuration error.
+
+The plugin and hook API follows the 1.x calling and data contracts described
+in this guide. Plugin payload schema versions and plugin release versions are
+independent of the file version. Each plugin still interprets its own settings.
 
 The CLI and `load_pipeline_config()` accept partial configurations and fill
 omitted fields with defaults. Relative paths use the current working directory.
 
 ```yaml
 # Minimal pipeline configuration
+schema_version: 1
 target_folder: ./rawfiles
 output_folder: ./candidates
 debug_folder: ./debug_masks
@@ -1030,6 +1038,12 @@ config = load_pipeline_config("config_examples/pipeline.yaml")
 pipeline = MeteorDetectionPipeline(config)
 pipeline.run()
 ```
+
+Use `meteor_core.dump_pipeline_config(config)` for versioned YAML text or
+`dump_pipeline_config(config, format="json")` for JSON text. Write the returned
+text with UTF-8 encoding. Analysis exports also use this file format for
+`session.yaml`. `PipelineConfig.to_dict()` returns the in-memory settings
+dictionary.
 
 #### CLI Plugin Selection
 

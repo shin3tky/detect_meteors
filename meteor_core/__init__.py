@@ -106,7 +106,11 @@ from .image_io import (
     extract_exif_metadata,
 )
 
-from .config_io import load_pipeline_config, SUPPORTED_CONFIG_EXTENSIONS
+from .config_io import (
+    dump_pipeline_config,
+    load_pipeline_config,
+    SUPPORTED_CONFIG_EXTENSIONS,
+)
 
 from .inputs.raw import RawImageLoader, RawLoaderConfig, create_raw_loader
 
@@ -365,6 +369,7 @@ __all__ = [
     # Outputs - Backward compatibility (deprecated)
     "OutputWriter",
     # Config IO
+    "dump_pipeline_config",
     "load_pipeline_config",
     "SUPPORTED_CONFIG_EXTENSIONS",
     # Pipeline

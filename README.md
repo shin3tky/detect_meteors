@@ -165,14 +165,17 @@ ROI coordinates and detection lengths/areas refer to the binned image.
 
 ## Configuration Files (YAML/JSON)
 
-The CLI can load pipeline settings from a configuration file. The file must be a
-JSON or YAML object whose keys align with `PipelineConfig`.
+The CLI loads pipeline settings from a JSON or YAML object.
+Set the top-level `schema_version` to the integer `1` in new files. Files without
+it are read as version 1. Other explicit versions and non-integer values cause
+a configuration error.
 Partial configurations are supported by the CLI and `load_pipeline_config()`;
 omitted fields use built-in defaults. Relative paths are resolved from the
 current working directory, not from the configuration file's directory.
 
 **Top-level keys**
 
+- `schema_version` (pipeline file format, defaults to `1`)
 - `target_folder`, `output_folder`, `debug_folder` (default: `rawfiles`, `candidates`, `debug_masks`)
 - `params` (detection parameters)
 - `roi_polygon`, `enable_roi_selection` (configured ROI and interactive selection)
@@ -187,6 +190,7 @@ current working directory, not from the configuration file's directory.
 **Example (YAML)**
 
 ```yaml
+schema_version: 1
 target_folder: ./rawfiles
 output_folder: ./candidates
 debug_folder: ./debug_masks

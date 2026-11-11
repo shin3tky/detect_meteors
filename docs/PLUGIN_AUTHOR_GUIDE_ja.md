@@ -918,12 +918,20 @@ BaseHook
 
 #### 設定ファイル（YAML/JSON）
 
-`--config` で `PipelineConfig` に対応するYAML/JSONを読み込みます。
+`--config` でパイプライン設定のYAML/JSONを読み込みます。最上位の
+`schema_version` はパイプライン設定ファイル形式の版です。新しいファイルでは
+整数の `1` を指定してください。省略した既存ファイルはバージョン1として読み込み、
+明示した値がそれ以外なら設定エラーになります。
+
+プラグインとフックの呼び出し方や受け渡すデータは、このガイドに記載する1.xの契約に従います。
+プラグインが受け渡すデータの版やプラグイン自身のリリース版は、設定ファイルの版とは独立しています。
+各プラグインの設定は、引き続き各プラグインが解釈します。
 
 CLIと `load_pipeline_config()` は一部だけの設定にも対応し、省略分は既定値です。相対パスは現在の作業ディレクトリを基準にします。
 
 ```yaml
 # Minimal pipeline configuration
+schema_version: 1
 target_folder: ./rawfiles
 output_folder: ./candidates
 debug_folder: ./debug_masks
@@ -977,6 +985,11 @@ config = load_pipeline_config("config_examples/pipeline.yaml")
 pipeline = MeteorDetectionPipeline(config)
 pipeline.run()
 ```
+
+`meteor_core.dump_pipeline_config(config)` は版付きのYAMLを文字列として返します。
+JSONには `dump_pipeline_config(config, format="json")` を使い、返された文字列は
+UTF-8で保存してください。解析結果から書き出す `session.yaml` も同じ形式です。
+`PipelineConfig.to_dict()` はメモリ上の設定を辞書として返します。
 
 <a id="cli-plugin-selection"></a>
 

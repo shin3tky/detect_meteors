@@ -254,11 +254,11 @@ existing semantics. Multi-detector chains and other new stages are opt-in.
 - [ ] Record the supported 1.x contract and publish a compatibility matrix.
   Cover plugin interfaces and data contracts, plugin lookup and configuration,
   CLI overrides, and hook order, process boundaries, and error handling.
-- [ ] Give saved pipeline YAML/JSON its own schema version, separate from the
-  application version and plugin data contract versions. Read existing
-  unversioned 1.x files as the legacy format. Migrate them in memory and report
-  unsupported schema versions clearly. Keep progress files and analysis bundles
-  on their own format and migration paths.
+- [x] Version pipeline YAML/JSON separately from the application and plugin
+  data contracts. Saved pipeline settings use `schema_version: 1`. Unversioned
+  1.x files are read as v1 in memory, and unsupported versions produce a
+  configuration error. Progress files and analysis reports have their own
+  formats.
 - [ ] Extend plugin contracts through optional fields or explicit adapters.
   Preserve existing plugin signatures and defaults for supported 1.x plugins.
 - [ ] Capture representative 1.x configurations and plugins as regression

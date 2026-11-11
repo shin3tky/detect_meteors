@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import cv2
 import numpy as np
+import yaml
 
 import detect_meteors_cli as cli
 from meteor_core.analysis import (
@@ -167,9 +168,17 @@ class TestAnalysisReports(unittest.TestCase):
         self.assertGreater(measured["mask_pixels"], 0)
         self.assertNotEqual(baseline["mask"], measured["mask"])
         self.assertEqual(measured["params"]["diff_threshold"], 4)
-        config = load_pipeline_config(self.output / "session.yaml")
+        session = self.output / "session.yaml"
+        session_data = yaml.safe_load(session.read_text(encoding="utf-8"))
+        self.assertEqual(session_data.pop("schema_version"), 1)
+        legacy_session = self.root / "legacy_session.yaml"
+        legacy_session.write_text(yaml.safe_dump(session_data), encoding="utf-8")
+        config = load_pipeline_config(session)
+        self.assertEqual(
+            config.to_dict(), load_pipeline_config(legacy_session).to_dict()
+        )
         self.assertEqual(config.params.to_dict(), proposal["params"])
-        code, _, err = self.run_cli(["--config", str(self.output / "session.yaml")])
+        code, _, err = self.run_cli(["--config", str(session)])
         self.assertEqual(code, 0, err)
         progress = json.loads((self.output / "run/progress.json").read_text())
         self.assertEqual(progress["total_detected"], 1)
@@ -492,6 +501,23 @@ class TestAnalysisReports(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertIn("Candidate: True", out)
         self.assertNotIn("full image was assumed", out)
+
+    def test_cli_rejects_unsupported_pipeline_version_before_processing(self):
+        path = self.root / "unsupported.yaml"
+        path.write_text("schema_version: 2\n", encoding="utf-8")
+        with (
+            patch.object(cli, "MeteorDetectionPipeline") as pipeline,
+            patch("meteor_core.pipeline._resolve_detector") as detector,
+        ):
+            for mode in ([], ["--analyze-image", str(self.target)]):
+                with self.subTest(mode=mode):
+                    code, _, err = self.run_cli(["--config", str(path), *mode])
+                    self.assertEqual(code, 1)
+                    self.assertIn("schema_version 2", err)
+                    self.assertIn("Expected integer 1", err)
+                    self.assertIn(path.name, err)
+        pipeline.assert_not_called()
+        detector.assert_not_called()
 
     def test_cli_output_modifiers_require_explicit_analysis_and_selection(self):
         for options in (

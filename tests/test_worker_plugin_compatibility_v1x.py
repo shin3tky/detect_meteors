@@ -8,6 +8,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from meteor_core import schema
+from meteor_core.config_io import dump_pipeline_config, load_pipeline_config
 from meteor_core.detectors import DetectorRegistry
 from meteor_core.exceptions import MeteorConfigError
 from meteor_core.hooks import HookRegistry
@@ -104,7 +105,7 @@ class ShadowedHook(BaseHook):
 
 class TestWorkerPluginCompatibility(PipelineTestCase):
     def make_discovered_pipeline(
-        self, *, pairs: int, mode: str = "raise"
+        self, *, pairs: int, mode: str = "raise", versioned_config: bool = False
     ) -> tuple[MeteorDetectionPipeline, Path]:
         loader_dir = self.root / "loaders"
         hook_dir = self.root / "hooks"
@@ -152,6 +153,10 @@ class TestWorkerPluginCompatibility(PipelineTestCase):
             HookConfig("compat_shadowed_hook"),
             HookConfig("compat_entry_hook"),
         ]
+        if versioned_config:
+            path = self.root / "pipeline.yaml"
+            path.write_text(dump_pipeline_config(config), encoding="utf-8")
+            config = load_pipeline_config(path)
         (Path(config.target_folder) / "excluded.CR2").touch()
         pipeline = MeteorDetectionPipeline(config, output_handler=base.output_handler)
         schema.register_detection_result_converter(
@@ -160,7 +165,7 @@ class TestWorkerPluginCompatibility(PipelineTestCase):
         return pipeline, loader_file
 
     def test_spawn_uses_selected_sources_converters_and_batch_state(self):
-        pipeline, _ = self.make_discovered_pipeline(pairs=3)
+        pipeline, _ = self.make_discovered_pipeline(pairs=3, versioned_config=True)
         with (
             patch(
                 "meteor_core.pipeline.ProcessPoolExecutor",

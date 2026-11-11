@@ -12,9 +12,9 @@ from typing import Any, Mapping
 
 import cv2
 import numpy as np
-import yaml
 
 from .analysis import HoughReproduction, source_stamp
+from .config_io import dump_pipeline_config
 from .detectors.hough_analysis import (
     CandidateDecision,
     CandidateThresholds,
@@ -526,12 +526,7 @@ def save_analysis_bundle(
                     }
                 )
         if session is not None:
-            write(
-                "session.yaml",
-                yaml.safe_dump(
-                    session.to_dict(), allow_unicode=True, sort_keys=False
-                ).encode("utf-8"),
-            )
+            write("session.yaml", dump_pipeline_config(session).encode("utf-8"))
         for path, stamp in {**stamps, **comparison_stamps}.items():
             _fingerprint(path, stamp, hash_content=False)
         # Publish the manifest last. It never lists or hashes itself.
