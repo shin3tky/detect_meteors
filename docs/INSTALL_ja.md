@@ -13,14 +13,14 @@ Detect Meteors CLIをmacOSとWindowsにインストールする手順を説明�
 > 同期対象内では `.venv` 内のファイルに非表示属性が再付与され、
 > 導入に成功していても `ModuleNotFoundError` で起動できなくなる場合があります。
 
-## v1.6.11のソースからインストールする
+## v1.6.12 のソースからインストールする
 
 以下のOS別の手順でGitとuvを用意した後、リリース済みのソースを取得し、
 ロックファイルに従って依存パッケージをインストールします。
 Python 3.12または3.13が必要です。依存パッケージの取得にはパッケージインデックスへの接続が必要です。
 
 ```bash
-git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 uv python install 3.12
 uv sync --locked
@@ -28,8 +28,8 @@ uv run detect-meteors --version
 uv run detect-meteors --help
 ```
 
-Gitを使わずに取得する場合は、[1.6.11のリリースページ](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.11)の
-**Source code (zip)** または **Source code (tar.gz)** をダウンロードして展開してください。
+Git を使わずに取得する場合は、[v1.6.12 のソース配布物](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12.tar.gz)か、
+[リリースページ](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12)にある GitHub の **Source code** アーカイブをダウンロードして展開してください。
 展開先の `pyproject.toml` があるディレクトリでターミナルを開き、
 上記の `uv python install 3.12` 以降のコマンドを実行します。
 
@@ -41,18 +41,15 @@ uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 ```
 
 以降のアプリ起動例も `uv run detect-meteors` に統一しています。コマンド名はハイフン付きです。
-ソースにはドキュメント、設定例、テストと、Gitで管理している `rawfiles/2024GEMINI_AIRCRAFT` のサンプルを含みます。
+ソースにはドキュメント、設定例、テストが含まれます。`rawfiles/2024GEMINI_AIRCRAFT` のサンプル RAW 画像は、Git でクローンしたソースか GitHub の **Source code** アーカイブで取得できます。
 
-### 補足：別途提供されたwheelをインストールする場合
+### リリースの wheel からインストールする
 
-この方法は、メンテナーからwheelファイルが提供されている場合に使います。
-まずファイルをダウンロードし、その保存先でターミナルを開いてください。
-リポジトリをクローンしてもwheelは取得できません。`dist/` はメンテナーがビルド時に作成する出力先です。
-配布ファイルのビルド方法は[開発者向けガイド](INSTALL_DEV_ja.md#building-a-release)に記載しています。
+[v1.6.12 の wheel](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12-py3-none-any.whl)をダウンロードし、保存先でターミナルを開いてください。
 
 ```bash
 uv venv --python 3.12
-uv pip install ./detect_meteors-1.6.11-py3-none-any.whl
+uv pip install ./detect_meteors-1.6.12-py3-none-any.whl
 ```
 
 wheelを別の場所に保存した場合は、実際のファイルパスに置き換えてください。
@@ -67,7 +64,9 @@ uv run detect-meteors --help
 wheelにはコマンドを含みますが、ソース一式、RAWサンプル、生成済み候補は含みません。
 ドキュメント、設定例、テスト、サンプル画像を使う場合は、上記のソース取得手順に従ってください。
 
-## 依存ライブラリのバージョン（v1.6.11）
+<a id="dependency-versions-v1612"></a>
+
+## 依存ライブラリのバージョン（v1.6.12）
 
 Python **3.12／3.13** に対応します。以下は `pyproject.toml` と `uv.lock` の固定値です。
 
@@ -81,13 +80,13 @@ Python **3.12／3.13** に対応します。以下は `pyproject.toml` と `uv.l
 | `pydantic` | `2.14.3` |
 | `pyyaml` | `6.0.3` |
 
-このリリースで使う開発ツールのバージョンは、[1.6.11 の依存パッケージ一覧](CHANGELOG_ja.md#dependency-updates-1610-to-1611)を参照してください。
+実行時の依存ライブラリは v1.6.11 と同じです。開発用の `ty` は `0.0.100` に更新しました。[変更履歴](CHANGELOG_ja.md#v1612)と[開発ツールのバージョン](INSTALL_DEV_ja.md#development-tool-versions)を参照してください。
 
-<a id="upgrading-from-1610"></a>
+<a id="upgrading-from-1611"></a>
 
-## 1.6.10からの更新
+## 1.6.11 からの更新
 
-1.6.11のソースへ切り替えた後、プロジェクトルートで実行します。
+1.6.12 のソースへ切り替えた後、プロジェクトルートで実行します。
 
 ```bash
 uv sync --locked
@@ -96,15 +95,14 @@ uv sync --locked --all-extras
 ```
 
 用途に合わせてどちらかを選びます。`uv.lock` に記録した直接・間接依存を反映します。
-wheelで導入している場合は、新しいwheelが提供されているときにダウンロードし、使用中の仮想環境を有効にして保存先で次を実行してください。ファイルを別の場所に保存した場合は実際のパスを指定します。
+wheel で導入している場合は、リリースページから v1.6.12 の wheel をダウンロードし、使用中の仮想環境を有効にして保存先で次を実行してください。別の場所に保存した場合は実際のパスを指定します。
 
 ```bash
-uv pip install --upgrade ./detect_meteors-1.6.11-py3-none-any.whl
+uv pip install --upgrade ./detect_meteors-1.6.12-py3-none-any.whl
 ```
 
 wheelでは直接の実行時依存を固定し、間接依存は各パッケージの制約に従って解決します。
-[バージョン差分](CHANGELOG_ja.md#dependency-updates-1610-to-1611)と
-[セキュリティ修正の根拠](CHANGELOG_ja.md#security-updates-1611)も参照してください。
+設定の互換性や検出器エラーからの再開については、[v1.6.12 のリリースノート](RELEASE_NOTES_1.6_ja.md#version-1612)を参照してください。
 
 ## macOSへのインストール
 
@@ -126,7 +124,7 @@ brew install git
 
 ```bash
 # Clone the repository
-git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -257,7 +255,7 @@ winget install --id astral-sh.uv -e --source winget
 
 ```powershell
 # Clone the repository
-git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 

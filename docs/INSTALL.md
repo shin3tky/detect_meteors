@@ -13,14 +13,14 @@ This guide provides detailed installation instructions for Detect Meteors CLI on
 > In synced locations, hidden attributes can be reapplied to files in `.venv`,
 > causing startup to fail with `ModuleNotFoundError` even after a successful installation.
 
-## Install v1.6.11 from Source
+## Install v1.6.12 from Source
 
 Install Git and uv using the platform-specific steps below, then obtain the
 released source and install its locked dependencies. Python 3.12 or 3.13 is
 required; dependency installation needs access to the package index.
 
 ```bash
-git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 uv python install 3.12
 uv sync --locked
@@ -28,8 +28,9 @@ uv run detect-meteors --version
 uv run detect-meteors --help
 ```
 
-Alternatively, download **Source code (zip)** or **Source code (tar.gz)** from the
-[1.6.11 release page](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.11).
+Alternatively, download the [v1.6.12 source distribution](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12.tar.gz)
+or one of GitHub's **Source code** archives from the
+[release page](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12).
 Extract it, open a terminal in the extracted directory containing `pyproject.toml`,
 and run the commands above starting with `uv python install 3.12`.
 
@@ -41,20 +42,18 @@ uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 ```
 
 All application examples below use `uv run detect-meteors` (with a hyphen)
-from the source directory. The source includes documentation, configuration examples,
-tests, and the tracked `rawfiles/2024GEMINI_AIRCRAFT` sample.
+from the source directory. The source includes documentation, configuration
+examples, and tests. The RAW images for the `rawfiles/2024GEMINI_AIRCRAFT`
+sample are available in the Git checkout or GitHub's **Source code** archives.
 
-### Optional: Install a Separately Provided Wheel
+### Install the Release Wheel
 
-Use this method only if a maintainer has provided a wheel file. Download that
-file first and open a terminal in the directory where you saved it. Cloning the
-repository does not provide a wheel; `dist/` is a local build-output directory
-for maintainers. Building distributions is covered in the
-[developer guide](INSTALL_DEV.md#building-a-release).
+Download the [v1.6.12 wheel](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12-py3-none-any.whl)
+and open a terminal in the directory where you saved it.
 
 ```bash
 uv venv --python 3.12
-uv pip install ./detect_meteors-1.6.11-py3-none-any.whl
+uv pip install ./detect_meteors-1.6.12-py3-none-any.whl
 ```
 
 If you saved the wheel elsewhere, replace the filename with its actual path.
@@ -70,7 +69,7 @@ The wheel includes the command but not the source tree, RAW sample, or generated
 candidates. Use the source instructions above for documentation, configuration
 examples, tests, and sample images.
 
-## Dependency Versions (v1.6.11)
+## Dependency Versions (v1.6.12)
 
 Python **3.12 and 3.13** are supported. The following runtime package versions
 are pinned in `pyproject.toml` and recorded in `uv.lock`.
@@ -85,14 +84,15 @@ are pinned in `pyproject.toml` and recorded in `uv.lock`.
 | `pydantic` | `2.14.3` |
 | `pyyaml` | `6.0.3` |
 
-See the [1.6.11 dependency table](CHANGELOG.md#dependency-updates-1610-to-1611)
-for the development tool versions shipped with this release.
+The runtime pins are the same as in v1.6.11. The development dependency `ty`
+was updated to `0.0.100`. See the [changelog](CHANGELOG.md#v1612) and
+[development tool versions](INSTALL_DEV.md#development-tool-versions).
 
-<a id="upgrading-from-1610"></a>
+<a id="upgrading-from-1611"></a>
 
-## Upgrading from 1.6.10
+## Upgrading from 1.6.11
 
-After switching to the 1.6.11 source, run from the project root:
+After switching to the 1.6.12 source, run from the project root:
 
 ```bash
 uv sync --locked
@@ -101,18 +101,18 @@ uv sync --locked --all-extras
 ```
 
 Choose the command for your environment. It installs direct and transitive
-versions recorded in `uv.lock`. For a wheel installation, download the new
-wheel if one is provided, activate your existing virtual environment, and run
+versions recorded in `uv.lock`. For a wheel installation, download the v1.6.12
+wheel from the release page, activate your existing virtual environment, and run
 the following from the directory where you saved the wheel. Use its actual path
 if it is saved elsewhere:
 
 ```bash
-uv pip install --upgrade ./detect_meteors-1.6.11-py3-none-any.whl
+uv pip install --upgrade ./detect_meteors-1.6.12-py3-none-any.whl
 ```
 
 The wheel pins direct runtime dependencies; transitive packages resolve according
-to their package constraints. See the [version changes](CHANGELOG.md#dependency-updates-1610-to-1611)
-and [security sources](CHANGELOG.md#security-updates-1611).
+to their package constraints. See the [v1.6.12 release notes](RELEASE_NOTES_1.6.md#version-1612)
+for configuration compatibility and recovery after detector errors.
 
 ## macOS Installation
 
@@ -134,7 +134,7 @@ brew install git
 
 ```bash
 # Clone the repository
-git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -268,7 +268,7 @@ After installation, restart your terminal or open a new one to ensure uv is in y
 
 ```powershell
 # Clone the repository
-git clone --branch 1.6.11 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 

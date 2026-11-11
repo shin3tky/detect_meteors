@@ -35,11 +35,11 @@
 - macOS、Windows、Linux
 - 依存ライブラリ：`numpy`、`opencv-python`、`rawpy`、`psutil`、`pillow`、`pydantic`、`pyyaml`
 
-固定バージョンは[インストールガイド](docs/INSTALL_ja.md#依存ライブラリのバージョンv1611)を参照。
+固定バージョンは[インストールガイド](docs/INSTALL_ja.md#dependency-versions-v1612)を参照してください。
 
 ## インストール
 
-詳しい手順は[INSTALL_ja.md](docs/INSTALL_ja.md)を参照してください。
+[最新リリース v1.6.12](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12)をダウンロードし、[インストールガイド](docs/INSTALL_ja.md)に沿って導入してください。
 
 ## クイックスタート
 
@@ -259,28 +259,21 @@ RAWファイルとチェックサムは、リポジトリの [`rawfiles/2024GEMI
 | [飛行機サンプルの検証](docs/aircraft_sample_validation.md) | 12枚のサンプルでの結果と制約 |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | 技術的な詳細 |
 
-## v1.6.12 に向けた変更
+## v1.6.12 の主な変更
 
-開発中の v1.6.12 では、並列処理で使うプラグインとフックの互換性を改善しています。既存の設定はそのまま使えます。検出器が未対応の形式で結果を返して停止した場合は、プラグインを直してから再開すると、問題のペアを再処理できます。詳しくは[リリースノートの草案](docs/RELEASE_NOTES_1.6_ja.md#version-1612)と[変更履歴](docs/CHANGELOG_ja.md#v1612)を参照してください。
+**2026年11月11日公開。**
 
-## v1.6.11の新機能
+- 並列処理でも、メインプロセスと同じプラグインと変換関数を使います。
+- 検出器が未対応の形式で結果を返した場合は、プラグインを直してから再開すると、問題のペアを再処理できます。フックの不正な戻り値は既存の `warn`／`raise` に従います。
+- パイプライン設定が `schema_version: 1` に対応しました。版の指定がない既存設定も読み込めます。新しく書き出すセッション設定には版が付きます。
 
-**リリース日：2026年11月7日（2026-11-07）。**
-
-- 1.6系の検出基盤を整理し、並列処理の保存エラーを逐次処理と同じ扱いに修正。
-- 実行時・開発用の依存パッケージを更新し、[上流のセキュリティ修正](docs/CHANGELOG_ja.md#security-updates-1611)を取り込み。
-- 元の画像ペア、記録済み設定、ROIを使い、候補にならなかった理由を確認。
-- 範囲を限定した調整案を導出し、撮影系列への影響を比較。
-- JSON/PNGの証拠と、明示的に選んだ再処理用の設定を保存。
-- 設定済みROIの再利用と、`detect-meteors` を含むBash/Zshでの分析オプション補完。
-
-使い方は[リリースノート](docs/RELEASE_NOTES_1.6_ja.md#バージョン16112026-11-07)、
-変更全体は[CHANGELOG](docs/CHANGELOG_ja.md#v1611---2026-11-07)を参照してください。
+詳しくは[リリースノート](docs/RELEASE_NOTES_1.6_ja.md#version-1612)と[変更履歴](docs/CHANGELOG_ja.md#v1612)を参照してください。
 
 ### 以前のリリース
 
 | バージョン | 主な変更 | 詳細 |
 |------------|----------|------|
+| v1.6.11 | 取りこぼしの分析、パラメータ調整、セッション設定の再利用 | [リリースノート](docs/RELEASE_NOTES_1.6_ja.md#バージョン16112026-11-07) |
 | v1.6.x | スキーマのバージョン管理、MLに備えた設計、uv/Ruff開発環境 | [RELEASE_NOTES_1.6_ja.md](docs/RELEASE_NOTES_1.6_ja.md) |
 | v1.5.x | プラグイン構成、センサープリセット、魚眼対応 | [RELEASE_NOTES_1.5.md](docs/RELEASE_NOTES_1.5.md) |
 | v1.4.x | NPF Ruleによる最適化、EXIF抽出 | [RELEASE_NOTES_1.4.md](docs/RELEASE_NOTES_1.4.md) |

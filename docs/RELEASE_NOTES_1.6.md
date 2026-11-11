@@ -4,11 +4,15 @@
 
 <a id="version-1612"></a>
 
-## Version 1.6.12 (Unreleased)
+## Version 1.6.12 (2026-11-11)
 
 This release preserves the 1.x plugin interfaces and Hough candidate criteria
 while clarifying the detection code and making compatibility failures easier
 to diagnose and recover from.
+
+Download the wheel or source distribution from the
+[GitHub release](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12).
+See the [installation guide](INSTALL.md#upgrading-from-1611) for upgrade steps.
 
 ### Reuse existing settings
 
@@ -162,7 +166,8 @@ The updates include upstream security fixes in Pillow and Pydantic, and in the
 development-only transitive packages filelock and virtualenv. See the
 [version comparison](CHANGELOG.md#dependency-updates-1610-to-1611) and
 [security sources and scope](CHANGELOG.md#security-updates-1611).
-For environment updates, see [upgrading from 1.6.10](INSTALL.md#upgrading-from-1610).
+For environment updates specific to v1.6.11, see its tagged
+[installation guide](https://github.com/shin3tky/detect_meteors/blob/1.6.11/docs/INSTALL.md#upgrading-from-1610).
 
 ### Compatibility, Installation, and Validation
 

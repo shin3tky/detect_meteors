@@ -35,11 +35,12 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 - macOS, Windows, or Linux
 - Dependencies: `numpy`, `opencv-python`, `rawpy`, `psutil`, `pillow`, `pydantic`, `pyyaml`
 
-Exact versions: [installation guide](docs/INSTALL.md#dependency-versions-v1611).
+Exact versions: [installation guide](docs/INSTALL.md#dependency-versions-v1612).
 
 ## Installation
 
-See [INSTALL.md](docs/INSTALL.md) for detailed installation instructions.
+Download the [latest release, v1.6.12](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12)
+and follow the [installation guide](docs/INSTALL.md).
 
 ## Quick Start
 
@@ -298,32 +299,22 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 | [Aircraft sample validation](docs/aircraft_sample_validation.md) | Results and limitations on the local 12-frame sequence |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## Upcoming in v1.6.12
+## What's New in v1.6.12
 
-The 1.6.12 development branch improves plugin and hook compatibility in
-parallel runs. Existing pipeline settings still load. If a detector returns
-an incompatible result, fix the plugin and resume to retry the failed pair.
-See the [draft release notes](docs/RELEASE_NOTES_1.6.md#version-1612) and
-[changelog](docs/CHANGELOG.md#v1612).
+**Released November 11, 2026 (2026-11-11).**
 
-## What's New in v1.6.11
+- Parallel workers use the same plugins and schema converters as the main process.
+- If a detector returns an incompatible result, fix the plugin and resume to retry the failed pair. Invalid hook returns follow the existing `warn`/`raise` policy.
+- Pipeline settings support `schema_version: 1`. Existing files with no version still load, and new session exports include the version.
 
-**Release date: November 7, 2026 (2026-11-07).**
-
-- Consolidate the 1.6 detection foundation and propagate parallel save errors like sequential errors.
-- Update runtime/development dependencies, including [upstream security fixes](docs/CHANGELOG.md#security-updates-1611).
-- Inspect missed candidates with the original image pair, recorded settings, and ROI.
-- Derive bounded tuning proposals and compare their effects on a shooting sequence.
-- Save JSON/PNG evidence and an explicitly selected session configuration for reprocessing.
-- Reuse configured ROI and complete analysis options in Bash/Zsh, including `detect-meteors`.
-
-See the [release notes](docs/RELEASE_NOTES_1.6.md#version-1611-2026-11-07)
-for the workflow and [CHANGELOG](docs/CHANGELOG.md#v1611---2026-11-07) for all changes.
+See the [release notes](docs/RELEASE_NOTES_1.6.md#version-1612) and
+[changelog](docs/CHANGELOG.md#v1612) for details.
 
 ### Previous Releases
 
 | Version | Highlights | Details |
 |---------|------------|---------|
+| v1.6.11 | Missed-candidate analysis, parameter tuning, and reusable sessions | [Release notes](docs/RELEASE_NOTES_1.6.md#version-1611-2026-11-07) |
 | v1.6.x | Schema versioning, ML-ready architecture, uv/Ruff toolchain | [RELEASE_NOTES_1.6.md](docs/RELEASE_NOTES_1.6.md) |
 | v1.5.x | Plugin architecture, sensor presets, fisheye support | [RELEASE_NOTES_1.5.md](docs/RELEASE_NOTES_1.5.md) |
 | v1.4.x | NPF Rule optimization, EXIF extraction | [RELEASE_NOTES_1.4.md](docs/RELEASE_NOTES_1.4.md) |

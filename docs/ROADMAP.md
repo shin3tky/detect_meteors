@@ -228,7 +228,7 @@ four reviewed implementation steps and extension points.
 
 ### Plugin and Hook Compatibility
 
-**v1.6.12 (in development)**
+**v1.6.12 (2026-11-11)**
 
 - [x] Clarify the Hough detection and pipeline flow and improve function
   documentation for IDEs while preserving candidate criteria.
@@ -244,7 +244,7 @@ four reviewed implementation steps and extension points.
   error policy. Verify `warn` and `raise` behavior and retry after a detector
   compatibility failure in sequential processing and with real spawn workers.
 
-See the [draft release notes](RELEASE_NOTES_1.6.md#version-1612) for upgrade
+See the [release notes](RELEASE_NOTES_1.6.md#version-1612) for upgrade
 and recovery guidance, and the [changelog](CHANGELOG.md#v1612) for the full list.
 
 ### 1.x Contract to Preserve
@@ -337,6 +337,5 @@ Multi-detector chains and other new stages are opt-in.
 
 ---
 
-**Latest release**: v1.6.11, released 2026-11-07 — Missed-Meteor Analysis and Parameter Tuning
-
-**In development**: v1.6.12 — Plugin and hook compatibility and code readability
+**Latest release**: [v1.6.12](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12),
+released 2026-11-11 — Plugin and hook compatibility and code readability

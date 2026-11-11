@@ -55,7 +55,7 @@ pre-commit, and coverage. To test on Python 3.13, install it with
 | `coverage` | `7.17.2` |
 
 These match the `dev` extra in `pyproject.toml` and `uv.lock`. Runtime pins are
-listed in [installation](INSTALL.md#dependency-versions-v1611).
+listed in [installation](INSTALL.md#dependency-versions-v1612).
 
 After switching branches or pulling a lockfile update, run
 `uv sync --locked --all-extras` again from the checkout root.

@@ -4,9 +4,11 @@
 
 <a id="version-1612"></a>
 
-## バージョン1.6.12（公開準備中）
+## バージョン1.6.12（2026-11-11）
 
 1.x のプラグインとの互換性と Hough 検出の候補判定条件を保ちながら、処理の流れを読みやすく整理しました。プラグインが対応していない形式の結果を返したときは、原因を特定し、修正後に処理を再開しやすくなります。
+
+wheel とソース配布物は [GitHub Release](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12) からダウンロードできます。更新の手順は[インストールガイド](INSTALL_ja.md#upgrading-from-1611)を参照してください。
 
 ### 既存の設定を使う
 
@@ -126,7 +128,7 @@ uv run detect-meteors --config analysis/review-001/session.yaml
 Pillow・Pydantic、および開発用の間接依存であるfilelock・virtualenvの上流セキュリティ修正を含みます。
 [旧版とのバージョン比較](CHANGELOG_ja.md#dependency-updates-1610-to-1611)と
 [セキュリティ更新の根拠・適用範囲](CHANGELOG_ja.md#security-updates-1611)を参照してください。
-実行環境の更新方法は[インストールガイド](INSTALL_ja.md#upgrading-from-1610)に記載しています。
+v1.6.11 への更新手順は、[当時のインストールガイド](https://github.com/shin3tky/detect_meteors/blob/1.6.11/docs/INSTALL_ja.md#upgrading-from-1610)を参照してください。
 
 ### 互換性・導入・検証
 

@@ -4,7 +4,7 @@
 
 <a id="v1612"></a>
 
-## v1.6.12 (Unreleased)
+## v1.6.12 - 2026-11-11
 
 ### Plugin compatibility and recovery
 
@@ -43,7 +43,8 @@
   baseline and remaining 2.x work in the [roadmap](ROADMAP.md#1x-contract-to-preserve).
 
 See the [v1.6.12 release notes](RELEASE_NOTES_1.6.md#version-1612) for upgrade
-and recovery guidance.
+and recovery guidance, and the [GitHub release](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12)
+for downloads.
 
 <a id="v1611---2026-11-07"></a>
 

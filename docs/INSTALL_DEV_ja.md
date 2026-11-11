@@ -46,7 +46,7 @@ uv run detect-meteors --help
 | `pre-commit` | `4.7.0` |
 | `coverage` | `7.17.2` |
 
-`pyproject.toml` の `dev` と `uv.lock` に記載されたバージョンです。実行時に必要なライブラリは[インストールガイド](INSTALL_ja.md#依存ライブラリのバージョンv1611)を参照してください。
+`pyproject.toml` の `dev` と `uv.lock` に記載されたバージョンです。実行時に必要なライブラリは[インストールガイド](INSTALL_ja.md#dependency-versions-v1612)を参照してください。
 
 ブランチを切り替えたときやロックファイルを更新したときは、チェックアウトのルートで `uv sync --locked --all-extras` を再実行します。
 
