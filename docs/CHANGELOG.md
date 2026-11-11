@@ -2,6 +2,49 @@
 
 [日本語版](CHANGELOG_ja.md)
 
+<a id="v1612"></a>
+
+## v1.6.12 (Unreleased)
+
+### Plugin compatibility and recovery
+
+- Use the plugin classes and schema converters selected by the main process in
+  spawned workers. Restore loader and detector state for each batch. Report
+  worker setup errors, including changed plugin sources and state that cannot be
+  serialized, as configuration errors.
+- Raise `MeteorDetectorCompatibilityError` for detector results that cannot be
+  normalized. Include the detector, frame, and expected version in the error.
+  Leave the affected pair unrecorded so it can be retried after the plugin is
+  fixed. A valid non-candidate is still recorded as processed.
+- Validate image, detection-result, and sorted hook returns within the existing
+  `warn`/`raise` policy. Keep support for legacy bare images and empty sorted
+  lists. Add regression coverage for both hook modes and for stopping and
+  resuming in sequential processing and with real spawn workers.
+
+### Pipeline configuration
+
+- Read and write YAML/JSON pipeline files with `schema_version: 1`, including
+  exported `session.yaml`. Treat unversioned files as v1 and reject unsupported
+  explicit versions. Keep the pipeline file version independent of plugin data
+  contracts, progress files, and analysis reports.
+- Add `dump_pipeline_config()` for writing versioned YAML/JSON in Python. Keep
+  the existing `PipelineConfig.to_dict()` shape and CLI override precedence.
+
+### Code and development tools
+
+- Clarify the CLI, Hough detection, and pipeline execution flow with smaller
+  steps and more descriptive docstrings. Reduce temporary allocations in RAW
+  binning and contour evaluation while preserving the existing detection rules.
+- Update the development dependency `ty` from `0.0.99` to `0.0.100`, update
+  renamed rules, and fix type checks for optional image conversion dependencies.
+  Ignore local PyCharm workspace files and document interpreter setup for VS
+  Code and PyCharm.
+- Update the developer and plugin guides and record the 1.x compatibility
+  baseline and remaining 2.x work in the [roadmap](ROADMAP.md#1x-contract-to-preserve).
+
+See the [v1.6.12 release notes](RELEASE_NOTES_1.6.md#version-1612) for upgrade
+and recovery guidance.
+
 <a id="v1611---2026-11-07"></a>
 
 ## v1.6.11 - 2026-11-07 - 🦅 International Golden Eagle Day

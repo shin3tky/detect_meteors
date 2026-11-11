@@ -15,7 +15,7 @@ from meteor_core.detectors.base import BaseDetector
 from meteor_core.hooks import DataclassHook, HookRegistry
 from meteor_core.inputs.base import BaseInputLoader
 from meteor_core.outputs.base import BaseOutputHandler
-from meteor_core.pipeline import MeteorDetectionPipeline, _init_worker_ignore_interrupt
+from meteor_core.pipeline import MeteorDetectionPipeline
 from meteor_core.schema import DetectionResult, HookConfig, InputContext, OutputResult
 from meteor_core.schema import PipelineConfig
 
@@ -229,18 +229,12 @@ class CompletedBatchExecutor:
         return future
 
 
-def initialize_worker_hooks():
-    """Bootstrap the test hook explicitly; runtime registration is not inherited."""
-    _init_worker_ignore_interrupt()
-    HookRegistry.register(RecordingHook)
-
-
 def make_spawn_executor(*, max_workers, initializer):
-    """Use fresh workers with the test plugin explicitly bootstrapped."""
+    """Use fresh workers with the pipeline's normal initialization."""
     return ProcessPoolExecutor(
         max_workers=max_workers,
         mp_context=multiprocessing.get_context("spawn"),
-        initializer=initialize_worker_hooks,
+        initializer=initializer,
     )
 
 
@@ -292,7 +286,9 @@ class PipelineTestCase(unittest.TestCase):
         self.enterContext(
             patch(
                 "meteor_core.pipeline.as_completed",
-                side_effect=lambda futures: iter(futures[::-1] if reverse else futures),
+                side_effect=lambda _: iter(
+                    executor.futures[::-1] if reverse else executor.futures
+                ),
             )
         )
         return executor

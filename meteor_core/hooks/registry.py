@@ -38,7 +38,12 @@ class HookRegistry(PluginRegistryBase[BaseHook]):
     ) -> BaseHook:
         """Create a hook instance with config coercion."""
         logger.debug("Creating hook '%s' with config %r", name, config)
-        hook_cls = cls.get(name)
+        return cls._create_from_class(cls.get(name), config)
+
+    @classmethod
+    def _create_from_class(cls, hook_cls: type[BaseHook], config: Any) -> BaseHook:
+        """Create an instance of a hook whose class has already been selected."""
+        name = hook_cls.plugin_name
         try:
             coerced_config = cls._coerce_config(hook_cls, config)
         except Exception as exc:

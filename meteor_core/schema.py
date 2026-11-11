@@ -22,7 +22,7 @@ ImageLike = Union["np.ndarray", "torch.Tensor", "Image.Image"]
 # ==========================================
 # Version
 # ==========================================
-VERSION = "1.6.11"
+VERSION = "1.6.12"
 DETECTION_CONTEXT_SCHEMA_VERSION = 1
 DETECTION_RESULT_SCHEMA_VERSION = 1
 INPUT_CONTEXT_SCHEMA_VERSION = 1
@@ -40,6 +40,17 @@ _DETECTION_RESULT_CONVERTERS: Dict[
     int, Callable[["DetectionResult"], "DetectionResult"]
 ] = {}
 _OUTPUT_RESULT_CONVERTERS: Dict[int, Callable[["OutputResult"], "OutputResult"]] = {}
+
+
+def _converter_registries() -> dict[str, dict[int, Callable]]:
+    """Return the process-local converter tables used by the pipeline."""
+    return {
+        "InputContext": _INPUT_CONTEXT_CONVERTERS,
+        "DetectionContext": _DETECTION_CONTEXT_CONVERTERS,
+        "DetectionResult": _DETECTION_RESULT_CONVERTERS,
+        "OutputResult": _OUTPUT_RESULT_CONVERTERS,
+    }
+
 
 # ==========================================
 # Default Settings
@@ -296,6 +307,11 @@ class RuntimeParams:
     detector: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def to_dict(self, include_schema_version: bool = True) -> Dict[str, Any]:
+        """Return the namespaced parameter payload with shared nested mappings.
+
+        Args:
+            include_schema_version: Include the version field when True.
+        """
         payload = {
             "global": self.global_params,
             "detector": self.detector,
@@ -317,6 +333,11 @@ class DetectionContext:
     schema_version: int = DETECTION_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
+        """Return runtime settings and metadata without frame or ROI arrays.
+
+        Nested values are shared with the context. The payload can travel with
+        a detection result across process boundaries without copying pixels.
+        """
         runtime_params = self.runtime_params
         if isinstance(runtime_params, RuntimeParams):
             runtime_params = runtime_params.to_dict()
@@ -338,6 +359,7 @@ class InputContext:
     schema_version: int = INPUT_CONTEXT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
+        """Return the path, metadata, and loader identity without image data."""
         return {
             "filepath": self.filepath,
             "metadata": self.metadata,
@@ -755,6 +777,10 @@ class DetectionResult:
     schema_version: int = DETECTION_RESULT_SCHEMA_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
+        """Return the detection payload without the optional debug image.
+
+        The line list, metrics, and extras are shared with the result.
+        """
         return {
             "is_candidate": self.is_candidate,
             "score": self.score,
@@ -974,7 +1000,14 @@ def normalize_detection_context(context: DetectionContext) -> DetectionContext:
 
 
 def normalize_detection_result(result: DetectionResult) -> DetectionResult:
-    """Normalize DetectionResult to the current schema version."""
+    """Normalize DetectionResult to the current schema version.
+
+    Raises:
+        TypeError: The input or converter output is not a DetectionResult.
+        ValueError: No converter is registered or it returns an unsupported version.
+    """
+    if not isinstance(result, DetectionResult):
+        raise TypeError(f"Expected DetectionResult, got {type(result).__name__}.")
     if result.schema_version == DETECTION_RESULT_SCHEMA_VERSION:
         return result
 
@@ -986,10 +1019,15 @@ def normalize_detection_result(result: DetectionResult) -> DetectionResult:
         )
 
     converted = converter(result)
+    if not isinstance(converted, DetectionResult):
+        raise TypeError(
+            "DetectionResult converter returned "
+            f"{type(converted).__name__}; expected DetectionResult."
+        )
     if converted.schema_version != DETECTION_RESULT_SCHEMA_VERSION:
         raise ValueError(
-            "DetectionResult converter did not return the expected schema_version "
-            f"{DETECTION_RESULT_SCHEMA_VERSION}."
+            f"DetectionResult converter returned schema_version {converted.schema_version}; "
+            f"expected {DETECTION_RESULT_SCHEMA_VERSION}."
         )
     return converted
 

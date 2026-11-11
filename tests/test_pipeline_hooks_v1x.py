@@ -10,7 +10,11 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 from meteor_core.exceptions import MeteorLoadError
-from meteor_core.pipeline import _apply_output_saved_hooks, process_image_batch
+from meteor_core.pipeline import (
+    _apply_output_saved_hooks,
+    _process_worker_batch,
+    process_image_batch,
+)
 from meteor_core.schema import HookConfig, OutputResult
 from meteor_core.utils import compute_params_hash
 from tests.pipeline_fixtures import (
@@ -208,12 +212,11 @@ class TestPipelineHookLifecycle(PipelineTestCase):
     def test_parallel_batch_order_and_global_order_are_distinct(self):
         self.use_completed_executor(reverse=True)
         pipeline = self.make_pipeline(parallel=True)
-        real_process_batch = process_image_batch
 
         def reversed_results(*args):
-            return list(reversed(real_process_batch(*args)))
+            return list(reversed(_process_worker_batch(*args)))
 
-        with patch("meteor_core.pipeline.process_image_batch", reversed_results):
+        with patch("meteor_core.pipeline._process_worker_batch", reversed_results):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(pipeline.run(resume=False), 3)
 
@@ -344,8 +347,10 @@ class TestPipelineHookLifecycle(PipelineTestCase):
                     )
                 )
                 if executor is not None:
-                    for future in executor.futures:
-                        future.cancel.assert_called_once()
+                    first, interrupted, remaining = executor.futures
+                    first.cancel.assert_not_called()
+                    interrupted.cancel.assert_not_called()
+                    remaining.cancel.assert_called_once()
                     executor.shutdown.assert_called_once_with(
                         wait=False, cancel_futures=True
                     )

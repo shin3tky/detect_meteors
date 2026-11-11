@@ -2,19 +2,28 @@
 
 import contextlib
 import io
+import json
 from dataclasses import replace
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 
+from meteor_core import schema
 from meteor_core.exceptions import (
     MeteorConfigError,
+    MeteorDetectorCompatibilityError,
     MeteorHookError,
     MeteorLoadError,
     MeteorWriteError,
 )
-from meteor_core.pipeline import process_image_batch
-from meteor_core.schema import HookConfig
+from meteor_core.pipeline import (
+    MeteorDetectionPipeline,
+    _apply_image_loaded_hooks,
+    _process_worker_batch,
+    process_image_batch,
+)
+from meteor_core.schema import DETECTION_RESULT_SCHEMA_VERSION, HookConfig
 from tests.pipeline_fixtures import (
     MemoryLoader,
     PipelineTestCase,
@@ -39,6 +48,16 @@ OUTPUT_CALLBACKS = (
     "on_batch_complete",
     "on_pipeline_complete",
 )
+
+
+class UnsupportedResultDetector(RecordingDetector):
+    plugin_name = "test_unsupported_result_detector"
+
+    def detect(self, context):
+        result = super().detect(context)
+        if context.metadata["current"]["filename"] == "c.CR2":
+            return replace(result, schema_version=999)
+        return result
 
 
 class TestHookErrorPolicy(PipelineTestCase):
@@ -234,8 +253,175 @@ class TestHookErrorPolicy(PipelineTestCase):
                         results[0][7].extras["detection_hooks"], ["following"]
                     )
 
+    def test_invalid_returns_follow_warn_and_raise_policy(self):
+        invalid_returns = (
+            ("on_image_loaded", lambda context: None, "got NoneType"),
+            (
+                "on_image_loaded",
+                lambda context: replace(context, image_data=None),
+                "InputContext.image_data",
+            ),
+            ("on_detection_complete", lambda result: None, "Expected DetectionResult"),
+            ("on_batch_results_sorted", lambda detections: None, "got NoneType"),
+            ("on_all_detections_sorted", lambda detections: None, "got NoneType"),
+            ("on_batch_results_sorted", lambda detections: [None], "index 0"),
+            (
+                "on_all_detections_sorted",
+                lambda detections: [replace(detections[0], schema_version=999)],
+                "schema_version 999",
+            ),
+        )
+        for mode in ("warn", "raise"):
+            for callback, invalid_return, reason in invalid_returns:
+                with self.subTest(mode=mode, callback=callback, reason=reason):
+                    self.events.clear()
+                    pipeline = self.make_pipeline(
+                        mode=mode,
+                        pairs=1,
+                        hooks=[
+                            RecordingHookConfig("invalid"),
+                            RecordingHookConfig("following"),
+                        ],
+                    )
+                    original = getattr(RecordingHook, callback)
+
+                    def return_invalid(hook, value, *args):
+                        if hook.config.label == "invalid":
+                            return invalid_return(value)
+                        return original(hook, value, *args)
+
+                    with (
+                        patch.object(RecordingHook, callback, return_invalid),
+                        contextlib.redirect_stdout(io.StringIO()),
+                        self.assertLogs(
+                            "meteor_core.pipeline",
+                            "WARNING" if mode == "warn" else "ERROR",
+                        ) as logs,
+                    ):
+                        if mode == "warn":
+                            self.assertEqual(pipeline.run(resume=False), 1)
+                        else:
+                            with self.assertRaises(MeteorHookError) as raised:
+                                pipeline.run(resume=False)
+
+                    self.assertIn(reason, logs.output[0])
+                    self.assertIn(RecordingHook.plugin_name, logs.output[0])
+                    following_called = ("following", callback) in [
+                        event[:2] for event in self.events
+                    ]
+                    self.assertEqual(following_called, mode == "warn")
+                    if mode == "warn":
+                        self.assertEqual(
+                            pipeline.progress_manager.processed_set, {"b.CR2"}
+                        )
+                    else:
+                        error = raised.exception
+                        self.assertEqual(error.context["hook_name"], callback)
+                        self.assertEqual(
+                            error.context["plugin_name"], RecordingHook.plugin_name
+                        )
+                        self.assertIn(reason, str(error.original_error))
+
+    def test_legacy_image_return_keeps_the_image_and_frame_role(self):
+        context = MemoryLoader().load("b.CR2")
+        hook = RecordingHook(RecordingHookConfig())
+        with patch.object(hook, "on_image_loaded", return_value=context.image_data):
+            updated = _apply_image_loaded_hooks(context, [hook], "current", "raise")
+
+        self.assertIs(updated.image_data, context.image_data)
+        self.assertEqual(updated.filepath, context.filepath)
+        self.assertEqual(updated.metadata["frame_role"], "current")
+
+    def test_empty_sorted_list_is_valid(self):
+        pipeline = self.make_pipeline(pairs=1)
+        with (
+            patch.object(RecordingHook, "on_batch_results_sorted", return_value=[]),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(pipeline.run(resume=False), 1)
+        self.assertEqual(pipeline.progress_manager.processed_set, {"b.CR2"})
+        self.assertNotIn(
+            "on_all_detections_sorted", [event[1] for event in self.events]
+        )
+
 
 class TestWorkerAndOutputFailures(PipelineTestCase):
+    def test_malformed_converter_output_is_a_detector_compatibility_error(self):
+        with (
+            patch.dict(schema._DETECTION_RESULT_CONVERTERS, {999: lambda result: None}),
+            self.assertRaisesRegex(
+                MeteorDetectorCompatibilityError, "converter returned NoneType"
+            ) as raised,
+        ):
+            process_image_batch(
+                [(2, "c.CR2", "b.CR2")],
+                np.ones((4, 4), dtype=np.uint8),
+                {},
+                input_loader=MemoryLoader(),
+                detector=UnsupportedResultDetector(),
+            )
+        self.assertEqual(raised.exception.context["received_schema_version"], 999)
+
+    def test_detector_schema_error_leaves_pair_retryable_sequentially_and_in_spawn(
+        self,
+    ):
+        for parallel in (False, True):
+            with self.subTest(parallel=parallel):
+                pipeline = self.make_pipeline(
+                    parallel=parallel, mode="warn", pairs=2, hooks=[]
+                )
+                bad_detector = UnsupportedResultDetector()
+                bad_detector.non_candidates.add("b.CR2")
+                pipeline.detector = bad_detector
+                progress = Path(pipeline.config.progress_file)
+                executor = (
+                    patch(
+                        "meteor_core.pipeline.ProcessPoolExecutor",
+                        side_effect=make_spawn_executor,
+                    )
+                    if parallel
+                    else contextlib.nullcontext()
+                )
+                with executor, contextlib.redirect_stdout(io.StringIO()):
+                    with self.assertRaises(MeteorDetectorCompatibilityError) as raised:
+                        pipeline.run(resume=False)
+
+                    error = raised.exception
+                    self.assertEqual(
+                        error.plugin_name, UnsupportedResultDetector.plugin_name
+                    )
+                    self.assertEqual(
+                        error.filepath,
+                        str(Path(pipeline.config.target_folder) / "c.CR2"),
+                    )
+                    self.assertEqual(error.context["frame_index"], 2)
+                    self.assertEqual(error.context["received_schema_version"], 999)
+                    self.assertEqual(
+                        error.context["expected_schema_version"],
+                        DETECTION_RESULT_SCHEMA_VERSION,
+                    )
+                    self.assertIn("999", error.message)
+                    before = json.loads(progress.read_text(encoding="utf-8"))
+                    # In a worker, both pairs were in the batch that failed before returning.
+                    self.assertEqual(
+                        before["processed_files"], [] if parallel else ["b.CR2"]
+                    )
+                    self.assertEqual(before["detected_files"], [])
+
+                    detector = RecordingDetector()
+                    detector.non_candidates.add("b.CR2")
+                    resumed = MeteorDetectionPipeline(
+                        pipeline.config,
+                        input_loader=MemoryLoader(),
+                        detector=detector,
+                        output_handler=pipeline.output_handler,
+                    )
+                    self.assertEqual(resumed.run(resume=True), 1)
+
+                after = json.loads(progress.read_text(encoding="utf-8"))
+                self.assertCountEqual(after["processed_files"], ["b.CR2", "c.CR2"])
+                self.assertEqual(after["detected_files"], ["c.CR2"])
+
     def test_load_and_detector_errors_fail_one_pair_and_allow_later_pairs(self):
         for component in ("loader", "detector"):
             for failure in (
@@ -339,11 +525,11 @@ class TestWorkerAndOutputFailures(PipelineTestCase):
         def fail_first_batch(batch, *args):
             if batch[0][0] == 1:
                 raise RuntimeError("worker batch failed")
-            return process_image_batch(batch, *args)
+            return _process_worker_batch(batch, *args)
 
         output = io.StringIO()
         with patch(
-            "meteor_core.pipeline.process_image_batch", side_effect=fail_first_batch
+            "meteor_core.pipeline._process_worker_batch", side_effect=fail_first_batch
         ):
             with contextlib.redirect_stdout(output):
                 self.assertEqual(pipeline.run(resume=False), 1)

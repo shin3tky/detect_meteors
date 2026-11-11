@@ -92,7 +92,8 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
             filepath: Path to the RAW image file.
 
         Returns:
-            InputContext with loaded image data and metadata.
+            InputContext with EXIF metadata and a 2D binned image.
+            The image is uint16 by default or float32 in [0, 1] when normalized.
 
         Raises:
             MeteorUnsupportedFormatError: If the file format is not supported.
@@ -131,7 +132,8 @@ class RawImageLoader(DataclassInputLoader[RawLoaderConfig], BaseMetadataExtracto
 
         if self.config.normalize:
             logger.debug("Normalizing image to float32 [0, 1] range")
-            image = image.astype(np.float32) / np.iinfo(np.uint16).max
+            image = image.astype(np.float32)
+            image /= np.iinfo(np.uint16).max
 
         metadata = self.extract_metadata(filepath)
         logger.debug(

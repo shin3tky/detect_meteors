@@ -181,11 +181,12 @@ with `serialization_notes`. Image arrays and live loader objects are not stored
 in JSON. The manifest is written last; failed writes remove only artifacts
 created by that invocation and empty newly created directories.
 
-`session.yaml` is a full `PipelineConfig` loaded by existing `--config`. Exact
-float thresholds, the actual registered loader and its serializable settings,
-the built-in Hough detector, and effective ROI are retained. Configuration
-coercion must reproduce loader values and types; unavailable/unserializable
-loader settings fail explicitly. Sessions with active hooks or custom output
+`session.yaml` stores a full pipeline configuration that can be loaded with
+`--config`. Version 1.6.12 exports sessions with `schema_version: 1`.
+The session preserves exact float thresholds, the registered loader and its
+serializable settings, the built-in Hough detector, and the effective ROI.
+Export fails if loader settings are unavailable or cannot be reloaded with the
+same values and types. Sessions with active hooks or custom output
 handlers cannot be exported as equivalent detector-only configurations.
 
 The saved session uses one worker and sequential processing. Its absolute
@@ -219,7 +220,7 @@ evidence, not automatic meteor classification or a claim of optimal settings.
 - **`--no-debug-image`** (default): Do not save mask/debug images.
 
 ## Pipeline Configuration & Plugin Selection
-- **`--config`**: Load pipeline settings from a YAML/JSON configuration file (see `config_examples/pipeline.yaml`). Configuration files can be partial; omitted settings are filled with defaults.
+- **`--config`**: Load pipeline settings from a YAML/JSON file (see `config_examples/pipeline.yaml`). Starting in v1.6.12, the top-level `schema_version` accepts the integer `1` and defaults to `1` when omitted. Unsupported versions and non-integer values cause a configuration error. Omitted settings use built-in defaults.
 - **`--input-loader`**: Input loader plugin name (overrides `input_loader_name` in config).
 - **`--input-loader-config`**: Input loader config as a JSON/YAML string or file path.
 - **`--detector`**: Detector plugin name (overrides `detector_name` in config).

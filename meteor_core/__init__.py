@@ -95,6 +95,7 @@ from .exceptions import (
     MeteorValidationError,
     MeteorHookError,
     MeteorConfigError,
+    MeteorDetectorCompatibilityError,
     format_error_for_user,
     save_diagnostic_report,
     create_diagnostic_from_exception,
@@ -106,7 +107,11 @@ from .image_io import (
     extract_exif_metadata,
 )
 
-from .config_io import load_pipeline_config, SUPPORTED_CONFIG_EXTENSIONS
+from .config_io import (
+    dump_pipeline_config,
+    load_pipeline_config,
+    SUPPORTED_CONFIG_EXTENSIONS,
+)
 
 from .inputs.raw import RawImageLoader, RawLoaderConfig, create_raw_loader
 
@@ -271,6 +276,7 @@ __all__ = [
     "MeteorValidationError",
     "MeteorHookError",
     "MeteorConfigError",
+    "MeteorDetectorCompatibilityError",
     "format_error_for_user",
     "save_diagnostic_report",
     "create_diagnostic_from_exception",
@@ -365,6 +371,7 @@ __all__ = [
     # Outputs - Backward compatibility (deprecated)
     "OutputWriter",
     # Config IO
+    "dump_pipeline_config",
     "load_pipeline_config",
     "SUPPORTED_CONFIG_EXTENSIONS",
     # Pipeline

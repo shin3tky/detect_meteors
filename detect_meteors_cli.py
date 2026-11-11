@@ -14,6 +14,8 @@ import shlex
 import argparse
 import logging
 import warnings
+from dataclasses import replace
+from itertools import pairwise
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -61,6 +63,8 @@ from meteor_core import (
     format_polygon_string,
     display_exif_info,
     display_fisheye_info,
+    create_full_roi_mask,
+    create_roi_mask_from_polygon,
     calculate_npf_metrics,
     optimize_params_with_npf,
     estimate_diff_threshold_from_samples,
@@ -643,7 +647,19 @@ def _build_hook_configs(
     return configs
 
 
-def _build_pipeline_config(args, *, base_config=None) -> PipelineConfig:
+def _build_pipeline_config(
+    args: argparse.Namespace, *, base_config: PipelineConfig | None = None
+) -> PipelineConfig:
+    """Resolve pipeline settings from parsed options and an optional config.
+
+    Args:
+        args: Namespace from build_arg_parser().
+        base_config: Already loaded configuration. If omitted, args.config is
+            loaded when provided.
+
+    Returns:
+        Pipeline settings with explicit CLI overrides applied.
+    """
     if base_config is None and args.config:
         base_config = load_pipeline_config(args.config)
     base_params = base_config.params if base_config else None
@@ -1191,24 +1207,17 @@ def _setup_roi(
     enable_roi_selection: bool,
     locale: Optional[str] = None,
 ):
-    """
-    Set up ROI (Region of Interest) mask.
+    """Resolve the region of interest for parameter estimation.
 
     Args:
-        prev_img: First loaded image (numpy array)
-        roi_polygon_cli: ROI polygon from CLI argument
-        enable_roi_selection: Whether to enable interactive selection
+        prev_img: First loaded grayscale image.
+        roi_polygon_cli: Explicit polygon in binned-image coordinates.
+        enable_roi_selection: Whether to open the picker when no polygon is supplied.
+        locale: Locale for the printed ROI status.
 
     Returns:
-        Tuple of (roi_mask, roi_polygon)
+        A uint8 mask and its polygon. The polygon is None for a full-image mask.
     """
-    import cv2
-    import numpy as np
-
-    height, width = prev_img.shape
-    roi_mask = np.full((height, width), 255, dtype=np.uint8)
-    roi_polygon = None
-
     if roi_polygon_cli:
         print(
             get_message(
@@ -1217,13 +1226,14 @@ def _setup_roi(
                 polygon=format_polygon_string(roi_polygon_cli),
             )
         )
-        roi_mask = np.zeros((height, width), dtype=np.uint8)
-        cv2.fillPoly(roi_mask, [np.array(roi_polygon_cli, dtype=np.int32)], 255)
-        roi_polygon = roi_polygon_cli
-    elif enable_roi_selection:
+        return (
+            create_roi_mask_from_polygon(roi_polygon_cli, prev_img.shape),
+            roi_polygon_cli,
+        )
+
+    if enable_roi_selection:
         roi_selection = select_roi(prev_img, locale=locale)
         if roi_selection:
-            roi_mask = roi_selection["mask"]
             roi_polygon = roi_selection["polygon"]
             print(
                 get_message(
@@ -1232,12 +1242,12 @@ def _setup_roi(
                     polygon=format_polygon_string(roi_polygon),
                 )
             )
-        else:
-            print(get_message("ui.cli.roi.none_selected", locale=locale))
+            return roi_selection["mask"], roi_polygon
+        print(get_message("ui.cli.roi.none_selected", locale=locale))
     else:
         print(get_message("ui.cli.roi.skipped", locale=locale))
 
-    return roi_mask, roi_polygon
+    return create_full_roi_mask(prev_img.shape), None
 
 
 def _run_auto_params(
@@ -1782,7 +1792,7 @@ def _run_parallel_detection(
     executor = ProcessPoolExecutor(
         max_workers=num_workers, initializer=_init_worker_ignore_interrupt
     )
-    futures = []
+    pending_futures = set()
     wait_for_tasks = True
     detected_count = 0
 
@@ -1807,7 +1817,7 @@ def _run_parallel_detection(
                 None,
                 debug_image_enabled,
             )
-            futures.append(future)
+            pending_futures.add(future)
 
         # Clear the submitting line
         print()
@@ -1828,7 +1838,9 @@ def _run_parallel_detection(
             flush=True,
         )
 
-        for future in as_completed(futures):
+        for future in as_completed(pending_futures):
+            # Futures retain their batch results, including debug images.
+            pending_futures.remove(future)
             completed_batches += 1
             try:
                 batch_results = future.result()
@@ -1943,7 +1955,7 @@ def _run_parallel_detection(
     except KeyboardInterrupt:
         print("\n" + get_message("ui.cli.processing.interrupt_cancel", locale=locale))
         wait_for_tasks = False
-        for future in futures:
+        for future in pending_futures:
             future.cancel()
         raise
     finally:
@@ -2291,11 +2303,10 @@ def detect_meteors_advanced(
             prev_frame_index=prev_frame_index,
         )
 
-    # Build image pairs with frame index and filter already processed
-    # (frame_index, curr_file, prev_file)
-    image_pairs = [(i, files[i], files[i - 1]) for i in range(1, len(files))]
     image_pairs = [
-        pair for pair in image_pairs if os.path.basename(pair[1]) not in processed_set
+        (frame_index, current, previous)
+        for frame_index, (previous, current) in enumerate(pairwise(files), start=1)
+        if os.path.basename(current) not in processed_set
     ]
 
     resume_offset = len(processed_set)
@@ -2763,15 +2774,12 @@ def main():
         sys.exit(1)
 
 
-def _run_main(args, cli_param_string: str):
-    """Run the main detection logic.
-
-    This function contains the core logic extracted from main() to allow
-    proper exception handling at the top level.
+def _run_main(args: argparse.Namespace, cli_param_string: str) -> None:
+    """Resolve CLI settings, estimate requested parameters, and start detection.
 
     Args:
-        args: Parsed command line arguments.
-        cli_param_string: Original CLI parameter string.
+        args: Parsed CLI options, including config and ROI overrides.
+        cli_param_string: Original command line for compatibility with callers.
 
     Raises:
         MeteorError: On any meteor_core related errors.
@@ -2846,13 +2854,10 @@ def _run_main(args, cli_param_string: str):
             fisheye=args.fisheye,
             locale=locale,
         )
-        pipeline_config.params = DetectionParams(
+        pipeline_config.params = replace(
+            pipeline_config.params,
             diff_threshold=diff_threshold,
             min_area=min_area,
-            min_aspect_ratio=pipeline_config.params.min_aspect_ratio,
-            hough_threshold=pipeline_config.params.hough_threshold,
-            hough_min_line_length=pipeline_config.params.hough_min_line_length,
-            hough_max_line_gap=pipeline_config.params.hough_max_line_gap,
             min_line_score=min_line_score,
         )
         roi_polygon_cli = roi_polygon

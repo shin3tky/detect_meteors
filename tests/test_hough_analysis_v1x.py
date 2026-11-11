@@ -124,6 +124,25 @@ class TestHoughAnalysis(unittest.TestCase):
         self.assertEqual(decision.max_aspect_ratio, 0.0)
         self.assertEqual(decision.rejection_reasons, ("no_contours", "min_line_score"))
 
+    def test_fractional_threshold_preserves_normalized_inputs_and_roi(self):
+        image = np.zeros((96, 96), np.float32)
+        image[30:35, 10:80] = 0.5
+        image[60:65, 10:80] = 0.25  # Equal to threshold, so excluded.
+        roi = np.full(image.shape, 255, np.uint8)
+        roi[:, 50:] = 0
+        context = self.context(image, roi=roi)
+        context.runtime_params = self.detector.build_runtime_params(
+            {**self.params.to_dict(), "diff_threshold": 0.25}
+        )
+
+        analysis = self.detector.analyze(context)
+
+        expected = np.zeros(image.shape, np.uint8)
+        expected[30:35, 10:50] = 255
+        np.testing.assert_array_equal(analysis.mask, expected)
+        self.assertEqual(image[30, 10], 0.5)
+        self.assertEqual(roi[30, 10], 255)
+
     def test_namespaced_hough_settings_remain_supported(self):
         image = np.zeros((96, 96), np.uint16)
         image[30:35, 10:80] = 50

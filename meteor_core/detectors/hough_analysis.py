@@ -25,6 +25,7 @@ class CandidateThresholds:
 
     @classmethod
     def from_params(cls, params: Mapping[str, Any]) -> "CandidateThresholds":
+        """Read the required candidate thresholds from merged runtime parameters."""
         return cls(
             min_area=params["min_area"],
             min_aspect_ratio=params["min_aspect_ratio"],
@@ -41,6 +42,7 @@ class ContourMeasurement:
 
     @classmethod
     def from_contour(cls, contour: np.ndarray) -> "ContourMeasurement":
+        """Measure the contour area and its minimum-area enclosing rectangle."""
         center, size, angle = cv2.minAreaRect(contour)
         return cls(
             area=cv2.contourArea(contour),
@@ -49,10 +51,14 @@ class ContourMeasurement:
 
     @property
     def aspect_ratio(self) -> float | None:
-        w, h = self.rect[1]
-        if w == 0 or h == 0:
+        """Divide the long side by the short side floored at one pixel.
+
+        A zero-length side yields None because the contour is degenerate.
+        """
+        width, height = self.rect[1]
+        if width == 0 or height == 0:
             return None
-        return max(w, h) / max(min(w, h), 1)
+        return max(width, height) / max(min(width, height), 1)
 
 
 @dataclass(frozen=True)
@@ -93,41 +99,50 @@ class HoughAnalysis:
     ) -> CandidateDecision:
         """Apply the v1.x candidate rule without changing the measurements.
 
-        Area and aspect ratio use strict ``>``; line score uses ``>=``. These
-        boundaries deliberately match the existing detector.
+        Args:
+            thresholds: Optional replacement for the measured pair's thresholds.
+
+        Returns:
+            Accepted contour indices, the maximum valid ratio among contours
+            above the area threshold, and the rejection reasons. Area and ratio
+            must strictly exceed their thresholds on the same contour. The
+            frame-wide score must meet or exceed its threshold.
         """
         thresholds = thresholds if thresholds is not None else self.thresholds
-        area_eligible = [
-            (index, contour)
-            for index, contour in enumerate(self.contours)
-            if contour.area > thresholds.min_area
-        ]
-        ratios = []
-        for index, contour in area_eligible:
+        has_area_eligible_contour = False
+        max_ratio = None
+        shape_eligible = []
+        for index, contour in enumerate(self.contours):
+            if not (contour.area > thresholds.min_area):
+                continue
+            has_area_eligible_contour = True
             ratio = contour.aspect_ratio
-            if ratio is not None:
-                ratios.append((index, ratio))
-        max_ratio = max((ratio for _, ratio in ratios), default=0.0)
-        shape_eligible = tuple(
-            index for index, ratio in ratios if ratio > thresholds.min_aspect_ratio
-        )
+            if ratio is None:
+                continue
+            if max_ratio is None or ratio > max_ratio:
+                max_ratio = ratio
+            if ratio > thresholds.min_aspect_ratio:
+                shape_eligible.append(index)
+
         score_passed = self.score >= thresholds.min_line_score
-        accepted = shape_eligible if score_passed else ()
+        accepted = tuple(shape_eligible) if score_passed else ()
 
         reasons = []
         if not accepted:
             if not self.contours:
                 reasons.append("no_contours")
-            elif not area_eligible:
+            elif not has_area_eligible_contour:
                 reasons.append("min_area")
-            elif not ratios:
+            elif max_ratio is None:
                 reasons.append("invalid_geometry")
             elif not shape_eligible:
                 reasons.append("min_aspect_ratio")
             if not score_passed:
                 reasons.append("min_line_score")
 
-        return CandidateDecision(accepted, max_ratio, tuple(reasons))
+        return CandidateDecision(
+            accepted, max_ratio if max_ratio is not None else 0.0, tuple(reasons)
+        )
 
     def render_debug(self, decision: CandidateDecision) -> np.ndarray:
         """Render the mask and lines even when the frame was rejected.

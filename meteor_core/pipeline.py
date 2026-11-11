@@ -16,12 +16,14 @@ import signal
 import time
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from itertools import pairwise
 from typing import (
     Any,
     Dict,
     List,
     Optional,
     Protocol,
+    Sequence,
     Tuple,
     Type,
     Union,
@@ -33,6 +35,7 @@ import numpy as np
 
 from .exceptions import (
     MeteorConfigError,
+    MeteorDetectorCompatibilityError,
     MeteorError,
     MeteorHookError,
     MeteorLoadError,
@@ -46,6 +49,7 @@ from .schema import (
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
+    DETECTION_RESULT_SCHEMA_VERSION,
     DetectionContext,
     DetectionParams,
     DetectionResult,
@@ -55,6 +59,7 @@ from .schema import (
     HookConfig,
     RuntimeParams,
     SortedDetection,
+    SORTED_DETECTION_SCHEMA_VERSION,
     RUNTIME_PARAMS_SCHEMA_VERSION,
     normalize_detection_context,
     normalize_detection_result,
@@ -64,10 +69,16 @@ from .schema import (
 from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
-from .hooks import HookRegistry
+from .hooks import BaseHook, HookRegistry
+from ._worker_plugins import (
+    WorkerPluginError,
+    WorkerPluginState,
+    WorkerPlugins,
+    restore_worker_plugins,
+)
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, DetectorRegistry
-from .utils import _display_width, _pad_label, ensure_numpy
+from .utils import _display_width, _is_supported_image, _pad_label, ensure_numpy
 from .outputs import (
     BaseOutputHandler,
     OutputHandlerRegistry,
@@ -106,11 +117,29 @@ def _normalize_input_context(
         raise MeteorConfigError(str(exc)) from exc
 
 
-def _normalize_detection_result(result: DetectionResult) -> DetectionResult:
+def _normalize_detector_result(
+    result: DetectionResult, *, detector_name: str, filepath: str, frame_index: int
+) -> DetectionResult:
+    """Report detector result incompatibility with frame details safe to send to the parent."""
+    version = result.schema_version if isinstance(result, DetectionResult) else None
     try:
         return normalize_detection_result(result)
-    except ValueError as exc:
-        raise MeteorConfigError(str(exc)) from exc
+    except Exception as exc:
+        if version is not None and type(version) not in (int, str, float, bool):
+            version = type(version).__name__
+        # A third-party converter may raise an exception that cannot be pickled.
+        # Keep the reason as text on the exception sent across the worker boundary.
+        raise MeteorDetectorCompatibilityError(
+            f"Detector {detector_name!r} did not produce a compatible DetectionResult "
+            f"(expected schema version {DETECTION_RESULT_SCHEMA_VERSION}): {exc}",
+            filepath=filepath,
+            plugin_name=detector_name,
+            context={
+                "frame_index": frame_index,
+                "received_schema_version": version,
+                "expected_schema_version": DETECTION_RESULT_SCHEMA_VERSION,
+            },
+        ) from exc
 
 
 def _normalize_output_result(result: OutputResult | bool) -> OutputResult:
@@ -142,13 +171,20 @@ def _handle_hook_exception(
     message_args: Tuple[Any, ...],
     filepath: Optional[str] = None,
     context: Optional[Dict[str, Any]] = None,
+    plugin_name: Optional[str] = None,
 ) -> None:
+    error_message = f"{hook_name} hook failed"
+    if plugin_name:
+        message += " [plugin: %s]"
+        message_args = (*message_args, plugin_name)
+        error_message += f" ({plugin_name})"
+        context = {**(context or {}), "plugin_name": plugin_name}
     if hook_error_mode == "warn":
         logger.warning(message, *message_args)
         return
     logger.error(message, *message_args)
     raise MeteorHookError(
-        f"{hook_name} hook failed",
+        error_message,
         filepath=filepath,
         original_error=exc,
         context=context,
@@ -189,6 +225,7 @@ def _get_default_detector() -> BaseDetector:
 def _build_runtime_params(
     params: Dict[str, Any], detector: BaseDetector
 ) -> Dict[str, Any]:
+    """Expose the flat pipeline settings in the global and detector namespaces."""
     detector_name = getattr(detector, "plugin_name", "") or DEFAULT_DETECTOR_NAME
     return RuntimeParams(
         schema_version=RUNTIME_PARAMS_SCHEMA_VERSION,
@@ -264,6 +301,37 @@ def _ensure_frame_role(context: InputContext, role: str) -> InputContext:
     )
 
 
+def _apply_file_found_hooks(
+    files: List[str], hooks: List[Any], hook_error_mode: str
+) -> List[str]:
+    """Give hooks absolute paths and return the accepted files in input order.
+
+    A false result excludes the file and stops further hooks for that path.
+    Hook failures follow the configured error mode.
+    """
+    normalized_files = [os.path.normpath(os.path.abspath(path)) for path in files]
+    accepted_files = []
+    for filepath in normalized_files:
+        keep = True
+        for hook in hooks:
+            try:
+                if not hook.on_file_found(filepath):
+                    keep = False
+                    break
+            except Exception as exc:
+                _handle_hook_exception(
+                    exc,
+                    hook_name="on_file_found",
+                    hook_error_mode=hook_error_mode,
+                    message="on_file_found hook failed for %s: %s",
+                    message_args=(filepath, exc),
+                    filepath=filepath,
+                )
+        if keep:
+            accepted_files.append(filepath)
+    return accepted_files
+
+
 def _apply_image_loaded_hooks(
     context: InputContext,
     hooks: List[Any],
@@ -273,10 +341,20 @@ def _apply_image_loaded_hooks(
     context = _ensure_frame_role(context, role)
     for hook in hooks:
         try:
-            context = _normalize_input_context(
-                hook.on_image_loaded(context),
-                filepath=context.filepath,
-            )
+            updated = hook.on_image_loaded(context)
+            if not isinstance(updated, InputContext) and not _is_supported_image(
+                updated
+            ):
+                raise TypeError(
+                    f"Expected InputContext or a supported image, got {type(updated).__name__}."
+                )
+            updated = _normalize_input_context(updated, filepath=context.filepath)
+            if not _is_supported_image(updated.image_data):
+                raise TypeError(
+                    "InputContext.image_data must be a supported image, "
+                    f"got {type(updated.image_data).__name__}."
+                )
+            context = _ensure_frame_role(updated, role)
         except Exception as exc:
             _handle_hook_exception(
                 exc,
@@ -286,9 +364,8 @@ def _apply_image_loaded_hooks(
                 message_args=(context.filepath, role, exc),
                 filepath=context.filepath,
                 context={"frame_role": role},
+                plugin_name=hook.plugin_name,
             )
-        else:
-            context = _ensure_frame_role(context, role)
     return context
 
 
@@ -301,7 +378,7 @@ def _apply_detection_complete_hooks(
 ) -> DetectionResult:
     for hook in hooks:
         try:
-            result = _normalize_detection_result(
+            result = normalize_detection_result(
                 hook.on_detection_complete(result, context)
             )
         except Exception as exc:
@@ -312,6 +389,7 @@ def _apply_detection_complete_hooks(
                 message="on_detection_complete hook failed for %s: %s",
                 message_args=(filename, exc),
                 filepath=filename,
+                plugin_name=hook.plugin_name,
             )
     return result
 
@@ -344,6 +422,27 @@ def _apply_output_saved_hooks(
             )
 
 
+def _validate_sorted_detections(
+    detections: List[SortedDetection],
+) -> List[SortedDetection]:
+    """Verify the list and its elements before passing it to the next hook."""
+    if not isinstance(detections, list):
+        raise TypeError(
+            f"Expected list[SortedDetection], got {type(detections).__name__}."
+        )
+    for index, detection in enumerate(detections):
+        if not isinstance(detection, SortedDetection):
+            raise TypeError(
+                f"Expected SortedDetection at index {index}, got {type(detection).__name__}."
+            )
+        if detection.schema_version != SORTED_DETECTION_SCHEMA_VERSION:
+            raise ValueError(
+                f"Unsupported SortedDetection schema_version {detection.schema_version} "
+                f"at index {index}; expected {SORTED_DETECTION_SCHEMA_VERSION}."
+            )
+    return detections
+
+
 def _apply_batch_results_sorted_hooks(
     detections: List[SortedDetection],
     hooks: List[Any],
@@ -354,14 +453,16 @@ def _apply_batch_results_sorted_hooks(
     Args:
         detections: List of SortedDetection objects, sorted by frame_index.
         hooks: List of hook instances.
-        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
+        hook_error_mode: Error handling mode ("raise" or "warn").
 
     Returns:
         List of updated SortedDetection objects.
     """
     for hook in hooks:
         try:
-            detections = hook.on_batch_results_sorted(detections)
+            detections = _validate_sorted_detections(
+                hook.on_batch_results_sorted(detections)
+            )
         except Exception as exc:
             _handle_hook_exception(
                 exc,
@@ -369,6 +470,7 @@ def _apply_batch_results_sorted_hooks(
                 hook_error_mode=hook_error_mode,
                 message="on_batch_results_sorted hook failed: %s",
                 message_args=(exc,),
+                plugin_name=hook.plugin_name,
             )
     return detections
 
@@ -384,14 +486,16 @@ def _apply_all_detections_sorted_hooks(
         detections: List of ALL SortedDetection objects from the pipeline,
             sorted by frame_index.
         hooks: List of hook instances.
-        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
+        hook_error_mode: Error handling mode ("raise" or "warn").
 
     Returns:
         List of updated SortedDetection objects.
     """
     for hook in hooks:
         try:
-            detections = hook.on_all_detections_sorted(detections)
+            detections = _validate_sorted_detections(
+                hook.on_all_detections_sorted(detections)
+            )
         except Exception as exc:
             _handle_hook_exception(
                 exc,
@@ -399,6 +503,7 @@ def _apply_all_detections_sorted_hooks(
                 hook_error_mode=hook_error_mode,
                 message="on_all_detections_sorted hook failed: %s",
                 message_args=(exc,),
+                plugin_name=hook.plugin_name,
             )
     return detections
 
@@ -479,15 +584,23 @@ def _build_sorted_detections_from_batch(
 
 
 def _resolve_hooks(
-    hook_configs: Optional[List[HookConfig]],
+    hook_configs: Optional[Sequence[HookConfig]],
     hook_error_mode: str = "raise",
-) -> List[Any]:
+    *,
+    selected_classes: Optional[Sequence[type[BaseHook]]] = None,
+) -> List[BaseHook]:
     if hook_configs is None:
         return []
-    instances: List[Any] = []
-    for hook in hook_configs:
+    instances: List[BaseHook] = []
+    for index, hook in enumerate(hook_configs):
         try:
-            instances.append(HookRegistry.create(hook.name, hook.config))
+            if selected_classes is None:
+                instance = HookRegistry.create(hook.name, hook.config)
+            else:
+                instance = HookRegistry._create_from_class(
+                    selected_classes[index], hook.config
+                )
+            instances.append(instance)
         except Exception as exc:
             raise MeteorConfigError(
                 "Invalid hook configuration",
@@ -919,45 +1032,80 @@ def process_image_batch(
         Optional[Dict[str, Any]],
     ]
 ]:
-    """
-    Process a batch of images (handle multiple pairs at once).
+    """Load and detect frame pairs in the supplied order.
 
     Args:
-        batch_data: List of [(frame_index, curr_file, prev_file), ...]
-        roi_mask: ROI mask
-        params: Parameter dictionary
-        input_loader: Optional input loader instance
-        detector: Optional detector instance (defaults to HoughDetector)
-        debug_image_enabled: Whether to include debug images in results
+        batch_data: (frame_index, current_path, previous_path) for each pair.
+        roi_mask: Mask in the coordinate system of the loaded images.
+        params: Flat runtime parameters for the detector.
+        input_loader: Loader instance. Defaults to the built-in RAW loader.
+        detector: Detector instance. Defaults to the built-in Hough detector.
+        debug_image_enabled: Whether to retain debug images in returned results.
+        hook_configs: Hook configurations to resolve for this batch.
+        hook_error_mode: Whether a hook failure is raised ("raise") or logged
+            and skipped ("warn").
 
     Returns:
-        List of processing results for each image:
-        [
-            (
-                is_candidate,
-                filename,
-                filepath,
-                line_score,
-                debug_img,
-                aspect_ratio,
-                num_lines,
-                detection_result,
-                detection_context_payload,
-            ),
-            ...
-        ]
+        One tuple per pair containing the candidate flag, filename, filepath,
+        score, debug image, aspect ratio, line count, detector result, and
+        context metadata. Recoverable load or detection failures are logged
+        and produce a row with no detector result or context metadata.
 
-    Note:
-        Errors during processing are logged but do not stop batch processing.
-        Failed images are returned with is_candidate=False.
+    Raises:
+        MeteorDetectorCompatibilityError: If a detector result cannot be normalized.
+        MeteorHookError: If a hook fails in "raise" mode.
     """
-    results = []
-
     loader = _resolve_input_loader(input_loader)
     det = _resolve_detector(detector=detector)
-    runtime_params = _build_runtime_params(params, det)
     hooks = _resolve_hooks(hook_configs, hook_error_mode=hook_error_mode)
+    return _process_resolved_batch(
+        batch_data,
+        roi_mask,
+        params,
+        loader,
+        det,
+        debug_image_enabled,
+        hooks,
+        hook_error_mode,
+    )
 
+
+def _process_worker_batch(
+    batch_data: List[Tuple[int, str, str]],
+    roi_mask: np.ndarray,
+    params: dict,
+    plan: WorkerPlugins,
+    plugin_state: bytes | WorkerPluginState,
+    debug_image_enabled: bool,
+    hook_error_mode: str,
+):
+    """Prepare the selected plugins before executing a worker batch."""
+    with restore_worker_plugins(plan, plugin_state) as (loader, detector, hooks):
+        return _process_resolved_batch(
+            batch_data,
+            roi_mask,
+            params,
+            loader,
+            detector,
+            debug_image_enabled,
+            hooks,
+            hook_error_mode,
+        )
+
+
+def _process_resolved_batch(
+    batch_data: List[Tuple[int, str, str]],
+    roi_mask: np.ndarray,
+    params: dict,
+    loader: BaseInputLoader,
+    det: BaseDetector,
+    debug_image_enabled: bool,
+    hooks: List[BaseHook],
+    hook_error_mode: str,
+):
+    """Detect frame pairs using the supplied plugin instances."""
+    results = []
+    runtime_params = _build_runtime_params(params, det)
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
     for frame_index, curr_file, prev_file in batch_data:
@@ -1011,7 +1159,13 @@ def process_image_batch(
                 metadata=metadata,
             )
             context = _normalize_detection_context(context)
-            result = _normalize_detection_result(det.detect(context))
+            result = det.detect(context)
+            result = _normalize_detector_result(
+                result,
+                detector_name=det.plugin_name,
+                filepath=curr_file,
+                frame_index=frame_index,
+            )
             result = _apply_detection_complete_hooks(
                 result,
                 context,
@@ -1020,11 +1174,8 @@ def process_image_batch(
                 hook_error_mode=hook_error_mode,
             )
             context_payload = context.to_dict()
-            debug_image = result.debug_image if result.is_candidate else None
             if not result.is_candidate or not debug_image_enabled:
                 result.debug_image = None
-                if not debug_image_enabled:
-                    debug_image = None
 
             results.append(
                 (
@@ -1032,7 +1183,7 @@ def process_image_batch(
                     filename,
                     curr_file,
                     result.score,
-                    debug_image,
+                    result.debug_image,
                     result.aspect_ratio,
                     len(result.lines),
                     result,
@@ -1048,7 +1199,7 @@ def process_image_batch(
                     len(result.lines),
                 )
 
-        except MeteorHookError:
+        except (MeteorDetectorCompatibilityError, MeteorHookError):
             raise
         except MeteorError as e:
             logger.error(
@@ -1080,6 +1231,7 @@ def process_image_batch(
 def _extract_frame_indices(
     detection_context_payload: Optional[Dict[str, Any]],
 ) -> Tuple[Optional[int], Optional[int]]:
+    """Read the pair's sequence indices from serialized context metadata."""
     ctx_frame_index = None
     ctx_prev_frame_index = None
     if detection_context_payload and isinstance(detection_context_payload, dict):
@@ -1096,19 +1248,18 @@ def estimate_diff_threshold_from_samples(
     input_loader: Optional[BaseInputLoader] = None,
     locale: Optional[str] = None,
 ) -> int:
-    """
-    Estimation using percentile-based approach.
-
-    Real-world sky brightness distributions are highly peaked, so
-    percentile-based estimation is more appropriate than 3-sigma rule.
+    """Estimate a difference threshold from the first valid sample pairs.
 
     Args:
-        files: List of RAW file paths
-        roi_mask: ROI mask to focus on sky area
-        sample_size: Number of initial images to analyze
+        files: Ordered image paths.
+        roi_mask: Pixels with value 255 are included in the estimate.
+        sample_size: Maximum number of initial files to load.
+        input_loader: Loader for sample images. Defaults to the built-in RAW loader.
+        locale: Locale for the printed sample statistics.
 
     Returns:
-        Estimated diff_threshold value
+        The smallest of three estimates from the ROI differences, clamped to
+        [3, 18]. Uses the default threshold when fewer than two samples load.
     """
     locale = _resolve_locale(locale)
     print(f"\n{'=' * 50}")
@@ -1176,14 +1327,16 @@ def estimate_diff_threshold_from_samples(
         end="",
         flush=True,
     )
-    diff_values = []
-    for i in range(1, len(samples)):
-        diff = cv2.absdiff(samples[i], samples[i - 1])
-        roi_diff = diff[roi_mask == 255]
-        diff_values.extend(roi_diff.flatten())
+    roi_pixels = roi_mask == 255
+    differences = []
+    for previous, current in pairwise(samples):
+        diff = cv2.absdiff(current, previous)
+        differences.append(diff[roi_pixels])
     print(get_message("ui.pipeline.estimate.done", locale=locale))
 
-    diff_array = np.array(diff_values, dtype=np.float32)
+    # Keep the samples as arrays to avoid one Python scalar per pixel.
+    diff_array = np.concatenate(differences, axis=None, dtype=np.float32)
+    differences.clear()
 
     # Calculate statistics
     # float() keeps these as plain Python floats (np.mean/np.std/np.median
@@ -1193,11 +1346,10 @@ def estimate_diff_threshold_from_samples(
     std_diff = float(np.std(diff_array))
     median_diff = float(np.median(diff_array))
 
-    # Percentiles
-    p90 = float(np.percentile(diff_array, 90))
-    p95 = float(np.percentile(diff_array, 95))
-    p98 = float(np.percentile(diff_array, 98))
-    p99 = float(np.percentile(diff_array, 99))
+    # Compute all four percentiles in one partition after the other statistics.
+    p90, p95, p98, p99 = np.percentile(
+        diff_array, [90, 95, 98, 99], overwrite_input=True
+    )
 
     # Multiple estimation methods
     # Method 1: 98th percentile (works well for peaked distributions)
@@ -1213,14 +1365,14 @@ def estimate_diff_threshold_from_samples(
     estimated_threshold = min(method_1, method_2, method_3)
 
     # Clamp to reasonable range (adjusted based on real-world feedback)
-    estimated_threshold = np.clip(estimated_threshold, 3, 18)
+    estimated_threshold = max(3, min(estimated_threshold, 18))
 
     print(f"\n{'─' * 50}")
     print(
         get_message(
             "ui.pipeline.estimate.diff_threshold.stats.header",
             locale=locale,
-            pixel_count=len(diff_values),
+            pixel_count=diff_array.size,
         )
     )
     print(f"{'─' * 50}")
@@ -1304,17 +1456,20 @@ def estimate_min_area_from_samples(
     input_loader: Optional[BaseInputLoader] = None,
     locale: Optional[str] = None,
 ) -> int:
-    """
-    Improved min_area estimation with better star detection.
+    """Estimate a contour-area threshold from bright stars in the ROI.
 
     Args:
-        files: List of RAW file paths
-        roi_mask: ROI mask to focus on sky area
-        diff_threshold: Threshold for star detection
-        sample_size: Number of images to analyze
+        files: Ordered image paths.
+        roi_mask: Pixels with value 255 are used to estimate sky brightness.
+        diff_threshold: Legacy argument retained for callers. Each image uses
+            its own 98th-percentile brightness as the star threshold.
+        sample_size: Maximum number of initial files to load.
+        input_loader: Loader for sample images. Defaults to the built-in RAW loader.
+        locale: Locale for the printed sample statistics.
 
     Returns:
-        Estimated min_area value
+        Twice the 75th-percentile star contour area, clamped to [8, 50].
+        Uses the default when fewer than ten suitable contours are found.
     """
     locale = _resolve_locale(locale)
     print(f"\n{'=' * 50}")
@@ -1378,9 +1533,10 @@ def estimate_min_area_from_samples(
         flush=True,
     )
     all_star_areas = []
+    roi_pixels_mask = roi_mask == 255
 
     for img in samples:
-        roi_pixels = img[roi_mask == 255]
+        roi_pixels = img[roi_pixels_mask]
 
         if len(roi_pixels) < 100:
             continue
@@ -1416,8 +1572,7 @@ def estimate_min_area_from_samples(
     star_areas = np.array(all_star_areas)
     median_star = np.median(star_areas)
     mean_star = np.mean(star_areas)
-    p75_star = np.percentile(star_areas, 75)
-    p90_star = np.percentile(star_areas, 90)
+    p75_star, p90_star = np.percentile(star_areas, [75, 90])
 
     # Use 75th percentile × 2.0 for more robust estimation
     estimated_min_area = int(p75_star * 2.0)
@@ -1426,7 +1581,7 @@ def estimate_min_area_from_samples(
     estimated_min_area = max(estimated_min_area, DEFAULT_MIN_AREA)
 
     # Clamp to reasonable range
-    estimated_min_area = np.clip(estimated_min_area, 8, 50)
+    estimated_min_area = max(8, min(estimated_min_area, 50))
 
     print(f"\n{'─' * 50}")
     print(
@@ -1986,17 +2141,19 @@ class MeteorDetectionPipeline:
         profile: bool = False,
         debug_image_enabled: bool = True,
     ) -> int:
-        """
-        Run the full detection pipeline.
+        """Run detection, record progress, and return the candidate count.
 
         Args:
-            enable_roi_selection: Interactive ROI selection; None uses configuration.
-            roi_polygon_cli: Explicit polygon, None uses configuration, [] selects full image.
-            resume: Whether to resume from previous progress
-            profile: Whether to collect performance metrics
+            enable_roi_selection: Whether to open the ROI picker. None uses
+                the pipeline configuration.
+            roi_polygon_cli: Polygon in loaded image coordinates. None uses the
+                configured polygon. An empty list forces the full image.
+            resume: Load compatible progress and skip previously processed pairs.
+            profile: Print elapsed times for loading and processing.
+            debug_image_enabled: Whether to pass candidate overlays to the writer.
 
         Returns:
-            Number of detected candidates
+            Number of detected candidates, including resumed candidates.
         """
         if enable_roi_selection is None:
             enable_roi_selection = self._config.enable_roi_selection
@@ -2034,31 +2191,12 @@ class MeteorDetectionPipeline:
         )
         files = collect_files(self._config.target_folder)
 
+        hook_configs = tuple(self._config.hooks or ())
         hooks = _resolve_hooks(
-            self._config.hooks,
+            hook_configs,
             hook_error_mode=self._config.hook_error_mode,
         )
-        normalized_files = [os.path.normpath(os.path.abspath(path)) for path in files]
-        filtered_files = []
-        for filepath in normalized_files:
-            keep = True
-            for hook in hooks:
-                try:
-                    if not hook.on_file_found(filepath):
-                        keep = False
-                        break
-                except Exception as exc:
-                    _handle_hook_exception(
-                        exc,
-                        hook_name="on_file_found",
-                        hook_error_mode=self._config.hook_error_mode,
-                        message="on_file_found hook failed for %s: %s",
-                        message_args=(filepath, exc),
-                        filepath=filepath,
-                    )
-            if keep:
-                filtered_files.append(filepath)
-        files = filtered_files
+        files = _apply_file_found_hooks(files, hooks, self._config.hook_error_mode)
 
         if len(files) < 2:
             print(get_message("ui.pipeline.need_two_images", locale=locale))
@@ -2069,7 +2207,7 @@ class MeteorDetectionPipeline:
         # Load first image
         t_load = time.time()
         try:
-            prev_context = _normalize_input_context(
+            first_context = _normalize_input_context(
                 input_loader.load(files[0]),
                 filepath=files[0],
             )
@@ -2086,87 +2224,25 @@ class MeteorDetectionPipeline:
 
         if profile:
             timing["first_load"] = time.time() - t_load
-        prev_img = ensure_numpy(prev_context.image_data)
-        prev_context.image_data = prev_img
-        height, width = prev_img.shape
+        first_image = ensure_numpy(first_context.image_data)
+        first_context.image_data = first_image
+        roi_mask, roi_polygon = self._resolve_roi(
+            first_image, roi_polygon_cli, enable_roi_selection, locale
+        )
 
-        # ROI setup
-        roi_mask = create_full_roi_mask((height, width))
-        roi_polygon = None
-
-        if roi_polygon_cli:
-            print(
-                get_message(
-                    "ui.pipeline.roi.cli_specified",
-                    locale=locale,
-                    polygon=format_polygon_string(roi_polygon_cli),
-                )
-            )
-            roi_mask = create_roi_mask_from_polygon(roi_polygon_cli, (height, width))
-            roi_polygon = roi_polygon_cli
-        elif enable_roi_selection:
-            roi_selection = select_roi(prev_img, locale=locale)
-            if roi_selection:
-                roi_mask = roi_selection["mask"]
-                roi_polygon = roi_selection["polygon"]
-                print(
-                    get_message(
-                        "ui.pipeline.roi.setup_complete",
-                        locale=locale,
-                        polygon=format_polygon_string(roi_polygon),
-                    )
-                )
-            else:
-                print(get_message("ui.pipeline.roi.none_selected", locale=locale))
-        else:
-            print(get_message("ui.pipeline.roi.skipped", locale=locale))
-
-        # Get params dict (unscaled for progress tracking)
+        # Progress records the configured thresholds in their original units.
         params = self._config.params.to_dict()
         normalized_input = _loader_normalizes(input_loader) or _is_normalized_image(
-            prev_context.image_data
+            first_context.image_data
         )
         runtime_params = _apply_normalized_diff_threshold(params, normalized_input)
 
-        # Progress tracking setup
-        params_for_hash = params.copy()
-        if roi_polygon:
-            params_for_hash["roi_polygon"] = roi_polygon
+        self._prepare_progress(files, params, roi_polygon, resume, locale)
 
-        self.progress_manager.set_params(params)
-        self.progress_manager.set_roi(roi_polygon or "full_image")
-        self.progress_manager.set_processing_params(params)
-        params_hash = compute_params_hash(params_for_hash)
-        self.progress_manager.set_params_hash(params_hash)
-
-        if resume:
-            loaded = self.progress_manager.load()
-            if loaded and self.progress_manager.get_params_hash() == params_hash:
-                print(
-                    get_message(
-                        "ui.pipeline.progress.resuming",
-                        locale=locale,
-                        path=self._config.progress_file,
-                        processed=self.progress_manager.get_total_processed(),
-                        detected=self.progress_manager.get_total_detected(),
-                    )
-                )
-            elif loaded:
-                print(get_message("ui.pipeline.progress.param_mismatch", locale=locale))
-                self.progress_manager.reset()
-                self.progress_manager.set_params_hash(params_hash)
-
-        # Filter existing files
-        existing_basenames = {os.path.basename(path) for path in files}
-        self.progress_manager.filter_existing_files(existing_basenames)
-        self.progress_manager.save()
-
-        # Build image pairs
-        image_pairs = [(i, files[i], files[i - 1]) for i in range(1, len(files))]
         image_pairs = [
-            pair
-            for pair in image_pairs
-            if not self.progress_manager.is_processed(os.path.basename(pair[1]))
+            (frame_index, current, previous)
+            for frame_index, (previous, current) in enumerate(pairwise(files), start=1)
+            if not self.progress_manager.is_processed(os.path.basename(current))
         ]
 
         resume_offset = self.progress_manager.get_total_processed()
@@ -2204,6 +2280,8 @@ class MeteorDetectionPipeline:
                     input_loader,
                     self.detector,
                     debug_image_enabled,
+                    hook_configs,
+                    hooks,
                     locale=locale,
                 )
             else:
@@ -2328,6 +2406,96 @@ class MeteorDetectionPipeline:
         )
         return detected_count
 
+    def _resolve_roi(
+        self,
+        image: np.ndarray,
+        requested_polygon: Optional[List[List[int]]],
+        enable_roi_selection: bool,
+        locale: str,
+    ) -> Tuple[np.ndarray, Optional[List[List[int]]]]:
+        """Return the requested or interactive ROI, with the full image as fallback.
+
+        The polygon uses loaded-image coordinates. The returned polygon is None
+        when the full-image fallback is used.
+        """
+        height, width = image.shape
+        image_shape = (height, width)
+
+        if requested_polygon:
+            print(
+                get_message(
+                    "ui.pipeline.roi.cli_specified",
+                    locale=locale,
+                    polygon=format_polygon_string(requested_polygon),
+                )
+            )
+            return (
+                create_roi_mask_from_polygon(requested_polygon, image_shape),
+                requested_polygon,
+            )
+
+        if enable_roi_selection:
+            roi_selection = select_roi(image, locale=locale)
+            if roi_selection:
+                roi_polygon = roi_selection["polygon"]
+                print(
+                    get_message(
+                        "ui.pipeline.roi.setup_complete",
+                        locale=locale,
+                        polygon=format_polygon_string(roi_polygon),
+                    )
+                )
+                return roi_selection["mask"], roi_polygon
+            print(get_message("ui.pipeline.roi.none_selected", locale=locale))
+        else:
+            print(get_message("ui.pipeline.roi.skipped", locale=locale))
+
+        return create_full_roi_mask(image_shape), None
+
+    def _prepare_progress(
+        self,
+        files: List[str],
+        params: Dict[str, Any],
+        roi_polygon: Optional[List[List[int]]],
+        resume: bool,
+        locale: str,
+    ) -> None:
+        """Prepare the progress file before building the remaining frame pairs.
+
+        The hash combines configured thresholds and the effective ROI. A
+        mismatch resets saved results. Entries for files outside the current
+        input set are removed before progress is written.
+        """
+        params_for_hash = params.copy()
+        if roi_polygon:
+            params_for_hash["roi_polygon"] = roi_polygon
+
+        self.progress_manager.set_params(params)
+        self.progress_manager.set_roi(roi_polygon or "full_image")
+        self.progress_manager.set_processing_params(params)
+        params_hash = compute_params_hash(params_for_hash)
+        self.progress_manager.set_params_hash(params_hash)
+
+        if resume and self.progress_manager.load():
+            if self.progress_manager.get_params_hash() == params_hash:
+                print(
+                    get_message(
+                        "ui.pipeline.progress.resuming",
+                        locale=locale,
+                        path=self._config.progress_file,
+                        processed=self.progress_manager.get_total_processed(),
+                        detected=self.progress_manager.get_total_detected(),
+                    )
+                )
+            else:
+                print(get_message("ui.pipeline.progress.param_mismatch", locale=locale))
+                self.progress_manager.reset()
+                self.progress_manager.set_params_hash(params_hash)
+
+        existing_basenames = {os.path.basename(path) for path in files}
+        self.progress_manager.filter_existing_files(existing_basenames)
+        self.progress_manager.save()
+
     def _process_parallel(
         self,
         image_pairs: List[Tuple[int, str, str]],
@@ -2339,14 +2507,17 @@ class MeteorDetectionPipeline:
         input_loader: Optional[BaseInputLoader],
         detector: Optional[BaseDetector],
         debug_image_enabled: bool,
+        hook_configs: tuple[HookConfig, ...],
+        file_hooks: List[BaseHook],
         locale: Optional[str] = None,
     ) -> int:
-        """Process images in parallel using ProcessPoolExecutor."""
+        """Collect completed worker batches and handle output in this process."""
         locale = _resolve_locale(locale)
         start_time = time.time()
         hooks = _resolve_hooks(
-            self._config.hooks,
+            hook_configs,
             hook_error_mode=self._config.hook_error_mode,
+            selected_classes=[type(hook) for hook in file_hooks],
         )
         batches = [
             image_pairs[i : i + self._config.batch_size]
@@ -2360,12 +2531,16 @@ class MeteorDetectionPipeline:
                 count=len(batches),
             )
         )
+        if not batches:
+            return self.progress_manager.get_total_detected()
+        plan = WorkerPlugins.capture(input_loader, detector, file_hooks)
+        plugin_state = WorkerPluginState(input_loader, detector, hook_configs)
 
         executor = ProcessPoolExecutor(
             max_workers=self._config.num_workers,
             initializer=_init_worker_ignore_interrupt,
         )
-        futures: List = []
+        pending_futures = set()
         wait_for_tasks = True
 
         try:
@@ -2381,17 +2556,16 @@ class MeteorDetectionPipeline:
                     flush=True,
                 )
                 future = executor.submit(
-                    process_image_batch,
+                    _process_worker_batch,
                     batch,
                     roi_mask,
                     params,
-                    input_loader,
-                    detector,
+                    plan,
+                    plugin_state,
                     debug_image_enabled,
-                    self._config.hooks,
                     self._config.hook_error_mode,
                 )
-                futures.append(future)
+                pending_futures.add(future)
 
             # Clear the submitting line
             print()
@@ -2413,10 +2587,14 @@ class MeteorDetectionPipeline:
                 flush=True,
             )
 
-            for future in as_completed(futures):
+            for future in as_completed(pending_futures):
+                # Futures retain their batch results, including debug images.
+                pending_futures.remove(future)
                 completed_batches += 1
                 try:
                     batch_results = future.result()
+                except (MeteorDetectorCompatibilityError, WorkerPluginError):
+                    raise
                 except Exception as e:
                     if self._config.hook_error_mode == "raise" and isinstance(
                         e, MeteorHookError
@@ -2596,6 +2774,10 @@ class MeteorDetectionPipeline:
                         message="on_batch_complete hook failed for batch %s: %s",
                         message_args=(completed_batches, exc),
                     )
+        except (MeteorDetectorCompatibilityError, WorkerPluginError):
+            for future in pending_futures:
+                future.cancel()
+            raise
         except KeyboardInterrupt:
             print(
                 "\n"
@@ -2605,7 +2787,7 @@ class MeteorDetectionPipeline:
                 )
             )
             wait_for_tasks = False
-            for future in futures:
+            for future in pending_futures:
                 future.cancel()
             raise
         finally:

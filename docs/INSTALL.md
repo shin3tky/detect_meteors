@@ -85,7 +85,8 @@ are pinned in `pyproject.toml` and recorded in `uv.lock`.
 | `pydantic` | `2.14.3` |
 | `pyyaml` | `6.0.3` |
 
-See [developer setup](INSTALL_DEV.md#development-tool-versions-v1611) for tool versions.
+See the [1.6.11 dependency table](CHANGELOG.md#dependency-updates-1610-to-1611)
+for the development tool versions shipped with this release.
 
 <a id="upgrading-from-1610"></a>
 
