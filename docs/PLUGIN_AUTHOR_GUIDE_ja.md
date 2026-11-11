@@ -286,7 +286,8 @@ ROI選択・自動推定用の先頭画像やサンプルの読み込みには�
 
 - `InputContext.metadata["frame_role"]` は `"current"` または `"previous"` で、処理するフレームの役割を示します。
 - 新しい `InputContext` を返して、`image_data` やメタデータを差し替えられます。
-- 例外時は `PipelineConfig.hook_error_mode` で、`"warn"` による警告・継続、または `"raise"` による送出を選びます。既定は `"raise"`。実運用では、エラーを報告しつつ処理を継続する `"warn"` を推奨します。
+- `image_data` には NumPy 配列、Pillow 画像、PyTorch テンソルを指定します。旧形式のフックは、これらの画像を直接返すこともできます。
+- フックの例外や不正な戻り値（`None` や `image_data=None` を含む）は `PipelineConfig.hook_error_mode` に従います。`"warn"` では警告を出し、直前に受理したコンテキストを次のフックへ渡します。`"raise"`（既定）では `MeteorHookError` を送出します。フックが入力をその場で変更した場合は、その変更が残ることがあります。
 
 **登録**：
 
@@ -310,7 +311,7 @@ ROI選択・自動推定用の先頭画像やサンプルの読み込みには�
 
 - 戻り値の `DetectionResult` が後続の `is_candidate`、`score`、`debug_image` を決めます。
 - 新しい `DetectionResult` で線分やextrasを上書きできます。
-- 例外時は `PipelineConfig.hook_error_mode` で `"warn"`（警告して継続）か `"raise"`（送出）を選びます。既定は `"raise"`。実運用では `"warn"` を推奨します。
+- 正規化できる `DetectionResult` を返してください。フックの例外や不正な戻り値は `PipelineConfig.hook_error_mode` に従います。`"warn"` は直前に受理した結果を使い、`"raise"`（既定）は `MeteorHookError` を送出します。
 
 **登録**：
 
@@ -359,7 +360,7 @@ ROI選択・自動推定用の先頭画像やサンプルの読み込みには�
 - 候補出力と進捗の記録後、メインプロセスで実行します。並列時はワーカーバッチの完了ごとに呼びますが、バッチ間はフレーム順ではなく完了順です。逐次処理では1組ずつ渡します。
 - 実行全体での連続性を必要としない **バッチ内解析** に適しています。
 - `SortedDetection.extras` を変更して解析情報を付加できます。
-- 変更した、またはそのままの一覧を返してください。
+- 対応する版の `SortedDetection` を含むリストを返してください。空リストも有効です。`None` などの不正な戻り値に対して、`"warn"` はフック名と理由を記録して直前に受理したリストを使い、`"raise"` は `MeteorHookError` を送出します。その場で入力を変更した場合は、その変更が残ることがあります。
 - 候補フラグやスコアを変更しても、保存済みファイルや件数には反映しません。extrasは最終フックにも渡し、組み込みの進捗管理は最終解析後に `aircraft` のみを保存します。
 
 **SortedDetectionデータクラス**：
@@ -439,6 +440,7 @@ class MyBatchAnalyzer(DataclassHook[MyConfig]):
   - 時系列のフィルターや平滑化。
   - 複数フレームのイベント対応付け。
 - `SortedDetection.extras` に解析情報を追加できます。
+- `on_batch_results_sorted` と同じ戻り値の検証とエラー処理が適用されます。
 - `OutputHandler.on_pipeline_complete()` の後に実行し、Ctrl-Cでは省略します。出力と件数は記録済みなので、`is_candidate` や `score` を変更しても修正しません。組み込み `ProgressManager` は `extras["aircraft"]` のみを `detected_details` の既存候補へ反映し、ほかのextrasには独自の保存処理が必要です。
 
 **2つのソート済みフックの使い分け**：
@@ -641,6 +643,10 @@ class DetectionResult:
 **スキーマのバージョン管理**：`DetectionContext` と同様に、後続処理がバージョンを確認して将来の結果にも対応できる仕組みです。
 
 **正規化の時点**：`detect` の直後に `meteor_core.schema.normalize_detection_result` を呼びます。古い結果には `meteor_core.schema.register_detection_result_converter` の変換を適用し、変換がなければ拒否します。
+
+互換性のない結果は、検出器名、フレームのパス、期待するスキーマ版を含む
+`MeteorDetectorCompatibilityError` になります。`hook_error_mode: warn` でも実行は停止します。
+有効な `is_candidate=False` の結果は処理済みとして記録します。検出器または変換関数を修正して同じ設定で再開すると、未記録のペアを再処理します。並列処理では、エラーで結果を返せなかったワーカーバッチ内のほかのペアも再処理の対象になります。
 
 **共通出力と検出器固有の出力**：
 
@@ -968,7 +974,7 @@ output_handler_config:
 | `output_handler_name` | 名前（`"file"`、`"slack"` など） |
 | `output_handler_config` | ハンドラーの `ConfigType` へ渡す辞書 |
 | `hooks` | フック名や `{name, config}` の順序付きリスト、または名前から設定へのマッピング |
-| `hook_error_mode` | コールバック例外を送出する `"raise"`（既定）、または警告して続行する `"warn"` |
+| `hook_error_mode` | コールバックの例外や不正な戻り値をエラーにする `"raise"`（既定）、または警告して続行する `"warn"` |
 
 `*_config` は標準のルールで各 `ConfigType` へ変換します。[3.3 設定管理](#33-configuration-management-configtype)を参照してください。
 
@@ -2533,6 +2539,7 @@ MeteorError (base)
 │   └── MeteorProgressError (progress tracking errors)
 ├── MeteorValidationError (parameter/input validation)
 └── MeteorConfigError (configuration errors)
+    └── MeteorDetectorCompatibilityError (検出結果の契約違反)
 ```
 
 **例外のインポート**：
@@ -2547,6 +2554,7 @@ from meteor_core.exceptions import (
     MeteorProgressError,
     MeteorValidationError,
     MeteorConfigError,
+    MeteorDetectorCompatibilityError,
 )
 ```
 

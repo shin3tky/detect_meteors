@@ -56,7 +56,7 @@ class BaseHook(ABC, Generic[ConfigType]):
             context: InputContext bundle for the loaded image.
 
         Returns:
-            Updated InputContext (default: unchanged).
+            Updated InputContext with a supported image (default: unchanged).
         """
         return context
 
@@ -104,7 +104,7 @@ class BaseHook(ABC, Generic[ConfigType]):
 
         Returns:
             List of updated SortedDetection objects in the same order.
-            Default implementation returns the input unchanged.
+            An empty list is valid. The default implementation returns the input unchanged.
         """
         return detections
 
@@ -136,7 +136,7 @@ class BaseHook(ABC, Generic[ConfigType]):
 
         Returns:
             List of updated SortedDetection objects in the same order.
-            Default implementation returns the input unchanged.
+            An empty list is valid. The default implementation returns the input unchanged.
         """
         return detections
 

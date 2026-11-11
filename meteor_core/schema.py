@@ -1000,7 +1000,14 @@ def normalize_detection_context(context: DetectionContext) -> DetectionContext:
 
 
 def normalize_detection_result(result: DetectionResult) -> DetectionResult:
-    """Normalize DetectionResult to the current schema version."""
+    """Normalize DetectionResult to the current schema version.
+
+    Raises:
+        TypeError: The input or converter output is not a DetectionResult.
+        ValueError: No converter is registered or it returns an unsupported version.
+    """
+    if not isinstance(result, DetectionResult):
+        raise TypeError(f"Expected DetectionResult, got {type(result).__name__}.")
     if result.schema_version == DETECTION_RESULT_SCHEMA_VERSION:
         return result
 
@@ -1012,10 +1019,15 @@ def normalize_detection_result(result: DetectionResult) -> DetectionResult:
         )
 
     converted = converter(result)
+    if not isinstance(converted, DetectionResult):
+        raise TypeError(
+            "DetectionResult converter returned "
+            f"{type(converted).__name__}; expected DetectionResult."
+        )
     if converted.schema_version != DETECTION_RESULT_SCHEMA_VERSION:
         raise ValueError(
-            "DetectionResult converter did not return the expected schema_version "
-            f"{DETECTION_RESULT_SCHEMA_VERSION}."
+            f"DetectionResult converter returned schema_version {converted.schema_version}; "
+            f"expected {DETECTION_RESULT_SCHEMA_VERSION}."
         )
     return converted
 

@@ -46,6 +46,15 @@ else:
     _TorchTensor = torch.Tensor if torch is not None else Any
 
 
+def _is_supported_image(image: object) -> bool:
+    """Recognize the image types accepted by the pipeline without converting them."""
+    return (
+        isinstance(image, np.ndarray)
+        or (Image is not None and isinstance(image, Image.Image))
+        or (torch is not None and isinstance(image, torch.Tensor))
+    )
+
+
 def ensure_numpy(image: Any) -> np.ndarray:
     """Return a NumPy array from an array, Pillow image, or PyTorch tensor."""
     if isinstance(image, np.ndarray):

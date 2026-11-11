@@ -20,6 +20,7 @@ Exception Hierarchy:
     │   └── MeteorProgressError (progress tracking errors)
     ├── MeteorValidationError (parameter/input validation)
     └── MeteorConfigError (configuration errors)
+        └── MeteorDetectorCompatibilityError (incompatible detector result)
 
 Example:
     >>> try:
@@ -646,6 +647,10 @@ class MeteorConfigError(MeteorError):
             original_error=original_error,
             context=ctx,
         )
+
+
+class MeteorDetectorCompatibilityError(MeteorConfigError):
+    """A detector's return value could not be normalized to the supported contract."""
 
 
 class MeteorOutputError(MeteorError):

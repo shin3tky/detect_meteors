@@ -35,6 +35,7 @@ import numpy as np
 
 from .exceptions import (
     MeteorConfigError,
+    MeteorDetectorCompatibilityError,
     MeteorError,
     MeteorHookError,
     MeteorLoadError,
@@ -48,6 +49,7 @@ from .schema import (
     DEFAULT_NUM_WORKERS,
     DEFAULT_BATCH_SIZE,
     DEFAULT_PROGRESS_FILE,
+    DETECTION_RESULT_SCHEMA_VERSION,
     DetectionContext,
     DetectionParams,
     DetectionResult,
@@ -57,6 +59,7 @@ from .schema import (
     HookConfig,
     RuntimeParams,
     SortedDetection,
+    SORTED_DETECTION_SCHEMA_VERSION,
     RUNTIME_PARAMS_SCHEMA_VERSION,
     normalize_detection_context,
     normalize_detection_result,
@@ -75,7 +78,7 @@ from ._worker_plugins import (
 )
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, DetectorRegistry
-from .utils import _display_width, _pad_label, ensure_numpy
+from .utils import _display_width, _is_supported_image, _pad_label, ensure_numpy
 from .outputs import (
     BaseOutputHandler,
     OutputHandlerRegistry,
@@ -114,11 +117,29 @@ def _normalize_input_context(
         raise MeteorConfigError(str(exc)) from exc
 
 
-def _normalize_detection_result(result: DetectionResult) -> DetectionResult:
+def _normalize_detector_result(
+    result: DetectionResult, *, detector_name: str, filepath: str, frame_index: int
+) -> DetectionResult:
+    """Report detector result incompatibility with frame details safe to send to the parent."""
+    version = result.schema_version if isinstance(result, DetectionResult) else None
     try:
         return normalize_detection_result(result)
-    except ValueError as exc:
-        raise MeteorConfigError(str(exc)) from exc
+    except Exception as exc:
+        if version is not None and type(version) not in (int, str, float, bool):
+            version = type(version).__name__
+        # A third-party converter may raise an exception that cannot be pickled.
+        # Keep the reason as text on the exception sent across the worker boundary.
+        raise MeteorDetectorCompatibilityError(
+            f"Detector {detector_name!r} did not produce a compatible DetectionResult "
+            f"(expected schema version {DETECTION_RESULT_SCHEMA_VERSION}): {exc}",
+            filepath=filepath,
+            plugin_name=detector_name,
+            context={
+                "frame_index": frame_index,
+                "received_schema_version": version,
+                "expected_schema_version": DETECTION_RESULT_SCHEMA_VERSION,
+            },
+        ) from exc
 
 
 def _normalize_output_result(result: OutputResult | bool) -> OutputResult:
@@ -150,13 +171,20 @@ def _handle_hook_exception(
     message_args: Tuple[Any, ...],
     filepath: Optional[str] = None,
     context: Optional[Dict[str, Any]] = None,
+    plugin_name: Optional[str] = None,
 ) -> None:
+    error_message = f"{hook_name} hook failed"
+    if plugin_name:
+        message += " [plugin: %s]"
+        message_args = (*message_args, plugin_name)
+        error_message += f" ({plugin_name})"
+        context = {**(context or {}), "plugin_name": plugin_name}
     if hook_error_mode == "warn":
         logger.warning(message, *message_args)
         return
     logger.error(message, *message_args)
     raise MeteorHookError(
-        f"{hook_name} hook failed",
+        error_message,
         filepath=filepath,
         original_error=exc,
         context=context,
@@ -313,10 +341,20 @@ def _apply_image_loaded_hooks(
     context = _ensure_frame_role(context, role)
     for hook in hooks:
         try:
-            context = _normalize_input_context(
-                hook.on_image_loaded(context),
-                filepath=context.filepath,
-            )
+            updated = hook.on_image_loaded(context)
+            if not isinstance(updated, InputContext) and not _is_supported_image(
+                updated
+            ):
+                raise TypeError(
+                    f"Expected InputContext or a supported image, got {type(updated).__name__}."
+                )
+            updated = _normalize_input_context(updated, filepath=context.filepath)
+            if not _is_supported_image(updated.image_data):
+                raise TypeError(
+                    "InputContext.image_data must be a supported image, "
+                    f"got {type(updated.image_data).__name__}."
+                )
+            context = _ensure_frame_role(updated, role)
         except Exception as exc:
             _handle_hook_exception(
                 exc,
@@ -326,9 +364,8 @@ def _apply_image_loaded_hooks(
                 message_args=(context.filepath, role, exc),
                 filepath=context.filepath,
                 context={"frame_role": role},
+                plugin_name=hook.plugin_name,
             )
-        else:
-            context = _ensure_frame_role(context, role)
     return context
 
 
@@ -341,7 +378,7 @@ def _apply_detection_complete_hooks(
 ) -> DetectionResult:
     for hook in hooks:
         try:
-            result = _normalize_detection_result(
+            result = normalize_detection_result(
                 hook.on_detection_complete(result, context)
             )
         except Exception as exc:
@@ -352,6 +389,7 @@ def _apply_detection_complete_hooks(
                 message="on_detection_complete hook failed for %s: %s",
                 message_args=(filename, exc),
                 filepath=filename,
+                plugin_name=hook.plugin_name,
             )
     return result
 
@@ -384,6 +422,27 @@ def _apply_output_saved_hooks(
             )
 
 
+def _validate_sorted_detections(
+    detections: List[SortedDetection],
+) -> List[SortedDetection]:
+    """Verify the list and its elements before passing it to the next hook."""
+    if not isinstance(detections, list):
+        raise TypeError(
+            f"Expected list[SortedDetection], got {type(detections).__name__}."
+        )
+    for index, detection in enumerate(detections):
+        if not isinstance(detection, SortedDetection):
+            raise TypeError(
+                f"Expected SortedDetection at index {index}, got {type(detection).__name__}."
+            )
+        if detection.schema_version != SORTED_DETECTION_SCHEMA_VERSION:
+            raise ValueError(
+                f"Unsupported SortedDetection schema_version {detection.schema_version} "
+                f"at index {index}; expected {SORTED_DETECTION_SCHEMA_VERSION}."
+            )
+    return detections
+
+
 def _apply_batch_results_sorted_hooks(
     detections: List[SortedDetection],
     hooks: List[Any],
@@ -394,14 +453,16 @@ def _apply_batch_results_sorted_hooks(
     Args:
         detections: List of SortedDetection objects, sorted by frame_index.
         hooks: List of hook instances.
-        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
+        hook_error_mode: Error handling mode ("raise" or "warn").
 
     Returns:
         List of updated SortedDetection objects.
     """
     for hook in hooks:
         try:
-            detections = hook.on_batch_results_sorted(detections)
+            detections = _validate_sorted_detections(
+                hook.on_batch_results_sorted(detections)
+            )
         except Exception as exc:
             _handle_hook_exception(
                 exc,
@@ -409,6 +470,7 @@ def _apply_batch_results_sorted_hooks(
                 hook_error_mode=hook_error_mode,
                 message="on_batch_results_sorted hook failed: %s",
                 message_args=(exc,),
+                plugin_name=hook.plugin_name,
             )
     return detections
 
@@ -424,14 +486,16 @@ def _apply_all_detections_sorted_hooks(
         detections: List of ALL SortedDetection objects from the pipeline,
             sorted by frame_index.
         hooks: List of hook instances.
-        hook_error_mode: Error handling mode ("raise", "warn", or "ignore").
+        hook_error_mode: Error handling mode ("raise" or "warn").
 
     Returns:
         List of updated SortedDetection objects.
     """
     for hook in hooks:
         try:
-            detections = hook.on_all_detections_sorted(detections)
+            detections = _validate_sorted_detections(
+                hook.on_all_detections_sorted(detections)
+            )
         except Exception as exc:
             _handle_hook_exception(
                 exc,
@@ -439,6 +503,7 @@ def _apply_all_detections_sorted_hooks(
                 hook_error_mode=hook_error_mode,
                 message="on_all_detections_sorted hook failed: %s",
                 message_args=(exc,),
+                plugin_name=hook.plugin_name,
             )
     return detections
 
@@ -983,10 +1048,11 @@ def process_image_batch(
     Returns:
         One tuple per pair containing the candidate flag, filename, filepath,
         score, debug image, aspect ratio, line count, detector result, and
-        context metadata. Loading or detection failures are logged and produce
-        a non-candidate row with no detector result or context metadata.
+        context metadata. Recoverable load or detection failures are logged
+        and produce a row with no detector result or context metadata.
 
     Raises:
+        MeteorDetectorCompatibilityError: If a detector result cannot be normalized.
         MeteorHookError: If a hook fails in "raise" mode.
     """
     loader = _resolve_input_loader(input_loader)
@@ -1093,7 +1159,13 @@ def _process_resolved_batch(
                 metadata=metadata,
             )
             context = _normalize_detection_context(context)
-            result = _normalize_detection_result(det.detect(context))
+            result = det.detect(context)
+            result = _normalize_detector_result(
+                result,
+                detector_name=det.plugin_name,
+                filepath=curr_file,
+                frame_index=frame_index,
+            )
             result = _apply_detection_complete_hooks(
                 result,
                 context,
@@ -1127,7 +1199,7 @@ def _process_resolved_batch(
                     len(result.lines),
                 )
 
-        except MeteorHookError:
+        except (MeteorDetectorCompatibilityError, MeteorHookError):
             raise
         except MeteorError as e:
             logger.error(
@@ -2521,7 +2593,7 @@ class MeteorDetectionPipeline:
                 completed_batches += 1
                 try:
                     batch_results = future.result()
-                except WorkerPluginError:
+                except (MeteorDetectorCompatibilityError, WorkerPluginError):
                     raise
                 except Exception as e:
                     if self._config.hook_error_mode == "raise" and isinstance(
@@ -2702,7 +2774,7 @@ class MeteorDetectionPipeline:
                         message="on_batch_complete hook failed for batch %s: %s",
                         message_args=(completed_batches, exc),
                     )
-        except WorkerPluginError:
+        except (MeteorDetectorCompatibilityError, WorkerPluginError):
             for future in pending_futures:
                 future.cancel()
             raise

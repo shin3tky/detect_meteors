@@ -295,10 +295,12 @@ transform image data or enrich metadata for downstream detectors/output hooks.
 - `InputContext.metadata["frame_role"]` is set to `"current"` or `"previous"` to
   indicate which frame is being processed.
 - You may return a new `InputContext` to replace `image_data` or metadata.
-- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
-  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
-  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
-  pipeline moving while still surfacing errors.
+- Return a NumPy array, Pillow image, or PyTorch tensor in `image_data`. A bare
+  image of one of these types is also accepted for legacy hooks.
+- Exceptions and invalid returns, including `None` or `image_data=None`, follow
+  `PipelineConfig.hook_error_mode`. In `"warn"`, the next hook receives the last
+  accepted context. In `"raise"` (the default), the pipeline raises
+  `MeteorHookError`. A failing hook's in-place edits can still affect the input.
 
 **Registration**:
 - Hooks should be made available through discovery (entry points or
@@ -323,10 +325,10 @@ attach metadata for downstream consumers.
 - The returned `DetectionResult` is used to determine `is_candidate`, `score`,
   and `debug_image` for downstream logic.
 - You may return a new `DetectionResult` to override lines or extras.
-- If the hook raises an exception, the pipeline uses `PipelineConfig.hook_error_mode`
-  to decide whether to log a warning and continue (`"warn"`) or raise (`"raise"`).
-  The default is `"raise"`; for production runs, `"warn"` is recommended to keep the
-  pipeline moving while still surfacing errors.
+- The return value must be a `DetectionResult` that can be normalized. Hook
+  exceptions and invalid returns follow `PipelineConfig.hook_error_mode`.
+  `"warn"` keeps the last accepted result. `"raise"` (the default) raises
+  `MeteorHookError`.
 
 **Registration**:
 - Hooks should be made available through discovery (entry points or
@@ -384,7 +386,10 @@ order before the hook is invoked.
 - Suitable for **batch-local analysis** that does not require global frame
   continuity across the entire pipeline run.
 - The hook can modify `SortedDetection.extras` to attach analysis results.
-- Return the list of `SortedDetection` objects (modified or unchanged).
+- Return a list of `SortedDetection` objects with the supported schema version.
+  An empty list is valid. For an invalid return, including `None`, `"warn"` logs
+  the hook name and keeps the last accepted list. `"raise"` raises
+  `MeteorHookError`. Changes made in place may remain.
 - Updates to candidate flags/scores do not change already saved files or counts.
   Extras remain available to the final sorted hook; the built-in progress writer
   persists only the `aircraft` namespace after final analysis.
@@ -471,6 +476,8 @@ guaranteeing global frame order across all batches.
   - Temporal filtering and smoothing
   - Multi-frame event correlation
 - The hook can modify `SortedDetection.extras` to attach analysis results.
+- Return a list under the same validation and error policy as
+  `on_batch_results_sorted`.
 - It runs after `OutputHandler.on_pipeline_complete()` and is skipped when
   processing exits via Ctrl-C. Candidate output and counts are already recorded;
   changing `is_candidate` or `score` here does not revise them. The built-in
@@ -684,6 +691,13 @@ class DetectionResult:
 **Schema versioning**: Like `DetectionContext`, the `schema_version` enables forward-compatible result handling. Downstream consumers can check the version before processing.
 
 **Normalization point**: The pipeline calls `meteor_core.schema.normalize_detection_result` right after your `detect` implementation returns. If `schema_version` is older, it applies converters registered with `meteor_core.schema.register_detection_result_converter`; if no converter exists, the pipeline rejects the result.
+
+An incompatible result raises `MeteorDetectorCompatibilityError` with the
+detector name, frame path, and expected schema version. The pipeline stops even
+with `hook_error_mode: warn`. A valid result with `is_candidate=False` is recorded
+as processed. After fixing the detector or converter, resume with the same
+settings to retry unrecorded pairs. In parallel runs, this can include other
+pairs from the worker batch that failed before returning its results.
 
 **Normalized vs detector-specific outputs**
 
@@ -1014,7 +1028,7 @@ output_handler_config:
 | `output_handler_name` | Plugin name (e.g., `"file"`, `"slack"`) |
 | `output_handler_config` | Dict passed to plugin's `ConfigType` |
 | `hooks` | Ordered list of hook names or `{name, config}` entries, or a mapping of names to configs |
-| `hook_error_mode` | `"raise"` (default) or `"warn"` for callback exceptions |
+| `hook_error_mode` | `"raise"` (default) or `"warn"` for callback exceptions and invalid hook returns |
 
 The `*_config` dicts are coerced into each plugin's `ConfigType` using the standard coercion rules (see [3.3 Configuration Management](#33-configuration-management-configtype)).
 
@@ -2560,6 +2574,7 @@ MeteorError (base)
 │   └── MeteorProgressError (progress tracking errors)
 ├── MeteorValidationError (parameter/input validation)
 └── MeteorConfigError (configuration errors)
+    └── MeteorDetectorCompatibilityError (incompatible detector result)
 ```
 
 **Import exceptions**:
@@ -2573,6 +2588,7 @@ from meteor_core.exceptions import (
     MeteorProgressError,
     MeteorValidationError,
     MeteorConfigError,
+    MeteorDetectorCompatibilityError,
 )
 ```
 
