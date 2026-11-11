@@ -16,7 +16,7 @@ import os
 import unicodedata
 import importlib.util
 import numpy as np
-from typing import Dict, Optional, Tuple, List, Any
+from typing import TYPE_CHECKING, Dict, Optional, Tuple, List, Any
 
 from .schema import (
     SENSOR_PRESETS,
@@ -30,34 +30,39 @@ from .schema import (
 )
 from .i18n import DEFAULT_LOCALE, get_message
 
-_HAS_TORCH = importlib.util.find_spec("torch") is not None
-if _HAS_TORCH:
+if importlib.util.find_spec("torch") is not None:
     import torch  # ty: ignore[import-not-found]  # optional dependency, not installed by default
 else:
-    torch = None  # type: ignore[assignment]
+    torch = None
 
-_HAS_PIL = importlib.util.find_spec("PIL.Image") is not None
-if _HAS_PIL:
+if importlib.util.find_spec("PIL") is not None:
     from PIL import Image
 else:
-    Image = None  # type: ignore[assignment]
+    Image = None
+
+if TYPE_CHECKING:
+    from torch import Tensor as _TorchTensor  # ty: ignore[import-not-found]
+else:
+    _TorchTensor = torch.Tensor if torch is not None else Any
 
 
 def ensure_numpy(image: Any) -> np.ndarray:
+    """Return a NumPy array from an array, Pillow image, or PyTorch tensor."""
     if isinstance(image, np.ndarray):
         return image
 
-    if _HAS_PIL and isinstance(image, Image.Image):
+    if Image is not None and isinstance(image, Image.Image):
         return np.array(image)
 
-    if _HAS_TORCH and isinstance(image, torch.Tensor):
+    if torch is not None and isinstance(image, torch.Tensor):
         return image.detach().cpu().numpy()
 
     raise TypeError(f"Unsupported image type: {type(image)}")
 
 
-def ensure_tensor(image: Any) -> "torch.Tensor":
-    if not _HAS_TORCH:
+def ensure_tensor(image: Any) -> "_TorchTensor":
+    """Return a PyTorch tensor from a tensor, NumPy array, or Pillow image."""
+    if torch is None:
         raise ImportError("torch is required to convert images into tensors.")
 
     if isinstance(image, torch.Tensor):
@@ -66,7 +71,7 @@ def ensure_tensor(image: Any) -> "torch.Tensor":
     if isinstance(image, np.ndarray):
         return torch.from_numpy(image)
 
-    if _HAS_PIL and isinstance(image, Image.Image):
+    if Image is not None and isinstance(image, Image.Image):
         return torch.from_numpy(np.array(image))
 
     raise TypeError(f"Unsupported image type: {type(image)}")

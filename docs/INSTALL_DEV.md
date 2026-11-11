@@ -48,7 +48,7 @@ pre-commit, and coverage. To test on Python 3.13, install it with
 | Package | Pinned version |
 | --- | --- |
 | `ruff` | `0.17.4` |
-| `ty` | `0.0.99` |
+| `ty` | `0.0.100` |
 | `pre-commit` | `4.7.0` |
 | `coverage` | `7.17.2` |
 

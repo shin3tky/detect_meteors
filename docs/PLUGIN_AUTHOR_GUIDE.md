@@ -3019,7 +3019,7 @@ uv run pre-commit run ty-check --all-files
       ...
   ```
 
-- Match base class signatures exactly to avoid `invalid-method-override` errors:
+- Match base class signatures exactly to avoid `incompatible-method-override` errors:
   ```python
   # Good: Exact signature match
   def save_candidate(
@@ -3052,7 +3052,7 @@ uv run pre-commit run ty-check --all-files
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `invalid-return-type` | Return type doesn't match declaration | Check return statement matches declared type |
-| `invalid-method-override` | Override signature incompatible with base | Match base class parameter types exactly |
+| `incompatible-method-override` | Override signature incompatible with base | Match base class parameter types exactly |
 | `invalid-assignment` | Assigned value doesn't match declared type | Use correct type or add type narrowing |
 | `call-non-callable` | Attempting to call non-callable | Ensure object is callable before calling |
 
