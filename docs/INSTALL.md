@@ -31,6 +31,7 @@ uv run detect-meteors --help
 Alternatively, download the [v1.6.12 source distribution](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12.tar.gz)
 or one of GitHub's **Source code** archives from the
 [release page](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12).
+If you downloaded the source distribution, [verify it with SHA256SUMS](#verify-release-downloads) before extracting it.
 Extract it, open a terminal in the extracted directory containing `pyproject.toml`,
 and run the commands above starting with `uv python install 3.12`.
 
@@ -50,6 +51,7 @@ sample are available in the Git checkout or GitHub's **Source code** archives.
 
 Download the [v1.6.12 wheel](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12-py3-none-any.whl)
 and open a terminal in the directory where you saved it.
+[Verify the wheel with SHA256SUMS](#verify-release-downloads) before installing it.
 
 ```bash
 uv venv --python 3.12
@@ -68,6 +70,36 @@ uv run detect-meteors --help
 The wheel includes the command but not the source tree, RAW sample, or generated
 candidates. Use the source instructions above for documentation, configuration
 examples, tests, and sample images.
+
+<a id="verify-release-downloads"></a>
+
+### Verify the Release Downloads
+
+From [GitHub Release 1.6.12](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12),
+save the wheel, the `detect_meteors-1.6.12.tar.gz` source distribution, and
+[`SHA256SUMS`](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/SHA256SUMS)
+in the same directory. Keep the original filenames. The checksums cover these two
+distribution files. GitHub's automatically generated **Source code** archives
+are separate downloads.
+
+On macOS, open a terminal in that directory and run:
+
+```sh
+shasum -a 256 -c SHA256SUMS
+```
+
+Both files should report `OK`.
+
+On Windows, open PowerShell in the same directory and run:
+
+```powershell
+Get-Content -LiteralPath .\SHA256SUMS
+Get-FileHash -Algorithm SHA256 -LiteralPath .\detect_meteors-1.6.12-py3-none-any.whl, .\detect_meteors-1.6.12.tar.gz
+```
+
+Compare each value in the `Hash` column with the checksum for the same filename
+in `SHA256SUMS`. Uppercase and lowercase letters are equivalent.
+If a checksum differs, download the affected file again and verify it before installing.
 
 ## Dependency Versions (v1.6.12)
 
@@ -102,9 +134,9 @@ uv sync --locked --all-extras
 
 Choose the command for your environment. It installs direct and transitive
 versions recorded in `uv.lock`. For a wheel installation, download the v1.6.12
-wheel from the release page, activate your existing virtual environment, and run
-the following from the directory where you saved the wheel. Use its actual path
-if it is saved elsewhere:
+wheel from the release page and [verify it with SHA256SUMS](#verify-release-downloads).
+Then activate your existing virtual environment and run the following from the
+directory where you saved the wheel. Use its actual path if it is saved elsewhere:
 
 ```bash
 uv pip install --upgrade ./detect_meteors-1.6.12-py3-none-any.whl

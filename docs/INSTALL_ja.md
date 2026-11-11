@@ -29,8 +29,9 @@ uv run detect-meteors --help
 ```
 
 Git を使わずに取得する場合は、[v1.6.12 のソース配布物](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12.tar.gz)か、
-[リリースページ](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12)にある GitHub の **Source code** アーカイブをダウンロードして展開してください。
-展開先の `pyproject.toml` があるディレクトリでターミナルを開き、
+[リリースページ](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12)にある GitHub の **Source code** アーカイブをダウンロードしてください。
+ソース配布物を選んだ場合は、展開する前に [SHA256SUMS で検証](#verify-release-downloads)してください。
+ダウンロードしたファイルを展開し、`pyproject.toml` があるディレクトリでターミナルを開いて、
 上記の `uv python install 3.12` 以降のコマンドを実行します。
 
 `uv sync --locked` はプロジェクトと `detect-meteors` コマンドを `.venv` にインストールします。
@@ -46,6 +47,7 @@ uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 ### リリースの wheel からインストールする
 
 [v1.6.12 の wheel](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12-py3-none-any.whl)をダウンロードし、保存先でターミナルを開いてください。
+インストールする前に [SHA256SUMS で検証](#verify-release-downloads)してください。
 
 ```bash
 uv venv --python 3.12
@@ -63,6 +65,35 @@ uv run detect-meteors --help
 
 wheelにはコマンドを含みますが、ソース一式、RAWサンプル、生成済み候補は含みません。
 ドキュメント、設定例、テスト、サンプル画像を使う場合は、上記のソース取得手順に従ってください。
+
+<a id="verify-release-downloads"></a>
+
+### ダウンロードした配布物を検証する
+
+[GitHub Release 1.6.12](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12) から、
+wheel、ソース配布物 `detect_meteors-1.6.12.tar.gz`、
+[`SHA256SUMS`](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/SHA256SUMS) を
+ファイル名を変えずに同じフォルダに保存します。`SHA256SUMS` に記載されているのはこの2つの配布物のチェックサムです。
+GitHub が自動生成する **Source code** アーカイブは、この一覧の検証対象に含まれません。
+
+macOS では、保存先のフォルダでターミナルを開き、次を実行します。
+
+```sh
+shasum -a 256 -c SHA256SUMS
+```
+
+両方のファイルに `OK` と表示されれば、検証は完了です。
+
+Windows では、保存先のフォルダで PowerShell を開き、次を実行します。
+
+```powershell
+Get-Content -LiteralPath .\SHA256SUMS
+Get-FileHash -Algorithm SHA256 -LiteralPath .\detect_meteors-1.6.12-py3-none-any.whl, .\detect_meteors-1.6.12.tar.gz
+```
+
+`Hash` 列の値を、`SHA256SUMS` に記載されている同じファイル名のチェックサムと照合します。
+英字の大文字と小文字は区別しません。
+一致しない場合は、該当するファイルをダウンロードし直し、インストール前にもう一度検証してください。
 
 <a id="dependency-versions-v1612"></a>
 
@@ -95,7 +126,10 @@ uv sync --locked --all-extras
 ```
 
 用途に合わせてどちらかを選びます。`uv.lock` に記録した直接・間接依存を反映します。
-wheel で導入している場合は、リリースページから v1.6.12 の wheel をダウンロードし、使用中の仮想環境を有効にして保存先で次を実行してください。別の場所に保存した場合は実際のパスを指定します。
+wheel で導入している場合は、リリースページから v1.6.12 の wheel をダウンロードし、
+[SHA256SUMS で検証](#verify-release-downloads)してください。
+その後、使用中の仮想環境を有効にして、wheel の保存先で次を実行します。
+別の場所に保存した場合は実際のパスを指定してください。
 
 ```bash
 uv pip install --upgrade ./detect_meteors-1.6.12-py3-none-any.whl
