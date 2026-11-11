@@ -253,27 +253,140 @@ uv run coverage html
 
 テストの総数は、実行時にテストランナーが表示します。
 
-## コードスタイル
-
 <a id="building-a-release"></a>
 
-### リリース版のビルド
+## リリース手順
 
-リリースするバージョンを `pyproject.toml` と `meteor_core/schema.py` に設定し、`uv.lock` を再生成します。setuptoolsのバックエンドがCLIモジュールをパッケージ化し、`detect-meteors` コマンドをインストールします。`MANIFEST.in` はソース配布版にドキュメント、設定例、テストを含めます。
+Git、uv、curl、`shasum` を用意し、Git で取得したリポジトリから始めます。
+macOS または Linux の同じ Bash／Zsh セッションで順に実行してください。
+例のバージョン番号は、実際にリリースするバージョンに置き換えます。
+
+### 1. リリースするコミットを準備し、タグを確認する
+
+`pyproject.toml` と `meteor_core/schema.py` のバージョンを揃え、リリース関連のドキュメントを更新します。
+`uv.lock` を再生成し、変更をコミットする前に次のチェックを実行します。
 
 ```bash
 uv lock
 uv sync --locked --all-extras
-uv run python run_tests.py
-uv run ruff check .
-uv run ruff format --check .
-uv run ty check
-uv build
+uv run --locked python run_tests.py
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked ty check
 ```
 
-`dist/` にリリースバージョンを含むファイル名で生成されます。wheelの確認には別ディレクトリに仮想環境を作成し、そこで `uv pip install /path/to/the-built.whl` を実行します。その環境を有効化し、同じディレクトリから `detect-meteors --version` と `detect-meteors --help` を実行します。
+変更を `main` に反映したら、リリースするコミットをチェックアウトし、そのコミットの GitHub Actions が成功していることを確認します。
+新規リリースでは、そのコミットに注釈付きタグを作成して `origin` にプッシュします。
+ローカルと `origin` のタグをそれぞれ確認します。
 
-ソースアーカイブに設定例、ドキュメント、テスト、飛行機サンプルのREADMEとチェックサムが含まれることを確認します。RAW画像と生成済みの候補は配布物の対象外です。手元の飛行機サンプルを使う検証手順は [飛行機ガイド](aircraft_light_trails_hook_design.md) を参照してください。
+```bash
+release_version=1.6.12
+release_commit=$(git rev-parse --verify HEAD)
+git rev-parse --verify "refs/tags/${release_version}^{commit}"
+git ls-remote --exit-code origin refs/heads/main "refs/tags/$release_version" "refs/tags/$release_version^{}"
+printf 'Expected release commit: %s\n' "$release_commit"
+```
+
+ローカルのタグが指すコミットと、`origin` 側の `^{}` が付いた行のコミットが、どちらもリリース予定のコミットと一致していることを確認します。
+タグの行で `^{}` が付かない値は、注釈付きタグ自体のハッシュです。
+`main` の先頭からリリースする場合は、`refs/heads/main` の行も同じコミットを指していることを確認します。
+参照先がリリース予定のコミットと異なる場合は、差異を解消してからビルドに進みます。
+
+### 2. 配布物をビルドして確認する
+
+確認済みのコミットを新しい一時ディレクトリに展開してビルドします。
+これにより、未コミットの変更や過去のビルド結果が混ざりません。
+setuptools が CLI をパッケージ化し、`detect-meteors` コマンドを登録します。
+
+```bash
+release_dir=$(mktemp -d)
+mkdir "$release_dir/source"
+git archive --format=tar --output="$release_dir/source.tar" "$release_commit"
+TAR_OPTIONS= tar -xf "$release_dir/source.tar" -C "$release_dir/source"
+
+(
+  cd "$release_dir/source" &&
+    uv lock --check &&
+    uv build --out-dir "$release_dir/dist"
+)
+wheel="detect_meteors-$release_version-py3-none-any.whl"
+sdist="detect_meteors-$release_version.tar.gz"
+TAR_OPTIONS= tar -tzf "$release_dir/dist/$sdist"
+```
+
+生成されたファイル名のバージョンを確認します。ソース配布物には、ドキュメント、設定例、テスト、ロックファイル、
+飛行機サンプルの README とチェックサムが含まれます。RAW 画像と生成済みの候補は配布対象外です。
+手元のサンプルで動作を確認する手順は[飛行機ガイド](aircraft_light_trails_hook_design.md)を参照してください。
+
+両方の配布物があるディレクトリで、次の関数を使ってインストールを確認します。
+対応する Python のバージョンと配布物の組み合わせごとに、新しい仮想環境を作ります。
+公開前のビルド結果と、公開後にダウンロードしたファイルの両方に使います。
+
+```bash
+check_release_install() (
+  set -e
+  install_dir=$(mktemp -d "$release_dir/install.XXXXXX")
+  for python_version in 3.12 3.13; do
+    for asset in "$wheel" "$sdist"; do
+      venv="$install_dir/$python_version-$asset"
+      uv venv --python "$python_version" "$venv"
+      uv pip install --python "$venv/bin/python" "./$asset"
+      uv pip check --python "$venv/bin/python"
+      "$venv/bin/detect-meteors" --version
+      "$venv/bin/detect-meteors" --help
+    done
+  done
+)
+
+(cd "$release_dir/dist" && check_release_install)
+```
+
+4つの組み合わせすべてでインストールが成功し、CLI にリリース予定のバージョンとヘルプが表示されることを確認します。
+
+### 3. SHA256SUMS を作成して公開する
+
+ビルド結果のディレクトリで、配布物2件のファイル名とチェックサムを `SHA256SUMS` に記録します。
+
+```bash
+(
+  set -e
+  cd "$release_dir/dist"
+  shasum -a 256 "$wheel" "$sdist" > SHA256SUMS
+  shasum -a 256 -c SHA256SUMS
+)
+```
+
+両ファイルが `OK` になったら、公開前に `origin` のタグの参照先をもう一度確認します。
+そのタグで GitHub Release を公開し、wheel、ソース配布物、`SHA256SUMS` を添付します。
+リリースノートにはビルド元のコミットとチェックサムファイルへのリンクを記載します。
+タグを移動して配布物を差し替える場合は、新しい参照先を確認してから両方を再ビルドし、`SHA256SUMS` も再生成して3件を差し替えます。
+
+### 4. 公開 URL から取得して検証する
+
+公開 URL から添付3件を新しいディレクトリにダウンロードし、アップロードしたファイルと一致することを確認します。
+公開されたチェックサムで照合し、ダウンロードした配布物を使ってインストールを再確認します。
+
+```bash
+(
+  set -e
+  mkdir "$release_dir/downloads"
+  cd "$release_dir/downloads"
+  download_url="https://github.com/shin3tky/detect_meteors/releases/download/$release_version"
+
+  for asset in "$wheel" "$sdist" SHA256SUMS; do
+    curl -q --fail --silent --show-error --location --output "$asset" "$download_url/$asset"
+    cmp "$release_dir/dist/$asset" "$asset"
+  done
+
+  shasum -a 256 -c SHA256SUMS
+  check_release_install
+)
+```
+
+検証が通ったら、公開ファイルのチェックサム照合結果、確認に使った OS と Python のバージョン、CLI の起動結果をリリースノートに追記します。
+リリースページで、タグが意図したコミットを指し、添付3件が揃っていることを確認します。
+
+## コードスタイル
 
 ### 基準
 

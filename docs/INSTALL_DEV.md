@@ -272,33 +272,149 @@ uv run coverage html
 
 The test runner reports the total for the current checkout.
 
-## Code Style
+## Building a Release
 
-### Building a Release
+Run the release commands in the same Bash or Zsh session on macOS or Linux,
+starting from a Git checkout with Git, uv, curl, and `shasum` available.
+Replace the example version with the version you are releasing.
 
-Set the release version in `pyproject.toml` and `meteor_core/schema.py`, then
-regenerate `uv.lock`. The setuptools backend packages the CLI module and installs
-the `detect-meteors` command. `MANIFEST.in` includes documentation, configuration
-examples, and tests in the source distribution.
+### 1. Prepare the release commit and confirm the tag
+
+Set the version in `pyproject.toml` and `meteor_core/schema.py`, update the
+release documentation, and regenerate `uv.lock`. Run the local checks before
+committing the changes.
 
 ```bash
 uv lock
 uv sync --locked --all-extras
-uv run python run_tests.py
-uv run ruff check .
-uv run ruff format --check .
-uv run ty check
-uv build
+uv run --locked python run_tests.py
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked ty check
 ```
 
-The output filenames in `dist/` include the release version. To verify the wheel,
-create a virtual environment in a separate directory, install the wheel there
-with `uv pip install /path/to/the-built.whl`, activate that environment, and run
-`detect-meteors --version` and `detect-meteors --help` from that directory.
-Check the source archive for the sample configuration, documentation, tests,
-and the aircraft sample's README and checksums. RAW images and generated
-candidates belong outside the distribution. For commands to run against the
-local sample, see the [aircraft guide](aircraft_light_trails_hook_design.md).
+After the changes land on `main`, check out the intended release commit and
+confirm that its GitHub Actions checks passed. For a new release, create an
+annotated tag on that commit and push it to `origin`. Then check both the local
+and remote tag:
+
+```bash
+release_version=1.6.12
+release_commit=$(git rev-parse --verify HEAD)
+git rev-parse --verify "refs/tags/${release_version}^{commit}"
+git ls-remote --exit-code origin refs/heads/main "refs/tags/$release_version" "refs/tags/$release_version^{}"
+printf 'Expected release commit: %s\n' "$release_commit"
+```
+
+The local tag and the remote `^{}` line must both resolve to the expected
+commit. The remote tag line without `^{}` is the annotated tag object. If the
+release is from the tip of `main`, the `refs/heads/main` line should show the
+same commit. If the refs do not match the intended release, resolve the
+discrepancy before building.
+
+### 2. Build and verify the distribution files
+
+Export the confirmed commit to a new temporary directory. This keeps uncommitted
+changes and previous build outputs out of the release. The setuptools backend
+builds the CLI package and defines the `detect-meteors` entry point.
+
+```bash
+release_dir=$(mktemp -d)
+mkdir "$release_dir/source"
+git archive --format=tar --output="$release_dir/source.tar" "$release_commit"
+TAR_OPTIONS= tar -xf "$release_dir/source.tar" -C "$release_dir/source"
+
+(
+  cd "$release_dir/source" &&
+    uv lock --check &&
+    uv build --out-dir "$release_dir/dist"
+)
+wheel="detect_meteors-$release_version-py3-none-any.whl"
+sdist="detect_meteors-$release_version.tar.gz"
+TAR_OPTIONS= tar -tzf "$release_dir/dist/$sdist"
+```
+
+Check that the output names match the release version. The source distribution
+includes the documentation, configuration examples, tests, lockfile, and the
+aircraft sample's README and checksums. RAW images and generated candidates
+stay outside the distribution. For tests using the local sample, see the
+[aircraft guide](aircraft_light_trails_hook_design.md).
+
+Use the following check from the directory containing both distribution files.
+It creates a fresh virtual environment for each file on each supported Python
+version. Use it before uploading and again on the public downloads.
+
+```bash
+check_release_install() (
+  set -e
+  install_dir=$(mktemp -d "$release_dir/install.XXXXXX")
+  for python_version in 3.12 3.13; do
+    for asset in "$wheel" "$sdist"; do
+      venv="$install_dir/$python_version-$asset"
+      uv venv --python "$python_version" "$venv"
+      uv pip install --python "$venv/bin/python" "./$asset"
+      uv pip check --python "$venv/bin/python"
+      "$venv/bin/detect-meteors" --version
+      "$venv/bin/detect-meteors" --help
+    done
+  done
+)
+
+(cd "$release_dir/dist" && check_release_install)
+```
+
+All four installations should succeed. The CLI should print the release version
+and display help in each environment.
+
+### 3. Generate SHA256SUMS and publish
+
+Create the checksum file in the build output directory so it records only the
+two distribution filenames.
+
+```bash
+(
+  set -e
+  cd "$release_dir/dist"
+  shasum -a 256 "$wheel" "$sdist" > SHA256SUMS
+  shasum -a 256 -c SHA256SUMS
+)
+```
+
+Both files should report `OK`. Recheck the remote tag before publishing.
+Publish the GitHub Release for that tag
+and attach the wheel, source distribution, and `SHA256SUMS`. Include the commit
+used for the build and link to the checksum file in the release notes. If the
+tag moves and the assets need replacing, confirm the new commit, rebuild both
+distributions, and regenerate `SHA256SUMS` as part of the same replacement.
+
+### 4. Verify the public downloads
+
+Download the three assets from the public release URLs into a new directory.
+Compare them with the files you uploaded, then verify the published checksums
+and repeat the installation check using only the downloaded distributions.
+
+```bash
+(
+  set -e
+  mkdir "$release_dir/downloads"
+  cd "$release_dir/downloads"
+  download_url="https://github.com/shin3tky/detect_meteors/releases/download/$release_version"
+
+  for asset in "$wheel" "$sdist" SHA256SUMS; do
+    curl -q --fail --silent --show-error --location --output "$asset" "$download_url/$asset"
+    cmp "$release_dir/dist/$asset" "$asset"
+  done
+
+  shasum -a 256 -c SHA256SUMS
+  check_release_install
+)
+```
+
+Once the checks pass, record the public checksum result, the operating system
+and Python versions tested, and the CLI startup results in the release notes.
+Confirm that the release page shows the intended commit and all three assets.
+
+## Code Style
 
 ### Standards
 
