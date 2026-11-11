@@ -1,0 +1,131 @@
+name: Verify published release distributions
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published release tag (for example, 1.6.12)"
+        required: true
+        type: string
+      build_run_id:
+        description: "Run ID from Build release distributions"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      BUILD_RUN_ID: ${{ inputs.build_run_id }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the matching build artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Enter a release tag in X.Y.Z format."
+            exit 1
+          fi
+          if [[ ! "$BUILD_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Enter the numeric build run ID."
+            exit 1
+          fi
+
+          git fetch --depth=1 --no-tags origin "refs/tags/$RELEASE_TAG"
+          tag_commit=$(git rev-parse --verify 'FETCH_HEAD^{commit}')
+          run_api="repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN_ID"
+          run=$(gh api "$run_api")
+          if ! attempt=$(jq -er '
+            select(.path == ".github/workflows/release-build.yml"
+              and .event == "workflow_dispatch"
+              and .status == "completed" and .conclusion == "success")
+            | .run_attempt
+          ' <<< "$run"); then
+            echo "::error::Run $BUILD_RUN_ID must be a successful Build release distributions run."
+            exit 1
+          fi
+
+          expected="detect-meteors-$RELEASE_TAG-$tag_commit-attempt-$attempt"
+          if ! artifact=$(gh api --paginate "$run_api/artifacts" | jq -ers --arg name "$expected" '
+            [.[] | .artifacts[] | select(.expired == false and (.name | ascii_downcase) == $name)]
+            | select(length == 1) | .[0].name
+          '); then
+            echo "::error::Expected one available artifact named $expected in run $BUILD_RUN_ID."
+            exit 1
+          fi
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name "$artifact" --dir "$RUNNER_TEMP/release-artifact"
+          echo "Using $artifact from run $BUILD_RUN_ID"
+
+      - name: Compare the public downloads and verify SHA256SUMS
+        shell: bash
+        run: |
+          artifact_dir="$RUNNER_TEMP/release-artifact"
+          public_dir="$RUNNER_TEMP/release-public"
+          wheel="detect_meteors-$RELEASE_TAG-py3-none-any.whl"
+          sdist="detect_meteors-$RELEASE_TAG.tar.gz"
+          shopt -s nullglob dotglob
+          files=("$artifact_dir/"*)
+          if [[ "${#files[@]}" -ne 3 ]]; then
+            echo "::error::Expected exactly three files in the build artifact."
+            exit 1
+          fi
+          for file in "$wheel" "$sdist" SHA256SUMS; do
+            if [[ ! -f "$artifact_dir/$file" ]]; then
+              echo "::error::Build artifact is missing $file."
+              exit 1
+            fi
+          done
+
+          mkdir "$public_dir"
+          cd "$public_dir" || exit 1
+          url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG"
+          mismatch=0
+          for file in "$wheel" "$sdist" SHA256SUMS; do
+            curl -q --fail --silent --show-error --location --proto '=https' \
+              --proto-redir '=https' --retry 2 --connect-timeout 10 --max-time 90 \
+              --output "$file" "$url/$file"
+            if ! cmp -s "$artifact_dir/$file" "$file"; then
+              echo "::error::Public $file differs from the file in build run $BUILD_RUN_ID."
+              mismatch=1
+            fi
+          done
+          if (( mismatch )); then
+            exit 1
+          fi
+          sha256sum --check --strict SHA256SUMS
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install Python 3.12 and 3.13
+        run: uv python install 3.12 3.13
+
+      - name: Verify both public distributions on both Python versions
+        shell: bash
+        run: bash .github/scripts/verify-release-install.sh "$RELEASE_TAG" "$RUNNER_TEMP/release-public"
+
+      - name: Summarize public release verification
+        shell: bash
+        run: |
+          {
+            echo '### Verified public release distributions'
+            printf '\n- [Release %s](%s/%s/releases/tag/%s)\n' \
+              "$RELEASE_TAG" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$RELEASE_TAG"
+            printf -- '- All three public files match [build run %s](%s/%s/actions/runs/%s).\n' \
+              "$BUILD_RUN_ID" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$BUILD_RUN_ID"
+            echo '- Both distributions matched SHA256SUMS.'
+            echo '- Wheel and source distribution passed installation, dependency and CLI checks on Python 3.12 and 3.13.'
+          } >> "$GITHUB_STEP_SUMMARY"

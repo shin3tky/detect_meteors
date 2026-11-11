@@ -404,8 +404,16 @@ distributions, and regenerate `SHA256SUMS` as part of the same replacement.
 
 ### 4. Verify the public downloads
 
-If you built in Actions, unpack the artifact and copy its three files into
-`dist/` in a fresh working directory:
+After publishing, open **Actions → Verify published release distributions →
+Run workflow** on the default branch. Enter the release tag and the numeric run
+ID from the **Build release distributions** run that produced the uploaded
+files. The run ID is the number after `/actions/runs/` in that run's URL.
+The workflow compares all three public files with that run's artifact before
+checking SHA-256 and installing both distributions on Python 3.12 and 3.13.
+A separate build of the same tag may produce different bytes.
+
+To verify manually using a build from Actions, unpack the artifact and copy its
+three files into `dist/` in a fresh working directory:
 
 ```bash
 release_version=1.6.12

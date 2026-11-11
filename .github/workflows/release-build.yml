@@ -79,34 +79,7 @@ jobs:
 
       - name: Verify both distributions on both Python versions
         shell: bash
-        run: |
-          cd "$RUNNER_TEMP" || exit 1
-          install_dir=$(mktemp -d "$RUNNER_TEMP/release-install.XXXXXX")
-          dist="$RUNNER_TEMP/release-dist"
-          wheel="detect_meteors-$RELEASE_TAG-py3-none-any.whl"
-          sdist="detect_meteors-$RELEASE_TAG.tar.gz"
-
-          for python_version in 3.12 3.13; do
-            for asset in "$wheel" "$sdist"; do
-              echo "Checking $asset on Python $python_version"
-              venv="$install_dir/$python_version-$asset"
-              uv venv --python "$python_version" "$venv"
-              uv pip install --python "$venv/bin/python" "$dist/$asset"
-              uv pip check --python "$venv/bin/python"
-
-              package_version=$("$venv/bin/python" -I -c 'from importlib.metadata import version; print(version("detect-meteors"))')
-              cli_version=$("$venv/bin/detect-meteors" --version)
-              if [[ "$package_version" != "$RELEASE_TAG" || "$cli_version" != *" $RELEASE_TAG" ]]; then
-                echo "::error::Expected package and CLI version $RELEASE_TAG. Package: $package_version. CLI: $cli_version."
-                exit 1
-              fi
-              echo "$cli_version"
-              "$venv/bin/detect-meteors" --help
-            done
-          done
-
-          cd "$dist" || exit 1
-          sha256sum --check SHA256SUMS
+        run: bash .github/scripts/verify-release-install.sh "$RELEASE_TAG" "$RUNNER_TEMP/release-dist"
 
       - name: Save the verified distributions
         id: artifact

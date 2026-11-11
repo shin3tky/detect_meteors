@@ -377,7 +377,13 @@ check_release_install() (
 
 ### 4. 公開 URL から取得して検証する
 
-Actions でビルドした場合は、展開したアーティファクトの3ファイルを、新しい作業ディレクトリの `dist/` にコピーします。
+公開後、GitHub の **Actions → Verify published release distributions → Run workflow** を開き、既定ブランチで実行します。
+リリースタグと、公開したファイルを生成した **Build release distributions** の実行 ID を入力します。
+実行 ID は、その実行ページの URL の `/actions/runs/` に続く数字です。
+ワークフローは公開ファイル3件をその実行のアーティファクトと比較し、SHA-256 の照合と Python 3.12・3.13 でのインストール確認を行います。
+同じタグでも、別のビルドで生成したファイルはバイト単位で異なる場合があります。
+
+Actions でビルドした配布物を手元で検証する場合は、展開したアーティファクトの3ファイルを、新しい作業ディレクトリの `dist/` にコピーします。
 
 ```bash
 release_version=1.6.12
