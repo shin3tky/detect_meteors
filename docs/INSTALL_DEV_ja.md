@@ -257,6 +257,14 @@ uv run coverage html
 
 ## リリース手順
 
+リリースするコミットの CI が成功したら、GitHub の **Actions → Build release distributions → Run workflow** を開き、既定ブランチで実行します。
+タグ名（例 `1.6.12`）とコミットの完全な SHA を指定してください。
+成功した実行では、wheel、ソース配布物、`SHA256SUMS` が1つのアーティファクトに保存されます。
+ダウンロードして展開し、`origin` のタグを再確認してから、GitHub Release に3ファイルを手動で添付します。
+公開後は、[公開 URL から取得して検証する手順](#verify-public-release-downloads)を実行します。
+
+手元でビルドする場合は、以下の手順に従ってください。
+
 Git、uv、curl、`shasum` を用意し、Git で取得したリポジトリから始めます。
 macOS または Linux の同じ Bash／Zsh セッションで順に実行してください。
 例のバージョン番号は、実際にリリースするバージョンに置き換えます。
@@ -337,7 +345,11 @@ check_release_install() (
     done
   done
 )
+```
 
+続いて、手元でビルドした配布物を確認します。
+
+```bash
 (cd "$release_dir/dist" && check_release_install)
 ```
 
@@ -361,7 +373,23 @@ check_release_install() (
 リリースノートにはビルド元のコミットとチェックサムファイルへのリンクを記載します。
 タグを移動して配布物を差し替える場合は、新しい参照先を確認してから両方を再ビルドし、`SHA256SUMS` も再生成して3件を差し替えます。
 
+<a id="verify-public-release-downloads"></a>
+
 ### 4. 公開 URL から取得して検証する
+
+Actions でビルドした場合は、展開したアーティファクトの3ファイルを、新しい作業ディレクトリの `dist/` にコピーします。
+
+```bash
+release_version=1.6.12
+artifact_dir="/path/to/unpacked-artifact"
+release_dir=$(mktemp -d)
+wheel="detect_meteors-$release_version-py3-none-any.whl"
+sdist="detect_meteors-$release_version.tar.gz"
+mkdir "$release_dir/dist"
+cp "$artifact_dir/$wheel" "$artifact_dir/$sdist" "$artifact_dir/SHA256SUMS" "$release_dir/dist/"
+```
+
+バージョンとアーティファクトの展開先は実際の値を指定し、手順2の `check_release_install` 関数を同じシェルで定義します。
 
 公開 URL から添付3件を新しいディレクトリにダウンロードし、アップロードしたファイルと一致することを確認します。
 公開されたチェックサムで照合し、ダウンロードした配布物を使ってインストールを再確認します。

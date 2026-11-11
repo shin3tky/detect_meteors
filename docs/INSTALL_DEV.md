@@ -274,6 +274,15 @@ The test runner reports the total for the current checkout.
 
 ## Building a Release
 
+Once CI passes for the release commit, open **Actions → Build release
+distributions → Run workflow** on the default branch. Enter the tag (for
+example, `1.6.12`) and the full commit SHA. A successful run saves the wheel,
+source distribution, and `SHA256SUMS` in one artifact. Download and unpack it,
+recheck the remote tag, and attach the three files in GitHub Release. Then
+follow [the public download checks](#verify-public-release-downloads).
+
+For a manual build, follow the steps in this section.
+
 Run the release commands in the same Bash or Zsh session on macOS or Linux,
 starting from a Git checkout with Git, uv, curl, and `shasum` available.
 Replace the example version with the version you are releasing.
@@ -359,7 +368,11 @@ check_release_install() (
     done
   done
 )
+```
 
+Then run the check on the local build:
+
+```bash
 (cd "$release_dir/dist" && check_release_install)
 ```
 
@@ -387,7 +400,25 @@ used for the build and link to the checksum file in the release notes. If the
 tag moves and the assets need replacing, confirm the new commit, rebuild both
 distributions, and regenerate `SHA256SUMS` as part of the same replacement.
 
+<a id="verify-public-release-downloads"></a>
+
 ### 4. Verify the public downloads
+
+If you built in Actions, unpack the artifact and copy its three files into
+`dist/` in a fresh working directory:
+
+```bash
+release_version=1.6.12
+artifact_dir="/path/to/unpacked-artifact"
+release_dir=$(mktemp -d)
+wheel="detect_meteors-$release_version-py3-none-any.whl"
+sdist="detect_meteors-$release_version.tar.gz"
+mkdir "$release_dir/dist"
+cp "$artifact_dir/$wheel" "$artifact_dir/$sdist" "$artifact_dir/SHA256SUMS" "$release_dir/dist/"
+```
+
+Use the actual release version and artifact path. Define the
+`check_release_install` function from step 2 in the same shell.
 
 Download the three assets from the public release URLs into a new directory.
 Compare them with the files you uploaded, then verify the published checksums
