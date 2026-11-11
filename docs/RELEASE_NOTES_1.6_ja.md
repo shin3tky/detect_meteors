@@ -2,6 +2,18 @@
 
 [English](RELEASE_NOTES_1.6.md)
 
+<a id="version-1613"></a>
+
+## バージョン1.6.13（公開準備中）
+
+配布物のビルドと検証を GitHub Actions で自動化しました。流星検出の動作、CLI オプション、設定ファイルの形式、プラグインのインターフェースは 1.6.12 と同じです。
+
+- **Build release distributions** にタグとコミットの完全な SHA を指定します。wheel とソース配布物をビルドして `SHA256SUMS` を生成し、Python 3.12・3.13 で両配布物を検証します。リリース担当者は成功した実行から3ファイルを取得し、GitHub Release に添付して手動で公開します。
+- **Verify published release distributions** にリリースタグとビルドの実行 ID を指定します。公開 URL から取得した3ファイルをそのビルドのアーティファクトとバイト単位で比較します。一致すれば公開された SHA-256 を照合し、両方の Python でインストール、依存関係、CLI の起動を再確認します。差異があればインストール前に停止します。
+
+正常系・異常系の検証結果と、テスト用プレリリースおよびタグの削除手順は開発者向けガイドにまとめました。
+[開発者向けガイド](INSTALL_DEV_ja.md#verify-public-release-downloads)・[変更履歴](CHANGELOG_ja.md#v1613)
+
 <a id="version-1612"></a>
 
 ## バージョン1.6.12（2026-11-11）

@@ -2,6 +2,27 @@
 
 [日本語版](CHANGELOG_ja.md)
 
+<a id="v1613"></a>
+
+## v1.6.13 (Unreleased)
+
+### Release automation
+
+- Add a manual GitHub Actions workflow that checks the release tag against
+  the supplied commit SHA, builds the wheel and source distribution, and
+  generates `SHA256SUMS`. The workflow verifies both distributions on Python
+  3.12 and 3.13 and saves the three files as an artifact for manual publication.
+- Add a manual post-publication workflow that compares the three public
+  downloads byte for byte with the original build artifact. If the files
+  match, it checks the published SHA-256 values and repeats the installation,
+  dependency, and CLI startup checks. A mismatch stops the run before
+  installation.
+- Document the build, publication, and verification steps in both developer
+  guides, including the successful and failing verification runs and how to
+  remove a test pre-release and its tag.
+
+See the [v1.6.13 release notes](RELEASE_NOTES_1.6.md#version-1613).
+
 <a id="v1612"></a>
 
 ## v1.6.12 - 2026-11-11
