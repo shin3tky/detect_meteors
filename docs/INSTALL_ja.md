@@ -81,7 +81,7 @@ Python **3.12／3.13** に対応します。以下は `pyproject.toml` と `uv.l
 | `pydantic` | `2.14.3` |
 | `pyyaml` | `6.0.3` |
 
-開発用ツールは[開発環境ガイド](INSTALL_DEV_ja.md#開発ツールのバージョンv1611)を参照。
+このリリースで使う開発ツールのバージョンは、[1.6.11 の依存パッケージ一覧](CHANGELOG_ja.md#dependency-updates-1610-to-1611)を参照してください。
 
 <a id="upgrading-from-1610"></a>
 

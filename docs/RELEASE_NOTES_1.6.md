@@ -2,6 +2,50 @@
 
 [日本語版](RELEASE_NOTES_1.6_ja.md)
 
+<a id="version-1612"></a>
+
+## Version 1.6.12 (Unreleased)
+
+This release preserves the 1.x plugin interfaces and Hough candidate criteria
+while clarifying the detection code and making compatibility failures easier
+to diagnose and recover from.
+
+### Reuse existing settings
+
+Existing YAML/JSON configurations and exported `session.yaml` files can still
+be passed to `--config`. Unversioned files are read as v1. New configuration
+files can declare `schema_version: 1` at the top level. New session exports
+include it automatically. This version describes the pipeline settings file.
+Plugin data contracts, progress files, and analysis reports have their own
+formats.
+
+### Recover from an incompatible detector result
+
+If a detector returns a result that cannot be converted to the supported
+schema, the run stops and reports the detector, frame, and expected version.
+Fix or replace the detector or converter, then run the same command with the
+same progress file and detection settings. The failed pair is retried.
+In parallel mode, other pairs in an unrecorded worker batch may be retried
+as well.
+
+If an older release already recorded an incompatible result as a non-candidate,
+resume will still skip that frame. Pass a new path to `--progress-file` to
+reprocess it while retaining the original progress record.
+
+### For plugin developers
+
+Spawned workers use the plugin classes and schema converters chosen by the main
+process. Keep worker plugin sources available during the run, define converter
+functions at module scope, and make loader and detector state serializable.
+Image, detection-result, and sorted hook returns follow `hook_error_mode`.
+`warn` logs an invalid return and continues with the last accepted value.
+`raise` stops with `MeteorHookError`. Edits a hook makes in place can remain.
+
+See the [plugin guide](PLUGIN_AUTHOR_GUIDE.md#hook-execution-and-state)
+for hook execution order, the [developer installation guide](INSTALL_DEV.md)
+for IDE and tooling setup, and the [changelog](CHANGELOG.md#v1612) for the full
+list of changes.
+
 <a id="version-1611-2026-11-07"></a>
 
 ## Version 1.6.11 (2026-11-07) 🦅
@@ -122,7 +166,9 @@ For environment updates, see [upgrading from 1.6.10](INSTALL.md#upgrading-from-1
 
 ### Compatibility, Installation, and Validation
 
-- Python 3.12 and 3.13 remain supported. Runtime/project/lockfile versions are 1.6.11. Current pinned dependencies are listed in [installation](INSTALL.md#dependency-versions-v1611) and [developer setup](INSTALL_DEV.md#development-tool-versions-v1611). Historical tool-version examples later in these notes describe their original releases.
+- Python 3.12 and 3.13 remain supported. The runtime, project metadata, and
+  lockfile report 1.6.11. The [1.6.11 dependency table](CHANGELOG.md#dependency-updates-1610-to-1611)
+  lists the runtime and development dependencies for this release.
 - Bash and native Zsh completion include analysis/tuning/export flags and the installed `detect-meteors` command; see [completion setup](INSTALL.md#optional-shell-completion-bashzsh).
 - Normal detection still requires contour area and aspect ratio strictly above their thresholds, and image-wide line score at least its threshold. The score sums Hough segment lengths. Aircraft likelihood remains metadata; no automatic filtering or track merging is added.
 - Final validation includes all 681 tests passing with no expected failures, 44 unchanged real-pair comparisons during refactoring, and controlled tuning/export/session replay on the local aircraft/meteor sample. The original `P8136507.ORF` report is not a reproduced original-pair case because its preceding RAW is unavailable.

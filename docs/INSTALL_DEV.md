@@ -21,8 +21,8 @@ git clone https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
-The checkout supplies the version and dependency lockfile. The 1.6.12
-development branch currently reports `1.6.11` in the CLI and package metadata.
+The CLI version comes from the checked-out source. Use that checkout's
+`uv.lock` to install dependencies.
 
 ## Development Environment Setup
 
@@ -43,7 +43,9 @@ This installs the project in editable mode in `.venv`, including Ruff, ty,
 pre-commit, and coverage. To test on Python 3.13, install it with
 `uv python install 3.13` and add `--python 3.13` to the sync and run commands.
 
-### Development Tool Versions (v1.6.11)
+<a id="development-tool-versions-v1611"></a>
+
+### Development Tool Versions
 
 | Package | Pinned version |
 | --- | --- |
@@ -229,7 +231,7 @@ uv run coverage html
 | `test_pipeline_execution_v1x.py` | 7 | Pipeline execution and results |
 | `test_pipeline_helpers_v1x.py` | 12 | Pipeline helpers |
 | `test_pipeline_hooks_v1x.py` | 12 | Hook order, lifetime, process boundaries, interruption/resume |
-| `test_pipeline_hook_errors_v1x.py` | 11 | Hook error policy, worker and save failures |
+| `test_pipeline_hook_errors_v1x.py` | 16 | Invalid hook returns, worker and save failures, and resume after detector compatibility errors |
 | `test_aircraft_trail_hook_v1x.py` | 3 | Aircraft tracking metadata and progress persistence |
 
 #### Plugins, registries, and contracts
@@ -251,7 +253,7 @@ uv run coverage html
 | File | Tests | Description |
 |------|-------|-------------|
 | `test_cli_options_v1x.py` | 4 | CLI option parsing |
-| `test_config_io_v1x.py` | 1 | Config file loading |
+| `test_config_io_v1x.py` | 4 | Legacy and versioned YAML/JSON, CLI overrides, and unsupported versions |
 | `test_i18n.py` | 5 | Localization lookup and pluralization |
 | `test_roi_selector_helpers_v1x.py` | 2 | ROI selector helpers |
 | `test_roi_selector_ui_v1x.py` | 2 | ROI selector UI flow |
@@ -266,9 +268,9 @@ uv run coverage html
 | `test_analysis_reproduction_v1x.py` | 14 | Read-only pair replay and provenance |
 | `test_analysis_cli_v1x.py` | 27 | Analysis/tuning CLI and ROI overrides |
 | `test_tuning_v1x.py` | 16 | Bounded proposals and comparison |
-| `test_analysis_reports_v1x.py` | 20 | Bundles, fingerprints, session export and replay |
+| `test_analysis_reports_v1x.py` | 21 | Bundles, fingerprints, and export and replay of versioned sessions |
 
-**Current checkout: 689 tests, with no expected failures.**
+The test runner reports the total for the current checkout.
 
 ## Code Style
 

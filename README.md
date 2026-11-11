@@ -166,9 +166,9 @@ ROI coordinates and detection lengths/areas refer to the binned image.
 ## Configuration Files (YAML/JSON)
 
 The CLI loads pipeline settings from a JSON or YAML object.
-Set the top-level `schema_version` to the integer `1` in new files. Files without
-it are read as version 1. Other explicit versions and non-integer values cause
-a configuration error.
+Starting in v1.6.12, set the top-level `schema_version` to the integer `1` in
+new files. Files without it are read as version 1. Unsupported versions and
+non-integer values cause a configuration error.
 Partial configurations are supported by the CLI and `load_pipeline_config()`;
 omitted fields use built-in defaults. Relative paths are resolved from the
 current working directory, not from the configuration file's directory.
@@ -297,6 +297,14 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 | [Aircraft trail guide](docs/aircraft_light_trails_hook_design.md) | Enable, configure, and inspect aircraft metadata |
 | [Aircraft sample validation](docs/aircraft_sample_validation.md) | Results and limitations on the local 12-frame sequence |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
+
+## Upcoming in v1.6.12
+
+The 1.6.12 development branch improves plugin and hook compatibility in
+parallel runs. Existing pipeline settings still load. If a detector returns
+an incompatible result, fix the plugin and resume to retry the failed pair.
+See the [draft release notes](docs/RELEASE_NOTES_1.6.md#version-1612) and
+[changelog](docs/CHANGELOG.md#v1612).
 
 ## What's New in v1.6.11
 

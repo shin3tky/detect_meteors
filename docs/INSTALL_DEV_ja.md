@@ -2,9 +2,9 @@
 
 [English](INSTALL_DEV.md)
 
-Detect Meteors CLIの開発者・貢献者向けに、環境構築の手順を説明します。
+Detect Meteors CLI の開発に必要な環境を用意し、チェックやテストを実行する手順です。
 
-このガイドのコマンドは `docs/` 内ではなく、リポジトリのルート、または展開したソース配布版のルートで実行してください。
+コマンドは、リポジトリのルートかソース配布物を展開したディレクトリのルートで実行してください。
 
 基本的なインストールは[INSTALL_ja.md](INSTALL_ja.md)、プラグイン開発は[PLUGIN_AUTHOR_GUIDE_ja.md](PLUGIN_AUTHOR_GUIDE_ja.md)を参照してください。
 
@@ -17,13 +17,13 @@ git clone https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
-バージョンと依存関係はチェックアウトしたソースに従います。1.6.12の開発ブランチでは、現在のCLIとパッケージのバージョン表示は `1.6.11` です。
+CLI のバージョンはチェックアウトしたソースで決まります。依存パッケージのインストールには、そのソースに含まれる `uv.lock` を使います。
 
 ## 開発環境の構築
 
 ### 手順1：開発用の依存ライブラリをインストールする
 
-チェックアウトのルートで、ロックファイルに従って実行時・開発用の依存ライブラリをインストールします。`.python-version` はPython 3.12を指定しています。CIではPython 3.12と3.13でテストを実行します。
+プロジェクトのルートで、ロックファイルに従って実行用と開発用の依存パッケージをインストールします。`.python-version` の指定は Python 3.12 です。CI では Python 3.12 と 3.13 の両方でテストします。
 
 ```bash
 uv python install 3.12
@@ -34,7 +34,10 @@ uv run detect-meteors --help
 
 `.venv` にプロジェクトを編集可能モードでインストールし、Ruff、ty、pre-commit、coverageも導入します。Python 3.13で確認するときは `uv python install 3.13` を実行し、`uv sync` と `uv run` に `--python 3.13` を付けます。
 
-### 開発ツールのバージョン（v1.6.11）
+<a id="development-tool-versions"></a>
+<a id="開発ツールのバージョンv1611"></a>
+
+### 開発ツールのバージョン
 
 | ライブラリ | 固定バージョン |
 | --- | --- |
@@ -43,8 +46,7 @@ uv run detect-meteors --help
 | `pre-commit` | `4.7.0` |
 | `coverage` | `7.17.2` |
 
-`pyproject.toml` の `dev` と `uv.lock` に従います。実行時依存は
-[インストールガイド](INSTALL_ja.md#依存ライブラリのバージョンv1611)を参照。
+`pyproject.toml` の `dev` と `uv.lock` に記載されたバージョンです。実行時に必要なライブラリは[インストールガイド](INSTALL_ja.md#依存ライブラリのバージョンv1611)を参照してください。
 
 ブランチを切り替えたときやロックファイルを更新したときは、チェックアウトのルートで `uv sync --locked --all-extras` を再実行します。
 
@@ -62,7 +64,7 @@ uv run pre-commit --version
 
 ### 手順3：環境構築の結果を確認する
 
-ソースルートで静的解析、整形チェック、型検査、テストを実行します。
+プロジェクトのルートで静的解析、整形チェック、型検査、テストを実行します。
 
 ```bash
 uv run ruff check .
@@ -71,11 +73,11 @@ uv run ty check
 uv run python run_tests.py
 ```
 
-POSIX形式の仮想環境を使うGitチェックアウトでは、`uv run pre-commit run --all-files` でCIのLintジョブと同じフックを実行できます。
+macOS や Linux で Git から取得した場合は、`uv run pre-commit run --all-files` で CI と同じチェックを実行できます。
 
 ### IDEのPythonインタープリター
 
-VS CodeやPyCharmではリポジトリのルートを開き、macOS/Linuxでは `.venv/bin/python`、Windowsでは `.venv\Scripts\python.exe` を既存のインタープリターとして選びます。チェックアウト内の環境を選ぶと、インポート、docstringの参照、テスト実行に同期済みの環境を使えます。uvが使用するパスは `uv run python -c "import sys; print(sys.executable)"` で確認できます。
+VS Code や PyCharm でリポジトリのルートを開きます。Python インタープリターには、macOS・Linux なら `.venv/bin/python`、Windows なら `.venv\Scripts\python.exe` を選んでください。補完、関数の説明（docstring）の表示、テストの実行に、コマンドラインと同じ環境を使えます。uv が使う Python のパスは `uv run python -c "import sys; print(sys.executable)"` で確認できます。
 
 ## pre-commitフック
 
@@ -210,7 +212,7 @@ uv run coverage html
 | `test_pipeline_execution_v1x.py` | 7 | パイプラインの実行と結果 |
 | `test_pipeline_helpers_v1x.py` | 12 | パイプラインのヘルパー |
 | `test_pipeline_hooks_v1x.py` | 12 | フックの順序・状態・実行場所・中断と再開 |
-| `test_pipeline_hook_errors_v1x.py` | 11 | フックのエラー方針、ワーカー・保存失敗 |
+| `test_pipeline_hook_errors_v1x.py` | 16 | フックの不正な戻り値、ワーカーと保存のエラー、検出器の互換性エラー後の再開 |
 | `test_aircraft_trail_hook_v1x.py` | 3 | 飛行機の追跡メタデータと進捗への保存 |
 
 #### プラグイン、レジストリ、データ契約
@@ -232,7 +234,7 @@ uv run coverage html
 | ファイル | テスト数 | 内容 |
 |----------|----------|------|
 | `test_cli_options_v1x.py` | 4 | CLIオプションの解析 |
-| `test_config_io_v1x.py` | 1 | 設定ファイルの読み込み |
+| `test_config_io_v1x.py` | 4 | 版の指定がある・ない YAML／JSON、CLI の上書き、未対応版のエラー |
 | `test_i18n.py` | 5 | 翻訳メッセージの検索と複数形 |
 | `test_roi_selector_helpers_v1x.py` | 2 | ROI選択のヘルパー |
 | `test_roi_selector_ui_v1x.py` | 2 | ROI選択UIの処理 |
@@ -247,9 +249,9 @@ uv run coverage html
 | `test_analysis_reproduction_v1x.py` | 14 | 読み取り専用のペア再現と出所 |
 | `test_analysis_cli_v1x.py` | 27 | 分析・調整CLIとROIの変更 |
 | `test_tuning_v1x.py` | 16 | 上限付きの調整案と比較 |
-| `test_analysis_reports_v1x.py` | 20 | 証拠保存・識別情報・設定保存と再実行 |
+| `test_analysis_reports_v1x.py` | 21 | 分析結果の保存、入力ファイルの照合、版付きセッションの書き出しと再実行 |
 
-**現在のチェックアウトでは689テスト（期待失敗なし）。**
+テストの総数は、実行時にテストランナーが表示します。
 
 ## コードスタイル
 

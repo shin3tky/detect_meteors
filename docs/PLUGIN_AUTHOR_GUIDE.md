@@ -2,9 +2,9 @@
 
 [日本語版](PLUGIN_AUTHOR_GUIDE_ja.md)
 
-This guide covers input loaders, detectors, output handlers, and pipeline hooks on
-the 1.6.12 development branch. The current package version is `1.6.11` and the
-data contract schema versions are `1`. The plugin API is under active development.
+This guide covers the 1.x interfaces for input loaders, detectors, output
+handlers, and pipeline hooks, including the compatibility behavior in
+[v1.6.12](RELEASE_NOTES_1.6.md#version-1612).
 
 Set up the environment using the [developer installation guide](INSTALL_DEV.md).
 Unless stated otherwise, run CLI and Python examples from the repository root
@@ -1662,9 +1662,10 @@ All four dataclasses include a `schema_version` field (currently `1`) to enable 
 2. The pipeline calls `normalize_*()` functions immediately after plugin methods return.
 3. If `schema_version` matches the current version, the instance passes through unchanged.
 4. If `schema_version` is older, registered converters upgrade the instance.
-5. The public normalizers raise `ValueError` for unsupported versions. The
-   pipeline wraps version errors in `MeteorConfigError`; its per-pair and
-   output failure handling determines whether processing continues.
+5. The public normalizers raise `ValueError` for unsupported versions.
+   An incompatible return from `detect()` stops the run with
+   `MeteorDetectorCompatibilityError` and leaves the pair unrecorded. An
+   incompatible return from a hook follows `hook_error_mode`.
 
 **Registering converters** (for backward compatibility):
 

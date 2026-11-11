@@ -230,6 +230,8 @@ four reviewed implementation steps and extension points.
 
 **v1.6.12 (in development)**
 
+- [x] Clarify the Hough detection and pipeline flow and improve function
+  documentation for IDEs while preserving candidate criteria.
 - [x] Use the plugin classes and schema converters selected by the main process
   in spawned workers. Restore loader and detector state per batch and report
   worker setup failures as configuration errors.
@@ -241,6 +243,9 @@ four reviewed implementation steps and extension points.
 - [x] Validate image, detection-result, and sorted hook returns within the hook
   error policy. Verify `warn` and `raise` behavior and retry after a detector
   compatibility failure in sequential processing and with real spawn workers.
+
+See the [draft release notes](RELEASE_NOTES_1.6.md#version-1612) for upgrade
+and recovery guidance, and the [changelog](CHANGELOG.md#v1612) for the full list.
 
 ### 1.x Contract to Preserve
 

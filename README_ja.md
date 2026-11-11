@@ -157,9 +157,9 @@ PNGの証拠画像を保存します。案を確認した後、同じオプシ�
 
 ## 設定ファイル（YAML/JSON）
 
-CLIはJSONまたはYAMLのオブジェクトからパイプライン設定を読み込みます。
-新しいファイルでは最上位の `schema_version` に整数の `1` を指定してください。省略したファイルはバージョン1として読み込みます。未対応の版や整数以外の値を指定すると、設定エラーになります。
-CLIと `load_pipeline_config()` は一部の設定だけを指定したファイルにも対応し、省略したフィールドには組み込みの既定値を使います。相対パスは設定ファイルのあるディレクトリではなく、現在の作業ディレクトリを基準に解決します。
+パイプラインの設定は、YAML または JSON のファイルにまとめて `--config` で読み込めます。必要な項目だけ書けば、省略した項目には既定値が入ります。相対パスの基準は、コマンドを実行したディレクトリです。
+
+v1.6.12 向けに新しい設定ファイルを作る場合は、最上位に `schema_version: 1` を指定してください。指定がない既存ファイルはバージョン1として読み込みます。未対応の版や整数以外の値を指定すると、設定エラーになります。
 
 **最上位のキー**
 
@@ -206,7 +206,7 @@ RAWローダーの既定値は `normalize: false` です。`true` にすると�
 uv run detect-meteors --config config_examples/pipeline.yaml
 ```
 
-`--input-loader`、`--detector`、`--output-handler` などのCLIオプションで、使用するプラグインを上書きできます。プラグイン設定はJSON/YAML文字列またはファイルパスで渡せます。従来のパラメータオプション（`--diff-threshold` など）は引き続き `PipelineConfig.params` に反映されますが、通常実行では設定ファイルへの移行を促す非推奨警告を表示します。通常実行で設定値を上書きするときは `--diff-threshold 12` のように完全なオプション名と値を空白で区切ってください。[書式の制限](docs/COMMAND_OPTIONS.md#normal-run-override-syntax)も参照してください。
+`--input-loader`、`--detector`、`--output-handler` を指定すると、設定ファイルで選んだプラグインを切り替えられます。プラグイン固有の設定は、YAML／JSON の文字列またはファイルのパスで渡せます。通常の検出で `--diff-threshold` など従来のオプションを使うと、値は引き続き反映されますが、設定ファイルの利用を勧める警告が出ます。設定ファイルの値を上書きする場合は、`--diff-threshold 12` のように、オプション名を省略せず、値との間に空白を入れてください。[オプションの書き方](docs/COMMAND_OPTIONS.md#normal-run-override-syntax)も参照してください。
 
 **Pythonでの使用例**
 
@@ -258,6 +258,10 @@ RAWファイルとチェックサムは、リポジトリの [`rawfiles/2024GEMI
 | [飛行機の光跡ガイド](docs/aircraft_light_trails_hook_design.md) | フックの有効化、設定、メタデータの確認 |
 | [飛行機サンプルの検証](docs/aircraft_sample_validation.md) | 12枚のサンプルでの結果と制約 |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | 技術的な詳細 |
+
+## v1.6.12 に向けた変更
+
+開発中の v1.6.12 では、並列処理で使うプラグインとフックの互換性を改善しています。既存の設定はそのまま使えます。検出器が未対応の形式で結果を返して停止した場合は、プラグインを直してから再開すると、問題のペアを再処理できます。詳しくは[リリースノートの草案](docs/RELEASE_NOTES_1.6_ja.md#version-1612)と[変更履歴](docs/CHANGELOG_ja.md#v1612)を参照してください。
 
 ## v1.6.11の新機能
 
