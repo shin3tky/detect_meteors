@@ -226,6 +226,37 @@ See the [release notes](RELEASE_NOTES_1.6.md#version-1611-2026-11-07) for usage
 and the [design and validation record](parameter_analysis_1.6.11.md) for the
 four reviewed implementation steps and extension points.
 
+### Plugin and Hook Compatibility
+
+**v1.6.12 (in development)**
+
+- [x] Use the plugin classes and schema converters selected by the main process
+  in spawned workers. Restore loader and detector state per batch and report
+  worker setup failures as configuration errors.
+- [x] Read and write pipeline YAML/JSON with `schema_version: 1`, including
+  exported `session.yaml`. Read unversioned files as v1 and reject unsupported
+  explicit versions. Progress files and analysis reports have their own formats.
+- [x] Report incompatible detector results with the detector name, frame path,
+  and expected schema version. Leave the failed pair eligible for resume.
+- [x] Validate image, detection-result, and sorted hook returns within the hook
+  error policy. Verify `warn` and `raise` behavior and retry after a detector
+  compatibility failure in sequential processing and with real spawn workers.
+
+### 1.x Contract to Preserve
+
+The [Plugin Author Guide](PLUGIN_AUTHOR_GUIDE.md) and its
+[Japanese edition](PLUGIN_AUTHOR_GUIDE_ja.md) describe the public interfaces.
+Use the following behavior as the baseline for running existing 1.x
+configurations and plugins in 2.x.
+
+| Area | 1.x behavior to preserve |
+| --- | --- |
+| Configuration and discovery | Existing unversioned and explicit v1 YAML/JSON resolve the same settings. Keep built-in defaults, explicit CLI override precedence, plugin names and lookup precedence, and the interpretation of plugin-specific settings. Preserve discovery through entry points and local plugin directories. |
+| Plugin calls and data | Keep the documented loader, detector, output-handler, and hook signatures, defaults, and data contracts. Preserve the namespaced detector runtime parameters, registered converters for supported older payloads, and existing adapters for bare images and legacy boolean output results. The pipeline file version, plugin payload versions, and application/plugin releases are independent. |
+| Hook order and process boundaries | Run hooks in configuration order. File filtering, output callbacks, and sorted hooks run in the main process. Per-pair image and detection hooks run in the main process for sequential execution or in workers for parallel execution, with instances shared within a batch. Keep candidate saving and progress recording ahead of sorted analysis. Sort each completed batch by frame index and sort the whole current invocation for final analysis, including after resume. |
+| Worker requirements | Use the main process's plugin and converter selections in workers. Worker classes and converter functions must be importable, and loader and detector state must be serializable. |
+| Errors and progress | A valid non-candidate counts as processed. An incompatible detector result stops the run and leaves the failed pair unrecorded. A parallel batch that fails before returning can leave other pairs unrecorded as well. Invalid hook returns follow `warn` (continue with the last accepted value, with in-place changes potentially retained) or `raise` (propagate `MeteorHookError`). Preserve progress already recorded and keep primary save failures fatal. |
+
 ### Pending (Deferred from v1.x)
 The following features were originally planned for v1.x but have been deferred:
 
@@ -238,33 +269,29 @@ The following features were originally planned for v1.x but have been deferred:
 
 2026 1Q-
 
-### Plugin and Pipeline Foundation (Already in 1.x)
+### Compatibility Before New Pipeline Features
 
-- [x] Input/Detector/Output plugin contracts and discovery via entry points + plugin dirs
-- [x] Pipeline configuration files and CLI plugin selection/configuration
-- [x] Hook registry and lifecycle hooks (file filter, image transform, result adjust, post-save)
-- [x] Frame-ordered hooks and built-in aircraft trail analysis in v1.6.10
+Use the [1.x contract](#1x-contract-to-preserve) as the release baseline.
+Multi-detector chains and other new stages are opt-in.
 
-### Compatibility and Versioning
-
-Prepare this work in 1.x before adding new pipeline composition features.
-Supported 1.x configurations and plugins should run in 2.x with their
-existing semantics. Multi-detector chains and other new stages are opt-in.
-
-- [ ] Record the supported 1.x contract and publish a compatibility matrix.
-  Cover plugin interfaces and data contracts, plugin lookup and configuration,
-  CLI overrides, and hook order, process boundaries, and error handling.
-- [x] Version pipeline YAML/JSON separately from the application and plugin
-  data contracts. Saved pipeline settings use `schema_version: 1`. Unversioned
-  1.x files are read as v1 in memory, and unsupported versions produce a
-  configuration error. Progress files and analysis reports have their own
-  formats.
-- [ ] Extend plugin contracts through optional fields or explicit adapters.
-  Preserve existing plugin signatures and defaults for supported 1.x plugins.
-- [ ] Capture representative 1.x configurations and plugins as regression
-  fixtures. Verify equivalent effective settings, candidate results, and hook
-  behavior in sequential and spawned-worker runs. Verify supported saved
-  progress and analysis sessions with separate fixtures.
+- [ ] Publish a compatibility matrix for the 1.x formats and plugin contracts
+  supported by 2.x. Identify combinations that work directly, require an
+  adapter, or produce a compatibility error.
+- [ ] Extend the current regression coverage with fixtures captured from
+  representative 1.x releases. Run the same configurations and plugins in 2.x
+  sequentially and with spawn workers. Compare effective settings, candidate
+  decisions, hook order and scope, and progress after failure and resume.
+  Check saved progress, analysis reports, and replayable sessions with
+  separate fixtures for their respective formats.
+- [ ] Define how 2.x will read v1 pipeline files and preserve their defaults
+  and CLI precedence. Add an in-memory migration when a new file schema is
+  needed. Define progress and report migrations independently if those
+  formats change.
+- [ ] Preserve v1 plugin behavior when adding new stages. Prefer optional
+  additions and introduce explicit adapters for incompatible changes. If a
+  new plugin API needs a version declaration, keep undeclared 1.x plugins on
+  the existing contract and require explicit opt-in to the new contract in
+  both the main process and workers.
 
 ### Pipeline Modularity
 
@@ -305,6 +332,6 @@ existing semantics. Multi-detector chains and other new stages are opt-in.
 
 ---
 
-**Current Status**: v1.6.11, released 2026-11-07 — Missed-Meteor Analysis and Parameter Tuning
+**Latest release**: v1.6.11, released 2026-11-07 — Missed-Meteor Analysis and Parameter Tuning
 
-**Next Focus**: Define and verify the 1.x compatibility baseline for 2.x pipeline composition.
+**In development**: v1.6.12 — Plugin and hook compatibility and code readability
