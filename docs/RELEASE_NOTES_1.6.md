@@ -2,6 +2,30 @@
 
 [日本語版](RELEASE_NOTES_1.6_ja.md)
 
+<a id="version-1613"></a>
+
+## Version 1.6.13 (Unreleased)
+
+This release automates how Detect Meteors distributions are built and verified.
+Detection behavior, CLI options, configuration formats, and plugin interfaces
+are unchanged from 1.6.12.
+
+- **Build release distributions** takes a tag and its full commit SHA. It
+  builds the wheel and source distribution, generates `SHA256SUMS`, and checks
+  both packages on Python 3.12 and 3.13. The release maintainer downloads the
+  three files from the successful run and attaches them to the GitHub Release
+  for manual publication.
+- **Verify published release distributions** takes the release tag and the
+  build run ID. It compares the three public downloads with that build's
+  artifact byte for byte, checks the published SHA-256 values, and repeats the
+  installation, dependency, and CLI startup checks on both Python versions.
+  If any file differs, the workflow stops before installation.
+
+The developer guide records both verification outcomes and the steps to remove
+the test pre-release and tag.
+[Developer guide](INSTALL_DEV.md#verify-public-release-downloads) ·
+[Changelog](CHANGELOG.md#v1613)
+
 <a id="version-1612"></a>
 
 ## Version 1.6.12 (2026-11-11)
