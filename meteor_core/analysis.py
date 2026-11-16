@@ -129,7 +129,7 @@ def _validated_roi(value: Any) -> tuple[tuple[int, int], ...] | None:
         polygon = normalize_roi_polygon(value)
     except ValueError as exc:
         raise MeteorConfigError(str(exc), config_key="roi") from exc
-    return tuple(map(tuple, polygon)) if polygon is not None else None
+    return tuple((x, y) for x, y in polygon) if polygon is not None else None
 
 
 def source_stamp(path: str | Path) -> tuple[int, ...]:

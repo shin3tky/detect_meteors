@@ -21,6 +21,11 @@
   guides, including the successful and failing verification runs and how to
   remove a test pre-release and its tag.
 
+### Dependencies
+
+- Update `numpy` to `2.5.5`, `ruff` to `0.17.5`, `ty` to `0.0.104`, and
+  `coverage` to `7.17.3`. Update the ty configuration for the renamed rules.
+
 See the [v1.6.13 release notes](RELEASE_NOTES_1.6.md#version-1613).
 
 <a id="v1612"></a>

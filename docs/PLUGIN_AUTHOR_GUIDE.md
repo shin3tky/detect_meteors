@@ -3068,10 +3068,10 @@ uv run pre-commit run ty-check --all-files
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `invalid-return-type` | Return type doesn't match declaration | Check return statement matches declared type |
+| `invalid-explicit-return` | Return type doesn't match declaration | Check return statement matches declared type |
 | `incompatible-method-override` | Override signature incompatible with base | Match base class parameter types exactly |
 | `invalid-assignment` | Assigned value doesn't match declared type | Use correct type or add type narrowing |
-| `call-non-callable` | Attempting to call non-callable | Ensure object is callable before calling |
+| `not-callable` | Attempting to call non-callable | Ensure object is callable before calling |
 
 #### Example: Type-Safe Detector
 

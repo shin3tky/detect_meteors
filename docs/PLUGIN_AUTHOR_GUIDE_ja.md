@@ -3054,10 +3054,10 @@ uv run pre-commit run ty-check --all-files
 
 | エラー | 原因 | 修正 |
 |--------|------|------|
-| `invalid-return-type` | 戻り値が宣言と不一致 | return文と宣言した型を照合 |
+| `invalid-explicit-return` | 戻り値が宣言と不一致 | return文と宣言した型を照合 |
 | `incompatible-method-override` | 基底クラスと非互換 | 引数型を正確に一致させる |
 | `invalid-assignment` | 代入値が宣言と不一致 | 正しい型または型の絞り込み |
-| `call-non-callable` | 呼び出し不能な値 | 呼び出し可能かを確認 |
+| `not-callable` | 呼び出し不能な値 | 呼び出し可能かを確認 |
 
 <a id="example-type-safe-detector"></a>
 

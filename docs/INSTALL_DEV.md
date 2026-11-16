@@ -49,13 +49,13 @@ pre-commit, and coverage. To test on Python 3.13, install it with
 
 | Package | Pinned version |
 | --- | --- |
-| `ruff` | `0.17.4` |
-| `ty` | `0.0.100` |
+| `ruff` | `0.17.5` |
+| `ty` | `0.0.104` |
 | `pre-commit` | `4.7.0` |
-| `coverage` | `7.17.2` |
+| `coverage` | `7.17.3` |
 
-These match the `dev` extra in `pyproject.toml` and `uv.lock`. Runtime pins are
-listed in [installation](INSTALL.md#dependency-versions-v1612).
+The `dev` extra and runtime pins for this checkout are recorded in
+`pyproject.toml` and `uv.lock`.
 
 After switching branches or pulling a lockfile update, run
 `uv sync --locked --all-extras` again from the checkout root.
