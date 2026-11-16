@@ -64,10 +64,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ruff==0.17.4",
-    "ty==0.0.100",
+    "ruff==0.17.5",
+    "ty==0.0.102",
     "pre-commit==4.7.0",
-    "coverage==7.17.2",
+    "coverage==7.17.3",
 ]
 
 [project.urls]
