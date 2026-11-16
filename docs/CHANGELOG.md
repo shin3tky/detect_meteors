@@ -4,7 +4,7 @@
 
 <a id="v1613"></a>
 
-## v1.6.13 (Unreleased)
+## v1.6.13 - 2026-11-16 - 🤝 International Day for Tolerance
 
 ### Release automation
 
@@ -24,7 +24,8 @@
 ### Dependencies
 
 - Update `numpy` to `2.5.5`, `ruff` to `0.17.5`, `ty` to `0.0.104`, and
-  `coverage` to `7.17.3`. Update the ty configuration for the renamed rules.
+  `coverage` to `7.17.3`. Update the ty configuration for the renamed rules
+  and make the ROI coordinate pairs explicit for type checking.
 
 See the [v1.6.13 release notes](RELEASE_NOTES_1.6.md#version-1613).
 

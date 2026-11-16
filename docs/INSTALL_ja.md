@@ -13,14 +13,14 @@ Detect Meteors CLIをmacOSとWindowsにインストールする手順を説明�
 > 同期対象内では `.venv` 内のファイルに非表示属性が再付与され、
 > 導入に成功していても `ModuleNotFoundError` で起動できなくなる場合があります。
 
-## v1.6.12 のソースからインストールする
+## v1.6.13 のソースからインストールする
 
 以下のOS別の手順でGitとuvを用意した後、リリース済みのソースを取得し、
 ロックファイルに従って依存パッケージをインストールします。
 Python 3.12または3.13が必要です。依存パッケージの取得にはパッケージインデックスへの接続が必要です。
 
 ```bash
-git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 uv python install 3.12
 uv sync --locked
@@ -28,8 +28,8 @@ uv run detect-meteors --version
 uv run detect-meteors --help
 ```
 
-Git を使わずに取得する場合は、[v1.6.12 のソース配布物](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12.tar.gz)か、
-[リリースページ](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12)にある GitHub の **Source code** アーカイブをダウンロードしてください。
+Git を使わずに取得する場合は、[v1.6.13 のソース配布物](https://github.com/shin3tky/detect_meteors/releases/download/1.6.13/detect_meteors-1.6.13.tar.gz)か、
+[リリースページ](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.13)にある GitHub の **Source code** アーカイブをダウンロードしてください。
 ソース配布物を選んだ場合は、展開する前に [SHA256SUMS で検証](#verify-release-downloads)してください。
 ダウンロードしたファイルを展開し、`pyproject.toml` があるディレクトリでターミナルを開いて、
 上記の `uv python install 3.12` 以降のコマンドを実行します。
@@ -46,12 +46,12 @@ uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 
 ### リリースの wheel からインストールする
 
-[v1.6.12 の wheel](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12-py3-none-any.whl)をダウンロードし、保存先でターミナルを開いてください。
+[v1.6.13 の wheel](https://github.com/shin3tky/detect_meteors/releases/download/1.6.13/detect_meteors-1.6.13-py3-none-any.whl)をダウンロードし、保存先でターミナルを開いてください。
 インストールする前に [SHA256SUMS で検証](#verify-release-downloads)してください。
 
 ```bash
 uv venv --python 3.12
-uv pip install ./detect_meteors-1.6.12-py3-none-any.whl
+uv pip install ./detect_meteors-1.6.13-py3-none-any.whl
 ```
 
 wheelを別の場所に保存した場合は、実際のファイルパスに置き換えてください。
@@ -70,9 +70,9 @@ wheelにはコマンドを含みますが、ソース一式、RAWサンプル、
 
 ### ダウンロードした配布物を検証する
 
-[GitHub Release 1.6.12](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12) から、
-wheel、ソース配布物 `detect_meteors-1.6.12.tar.gz`、
-[`SHA256SUMS`](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/SHA256SUMS) を
+[GitHub Release 1.6.13](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.13) から、
+wheel、ソース配布物 `detect_meteors-1.6.13.tar.gz`、
+[`SHA256SUMS`](https://github.com/shin3tky/detect_meteors/releases/download/1.6.13/SHA256SUMS) を
 ファイル名を変えずに同じフォルダに保存します。`SHA256SUMS` に記載されているのはこの2つの配布物のチェックサムです。
 GitHub が自動生成する **Source code** アーカイブは、この一覧の検証対象に含まれません。
 
@@ -88,22 +88,22 @@ Windows では、保存先のフォルダで PowerShell を開き、次を実行
 
 ```powershell
 Get-Content -LiteralPath .\SHA256SUMS
-Get-FileHash -Algorithm SHA256 -LiteralPath .\detect_meteors-1.6.12-py3-none-any.whl, .\detect_meteors-1.6.12.tar.gz
+Get-FileHash -Algorithm SHA256 -LiteralPath .\detect_meteors-1.6.13-py3-none-any.whl, .\detect_meteors-1.6.13.tar.gz
 ```
 
 `Hash` 列の値を、`SHA256SUMS` に記載されている同じファイル名のチェックサムと照合します。
 英字の大文字と小文字は区別しません。
 一致しない場合は、該当するファイルをダウンロードし直し、インストール前にもう一度検証してください。
 
-<a id="dependency-versions-v1612"></a>
+<a id="dependency-versions-v1613"></a>
 
-## 依存ライブラリのバージョン（v1.6.12）
+## 依存ライブラリのバージョン（v1.6.13）
 
 Python **3.12／3.13** に対応します。以下は `pyproject.toml` と `uv.lock` の固定値です。
 
 | ライブラリ | 固定バージョン |
 | --- | --- |
-| `numpy` | `2.5.4` |
+| `numpy` | `2.5.5` |
 | `opencv-python` | `5.0.0.93` |
 | `rawpy` | `0.28.0` |
 | `psutil` | `7.2.2` |
@@ -111,13 +111,13 @@ Python **3.12／3.13** に対応します。以下は `pyproject.toml` と `uv.l
 | `pydantic` | `2.14.3` |
 | `pyyaml` | `6.0.3` |
 
-実行時の依存ライブラリは v1.6.11 と同じです。開発用の `ty` は `0.0.100` に更新しました。[変更履歴](CHANGELOG_ja.md#v1612)と[開発ツールのバージョン](INSTALL_DEV_ja.md#development-tool-versions)を参照してください。
+NumPy を `2.5.4` から `2.5.5` に更新しました。[変更履歴](CHANGELOG_ja.md#v1613)と[開発ツールのバージョン](INSTALL_DEV_ja.md#development-tool-versions)を参照してください。
 
-<a id="upgrading-from-1611"></a>
+<a id="upgrading-from-1612"></a>
 
-## 1.6.11 からの更新
+## 1.6.12 からの更新
 
-1.6.12 のソースへ切り替えた後、プロジェクトルートで実行します。
+1.6.13 のソースへ切り替えた後、プロジェクトルートで実行します。
 
 ```bash
 uv sync --locked
@@ -126,17 +126,17 @@ uv sync --locked --all-extras
 ```
 
 用途に合わせてどちらかを選びます。`uv.lock` に記録した直接・間接依存を反映します。
-wheel で導入している場合は、リリースページから v1.6.12 の wheel をダウンロードし、
+wheel で導入している場合は、リリースページから v1.6.13 の wheel をダウンロードし、
 [SHA256SUMS で検証](#verify-release-downloads)してください。
 その後、使用中の仮想環境を有効にして、wheel の保存先で次を実行します。
 別の場所に保存した場合は実際のパスを指定してください。
 
 ```bash
-uv pip install --upgrade ./detect_meteors-1.6.12-py3-none-any.whl
+uv pip install --upgrade ./detect_meteors-1.6.13-py3-none-any.whl
 ```
 
 wheelでは直接の実行時依存を固定し、間接依存は各パッケージの制約に従って解決します。
-設定の互換性や検出器エラーからの再開については、[v1.6.12 のリリースノート](RELEASE_NOTES_1.6_ja.md#version-1612)を参照してください。
+依存ライブラリの変更は [v1.6.13 のリリースノート](RELEASE_NOTES_1.6_ja.md#version-1613)を参照してください。
 
 ## macOSへのインストール
 
@@ -158,7 +158,7 @@ brew install git
 
 ```bash
 # Clone the repository
-git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -289,7 +289,7 @@ winget install --id astral-sh.uv -e --source winget
 
 ```powershell
 # Clone the repository
-git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 

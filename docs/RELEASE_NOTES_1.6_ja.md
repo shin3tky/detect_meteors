@@ -4,15 +4,29 @@
 
 <a id="version-1613"></a>
 
-## バージョン1.6.13（公開準備中）
+## バージョン1.6.13（2026-11-16）🤝 国際寛容デー
 
-配布物のビルドと検証を GitHub Actions で自動化しました。流星検出の動作、CLI オプション、設定ファイルの形式、プラグインのインターフェースは 1.6.12 と同じです。
+配布物のビルドと検証を GitHub Actions で自動化し、NumPy と3つの開発ツールを更新しました。v1.6.12 の設定ファイルとプラグインは引き続き使用できます。
 
 - **Build release distributions** にタグとコミットの完全な SHA を指定します。wheel とソース配布物をビルドして `SHA256SUMS` を生成し、Python 3.12・3.13 で両配布物を検証します。リリース担当者は成功した実行から3ファイルを取得し、GitHub Release に添付して手動で公開します。
 - **Verify published release distributions** にリリースタグとビルドの実行 ID を指定します。公開 URL から取得した3ファイルをそのビルドのアーティファクトとバイト単位で比較します。一致すれば公開された SHA-256 を照合し、両方の Python でインストール、依存関係、CLI の起動を再確認します。差異があればインストール前に停止します。
 
+### 依存関係の更新
+
+| 依存ライブラリ | v1.6.12 | v1.6.13 |
+| --- | --- | --- |
+| NumPy | 2.5.4 | 2.5.5 |
+| Ruff | 0.17.4 | 0.17.5 |
+| ty | 0.0.100 | 0.0.104 |
+| coverage | 7.17.2 | 7.17.3 |
+
+ty の設定を変更後のルール名に合わせ、ROI の検証結果を型チェックで識別できる座標の組にしました。
+
+wheel、ソース配布物、`SHA256SUMS` は [GitHub Release](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.13) から取得できます。
+更新手順は[インストールガイド](INSTALL_ja.md#upgrading-from-1612)を参照してください。
+
 正常系・異常系の検証結果と、テスト用プレリリースおよびタグの削除手順は開発者向けガイドにまとめました。
-[開発者向けガイド](INSTALL_DEV_ja.md#verify-public-release-downloads)・[変更履歴](CHANGELOG_ja.md#v1613)
+[開発者向けガイド](INSTALL_DEV_ja.md#verify-public-release-downloads)・[変更履歴](CHANGELOG_ja.md#v1613)・[国際連合の記念日ページ](https://www.un.org/en/observances/international-day-tolerance)
 
 <a id="version-1612"></a>
 
@@ -20,7 +34,7 @@
 
 1.x のプラグインとの互換性と Hough 検出の候補判定条件を保ちながら、処理の流れを読みやすく整理しました。プラグインが対応していない形式の結果を返したときは、原因を特定し、修正後に処理を再開しやすくなります。
 
-wheel とソース配布物は [GitHub Release](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12) からダウンロードできます。更新の手順は[インストールガイド](INSTALL_ja.md#upgrading-from-1611)を参照してください。
+wheel とソース配布物は [GitHub Release](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12) からダウンロードできます。更新の手順は[インストールガイド](https://github.com/shin3tky/detect_meteors/blob/1.6.12/docs/INSTALL_ja.md#upgrading-from-1611)を参照してください。
 
 ### 既存の設定を使う
 

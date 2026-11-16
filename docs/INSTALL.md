@@ -13,14 +13,14 @@ This guide provides detailed installation instructions for Detect Meteors CLI on
 > In synced locations, hidden attributes can be reapplied to files in `.venv`,
 > causing startup to fail with `ModuleNotFoundError` even after a successful installation.
 
-## Install v1.6.12 from Source
+## Install v1.6.13 from Source
 
 Install Git and uv using the platform-specific steps below, then obtain the
 released source and install its locked dependencies. Python 3.12 or 3.13 is
 required; dependency installation needs access to the package index.
 
 ```bash
-git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 uv python install 3.12
 uv sync --locked
@@ -28,9 +28,9 @@ uv run detect-meteors --version
 uv run detect-meteors --help
 ```
 
-Alternatively, download the [v1.6.12 source distribution](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12.tar.gz)
+Alternatively, download the [v1.6.13 source distribution](https://github.com/shin3tky/detect_meteors/releases/download/1.6.13/detect_meteors-1.6.13.tar.gz)
 or one of GitHub's **Source code** archives from the
-[release page](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12).
+[release page](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.13).
 If you downloaded the source distribution, [verify it with SHA256SUMS](#verify-release-downloads) before extracting it.
 Extract it, open a terminal in the extracted directory containing `pyproject.toml`,
 and run the commands above starting with `uv python install 3.12`.
@@ -49,13 +49,13 @@ sample are available in the Git checkout or GitHub's **Source code** archives.
 
 ### Install the Release Wheel
 
-Download the [v1.6.12 wheel](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/detect_meteors-1.6.12-py3-none-any.whl)
+Download the [v1.6.13 wheel](https://github.com/shin3tky/detect_meteors/releases/download/1.6.13/detect_meteors-1.6.13-py3-none-any.whl)
 and open a terminal in the directory where you saved it.
 [Verify the wheel with SHA256SUMS](#verify-release-downloads) before installing it.
 
 ```bash
 uv venv --python 3.12
-uv pip install ./detect_meteors-1.6.12-py3-none-any.whl
+uv pip install ./detect_meteors-1.6.13-py3-none-any.whl
 ```
 
 If you saved the wheel elsewhere, replace the filename with its actual path.
@@ -75,9 +75,9 @@ examples, tests, and sample images.
 
 ### Verify the Release Downloads
 
-From [GitHub Release 1.6.12](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12),
-save the wheel, the `detect_meteors-1.6.12.tar.gz` source distribution, and
-[`SHA256SUMS`](https://github.com/shin3tky/detect_meteors/releases/download/1.6.12/SHA256SUMS)
+From [GitHub Release 1.6.13](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.13),
+save the wheel, the `detect_meteors-1.6.13.tar.gz` source distribution, and
+[`SHA256SUMS`](https://github.com/shin3tky/detect_meteors/releases/download/1.6.13/SHA256SUMS)
 in the same directory. Keep the original filenames. The checksums cover these two
 distribution files. GitHub's automatically generated **Source code** archives
 are separate downloads.
@@ -94,21 +94,23 @@ On Windows, open PowerShell in the same directory and run:
 
 ```powershell
 Get-Content -LiteralPath .\SHA256SUMS
-Get-FileHash -Algorithm SHA256 -LiteralPath .\detect_meteors-1.6.12-py3-none-any.whl, .\detect_meteors-1.6.12.tar.gz
+Get-FileHash -Algorithm SHA256 -LiteralPath .\detect_meteors-1.6.13-py3-none-any.whl, .\detect_meteors-1.6.13.tar.gz
 ```
 
 Compare each value in the `Hash` column with the checksum for the same filename
 in `SHA256SUMS`. Uppercase and lowercase letters are equivalent.
 If a checksum differs, download the affected file again and verify it before installing.
 
-## Dependency Versions (v1.6.12)
+<a id="dependency-versions-v1613"></a>
+
+## Dependency Versions (v1.6.13)
 
 Python **3.12 and 3.13** are supported. The following runtime package versions
 are pinned in `pyproject.toml` and recorded in `uv.lock`.
 
 | Package | Pinned version |
 | --- | --- |
-| `numpy` | `2.5.4` |
+| `numpy` | `2.5.5` |
 | `opencv-python` | `5.0.0.93` |
 | `rawpy` | `0.28.0` |
 | `psutil` | `7.2.2` |
@@ -116,15 +118,14 @@ are pinned in `pyproject.toml` and recorded in `uv.lock`.
 | `pydantic` | `2.14.3` |
 | `pyyaml` | `6.0.3` |
 
-The runtime pins are the same as in v1.6.11. The development dependency `ty`
-was updated to `0.0.100`. See the [changelog](CHANGELOG.md#v1612) and
+NumPy was updated from `2.5.4` to `2.5.5`. See the [changelog](CHANGELOG.md#v1613) and
 [development tool versions](INSTALL_DEV.md#development-tool-versions).
 
-<a id="upgrading-from-1611"></a>
+<a id="upgrading-from-1612"></a>
 
-## Upgrading from 1.6.11
+## Upgrading from 1.6.12
 
-After switching to the 1.6.12 source, run from the project root:
+After switching to the 1.6.13 source, run from the project root:
 
 ```bash
 uv sync --locked
@@ -133,18 +134,18 @@ uv sync --locked --all-extras
 ```
 
 Choose the command for your environment. It installs direct and transitive
-versions recorded in `uv.lock`. For a wheel installation, download the v1.6.12
+versions recorded in `uv.lock`. For a wheel installation, download the v1.6.13
 wheel from the release page and [verify it with SHA256SUMS](#verify-release-downloads).
 Then activate your existing virtual environment and run the following from the
 directory where you saved the wheel. Use its actual path if it is saved elsewhere:
 
 ```bash
-uv pip install --upgrade ./detect_meteors-1.6.12-py3-none-any.whl
+uv pip install --upgrade ./detect_meteors-1.6.13-py3-none-any.whl
 ```
 
 The wheel pins direct runtime dependencies; transitive packages resolve according
-to their package constraints. See the [v1.6.12 release notes](RELEASE_NOTES_1.6.md#version-1612)
-for configuration compatibility and recovery after detector errors.
+to their package constraints. See the [v1.6.13 release notes](RELEASE_NOTES_1.6.md#version-1613)
+for the dependency updates.
 
 ## macOS Installation
 
@@ -166,7 +167,7 @@ brew install git
 
 ```bash
 # Clone the repository
-git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -300,7 +301,7 @@ After installation, restart your terminal or open a new one to ensure uv is in y
 
 ```powershell
 # Clone the repository
-git clone --branch 1.6.12 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 

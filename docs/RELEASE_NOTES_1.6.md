@@ -4,11 +4,11 @@
 
 <a id="version-1613"></a>
 
-## Version 1.6.13 (Unreleased)
+## Version 1.6.13 (2026-11-16) 🤝 International Day for Tolerance
 
-This release automates how Detect Meteors distributions are built and verified.
-Detection behavior, CLI options, configuration formats, and plugin interfaces
-are unchanged from 1.6.12.
+This release automates how Detect Meteors distributions are built and verified
+and updates NumPy and three development tools. Existing v1.6.12 configuration
+files and plugins continue to work.
 
 - **Build release distributions** takes a tag and its full commit SHA. It
   builds the wheel and source distribution, generates `SHA256SUMS`, and checks
@@ -21,10 +21,27 @@ are unchanged from 1.6.12.
   installation, dependency, and CLI startup checks on both Python versions.
   If any file differs, the workflow stops before installation.
 
+### Dependency updates
+
+| Dependency | v1.6.12 | v1.6.13 |
+| --- | --- | --- |
+| NumPy | 2.5.4 | 2.5.5 |
+| Ruff | 0.17.4 | 0.17.5 |
+| ty | 0.0.100 | 0.0.104 |
+| coverage | 7.17.2 | 7.17.3 |
+
+The ty configuration uses the renamed rules, and ROI validation now returns
+explicit coordinate pairs for type checking.
+
+Download the wheel, source distribution, and `SHA256SUMS` from the
+[GitHub release](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.13).
+See the [installation guide](INSTALL.md#upgrading-from-1612) for upgrade steps.
+
 The developer guide records both verification outcomes and the steps to remove
 the test pre-release and tag.
 [Developer guide](INSTALL_DEV.md#verify-public-release-downloads) ·
-[Changelog](CHANGELOG.md#v1613)
+[Changelog](CHANGELOG.md#v1613) ·
+[United Nations observance](https://www.un.org/en/observances/international-day-tolerance)
 
 <a id="version-1612"></a>
 
@@ -36,7 +53,7 @@ to diagnose and recover from.
 
 Download the wheel or source distribution from the
 [GitHub release](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12).
-See the [installation guide](INSTALL.md#upgrading-from-1611) for upgrade steps.
+See the [installation guide](https://github.com/shin3tky/detect_meteors/blob/1.6.12/docs/INSTALL.md#upgrading-from-1611) for upgrade steps.
 
 ### Reuse existing settings
 
