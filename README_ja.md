@@ -35,11 +35,11 @@
 - macOS、Windows、Linux
 - 依存ライブラリ：`numpy`、`opencv-python`、`rawpy`、`psutil`、`pillow`、`pydantic`、`pyyaml`
 
-固定バージョンは[インストールガイド](docs/INSTALL_ja.md#dependency-versions-v1612)を参照してください。
+固定バージョンは[インストールガイド](docs/INSTALL_ja.md#dependency-versions-v1613)を参照してください。
 
 ## インストール
 
-[最新リリース v1.6.12](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12)をダウンロードし、[インストールガイド](docs/INSTALL_ja.md)に沿って導入してください。
+[最新リリース](https://github.com/shin3tky/detect_meteors/releases/latest)をダウンロードし、[インストールガイド](docs/INSTALL_ja.md)に沿って導入してください。
 
 ## クイックスタート
 
@@ -259,20 +259,21 @@ RAWファイルとチェックサムは、リポジトリの [`rawfiles/2024GEMI
 | [飛行機サンプルの検証](docs/aircraft_sample_validation.md) | 12枚のサンプルでの結果と制約 |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | 技術的な詳細 |
 
-## v1.6.12 の主な変更
+## v1.6.13 の主な変更
 
-**2026年11月11日公開。**
+**2026年11月16日**
 
-- 並列処理でも、メインプロセスと同じプラグインと変換関数を使います。
-- 検出器が未対応の形式で結果を返した場合は、プラグインを直してから再開すると、問題のペアを再処理できます。フックの不正な戻り値は既存の `warn`／`raise` に従います。
-- パイプライン設定が `schema_version: 1` に対応しました。版の指定がない既存設定も読み込めます。新しく書き出すセッション設定には版が付きます。
+- GitHub Actions で wheel とソース配布物をビルドし、Python 3.12・3.13 で検証して `SHA256SUMS` を生成します。
+- 公開後の検証では、ダウンロードしたファイルをビルド時の成果物と比較し、インストールと CLI の起動を再確認します。
+- NumPy を 2.5.5 に更新し、開発用の Ruff、ty、coverage も更新しました。
 
-詳しくは[リリースノート](docs/RELEASE_NOTES_1.6_ja.md#version-1612)と[変更履歴](docs/CHANGELOG_ja.md#v1612)を参照してください。
+詳しくは[リリースノート](docs/RELEASE_NOTES_1.6_ja.md#version-1613)と[変更履歴](docs/CHANGELOG_ja.md#v1613)を参照してください。
 
 ### 以前のリリース
 
 | バージョン | 主な変更 | 詳細 |
 |------------|----------|------|
+| v1.6.12 | プラグインの互換性、失敗したペアの再処理、版付きのパイプライン設定 | [リリースノート](docs/RELEASE_NOTES_1.6_ja.md#version-1612) |
 | v1.6.11 | 取りこぼしの分析、パラメータ調整、セッション設定の再利用 | [リリースノート](docs/RELEASE_NOTES_1.6_ja.md#バージョン16112026-11-07) |
 | v1.6.x | スキーマのバージョン管理、MLに備えた設計、uv/Ruff開発環境 | [RELEASE_NOTES_1.6_ja.md](docs/RELEASE_NOTES_1.6_ja.md) |
 | v1.5.x | プラグイン構成、センサープリセット、魚眼対応 | [RELEASE_NOTES_1.5.md](docs/RELEASE_NOTES_1.5.md) |
