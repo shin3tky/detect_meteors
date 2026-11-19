@@ -119,7 +119,32 @@ DoG＋LSD は、この設定で確認済み2本に対応する線分を長く保
 
 両 LSD 条件とも、逐次3回と2つの spawn ワーカーで判定と幾何が一致した。DoG＋LSD で既存の `aircraft_trail` フックを有効にした別の実行では、候補に航空機注記が付き、ペアの判定と幾何は一致した。共通の測定関数に移した領域方式も、前の試作と判定・幾何が一致した。
 
-### 4条件の比較を再実行する
+## 探索範囲を絞ったラドン変換
+
+[`radon` 検出器](../experiments/region_comparison/radon_detector.py)を同じプラグイン機構に追加した。絶対差分に DoG（標準偏差1 pxと3 px）をかけ、6 DNを引いて0〜70 DNに収めた応答を使う。ROI 内の応答の合計で256 × 256 pxのタイルを順位付けし、上位8枚までを選ぶ。選んだタイルは画像の範囲内で周囲32 pxを加え、境界をまたぐ軌跡の支持画素を拾えるようにする。探索窓は各ペアの画素だけで決まり、目視注釈は比較時に使う。
+
+各窓を0°から178°まで2°刻みで回転して行方向に積分し、隣接3行の和から局所ピークを最大6個残す。各ピークの3行帯で応答6 DN以上の画素が支持する区間を拾い、間に空いた3画素までは結んで、長い区間を最大2本戻す。1ペアあたりの探索は最大720投影と最大96線分。LSD と共通の判定で、長さ15 px以上、サンプル点がすべて ROI 内、元の差分上のコントラスト15 DN以上の線分を採用する。報告には窓、角度、投影値、採否とサブピクセル座標を残す。[天体画像の軌跡検出とラドン変換](https://arxiv.org/abs/1806.04204) · [ラドン変換を使った流星検出研究](https://link.springer.com/article/10.1007/s11038-026-09600-7)
+
+同梱系列では、拡張後の8窓の合計範囲が、重複を除くと画像全体の13.9〜14.8%だった。短い流星 `_C140344.ORF` はラドン変換で角度92°、長さ39 pxの採用線分が軌跡の79.4%を覆った。長い流星 `_C140338.ORF` は窓をまたぎ、採用線分の被覆を合算すると99.8%だった。候補集合は Hough および両 LSD 条件と同じ11枚だった。
+
+チェックサムを照合した同じ11ペアを、全画面 ROI、フックなし、デバッグ画像保存なしで5条件とも実行した。時間とピーク RSS は実行順を変えた逐次3回の中央値。計測環境と軌跡の照合基準は4条件の比較と同じ。`CLI 全体`は RAW の読み込み、候補保存、比較出力も含む。
+
+| 指標 | Hough | 領域ベース | DoG＋LSD | 白トップハット＋LSD | ラドン変換 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 正常に処理・記録したペア | 11 | 11 | 11 | 11 | 11 |
+| 候補画像 | 11 | 3 | 11 | 11 | 11 |
+| 候補判定と軌跡照合がともに成立した数 | 2 / 2 | 1 / 2 | 2 / 2 | 2 / 2 | 2 / 2 |
+| 長い流星 `_C140338.ORF` の軌跡被覆 | 94.8% | 100.0% | 99.9% | 78.3% | 99.8% |
+| 短い流星 `_C140344.ORF` の軌跡被覆 | 63.4% | 0.0% | 84.3% | 51.1% | 79.4% |
+| 検出器内の時間合計 | 0.087 s | 4.22 s | 1.43 s | 3.81 s | 1.31 s |
+| CLI 全体の経過時間 | 6.93 s | 11.13 s | 8.32 s | 10.92 s | 8.28 s |
+| 子プロセスのピーク RSS | 196 MiB | 640 MiB | 377 MiB | 363 MiB | 237 MiB |
+
+ラドン変換と DoG＋LSD はこの系列でほぼ同じ総時間だった。短い流星の被覆は DoG＋LSD が最も高く、CLI 全体の時間は Hough が最も短かった。候補数と軌跡一致数は、この同梱系列に対する初期設定での結果。
+
+ラドン方式の候補判定と幾何は逐次3回と2つの spawn ワーカーで一致した。`aircraft_trail` を有効にした別の実行では、同じ候補に航空機注記が付いた。既存4条件の判定と計測結果も前回と一致した。合成画像では水平・斜め・垂直の軌跡、空の ROI、および投影数と線分数の上限を確認した。
+
+### 5条件の比較を再実行する
 
 リポジトリのルートから実行する。試作の wheel は実験用ディレクトリにインストールし、この比較を起動するプロセスから読み込む。
 
@@ -130,7 +155,7 @@ uv build --wheel --out-dir "$run_root/dist" experiments/region_comparison
 uv pip install --python .venv/bin/python --no-deps \
   --target "$run_root/plugins" "$run_root"/dist/*.whl
 
-for condition in hough region lsd_dog lsd_tophat; do
+for condition in hough region lsd_dog lsd_tophat radon; do
   detector="$condition"
   detector_config='{}'
   case "$condition" in
@@ -166,5 +191,6 @@ done
 .venv/bin/python experiments/region_comparison/summarize.py \
   rawfiles/2024GEMINI_AIRCRAFT \
   "$run_root/hough/pairs.jsonl" "$run_root/region/pairs.jsonl" \
-  --lsd-reports "$run_root/lsd_dog/pairs.jsonl" "$run_root/lsd_tophat/pairs.jsonl"
+  --lsd-reports "$run_root/lsd_dog/pairs.jsonl" "$run_root/lsd_tophat/pairs.jsonl" \
+  --radon-report "$run_root/radon/pairs.jsonl"
 ```
