@@ -9,7 +9,7 @@ import numpy as np
 
 from meteor_core.detectors import DataclassDetector
 from meteor_core.schema import DetectionContext, DetectionResult
-from trail_measurement import pair_residual, profile_contrast
+from trail_measurement import pair_images, profile_contrast
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,7 @@ class RegionConfig:
     ransac_distance_px: float = 2.0
     ransac_min_inlier_fraction: float = 0.20
     ransac_min_contrast: float | None = None
+    reject_negative_axis_fraction: float | None = None
 
     def __post_init__(self) -> None:
         if type(self.enable_ransac) is not bool:
@@ -72,6 +73,11 @@ class RegionConfig:
             type(contrast) not in (int, float) or not isfinite(contrast) or contrast < 0
         ):
             raise ValueError("ransac_min_contrast must be a finite number >= 0 or null")
+        fraction = self.reject_negative_axis_fraction
+        if fraction is not None and (
+            type(fraction) not in (int, float) or not 0 < fraction <= 1
+        ):
+            raise ValueError("reject_negative_axis_fraction must be in (0, 1] or null")
 
 
 def _component_points(labels, label, stats):
@@ -133,6 +139,51 @@ def _measure_region(labels, label, stats, residual, roi, config):
         "bbox_xywh": [x, y, width, height],
         "area_px": area,
         **_measure_axis(points, *_fit_axis(points), residual, roi, config),
+    }
+
+
+def _signed_axis_samples(spans, current, previous, roi):
+    """Sample unique in-ROI pixels along the supported portions of an axis."""
+    if not spans:
+        return np.empty(0, dtype=np.int32)
+    samples = [
+        np.linspace(start, end, ceil(np.linalg.norm(np.subtract(end, start))) + 1)
+        for start, end in spans
+    ]
+    coordinates = np.unique(np.rint(np.concatenate(samples)).astype(np.intp), axis=0)
+    x, y = coordinates.T
+    height, width = roi.shape
+    within = (x >= 0) & (x < width) & (y >= 0) & (y < height)
+    x, y = x[within], y[within]
+    in_roi = roi[y, x]
+    x, y = x[in_roi], y[in_roi]
+    return np.subtract(current[y, x], previous[y, x], dtype=np.int32)
+
+
+def _reject_negative_axes(regions, current, previous, roi, limit):
+    measured = rejected = 0
+    for region in regions:
+        if not region["accepted"]:
+            continue
+        values = _signed_axis_samples(region["axis_support"], current, previous, roi)
+        negative_count = int(np.count_nonzero(values < 0))
+        fraction = negative_count / values.size if values.size else None
+        drop = fraction is not None and fraction >= limit
+        region["signed_difference"] = {
+            "sample_count": values.size,
+            "negative_count": negative_count,
+            "negative_fraction": fraction,
+            "median_dn": float(np.median(values)) if values.size else None,
+        }
+        # Keep the nested RANSAC gates as the evidence before this final filter.
+        region["gates"] = {**region["gates"], "signed_difference": not drop}
+        region["accepted"] = not drop
+        measured += fraction is not None
+        rejected += drop
+    return {
+        "negative_fraction_limit": limit,
+        "regions_measured": measured,
+        "regions_rejected": rejected,
     }
 
 
@@ -256,7 +307,7 @@ class RegionDetector(DataclassDetector[RegionConfig]):
 
     plugin_name = "region"
     name = "Experimental region detector"
-    version = "0.4.0"
+    version = "0.5.0"
     ConfigType = RegionConfig
 
     def compute_line_score(self, mask, hough_params):
@@ -265,7 +316,8 @@ class RegionDetector(DataclassDetector[RegionConfig]):
 
     def detect(self, context: DetectionContext) -> DetectionResult:
         started = perf_counter()
-        residual, roi = pair_residual(context)
+        current, previous, roi = pair_images(context)
+        residual = cv2.absdiff(current, previous)
         foreground = ((residual > self.config.diff_threshold) & roi).astype(np.uint8)
         count, labels, stats, _ = cv2.connectedComponentsWithStatsWithAlgorithm(
             foreground, 8, cv2.CV_32S, cv2.CCL_SAUF
@@ -283,10 +335,15 @@ class RegionDetector(DataclassDetector[RegionConfig]):
             )
             for index in component_indices
         ]
-        ransac_diagnostics = {}
+        diagnostics = {}
         if self.config.enable_ransac:
-            ransac_diagnostics["ransac"] = _retry_rejected_regions(
+            diagnostics["ransac"] = _retry_rejected_regions(
                 regions, component_indices, labels, stats, residual, roi, self.config
+            )
+        negative_fraction_limit = self.config.reject_negative_axis_fraction
+        if negative_fraction_limit is not None:
+            diagnostics["signed_difference"] = _reject_negative_axes(
+                regions, current, previous, roi, negative_fraction_limit
             )
         accepted = [region for region in regions if region["accepted"]]
         regions.sort(
@@ -310,7 +367,7 @@ class RegionDetector(DataclassDetector[RegionConfig]):
                         count - 1 - len(regions)
                     ),
                     "accepted_regions": len(accepted),
-                    **ransac_diagnostics,
+                    **diagnostics,
                 }
             },
             metrics={

@@ -9,7 +9,7 @@ from meteor_core.schema import DetectionContext
 from meteor_core.utils import ensure_numpy
 
 
-def pair_residual(context: DetectionContext):
+def pair_images(context: DetectionContext):
     current = ensure_numpy(context.current_image)
     previous = ensure_numpy(context.previous_image)
     roi = ensure_numpy(context.roi_mask) != 0
@@ -22,6 +22,11 @@ def pair_residual(context: DetectionContext):
         raise ValueError("Expected equally shaped, nonempty grayscale frames and ROI")
     if current.dtype != previous.dtype or current.dtype not in (np.uint8, np.uint16):
         raise ValueError("Expected matching uint8 or uint16 frames (normalize: false)")
+    return current, previous, roi
+
+
+def pair_residual(context: DetectionContext):
+    current, previous, roi = pair_images(context)
     return cv2.absdiff(current, previous), roi
 
 
