@@ -5,10 +5,16 @@
   ],
   "packageRules": [
     {
-      "description": "Keep requires-python fixed at >=3.12,<3.14",
+      "description": "Keep requires-python fixed at >=3.12,<3.15",
       "matchManagers": ["pep621"],
       "matchDepTypes": ["requires-python"],
       "enabled": false
+    },
+    {
+      "description": "Keep .python-version on Python 3.14",
+      "matchManagers": ["pyenv"],
+      "matchPackageNames": ["python"],
+      "allowedVersions": "/^3\\.14(?:\\.[0-9]+)?$/"
     }
   ]
 }
