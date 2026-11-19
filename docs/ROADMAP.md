@@ -247,6 +247,20 @@ four reviewed implementation steps and extension points.
 See the [release notes](RELEASE_NOTES_1.6.md#version-1612) for upgrade
 and recovery guidance, and the [changelog](CHANGELOG.md#v1612) for the full list.
 
+### Release Build and Verification
+
+**v1.6.13 (2026-11-16)**
+
+- [x] Build the wheel, source distribution, and `SHA256SUMS` from the tagged
+  commit. Check fresh installations and CLI startup before publication.
+- [x] Verify that public downloads match the original build artifact and repeat
+  the installation checks. Record the matching and mismatched workflow tests.
+
+The v1.6.13 distribution supports Python 3.12 and 3.13. The current source
+checkout also supports Python 3.14 and includes it in the test and release
+workflows. See the [v1.6.13 release notes](RELEASE_NOTES_1.6.md#version-1613)
+and the [installation guide](INSTALL.md#python-requirements).
+
 ### 1.x Contract to Preserve
 
 The [Plugin Author Guide](PLUGIN_AUTHOR_GUIDE.md) and its
@@ -262,6 +276,18 @@ configurations and plugins in 2.x.
 | Worker requirements | Use the main process's plugin and converter selections in workers. Worker classes and converter functions must be importable, and loader and detector state must be serializable. |
 | Errors and progress | A valid non-candidate counts as processed. An incompatible detector result stops the run and leaves the failed pair unrecorded. A parallel batch that fails before returning can leave other pairs unrecorded as well. Invalid hook returns follow `warn` (continue with the last accepted value, with in-place changes potentially retained) or `raise` (propagate `MeteorHookError`). Preserve progress already recorded and keep primary save failures fatal. |
 
+### Continued Development on the 1.x Line
+
+- [ ] Continue improving the built-in Hough detector and its replay and
+  threshold-tuning workflow. Use the existing analysis tools to investigate
+  reports such as bright, wide trails missed by the aspect-ratio threshold.
+  [Issue #89](https://github.com/shin3tky/detect_meteors/issues/89) ·
+  [Replay and tuning validation](parameter_analysis_1.6.11.md)
+- [ ] Continue refining the built-in aircraft annotations on reviewed
+  sequences. Evaluate track continuity and cases with both a meteor and an
+  aircraft using the [bundled sample](aircraft_sample_validation.md) and
+  additional observations as they become available.
+
 ### Pending (Deferred from v1.x)
 The following features were originally planned for v1.x but have been deferred:
 
@@ -272,52 +298,136 @@ The following features were originally planned for v1.x but have been deferred:
 
 ## Version 2.x - Architecture and Extensibility
 
-2026 1Q-
+Make detectors, hooks, and outputs independently useful and composable. A
+plugin author should be able to introduce a different way to evaluate a frame
+pair, add information at a documented stage, or deliver results to a new
+destination using the public extension points. Start with the registries,
+versioned contracts, ordered hooks, and YAML/JSON configuration shipped in
+1.x. [Plugin Author Guide](PLUGIN_AUTHOR_GUIDE.md)
 
-### Compatibility Before New Pipeline Features
+Keep Hough detection and file output as the default workflow. Bring validated
+1.x improvements into 2.x with their tests and configuration behavior. Use
+the [1.x contract](#1x-contract-to-preserve) as the compatibility baseline
+and make new combinations opt-in.
 
-Use the [1.x contract](#1x-contract-to-preserve) as the release baseline.
-Multi-detector chains and other new stages are opt-in.
+### v2.0.1 - Try the Extension Points End to End
 
-- [ ] Publish a compatibility matrix for the 1.x formats and plugin contracts
-  supported by 2.x. Identify combinations that work directly, require an
-  adapter, or produce a compatibility error.
-- [ ] Extend the current regression coverage with fixtures captured from
-  representative 1.x releases. Run the same configurations and plugins in 2.x
-  sequentially and with spawn workers. Compare effective settings, candidate
-  decisions, hook order and scope, and progress after failure and resume.
-  Check saved progress, analysis reports, and replayable sessions with
-  separate fixtures for their respective formats.
-- [ ] Define how 2.x will read v1 pipeline files and preserve their defaults
-  and CLI precedence. Add an in-memory migration when a new file schema is
-  needed. Define progress and report migrations independently if those
-  formats change.
-- [ ] Preserve v1 plugin behavior when adding new stages. Prefer optional
-  additions and introduce explicit adapters for incompatible changes. If a
-  new plugin API needs a version declaration, keep undeclared 1.x plugins on
-  the existing contract and require explicit opt-in to the new contract in
-  both the main process and workers.
+- [ ] Package an opt-in reference detector with a different decision rule.
+  Start by comparing the [candidate combinations](#candidate-detection-and-classification-methods)
+  that fit the current frame-pair interface. Run the reference detector and
+  Hough on the same sequence using separate configurations. Record how each
+  detector reaches its decision and what information it makes available to
+  hooks and outputs. See the [paired comparison plan](detector_comparison_2.0.1_ja.md).
+- [ ] Package an opt-in local review output that writes a structured report
+  through the existing output handler interface. Exercise it with both
+  detectors using a common format for frame identity, candidate decision,
+  and detector-specific evidence. Use this example to identify what becomes
+  available before saving, after saving, and after sorted analysis.
+- [ ] Exercise a per-pair annotation hook and the existing sorted hooks in
+  the example workflows. Document which data each hook can use, when its
+  changes are visible to consumers, and how execution differs between
+  sequential runs, spawn workers, and resume.
+- [ ] Publish the example configurations and compatibility matrix. Verify
+  v1 configs, progress and resume, analysis bundles and exported sessions,
+  and representative legacy plugins. Check the wheel and source
+  distribution with the existing release workflows on Python 3.12–3.14.
 
-### Pipeline Modularity
+### Candidate Detection and Classification Methods
 
-- [ ] Swappable detector stacks (multi-detector chaining and fallback order)
-- [ ] Pluggable pre/post processors (noise reduction, masking, ROI transforms)
-- [ ] Pipeline presets and profiles (named configs with overrides)
+These methods are candidates for experiments. A detector plugin can first
+own processing that depends on both frames. Use image hooks for transforms
+that operate on each loaded image independently, and sorted hooks for
+analysis of the resulting evidence across frames.
+[Plugin lifecycle](PLUGIN_AUTHOR_GUIDE.md#1-application-lifecycle)
 
-### Plugin Ecosystem Expansion
+| Stage | Method | Use and feasibility |
+| --- | --- | --- |
+| Preprocessing | Difference of Gaussians (DoG) | Subtract two differently blurred images to emphasize a range of feature widths. Try it on the pair residual with the existing OpenCV dependency. Check how faint trails and star residuals respond to the chosen scales. |
+| Preprocessing | White top-hat transform | Extract bright detail relative to a morphological opening. Try it as an alternative to DoG. Check how the structuring element affects wide or broken trails. |
+| Background subtraction | Adjacent-frame subtraction and median filtering | Use the current frame difference as a control. Test a spatial median filter for isolated noise and check whether it also removes thin trails. Evaluate a temporal median of several reference frames as a separate background estimate. |
+| Line segment detection | LSD (Line Segment Detector) | Produce segment endpoints from a grayscale residual. OpenCV LSD takes 8-bit input, so record the conversion from the binned RAW residual and check loss of faint detail and multiple edges from a single trail. |
+| Line detection | Radon transform | Integrate brightness along lines at different angles. Try it on bounded regions, recover segment endpoints from the supporting pixels, and measure CPU time and memory before expanding the search. |
+| Region analysis | Labeling and connected-component analysis | Label a binary foreground mask, then measure each region's shape and contrast using the residual. This fits the existing OpenCV-based frame-pair workflow. |
+| Geometry estimation | RANSAC (Random Sample Consensus) | Fit a line robustly to selected pixels or fragmented regions. Check whether the fit improves the evidence for broken trails and record its random seed and work limits for repeatable comparisons. |
+| Feature extraction | Brightness profile analysis | Measure brightness along and across a proposed trail. Test local contrast, width, and variation along its length as evidence for review or classification. |
+| Classification | CNN (convolutional neural network) | Try an optional classifier over candidate crops after there are reviewed examples. Evaluate on separate shooting sequences and allow uncertain classifications. This can build on the 3.x training and evaluation workflow. |
 
-- [ ] SDK templates and validation tooling for third-party plugins
-- [ ] Plugin capability discovery (declared features/requirements)
-- [ ] Distribution guidelines and example plugin gallery
+[OpenCV filters](https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html) ·
+[OpenCV LSD](https://docs.opencv.org/4.x/db/d73/classcv_1_1LineSegmentDetector.html) ·
+[OpenCV connected components](https://docs.opencv.org/4.x/d3/dc0/group__imgproc__shape.html) ·
+[RANSAC line fitting](https://scikit-image.org/docs/stable/auto_examples/transform/plot_ransac.html) ·
+[Radon and CNN for meteor trails](https://link.springer.com/article/10.1007/s11038-026-09600-7)
 
-### Integration & Interop
-- [ ] Output adapters for popular annotation formats (COCO, YOLO, CSV/Parquet)
-- [ ] Remote storage integration hooks (S3/GCS/Azure)
-- [ ] Batch orchestration helpers (multiprocessing, queue-based workers)
+#### Combinations to Try
+
+- **Region-based reference detector.** Start with the current pair residual,
+  then use labeling and connected-component analysis to select regions.
+  Score their shape and brightness profiles. Add RANSAC if fragmented
+  regions make the geometry unreliable. This exercises region and score
+  reporting with the existing frame-pair interface.
+- **Line-segment detector.** Compare DoG and white top-hat as separate
+  preprocessing options feeding the same LSD detector. Measure brightness
+  profiles on the higher-bit-depth residual using the detected segments.
+  Compare the resulting evidence with the region-based detector and Hough.
+- **Faint-trail experiment.** Try the Radon transform on selected regions
+  and compare whether it finds reviewed trails missed by the other methods.
+  Check shorter trails, the cost of the angle search, and the effect of
+  restricting the search to regions proposed by another method.
+- **Temporal background and classification.** A temporal median needs a
+  defined reference window, image alignment where needed, and consistent
+  frame selection at batch boundaries and on resume. Evaluate it separately
+  from sorted hooks, which receive detection records without image arrays.
+  For aircraft and satellites, test whether track continuity and brightness
+  profiles help label individual trails. Evaluate clouds as an image or
+  region quality annotation. Keep these annotations advisory during trials.
+
+Compare each experiment on the same RAW pairs and ROI, changing one stage at
+a time. Record reviewed trail matches, missed trails, extra frames to review,
+runtime and peak memory. Use the [bundled aircraft sequence](aircraft_sample_validation.md)
+as a starting point for mixed meteor and aircraft frames. Add independent
+reviewed sequences with satellites, clouds, and faint or short meteors before
+judging classification or detection quality across shooting conditions.
+
+### Evolve the Detector and Hook Contracts
+
+- [ ] Define the result fields that hooks and outputs can share across
+  detector types. Preserve the frame pair and candidate decision, identify
+  the detector and the meaning of its score, and represent optional evidence
+  such as line segments or regions with explicit image coordinates. Use the
+  reference detector to test which Hough-specific requirements belong in
+  optional capabilities.
+- [ ] Let plugins describe the evidence they produce or need. Use the
+  aircraft hook's dependence on line segments and the report's ability to
+  show regions as the first examples. Decide which combinations should be
+  validated at configuration time and how consumers handle missing evidence.
+- [ ] Evolve hooks around the existing lifecycle. Keep image transforms and
+  per-pair result changes before candidate saving. Use ordered hooks for
+  batch and sequence analysis, and add an opt-in way to consume the enriched
+  results after analysis. Specify callback order, process and state lifetime,
+  and the scope of results after interruption or resume. Keep existing
+  callbacks in their documented order.
+
+### Compose Detectors and Outputs
+
+- [ ] Compare detectors side by side before introducing a multi-detector
+  pipeline. Prototype an explicit comparison mode first, with per-detector
+  decisions and evidence. Consider a primary detector and an optional
+  verifier once a workflow needs a combined decision. Define which result
+  governs candidate saving and how errors affect progress before exposing
+  that combination in configuration.
+- [ ] Support adding a report or annotation exporter alongside the primary
+  file output. Start with a local destination and define what gets emitted
+  after sorted analysis, what happens when an output fails, and how resume
+  avoids duplicate records. Evaluate annotation formats and remote outputs
+  once a concrete consumer can validate the result.
+- [ ] Turn the exercised examples into a plugin author workflow covering
+  packaging, discovery, configuration, and worker compatibility. Add
+  validation tooling and reusable configuration profiles as those examples
+  establish which checks and settings authors need.
 
 ## Version 3.x - Intelligence and Learning
 
-2026 2Q-
+Scheduling follows validation of the detector and output extension points in 2.x.
 
 ### ML-based Detection
 - [ ] Baseline ML detector integration (optional, non-default)
@@ -337,5 +447,6 @@ Multi-detector chains and other new stages are opt-in.
 
 ---
 
-**Latest release**: [v1.6.12](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.12),
-released 2026-11-11 — Plugin and hook compatibility and code readability
+**Published release baseline** —
+[v1.6.13](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.13),
+released 2026-11-16 with release build and verification workflows.
