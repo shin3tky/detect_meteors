@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "detect-meteors-region-experiment"
-version = "0.7.0"
+version = "0.8.0"
 requires-python = ">=3.12,<3.15"
 dependencies = ["detect-meteors>=1.6.13"]
 

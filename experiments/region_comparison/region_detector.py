@@ -31,6 +31,7 @@ class RegionConfig:
     ransac_min_inlier_fraction: float = 0.20
     ransac_min_contrast: float | None = None
     reject_negative_axis_fraction: float | None = None
+    min_positive_axis_fraction: float | None = None
 
     def __post_init__(self) -> None:
         if type(self.enable_ransac) is not bool:
@@ -73,11 +74,12 @@ class RegionConfig:
             type(contrast) not in (int, float) or not isfinite(contrast) or contrast < 0
         ):
             raise ValueError("ransac_min_contrast must be a finite number >= 0 or null")
-        fraction = self.reject_negative_axis_fraction
-        if fraction is not None and (
-            type(fraction) not in (int, float) or not 0 < fraction <= 1
-        ):
-            raise ValueError("reject_negative_axis_fraction must be in (0, 1] or null")
+        for name in ("reject_negative_axis_fraction", "min_positive_axis_fraction"):
+            fraction = getattr(self, name)
+            if fraction is not None and (
+                type(fraction) not in (int, float) or not 0 < fraction <= 1
+            ):
+                raise ValueError(f"{name} must be in (0, 1] or null")
 
 
 def _component_points(labels, label, stats):
@@ -160,31 +162,51 @@ def _signed_axis_samples(spans, current, previous, roi):
     return np.subtract(current[y, x], previous[y, x], dtype=np.int32)
 
 
-def _reject_negative_axes(regions, current, previous, roi, limit):
+def _filter_signed_axes(
+    regions, current, previous, roi, *, negative_limit, positive_min
+):
     measured = rejected = 0
     for region in regions:
         if not region["accepted"]:
             continue
         values = _signed_axis_samples(region["axis_support"], current, previous, roi)
         negative_count = int(np.count_nonzero(values < 0))
-        fraction = negative_count / values.size if values.size else None
-        drop = fraction is not None and fraction >= limit
-        region["signed_difference"] = {
+        negative_fraction = negative_count / values.size if values.size else None
+        evidence = {
             "sample_count": values.size,
             "negative_count": negative_count,
-            "negative_fraction": fraction,
+            "negative_fraction": negative_fraction,
             "median_dn": float(np.median(values)) if values.size else None,
         }
         # Keep the nested RANSAC gates as the evidence before this final filter.
-        region["gates"] = {**region["gates"], "signed_difference": not drop}
-        region["accepted"] = not drop
-        measured += fraction is not None
-        rejected += drop
-    return {
-        "negative_fraction_limit": limit,
+        gates = dict(region["gates"])
+        if negative_limit is not None:
+            gates["signed_difference"] = (
+                negative_fraction is None or negative_fraction < negative_limit
+            )
+        if positive_min is not None:
+            positive_count = int(np.count_nonzero(values > 0))
+            positive_fraction = positive_count / values.size if values.size else None
+            evidence.update(
+                positive_count=positive_count, positive_fraction=positive_fraction
+            )
+            gates["positive_axis_fraction"] = (
+                positive_fraction is not None and positive_fraction >= positive_min
+            )
+        region["signed_difference"] = evidence
+        region["gates"] = gates
+        region["accepted"] = all(gates.values())
+        measured += bool(values.size)
+        rejected += not region["accepted"]
+    diagnostics = {
         "regions_measured": measured,
         "regions_rejected": rejected,
     }
+    if negative_limit is not None:
+        diagnostics["negative_fraction_limit"] = negative_limit
+    if positive_min is not None:
+        diagnostics["positive_fraction_min"] = positive_min
+    return diagnostics
 
 
 def _axis_distances(points, origin, direction):
@@ -307,7 +329,7 @@ class RegionDetector(DataclassDetector[RegionConfig]):
 
     plugin_name = "region"
     name = "Experimental region detector"
-    version = "0.5.0"
+    version = "0.6.0"
     ConfigType = RegionConfig
 
     def compute_line_score(self, mask, hough_params):
@@ -341,9 +363,15 @@ class RegionDetector(DataclassDetector[RegionConfig]):
                 regions, component_indices, labels, stats, residual, roi, self.config
             )
         negative_fraction_limit = self.config.reject_negative_axis_fraction
-        if negative_fraction_limit is not None:
-            diagnostics["signed_difference"] = _reject_negative_axes(
-                regions, current, previous, roi, negative_fraction_limit
+        positive_fraction_min = self.config.min_positive_axis_fraction
+        if negative_fraction_limit is not None or positive_fraction_min is not None:
+            diagnostics["signed_difference"] = _filter_signed_axes(
+                regions,
+                current,
+                previous,
+                roi,
+                negative_limit=negative_fraction_limit,
+                positive_min=positive_fraction_min,
             )
         accepted = [region for region in regions if region["accepted"]]
         regions.sort(
