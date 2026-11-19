@@ -206,6 +206,26 @@ ln(1 + A / 最小面積) × clip(C / max(最小コントラスト, 1), 0, 1)
 
 `_C140343.ORF` は通常判定で縦横比のみ不足し、`_C140346.ORF` は縦横比とコントラストが不足していた。再推定後は両方とも、長さ15 px・縦横比3・コントラスト15 DNの条件を満たした。短い流星 `_C140344.ORF` の再推定後のコントラストは26 DNで、次のペアの消失像は22 DNだった。この差をもとに、再推定した領域だけコントラストの下限を20 DNに引き上げる条件を試す。長い流星 `_C140338.ORF` は通常判定で採用されている。
 
+### RANSAC 再推定後のコントラスト条件
+
+`detector_config.ransac_min_contrast: 20` で、再推定後の採用に20 DN以上の条件を加える。設定を省略した場合は従来の採用条件を使う。報告に含まれる領域は `ransac.refit.gates.ransac_contrast` で追加条件の結果を確認できる。小さい不採用領域を確認するときは `max_report_regions` を増やして再実行する。この設定は報告に残す件数を変える。通常判定、再評価の優先順、上限64領域、乱数シードと試行数は共通にして比較した。
+
+チェックサムを照合した同じ11ペアを、全画面 ROI、フックなし、デバッグ画像保存なしで処理した。両条件とも全ペアで64領域を再評価した。時間は実行順を変えた逐次3回の中央値で、計測環境と軌跡の照合基準は前回と同じ。
+
+| 指標 | 従来の15 DN | 再推定後に20 DN |
+| --- | ---: | ---: |
+| 正常に処理・記録したペア | 11 | 11 |
+| 候補画像 | 7 | 5 |
+| 候補判定と軌跡照合がともに成立した流星 | 2 / 2 | 2 / 2 |
+| 長い流星 `_C140338.ORF` の採用軸による被覆 | 100.0% | 100.0% |
+| 短い流星 `_C140344.ORF` の採用軸による被覆 | 100.0% | 100.0% |
+| 検出器内の時間合計 | 4.42 s | 4.44 s |
+| CLI 全体の経過時間 | 11.09 s | 11.11 s |
+
+20 DNの条件で外れた候補は、調査対象の `_C140343.ORF` と `_C140346.ORF` の2枚。両ペアを報告上限を広げて個別に再実行し、再推定後の16 DNでは従来の採用条件を通り、追加した20 DN条件で落ちたことを確認した。残った5枚には、確認済み流星2枚と、それぞれの直後に対応する消失像を含む。20 DNの条件は逐次処理と2つの spawn ワーカーで判定・幾何が一致し、15 DNの対照は前回の判定・幾何と一致した。
+
+20 DNは今回の2枚を調べて決めた試験値。この候補削減は同梱1系列で確認した結果であり、淡い流星を含む別系列での維持率は確認が必要。
+
 ### 検出器比較を再実行する
 
 リポジトリのルートから実行する。試作の wheel は実験用ディレクトリにインストールし、この比較を起動するプロセスから読み込む。
@@ -217,7 +237,7 @@ uv build --wheel --out-dir "$run_root/dist" experiments/region_comparison
 uv pip install --python .venv/bin/python --no-deps \
   --target "$run_root/plugins" "$run_root"/dist/*.whl
 
-for condition in hough region lsd_dog lsd_tophat radon region_ransac region_ransac_wide region_ransac_ranked; do
+for condition in hough region lsd_dog lsd_tophat radon region_ransac region_ransac_wide region_ransac_ranked region_ransac_ranked_contrast; do
   detector="$condition"
   detector_config='{}'
   case "$condition" in
@@ -236,6 +256,10 @@ for condition in hough region lsd_dog lsd_tophat radon region_ransac region_rans
     region_ransac_ranked)
       detector=region
       detector_config='{"enable_ransac":true,"ransac_max_regions":64,"ransac_priority":"area_contrast_aspect"}'
+      ;;
+    region_ransac_ranked_contrast)
+      detector=region
+      detector_config='{"enable_ransac":true,"ransac_max_regions":64,"ransac_priority":"area_contrast_aspect","ransac_min_contrast":20}'
       ;;
   esac
   run_dir="$run_root/$condition"
@@ -269,7 +293,7 @@ done
   --radon-report "$run_root/radon/pairs.jsonl" \
   --region-ransac-report "$run_root/region_ransac/pairs.jsonl"
 
-for condition in region_ransac_wide region_ransac_ranked; do
+for condition in region_ransac_wide region_ransac_ranked region_ransac_ranked_contrast; do
   .venv/bin/python experiments/region_comparison/summarize.py \
     rawfiles/2024GEMINI_AIRCRAFT \
     "$run_root/hough/pairs.jsonl" "$run_root/region/pairs.jsonl" \
