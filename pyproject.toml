@@ -58,7 +58,7 @@ dependencies = [
     "rawpy==0.28.0",
     "psutil==7.2.2",
     "pillow==13.0.0",
-    "pydantic==2.14.3",
+    "pydantic==2.14.4",
     "pyyaml==6.0.3",
 ]
 
