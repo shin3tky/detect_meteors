@@ -9,7 +9,7 @@ import numpy as np
 
 from meteor_core.detectors import DataclassDetector
 from meteor_core.schema import DetectionContext, DetectionResult
-from meteor_core.utils import ensure_numpy
+from trail_measurement import pair_residual, profile_contrast
 
 
 @dataclass(frozen=True)
@@ -46,29 +46,6 @@ class RegionConfig:
                 raise ValueError(f"{name} must be a finite number >= {minimum}")
 
 
-def _profile_contrast(residual, roi, origin, direction, normal, positions, offset):
-    """Measure median center brightness above two equal-width background bands."""
-    height, width = residual.shape
-
-    def sample(offsets):
-        points = (
-            origin
-            + positions[:, None, None] * direction
-            + offsets[None, :, None] * normal
-        )
-        x, y = np.rint(points).astype(np.intp).reshape(-1, 2).T
-        valid = (x >= 0) & (x < width) & (y >= 0) & (y < height)
-        x, y = x[valid], y[valid]
-        return residual[y, x][roi[y, x]]
-
-    center = sample(np.arange(-1, 2))
-    left = sample(-np.arange(offset, offset + 3))
-    right = sample(np.arange(offset, offset + 3))
-    if not (center.size and left.size and right.size):
-        return None
-    return float(np.median(center) - np.median(np.concatenate((left, right))))
-
-
 def _measure_region(labels, label, stats, residual, roi, config):
     x, y, width, height, area = map(int, stats)
     rows, columns = np.nonzero(labels[y : y + height, x : x + width] == label)
@@ -97,7 +74,7 @@ def _measure_region(labels, label, stats, residual, roi, config):
         for span in spans
         if span.size and min(end, span[-1] + 0.5) > max(start, span[0] - 0.5)
     ]
-    contrast = _profile_contrast(
+    contrast = profile_contrast(
         residual, roi, origin, direction, normal, bins, config.background_offset_px
     )
     gates = {
@@ -132,24 +109,7 @@ class RegionDetector(DataclassDetector[RegionConfig]):
 
     def detect(self, context: DetectionContext) -> DetectionResult:
         started = perf_counter()
-        current = ensure_numpy(context.current_image)
-        previous = ensure_numpy(context.previous_image)
-        roi = ensure_numpy(context.roi_mask) != 0
-        if (
-            current.ndim != 2
-            or current.shape != previous.shape
-            or current.shape != roi.shape
-        ):
-            raise ValueError("region requires equally shaped grayscale frames and ROI")
-        if current.dtype != previous.dtype or current.dtype not in (
-            np.uint8,
-            np.uint16,
-        ):
-            raise ValueError(
-                "region requires matching uint8 or uint16 frames (normalize: false)"
-            )
-
-        residual = cv2.absdiff(current, previous)
+        residual, roi = pair_residual(context)
         foreground = ((residual > self.config.diff_threshold) & roi).astype(np.uint8)
         count, labels, stats, _ = cv2.connectedComponentsWithStatsWithAlgorithm(
             foreground, 8, cv2.CV_32S, cv2.CCL_SAUF

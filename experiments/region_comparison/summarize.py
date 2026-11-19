@@ -62,16 +62,47 @@ def load_pairs(path, frames):
     return {row["current"]: row for row in rows}
 
 
+def lsd_trail_evidence(label, row):
+    evidence = row["extras"]["lsd"]
+    segments = evidence["segments"]
+    return {
+        "candidate": row["is_candidate"],
+        "accepted_coverage": trail_coverage(
+            label,
+            [
+                (item["line_xyxy"][:2], item["line_xyxy"][2:])
+                for item in segments
+                if item["accepted"]
+            ],
+        ),
+        "reported_coverage": trail_coverage(
+            label,
+            [(item["line_xyxy"][:2], item["line_xyxy"][2:]) for item in segments],
+        ),
+        "omitted_count": evidence["segments_omitted"],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("raw_dir", type=Path)
     parser.add_argument("hough_report", type=Path)
     parser.add_argument("region_report", type=Path)
+    parser.add_argument("--lsd-reports", type=Path, nargs=2, metavar=("DOG", "TOPHAT"))
     args = parser.parse_args()
     frames = sorted(path.name for path in args.raw_dir.glob("*.ORF"))
     labels = json.loads(Path(__file__).with_name("meteor_labels.json").read_text())
     hough = load_pairs(args.hough_report, frames)
     region = load_pairs(args.region_report, frames)
+    lsd = {}
+    if args.lsd_reports:
+        for method, path in zip(("dog", "tophat"), args.lsd_reports, strict=True):
+            rows = load_pairs(path, frames)
+            if any(
+                row["extras"]["lsd"]["preprocess"] != method for row in rows.values()
+            ):
+                raise ValueError(f"{path} does not contain {method} reports")
+            lsd[f"lsd_{method}"] = rows
     selected = [
         {name for name, row in rows.items() if row["is_candidate"]}
         for rows in (hough, region)
@@ -105,21 +136,28 @@ def main():
                     label, [span for item in regions for span in item["axis_support"]]
                 ),
                 "region_omitted_count": region_evidence["regions_omitted"],
+                **{
+                    name: lsd_trail_evidence(label, rows[current])
+                    for name, rows in lsd.items()
+                },
             }
         )
-    print(
-        json.dumps(
-            {
-                "pairs": len(hough),
-                "hough_candidates": len(selected[0]),
-                "region_candidates": len(selected[1]),
-                "added_candidates": sorted(selected[1] - selected[0]),
-                "lost_candidates": sorted(selected[0] - selected[1]),
-                "meteor_trails": trails,
-            },
-            indent=2,
-        )
-    )
+    summary = {
+        "pairs": len(hough),
+        "hough_candidates": len(selected[0]),
+        "region_candidates": len(selected[1]),
+        "added_candidates": sorted(selected[1] - selected[0]),
+        "lost_candidates": sorted(selected[0] - selected[1]),
+        "meteor_trails": trails,
+    }
+    for name, rows in lsd.items():
+        candidates = {frame for frame, row in rows.items() if row["is_candidate"]}
+        summary[name] = {
+            "candidates": len(candidates),
+            "added_candidates": sorted(candidates - selected[0]),
+            "lost_candidates": sorted(selected[0] - candidates),
+        }
+    print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":
