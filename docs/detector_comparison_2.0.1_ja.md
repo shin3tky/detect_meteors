@@ -168,6 +168,33 @@ DoG＋LSD は、この設定で確認済み2本に対応する線分を長く保
 
 RANSAC 無効時の判定と幾何は前回の領域方式と一致した。64領域と128領域はそれぞれ逐次3回と2つの spawn ワーカーで判定・幾何が一致した。合成画像では、横方向に連結したノイズのある短い軌跡を再推定できること、空の ROI と試行対象数の上限を確認した。
 
+## RANSAC の優先順位に面積とコントラストと縦横比を使う
+
+`ransac_priority: area_contrast_aspect` は、通常判定で不採用になった領域を、面積 `A`、通常フィットで測ったコントラスト `C`、縦横比 `R` から計算するスコアの降順に並べる。
+
+```text
+ln(1 + A / 最小面積) × clip(C / max(最小コントラスト, 1), 0, 1)
+                   × min(R / 最小縦横比, 1)
+```
+
+面積を対数にして大きい成分の寄与を抑え、コントラストと縦横比の重みは既存の採用閾値で頭打ちにする。コントラストが計測できない領域の重みは0。同点なら面積が大きい順、面積も同じならラベル順。既定の `ransac_priority: area` で従来の面積順を選べる。報告には各再評価領域の順位とスコアを追加した。
+
+チェックサムを照合した同じ11ペアで、面積順64領域、面積順128領域、3指標の優先順64領域を比較した。全画面 ROI、フックなし、デバッグ画像保存なしで、採用閾値・RANSAC の乱数シード・1領域あたりの試行数は前回と共通。3条件を実行順を変えながら逐次3回ずつ測った。
+
+| 指標 | 面積順64領域 | 面積順128領域 | 3指標の優先順64領域 |
+| --- | ---: | ---: | ---: |
+| 正常に処理・記録したペア | 11 | 11 | 11 |
+| 候補画像 | 3 | 5 | 7 |
+| 候補判定と軌跡照合がともに成立した流星 | 1 / 2 | 2 / 2 | 2 / 2 |
+| 長い流星 `_C140338.ORF` の採用軸による被覆 | 100.0% | 100.0% | 100.0% |
+| 短い流星 `_C140344.ORF` の採用軸による被覆 | 0.0% | 100.0% | 100.0% |
+| 検出器内の時間合計（中央値） | 4.74 s | 5.06 s | 4.60 s |
+| CLI 全体の経過時間（中央値） | 11.54 s | 11.90 s | 11.45 s |
+
+短い流星 `_C140344.ORF` の領域は86位から3位になった。再推定では面積順128領域と同じ183画素が軸を支持し、縦横比14.39、コントラスト26 DN、軌跡被覆100%を得た。次のペア `_C140345.ORF` の消失像も107位から1位になった。3指標の優先順で面積順128領域より増えた2枚は `_C140343.ORF` と `_C140346.ORF` で、どちらも同梱系列の確認済み流星2枚には含まれない。[同梱系列のラベル](../rawfiles/2024GEMINI_AIRCRAFT/README.md#owner-confirmed-contents)
+
+3指標の優先順は全ペアで64領域を再評価し、逐次3回と2つの spawn ワーカーで判定・幾何が一致した。面積順64・128領域もそれぞれ前回と同じ判定と幾何だった。処理時間と候補数の差は同梱1系列での実測値。
+
 ### 検出器比較を再実行する
 
 リポジトリのルートから実行する。試作の wheel は実験用ディレクトリにインストールし、この比較を起動するプロセスから読み込む。
@@ -179,7 +206,7 @@ uv build --wheel --out-dir "$run_root/dist" experiments/region_comparison
 uv pip install --python .venv/bin/python --no-deps \
   --target "$run_root/plugins" "$run_root"/dist/*.whl
 
-for condition in hough region lsd_dog lsd_tophat radon region_ransac region_ransac_wide; do
+for condition in hough region lsd_dog lsd_tophat radon region_ransac region_ransac_wide region_ransac_ranked; do
   detector="$condition"
   detector_config='{}'
   case "$condition" in
@@ -194,6 +221,10 @@ for condition in hough region lsd_dog lsd_tophat radon region_ransac region_rans
     region_ransac_wide)
       detector=region
       detector_config='{"enable_ransac":true,"ransac_max_regions":128}'
+      ;;
+    region_ransac_ranked)
+      detector=region
+      detector_config='{"enable_ransac":true,"ransac_max_regions":64,"ransac_priority":"area_contrast_aspect"}'
       ;;
   esac
   run_dir="$run_root/$condition"
@@ -227,8 +258,10 @@ done
   --radon-report "$run_root/radon/pairs.jsonl" \
   --region-ransac-report "$run_root/region_ransac/pairs.jsonl"
 
-.venv/bin/python experiments/region_comparison/summarize.py \
-  rawfiles/2024GEMINI_AIRCRAFT \
-  "$run_root/hough/pairs.jsonl" "$run_root/region/pairs.jsonl" \
-  --region-ransac-report "$run_root/region_ransac_wide/pairs.jsonl"
+for condition in region_ransac_wide region_ransac_ranked; do
+  .venv/bin/python experiments/region_comparison/summarize.py \
+    rawfiles/2024GEMINI_AIRCRAFT \
+    "$run_root/hough/pairs.jsonl" "$run_root/region/pairs.jsonl" \
+    --region-ransac-report "$run_root/$condition/pairs.jsonl"
+done
 ```
