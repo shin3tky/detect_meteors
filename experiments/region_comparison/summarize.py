@@ -83,6 +83,27 @@ def line_trail_evidence(label, row, detector):
     }
 
 
+def region_trail_evidence(label, row):
+    evidence = row["extras"]["region"]
+    regions = evidence["regions"]
+    return {
+        "candidate": row["is_candidate"],
+        "accepted_coverage": trail_coverage(
+            label,
+            [
+                span
+                for item in regions
+                if item["accepted"]
+                for span in item["axis_support"]
+            ],
+        ),
+        "reported_coverage": trail_coverage(
+            label, [span for item in regions for span in item["axis_support"]]
+        ),
+        "omitted_count": evidence["regions_omitted"],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("raw_dir", type=Path)
@@ -90,11 +111,21 @@ def main():
     parser.add_argument("region_report", type=Path)
     parser.add_argument("--lsd-reports", type=Path, nargs=2, metavar=("DOG", "TOPHAT"))
     parser.add_argument("--radon-report", type=Path)
+    parser.add_argument("--region-ransac-report", type=Path)
     args = parser.parse_args()
     frames = sorted(path.name for path in args.raw_dir.glob("*.ORF"))
     labels = json.loads(Path(__file__).with_name("meteor_labels.json").read_text())
     hough = load_pairs(args.hough_report, frames)
     region = load_pairs(args.region_report, frames)
+    region_ransac = {}
+    if args.region_ransac_report:
+        region_ransac = load_pairs(args.region_ransac_report, frames)
+        if any(
+            "ransac" not in row["extras"]["region"] for row in region_ransac.values()
+        ):
+            raise ValueError(
+                f"{args.region_ransac_report} does not contain RANSAC reports"
+            )
     line_reports = {}
     if args.lsd_reports:
         for method, path in zip(("dog", "tophat"), args.lsd_reports, strict=True):
@@ -119,35 +150,27 @@ def main():
         old, new = hough[current], region[current]
         if frames[old["prev_frame_index"]] != label["previous"]:
             raise ValueError(f"Unexpected previous frame for {current}")
-        region_evidence = new["extras"]["region"]
-        regions = region_evidence["regions"]
-        trails.append(
-            {
-                "current": current,
-                "hough_candidate": old["is_candidate"],
-                "region_candidate": new["is_candidate"],
-                "hough_line_coverage": trail_coverage(
-                    label, [(line[:2], line[2:]) for line in old["lines"]]
-                ),
-                "region_accepted_coverage": trail_coverage(
-                    label,
-                    [
-                        span
-                        for item in regions
-                        if item["accepted"]
-                        for span in item["axis_support"]
-                    ],
-                ),
-                "region_measured_coverage": trail_coverage(
-                    label, [span for item in regions for span in item["axis_support"]]
-                ),
-                "region_omitted_count": region_evidence["regions_omitted"],
-                **{
-                    name: line_trail_evidence(label, rows[current], detector)
-                    for name, (detector, rows) in line_reports.items()
-                },
-            }
-        )
+        region_evidence = region_trail_evidence(label, new)
+        trail = {
+            "current": current,
+            "hough_candidate": old["is_candidate"],
+            "region_candidate": region_evidence["candidate"],
+            "hough_line_coverage": trail_coverage(
+                label, [(line[:2], line[2:]) for line in old["lines"]]
+            ),
+            "region_accepted_coverage": region_evidence["accepted_coverage"],
+            "region_measured_coverage": region_evidence["reported_coverage"],
+            "region_omitted_count": region_evidence["omitted_count"],
+            **{
+                name: line_trail_evidence(label, rows[current], detector)
+                for name, (detector, rows) in line_reports.items()
+            },
+        }
+        if region_ransac:
+            trail["region_ransac"] = region_trail_evidence(
+                label, region_ransac[current]
+            )
+        trails.append(trail)
     summary = {
         "pairs": len(hough),
         "hough_candidates": len(selected[0]),
@@ -162,6 +185,15 @@ def main():
             "candidates": len(candidates),
             "added_candidates": sorted(candidates - selected[0]),
             "lost_candidates": sorted(selected[0] - candidates),
+        }
+    if region_ransac:
+        candidates = {
+            frame for frame, row in region_ransac.items() if row["is_candidate"]
+        }
+        summary["region_ransac"] = {
+            "candidates": len(candidates),
+            "added_candidates": sorted(candidates - selected[1]),
+            "lost_candidates": sorted(selected[1] - candidates),
         }
     print(json.dumps(summary, indent=2))
 
