@@ -1,5 +1,7 @@
 """Pixel measurements shared by the experimental detectors."""
 
+from math import ceil, hypot
+
 import cv2
 import numpy as np
 
@@ -23,6 +25,13 @@ def pair_residual(context: DetectionContext):
     return cv2.absdiff(current, previous), roi
 
 
+def difference_of_gaussians(residual):
+    image = residual.astype(np.float32)
+    small = cv2.GaussianBlur(image, (0, 0), 1.0)
+    large = cv2.GaussianBlur(image, (0, 0), 3.0)
+    return cv2.subtract(small, large, dst=small)
+
+
 def profile_contrast(residual, roi, origin, direction, normal, positions, offset):
     """Measure median center brightness above two equal-width background bands."""
     height, width = residual.shape
@@ -44,3 +53,46 @@ def profile_contrast(residual, roi, origin, direction, normal, positions, offset
     if not (center.size and left.size and right.size):
         return None
     return float(np.median(center) - np.median(np.concatenate((left, right))))
+
+
+def measure_segment(
+    line, residual, roi, *, min_length_px, min_contrast, background_offset_px
+):
+    """Qualify a line using its ROI coverage and the original residual."""
+    x0, y0, x1, y1 = map(float, line)
+    dx, dy = x1 - x0, y1 - y0
+    length = hypot(dx, dy)
+    contrast = None
+    inside_roi = None
+    long_enough = length >= min_length_px
+    if long_enough:
+        origin = np.array((x0, y0))
+        direction = np.array((dx, dy)) / length
+        positions = np.linspace(0.0, length, ceil(length) + 1)
+        x, y = np.rint(origin + positions[:, None] * direction).astype(np.intp).T
+        height, width = roi.shape
+        in_bounds = ((x >= 0) & (x < width) & (y >= 0) & (y < height)).all()
+        inside_roi = bool(in_bounds and roi[y, x].all())
+        if inside_roi:
+            normal = np.array((-direction[1], direction[0]))
+            contrast = profile_contrast(
+                residual,
+                roi,
+                origin,
+                direction,
+                normal,
+                positions,
+                background_offset_px,
+            )
+    gates = {
+        "length": long_enough,
+        "roi": inside_roi,
+        "contrast": contrast >= min_contrast if contrast is not None else None,
+    }
+    return {
+        "line_xyxy": [x0, y0, x1, y1],
+        "length_px": length,
+        "contrast": contrast,
+        "gates": gates,
+        "accepted": all(gates.values()),
+    }

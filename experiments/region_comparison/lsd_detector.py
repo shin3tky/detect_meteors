@@ -1,7 +1,7 @@
 """Opt-in line segment detector with two interchangeable filters."""
 
 from dataclasses import dataclass
-from math import ceil, hypot, isfinite
+from math import isfinite
 from time import perf_counter
 
 import cv2
@@ -9,7 +9,7 @@ import numpy as np
 
 from meteor_core.detectors import DataclassDetector
 from meteor_core.schema import DetectionContext, DetectionResult
-from trail_measurement import pair_residual, profile_contrast
+from trail_measurement import difference_of_gaussians, measure_segment, pair_residual
 
 
 @dataclass(frozen=True)
@@ -44,53 +44,10 @@ class LsdConfig:
 
 def _filter_residual(residual, preprocess):
     if preprocess == "dog":
-        image = residual.astype(np.float32)
-        small = cv2.GaussianBlur(image, (0, 0), 1.0)
-        large = cv2.GaussianBlur(image, (0, 0), 3.0)
-        return cv2.subtract(small, large, dst=small)
+        return difference_of_gaussians(residual)
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
     return cv2.morphologyEx(residual, cv2.MORPH_TOPHAT, kernel).astype(np.float32)
-
-
-def _measure_segment(line, residual, roi, config):
-    x0, y0, x1, y1 = map(float, line)
-    dx, dy = x1 - x0, y1 - y0
-    length = hypot(dx, dy)
-    contrast = None
-    inside_roi = None
-    long_enough = length >= config.min_length_px
-    if long_enough:
-        origin = np.array((x0, y0))
-        direction = np.array((dx, dy)) / length
-        positions = np.linspace(0.0, length, ceil(length) + 1)
-        x, y = np.rint(origin + positions[:, None] * direction).astype(np.intp).T
-        height, width = roi.shape
-        in_bounds = ((x >= 0) & (x < width) & (y >= 0) & (y < height)).all()
-        inside_roi = bool(in_bounds and roi[y, x].all())
-        if inside_roi:
-            normal = np.array((-direction[1], direction[0]))
-            contrast = profile_contrast(
-                residual,
-                roi,
-                origin,
-                direction,
-                normal,
-                positions,
-                config.background_offset_px,
-            )
-    gates = {
-        "length": long_enough,
-        "roi": inside_roi,
-        "contrast": contrast >= config.min_contrast if contrast is not None else None,
-    }
-    return {
-        "line_xyxy": [x0, y0, x1, y1],
-        "length_px": length,
-        "contrast": contrast,
-        "gates": gates,
-        "accepted": all(gates.values()),
-    }
 
 
 class LsdDetector(DataclassDetector[LsdConfig]):
@@ -122,7 +79,14 @@ class LsdDetector(DataclassDetector[LsdConfig]):
             []
             if lines is None
             else [
-                _measure_segment(line, residual, roi, self.config)
+                measure_segment(
+                    line,
+                    residual,
+                    roi,
+                    min_length_px=self.config.min_length_px,
+                    min_contrast=self.config.min_contrast,
+                    background_offset_px=self.config.background_offset_px,
+                )
                 for line in lines.reshape(-1, 4)
             ]
         )

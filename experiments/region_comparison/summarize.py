@@ -62,8 +62,8 @@ def load_pairs(path, frames):
     return {row["current"]: row for row in rows}
 
 
-def lsd_trail_evidence(label, row):
-    evidence = row["extras"]["lsd"]
+def line_trail_evidence(label, row, detector):
+    evidence = row["extras"][detector]
     segments = evidence["segments"]
     return {
         "candidate": row["is_candidate"],
@@ -89,12 +89,13 @@ def main():
     parser.add_argument("hough_report", type=Path)
     parser.add_argument("region_report", type=Path)
     parser.add_argument("--lsd-reports", type=Path, nargs=2, metavar=("DOG", "TOPHAT"))
+    parser.add_argument("--radon-report", type=Path)
     args = parser.parse_args()
     frames = sorted(path.name for path in args.raw_dir.glob("*.ORF"))
     labels = json.loads(Path(__file__).with_name("meteor_labels.json").read_text())
     hough = load_pairs(args.hough_report, frames)
     region = load_pairs(args.region_report, frames)
-    lsd = {}
+    line_reports = {}
     if args.lsd_reports:
         for method, path in zip(("dog", "tophat"), args.lsd_reports, strict=True):
             rows = load_pairs(path, frames)
@@ -102,7 +103,12 @@ def main():
                 row["extras"]["lsd"]["preprocess"] != method for row in rows.values()
             ):
                 raise ValueError(f"{path} does not contain {method} reports")
-            lsd[f"lsd_{method}"] = rows
+            line_reports[f"lsd_{method}"] = ("lsd", rows)
+    if args.radon_report:
+        rows = load_pairs(args.radon_report, frames)
+        if any("radon" not in row["extras"] for row in rows.values()):
+            raise ValueError(f"{args.radon_report} does not contain Radon reports")
+        line_reports["radon"] = ("radon", rows)
     selected = [
         {name for name, row in rows.items() if row["is_candidate"]}
         for rows in (hough, region)
@@ -137,8 +143,8 @@ def main():
                 ),
                 "region_omitted_count": region_evidence["regions_omitted"],
                 **{
-                    name: lsd_trail_evidence(label, rows[current])
-                    for name, rows in lsd.items()
+                    name: line_trail_evidence(label, rows[current], detector)
+                    for name, (detector, rows) in line_reports.items()
                 },
             }
         )
@@ -150,7 +156,7 @@ def main():
         "lost_candidates": sorted(selected[0] - selected[1]),
         "meteor_trails": trails,
     }
-    for name, rows in lsd.items():
+    for name, (_, rows) in line_reports.items():
         candidates = {frame for frame, row in rows.items() if row["is_candidate"]}
         summary[name] = {
             "candidates": len(candidates),
