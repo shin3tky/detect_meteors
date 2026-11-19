@@ -61,4 +61,71 @@ uv run --locked detect-meteors \
 
 参考実装の条件は、各方式で期待したペアの処理と報告が揃い、判定の根拠を人が追え、逐次・並列・再開の動作を確認できること。独立系列では、Hough が候補にした確認済み流星のフレームを維持できるかを先に確認し、軌跡一致数、目視確認枚数、処理コストの順に比較する。撮影条件をまたぐ採否判断には、複数の確認済み系列を使う。
 
-同梱系列では、フックなしの Hough が逐次処理・2ワーカーとも11組すべてを候補にし、確認済み流星2枚を含むことを確認した。この結果は候補フレームの基準値として使う。軌跡の照合と試作検出器の測定は、上の手順で行う。
+## 領域ベースの試作結果
+
+実験パッケージは、既存のエントリーポイントから [`region` 検出器](../experiments/region_comparison/region_detector.py) と [`pair_report` 出力ハンドラー](../experiments/region_comparison/pair_report.py) を登録する。`pair_report` は通常の候補 RAW 保存に加え、全ての成功ペアの判定と根拠を JSON Lines に書く。
+
+領域方式は絶対差分 `> 9` の画素を8近傍で連結する。24画素以上かつ外接矩形の対角長が15 px以上の成分を計測し、最小二乗で求めた軸への投影長が15 px以上、投影長と横幅の比が3以上、コントラストが15 DN以上なら採用する。コントラストは軸に沿う中央3画素帯と両側6〜8 pxの帯の中央値の差。領域方式のフレームスコアは採用成分の最大コントラストで、根拠には中央帯に実画素がある軸区間を記録する。これらは今回の動作確認用の初期値。
+
+チェックサムが一致した同梱 RAW 12枚から、両方式とも同じ11ペアを処理した。全画面 ROI、固定パラメータ、フックなし、デバッグ画像の保存なしで比較した。確認済み2本の[暫定軌跡](../experiments/region_comparison/meteor_labels.json)は、検出結果を見る前に、対象フレームから直前・直後画像の平均を引いた表示で目視し、ビニング後の中心線と許容幅を記録した。照合には向き15°以内、区間の50%以上の基準を使った。
+
+| 指標 | Hough | 領域ベース |
+| --- | ---: | ---: |
+| 正常に処理・記録したペア | 11 | 11 |
+| 候補画像 | 11 | 3 |
+| 確認済み流星の画像が候補になった数 | 2 / 2 | 1 / 2 |
+| 候補判定と軌跡の照合がともに成立した数 | 2 / 2 | 1 / 2 |
+| 検出器内の時間合計の中央値（逐次3回） | 0.076 s | 3.95 s |
+| CLI 全体の経過時間の中央値（逐次3回） | 6.69 s | 10.56 s |
+| 子プロセスのピーク RSS の中央値（逐次3回） | 196 MiB | 639 MiB |
+
+計測環境は macOS 27.2.1（arm64）、Python 3.14.10、OpenCV 5.0.0、NumPy 2.5.5。CLI 全体の時間には RAW の読み込み、候補のコピー、比較出力を含む。領域方式は試作時点で各ペア約5,000件の成分を詳細計測している。報告には採用成分を優先して最大128件を残し、残りの件数も保存した。この系列では採用成分が全件報告に入った。
+
+| 流星が写った画像 | Hough の線分被覆 | 領域方式の採用軸の被覆 | 領域方式の判定 |
+| --- | ---: | ---: | --- |
+| `_C140338.ORF` | 94.8% | 100.0% | 採用。対応領域の縦横比は5.77、コントラストは89.5 DN。 |
+| `_C140344.ORF` | 63.4% | 0.0% | 不採用。計測された軸は83.5%を覆ったが、縦横比1.85とコントラスト10.0 DNが条件未満。 |
+
+領域方式の候補は `_C140336.ORF`、`_C140338.ORF`、`_C140339.ORF`。Hough から増えた候補はなく、除外された8枚には確認済み流星の `_C140344.ORF` が含まれる。`_C140339.ORF` の採用軸は直前フレームの流星の消失像に対応したため、新しい流星には数えなかった。この設定では目視対象が減った一方、流星画像の維持と処理コストの両方で Hough の基準に届かなかった。
+
+領域方式は、逐次処理と2つの spawn ワーカーで11ペア分の判定・幾何が一致した。注記用の `on_detection_complete` フックが出力に反映されることと、4ペア処理後に中断を注入し、同じ進捗から残り7ペアを処理できることも確認した。合成画像では差分閾値の境界と ROI 内外の扱いを8ビット・16ビット入力で検証した。
+
+### 領域方式の比較を再実行する
+
+リポジトリのルートから実行する。試作の wheel は実験用ディレクトリにインストールし、この比較を起動するプロセスから読み込む。
+
+```bash
+uv sync --locked
+run_root=$(mktemp -d "${TMPDIR:-/tmp}/detect-meteors-region-XXXXXX")
+uv build --wheel --out-dir "$run_root/dist" experiments/region_comparison
+uv pip install --python .venv/bin/python --no-deps \
+  --target "$run_root/plugins" "$run_root"/dist/*.whl
+
+for detector in hough region; do
+  run_dir="$run_root/$detector"
+  mkdir "$run_dir"
+  report_config=$(.venv/bin/python - "$run_dir" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+run = Path(sys.argv[1])
+print(json.dumps({
+    "output_folder": str(run / "candidates"),
+    "debug_folder": str(run / "debug"),
+    "report_path": str(run / "pairs.jsonl"),
+}))
+PY
+  )
+  PYTHONPATH="$run_root/plugins" .venv/bin/detect-meteors \
+    --config config_examples/aircraft_trail_sample.yaml \
+    --detector "$detector" --hooks '' --no-roi --no-resume \
+    --workers 1 --batch-size 4 --no-auto-batch-size --profile \
+    --output-handler pair_report --output-handler-config "$report_config" \
+    --progress-file "$run_dir/progress.json"
+done
+
+.venv/bin/python experiments/region_comparison/summarize.py \
+  rawfiles/2024GEMINI_AIRCRAFT \
+  "$run_root/hough/pairs.jsonl" "$run_root/region/pairs.jsonl"
+```
