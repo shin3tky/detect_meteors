@@ -31,7 +31,7 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 
 ## Requirements
 
-- Python 3.12, 3.13
+- Python 3.12, 3.13, or 3.14
 - macOS, Windows, or Linux
 - Dependencies: `numpy`, `opencv-python`, `rawpy`, `psutil`, `pillow`, `pydantic`, `pyyaml`
 
@@ -41,6 +41,8 @@ Exact versions: [installation guide](docs/INSTALL.md#dependency-versions-v1613).
 
 Download the [latest release](https://github.com/shin3tky/detect_meteors/releases/latest)
 and follow the [installation guide](docs/INSTALL.md).
+For Python 3.14, install from the
+[current repository checkout](docs/INSTALL.md#python-requirements).
 
 ## Quick Start
 
@@ -303,7 +305,7 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 
 **November 16, 2026 (2026-11-16).**
 
-- GitHub Actions builds and verifies the wheel and source distribution on Python 3.12 and 3.13 and generates `SHA256SUMS`.
+- GitHub Actions builds the wheel and source distribution, verifies installation on Python 3.12 and 3.13 and on 3.14 when the release supports it, and generates `SHA256SUMS`.
 - The post-publication workflow compares the public downloads with the build artifacts and repeats the install and CLI startup checks.
 - Updates NumPy to 2.5.5 and the Ruff, ty, and coverage development tools.
 

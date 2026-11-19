@@ -110,15 +110,18 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - name: Install Python 3.12 and 3.13
-        run: uv python install 3.12 3.13
+      - name: Install Python 3.12, 3.13, and 3.14
+        run: uv python install 3.12 3.13 3.14
 
-      - name: Verify both public distributions on both Python versions
+      - name: Verify both public distributions on supported Python versions
+        id: install-checks
         shell: bash
         run: bash .github/scripts/verify-release-install.sh "$RELEASE_TAG" "$RUNNER_TEMP/release-public"
 
       - name: Summarize public release verification
         shell: bash
+        env:
+          VERIFIED_PYTHON_VERSIONS: ${{ steps.install-checks.outputs.python_versions }}
         run: |
           {
             echo '### Verified public release distributions'
@@ -127,5 +130,5 @@ jobs:
             printf -- '- All three public files match [build run %s](%s/%s/actions/runs/%s).\n' \
               "$BUILD_RUN_ID" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$BUILD_RUN_ID"
             echo '- Both distributions matched SHA256SUMS.'
-            echo '- Wheel and source distribution passed installation, dependency and CLI checks on Python 3.12 and 3.13.'
+            printf -- '- Wheel and source distribution passed installation, dependency and CLI checks on Python %s.\n' "$VERIFIED_PYTHON_VERSIONS"
           } >> "$GITHUB_STEP_SUMMARY"
