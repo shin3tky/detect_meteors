@@ -1,7 +1,7 @@
 """Opt-in experiment using connected regions and cross-trail contrast."""
 
 from dataclasses import dataclass
-from math import ceil, floor, isfinite
+from math import ceil, floor, isfinite, log1p
 from time import perf_counter
 
 import cv2
@@ -22,6 +22,7 @@ class RegionConfig:
     background_offset_px: int = 6
     max_report_regions: int = 128
     enable_ransac: bool = False
+    ransac_priority: str = "area"
     ransac_seed: int = 0
     ransac_max_regions: int = 64
     ransac_max_trials: int = 64
@@ -32,6 +33,8 @@ class RegionConfig:
     def __post_init__(self) -> None:
         if type(self.enable_ransac) is not bool:
             raise ValueError("enable_ransac must be a boolean")
+        if self.ransac_priority not in ("area", "area_contrast_aspect"):
+            raise ValueError("ransac_priority must be 'area' or 'area_contrast_aspect'")
         for name, minimum in (
             ("diff_threshold", 0),
             ("min_area_px", 2),
@@ -165,19 +168,35 @@ def _ransac_axis(points, config, rng):
     return origin, direction, inliers
 
 
+def _ransac_priority_score(region, config):
+    area = region["area_px"]
+    if config.ransac_priority == "area":
+        return area
+
+    # Temper the influence of size and rank on measurements already available
+    # from the ordinary fit. The ratios stop gaining weight at the existing gates.
+    size_weight = log1p(area / config.min_area_px)
+    contrast_weight = min(
+        1.0, max(0.0, region["contrast"] or 0.0) / max(1.0, config.min_contrast)
+    )
+    aspect_weight = min(1.0, region["aspect_ratio"] / config.min_aspect_ratio)
+    return size_weight * contrast_weight * aspect_weight
+
+
 def _retry_rejected_regions(
     regions, component_indices, labels, stats, residual, roi, config
 ):
-    """Try the largest rejected regions first and retain the original accepted fits."""
-    rejected = sorted(
-        (index for index, region in enumerate(regions) if not region["accepted"]),
-        key=lambda index: regions[index]["area_px"],
-        reverse=True,
-    )
+    """Re-evaluate a bounded subset of rejects and retain the original accepted fits."""
+    rejected = [
+        (_ransac_priority_score(region, config), region["area_px"], index)
+        for index, region in enumerate(regions)
+        if not region["accepted"]
+    ]
+    rejected.sort(key=lambda entry: entry[:2], reverse=True)
     attempts = rejected[: config.ransac_max_regions]
     rng = np.random.default_rng(config.ransac_seed)
     recovered = 0
-    for index in attempts:
+    for rank, (priority_score, _, index) in enumerate(attempts, 1):
         label = component_indices[index] + 1
         region = regions[index]
         points = _component_points(labels, label, stats[label])
@@ -195,6 +214,8 @@ def _retry_rejected_regions(
         )
         accepted = refit is not None and refit["accepted"]
         region["ransac"] = {
+            "priority_rank": rank,
+            "priority_score": priority_score,
             "inlier_count": count,
             "inlier_fraction": fraction,
             "enough_inliers": enough_inliers,
@@ -208,6 +229,7 @@ def _retry_rejected_regions(
             region.update(refit)
             recovered += 1
     return {
+        "priority": config.ransac_priority,
         "seed": config.ransac_seed,
         "regions_attempted": len(attempts),
         "regions_skipped": len(rejected) - len(attempts),
@@ -220,7 +242,7 @@ class RegionDetector(DataclassDetector[RegionConfig]):
 
     plugin_name = "region"
     name = "Experimental region detector"
-    version = "0.2.0"
+    version = "0.3.0"
     ConfigType = RegionConfig
 
     def compute_line_score(self, mask, hough_params):
