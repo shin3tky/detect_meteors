@@ -29,6 +29,7 @@ class RegionConfig:
     ransac_max_points: int = 1024
     ransac_distance_px: float = 2.0
     ransac_min_inlier_fraction: float = 0.20
+    ransac_min_contrast: float | None = None
 
     def __post_init__(self) -> None:
         if type(self.enable_ransac) is not bool:
@@ -66,6 +67,11 @@ class RegionConfig:
             raise ValueError("ransac_distance_px must be positive")
         if not 0 < self.ransac_min_inlier_fraction <= 1:
             raise ValueError("ransac_min_inlier_fraction must be in (0, 1]")
+        contrast = self.ransac_min_contrast
+        if contrast is not None and (
+            type(contrast) not in (int, float) or not isfinite(contrast) or contrast < 0
+        ):
+            raise ValueError("ransac_min_contrast must be a finite number >= 0 or null")
 
 
 def _component_points(labels, label, stats):
@@ -212,6 +218,11 @@ def _retry_rejected_regions(
             if enough_inliers
             else None
         )
+        if refit is not None and config.ransac_min_contrast is not None:
+            contrast = refit["contrast"]
+            passes = contrast is not None and contrast >= config.ransac_min_contrast
+            refit["gates"]["ransac_contrast"] = passes
+            refit["accepted"] = refit["accepted"] and passes
         accepted = refit is not None and refit["accepted"]
         region["ransac"] = {
             "priority_rank": rank,
@@ -228,13 +239,16 @@ def _retry_rejected_regions(
         if accepted and refit is not None:
             region.update(refit)
             recovered += 1
-    return {
+    diagnostics = {
         "priority": config.ransac_priority,
         "seed": config.ransac_seed,
         "regions_attempted": len(attempts),
         "regions_skipped": len(rejected) - len(attempts),
         "regions_recovered": recovered,
     }
+    if config.ransac_min_contrast is not None:
+        diagnostics["min_contrast"] = config.ransac_min_contrast
+    return diagnostics
 
 
 class RegionDetector(DataclassDetector[RegionConfig]):
@@ -242,7 +256,7 @@ class RegionDetector(DataclassDetector[RegionConfig]):
 
     plugin_name = "region"
     name = "Experimental region detector"
-    version = "0.3.0"
+    version = "0.4.0"
     ConfigType = RegionConfig
 
     def compute_line_score(self, mask, hough_params):
