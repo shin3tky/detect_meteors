@@ -13,11 +13,25 @@ Detect Meteors CLIをmacOSとWindowsにインストールする手順を説明�
 > 同期対象内では `.venv` 内のファイルに非表示属性が再付与され、
 > 導入に成功していても `ModuleNotFoundError` で起動できなくなる場合があります。
 
+<a id="python-requirements"></a>
+
+## Python の動作要件
+
+リポジトリの現在のソースは Python 3.12、3.13、3.14 に対応しています。
+Python 3.14 を使う場合は、Git と uv を用意し、現在のソースからインストールしてください。
+
+```bash
+git clone https://github.com/shin3tky/detect_meteors.git
+cd detect_meteors
+uv sync --locked
+```
+
 ## v1.6.13 のソースからインストールする
 
 以下のOS別の手順でGitとuvを用意した後、リリース済みのソースを取得し、
 ロックファイルに従って依存パッケージをインストールします。
-Python 3.12または3.13が必要です。依存パッケージの取得にはパッケージインデックスへの接続が必要です。
+リリース済みの v1.6.13 には Python 3.12 または 3.13 が必要です。
+依存パッケージの取得にはパッケージインデックスへの接続が必要です。
 
 ```bash
 git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git

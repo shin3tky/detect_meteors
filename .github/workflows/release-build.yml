@@ -55,8 +55,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - name: Install Python 3.12 and 3.13
-        run: uv python install 3.12 3.13
+      - name: Install Python 3.12, 3.13, and 3.14
+        run: uv python install 3.12 3.13 3.14
 
       - name: Build distributions and generate SHA256SUMS
         shell: bash
@@ -77,7 +77,8 @@ jobs:
           sha256sum "$wheel" "$sdist" > SHA256SUMS
           sha256sum --check SHA256SUMS
 
-      - name: Verify both distributions on both Python versions
+      - name: Verify both distributions on supported Python versions
+        id: install-checks
         shell: bash
         run: bash .github/scripts/verify-release-install.sh "$RELEASE_TAG" "$RUNNER_TEMP/release-dist"
 
@@ -96,11 +97,12 @@ jobs:
         shell: bash
         env:
           ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+          VERIFIED_PYTHON_VERSIONS: ${{ steps.install-checks.outputs.python_versions }}
         run: |
           {
             echo '### Verified release distributions'
             printf '\n- Tag: %s\n- Commit: %s\n' "$RELEASE_TAG" "$EXPECTED_SHA"
-            echo '- Wheel and source distribution passed installation, dependency and CLI checks on Python 3.12 and 3.13.'
+            printf -- '- Wheel and source distribution passed installation, dependency and CLI checks on Python %s.\n' "$VERIFIED_PYTHON_VERSIONS"
             echo '- Both distributions matched SHA256SUMS.'
             printf -- '- [Download the three files](%s) for manual publication.\n' "$ARTIFACT_URL"
           } >> "$GITHUB_STEP_SUMMARY"

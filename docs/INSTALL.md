@@ -13,11 +13,23 @@ This guide provides detailed installation instructions for Detect Meteors CLI on
 > In synced locations, hidden attributes can be reapplied to files in `.venv`,
 > causing startup to fail with `ModuleNotFoundError` even after a successful installation.
 
+## Python Requirements
+
+The current repository checkout supports Python 3.12, 3.13, and 3.14.
+To install with Python 3.14, use Git and uv to install from the current source.
+
+```bash
+git clone https://github.com/shin3tky/detect_meteors.git
+cd detect_meteors
+uv sync --locked
+```
+
 ## Install v1.6.13 from Source
 
 Install Git and uv using the platform-specific steps below, then obtain the
-released source and install its locked dependencies. Python 3.12 or 3.13 is
-required; dependency installation needs access to the package index.
+released source and install its locked dependencies. The v1.6.13 release
+requires Python 3.12 or 3.13. Installing dependencies requires access to the
+package index.
 
 ```bash
 git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git

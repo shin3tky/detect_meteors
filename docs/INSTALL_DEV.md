@@ -29,11 +29,11 @@ The CLI version comes from the checked-out source. Use that checkout's
 ### Step 1: Install Development Dependencies
 
 From the checkout root, install the locked runtime and development dependencies.
-The repository selects Python 3.12 in `.python-version`. CI runs the test suite
-with both Python 3.12 and 3.13.
+The repository selects Python 3.14 in `.python-version`. CI runs the test suite
+with Python 3.12, 3.13, and 3.14.
 
 ```bash
-uv python install 3.12
+uv python install 3.14
 uv sync --locked --all-extras
 uv run detect-meteors --version
 uv run detect-meteors --help
@@ -351,7 +351,8 @@ stay outside the distribution. For tests using the local sample, see the
 
 Use the following check from the directory containing both distribution files.
 It creates a fresh virtual environment for each file on each supported Python
-version. Use it before uploading and again on the public downloads.
+version. Add `3.14` to the loop for releases that support it. Use the check
+before uploading and again on the public downloads.
 
 ```bash
 check_release_install() (
@@ -376,7 +377,7 @@ Then run the check on the local build:
 (cd "$release_dir/dist" && check_release_install)
 ```
 
-All four installations should succeed. The CLI should print the release version
+All installations should succeed. The CLI should print the release version
 and display help in each environment.
 
 ### 3. Generate SHA256SUMS and publish
@@ -410,6 +411,7 @@ ID from the **Build release distributions** run that produced the uploaded
 files. The run ID is the number after `/actions/runs/` in that run's URL.
 The workflow compares all three public files with that run's artifact before
 checking SHA-256 and installing both distributions on Python 3.12 and 3.13.
+It also checks Python 3.14 when the release declares support for it.
 A separate build of the same tag may produce different bytes.
 
 To verify manually using a build from Actions, unpack the artifact and copy its
@@ -510,7 +512,7 @@ Confirm that the release page shows the intended commit and all three assets.
 
 - **Ruff** for linting and formatting (88 character line length)
 - Markdown code examples are excluded from Ruff formatting. Preserve manually aligned inline `#` comments for readability.
-- **Python 3.12 or 3.13** required (`>=3.12,<3.14`)
+- **Python 3.12, 3.13, or 3.14** required (`>=3.12,<3.15`)
 - **Google-style docstrings**
 - **Type hints** throughout
 

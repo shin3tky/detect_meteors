@@ -31,7 +31,7 @@
 
 ## 動作要件
 
-- Python 3.12、3.13
+- Python 3.12、3.13、3.14
 - macOS、Windows、Linux
 - 依存ライブラリ：`numpy`、`opencv-python`、`rawpy`、`psutil`、`pillow`、`pydantic`、`pyyaml`
 
@@ -40,6 +40,7 @@
 ## インストール
 
 [最新リリース](https://github.com/shin3tky/detect_meteors/releases/latest)をダウンロードし、[インストールガイド](docs/INSTALL_ja.md)に沿って導入してください。
+Python 3.14 を使う場合は、[リポジトリの現在のソース](docs/INSTALL_ja.md#python-requirements)からインストールしてください。
 
 ## クイックスタート
 
@@ -263,7 +264,7 @@ RAWファイルとチェックサムは、リポジトリの [`rawfiles/2024GEMI
 
 **2026年11月16日**
 
-- GitHub Actions で wheel とソース配布物をビルドし、Python 3.12・3.13 で検証して `SHA256SUMS` を生成します。
+- GitHub Actions で wheel とソース配布物をビルドし、Python 3.12・3.13 でインストールを検証して `SHA256SUMS` を生成します。リリースが Python 3.14 に対応する場合は、3.14 でも検証します。
 - 公開後の検証では、ダウンロードしたファイルをビルド時の成果物と比較し、インストールと CLI の起動を再確認します。
 - NumPy を 2.5.5 に更新し、開発用の Ruff、ty、coverage も更新しました。
 
