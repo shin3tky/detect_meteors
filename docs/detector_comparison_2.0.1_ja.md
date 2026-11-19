@@ -90,19 +90,56 @@ uv run --locked detect-meteors \
 
 領域方式は、逐次処理と2つの spawn ワーカーで11ペア分の判定・幾何が一致した。注記用の `on_detection_complete` フックが出力に反映されることと、4ペア処理後に中断を注入し、同じ進捗から残り7ペアを処理できることも確認した。合成画像では差分閾値の境界と ROI 内外の扱いを8ビット・16ビット入力で検証した。
 
-### 領域方式の比較を再実行する
+## 線分ベースの試作と4条件の比較
+
+[`lsd` 検出器](../experiments/region_comparison/lsd_detector.py)を同じエントリーポイント機構で登録した。`preprocess: dog` は標準偏差1 pxと3 pxのガウシアン差分、`preprocess: tophat` は9 × 9 pxの楕円による白トップハットを使う。両条件とも正の応答を上限70 DNで切り、0〜255の8ビット値に変換して OpenCV の `LSD_REFINE_STD` に渡す。上限は最初のペア `_C140335.ORF` → `_C140336.ORF` で、応答の99.9パーセンタイルが DoG 27.6 DN、トップハット66.0 DNだったことから、両者の大きい方を10 DN単位で切り上げて固定した。[OpenCV LSD](https://docs.opencv.org/4.x/db/d73/classcv_1_1LineSegmentDetector.html) · [OpenCV の画像フィルタ](https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html)
+
+検出した線分は15 px以上、線分上のサンプル点がすべて ROI 内、元の絶対差分上で測ったコントラストが15 DN以上の場合に採用する。コントラストの測定関数と背景帯の位置は領域方式と共通。採用した線分の整数座標を `DetectionResult.lines` に渡し、サブピクセル座標は `extras` に残して照合に使った。全11ペアの上限クリップ率は DoG で0.031〜0.040%、トップハットで0.084〜0.101%だった。
+
+同梱 RAW のチェックサムを照合し、Hough と領域方式も含めて同じ11ペアを再計測した。4条件とも全画面 ROI、フックなし、デバッグ画像保存なし。macOS 27.2.1（arm64）、Python 3.14.10、OpenCV 5.0.0、NumPy 2.5.5 で、条件の実行順を変えながら逐次3回ずつ実行した。検出器内の時間は1回分の `metrics.duration_ms` を合計し、CLI 全体の時間は読み込み・候補保存・報告出力を含めて測った。
+
+| 指標（時間と RSS は逐次3回の中央値） | Hough | 領域ベース | DoG＋LSD | 白トップハット＋LSD |
+| --- | ---: | ---: | ---: | ---: |
+| 正常に処理・記録したペア | 11 | 11 | 11 | 11 |
+| 候補画像 | 11 | 3 | 11 | 11 |
+| 確認済み流星の画像が候補になった数 | 2 / 2 | 1 / 2 | 2 / 2 | 2 / 2 |
+| 候補判定と軌跡の照合がともに成立した数 | 2 / 2 | 1 / 2 | 2 / 2 | 2 / 2 |
+| 検出器内の時間合計 | 0.086 s | 4.30 s | 1.38 s | 3.44 s |
+| CLI 全体の経過時間 | 7.03 s | 11.36 s | 8.15 s | 10.14 s |
+| 子プロセスのピーク RSS | 197 MiB | 640 MiB | 378 MiB | 363 MiB |
+
+各方式の軌跡被覆は、前の実験で記録した同じ中心線と許容幅を使って測った。Hough は返された線分、領域方式は採用された領域の支持区間、LSD は採用されたサブピクセル線分で照合した。
+
+| 確認済み流星の画像 | Hough | 領域ベース | DoG＋LSD | 白トップハット＋LSD |
+| --- | ---: | ---: | ---: | ---: |
+| `_C140338.ORF` | 94.8% | 100.0% | 99.9% | 78.3% |
+| `_C140344.ORF` | 63.4% | 0.0% | 84.3% | 51.1% |
+
+DoG＋LSD は、この設定で確認済み2本に対応する線分を長く保った。短い流星 `_C140344.ORF` は白トップハット＋LSD でも候補になり、25.1 pxの採用線分1本で照合基準の50%をわずかに超えた。両 LSD 条件の候補集合は Hough と同じ11枚だった。この結果は、初期設定を用いた同梱1系列での比較である。
+
+両 LSD 条件とも、逐次3回と2つの spawn ワーカーで判定と幾何が一致した。DoG＋LSD で既存の `aircraft_trail` フックを有効にした別の実行では、候補に航空機注記が付き、ペアの判定と幾何は一致した。共通の測定関数に移した領域方式も、前の試作と判定・幾何が一致した。
+
+### 4条件の比較を再実行する
 
 リポジトリのルートから実行する。試作の wheel は実験用ディレクトリにインストールし、この比較を起動するプロセスから読み込む。
 
 ```bash
 uv sync --locked
-run_root=$(mktemp -d "${TMPDIR:-/tmp}/detect-meteors-region-XXXXXX")
+run_root=$(mktemp -d "${TMPDIR:-/tmp}/detect-meteors-comparison-XXXXXX")
 uv build --wheel --out-dir "$run_root/dist" experiments/region_comparison
 uv pip install --python .venv/bin/python --no-deps \
   --target "$run_root/plugins" "$run_root"/dist/*.whl
 
-for detector in hough region; do
-  run_dir="$run_root/$detector"
+for condition in hough region lsd_dog lsd_tophat; do
+  detector="$condition"
+  detector_config='{}'
+  case "$condition" in
+    lsd_*)
+      detector=lsd
+      detector_config="{\"preprocess\":\"${condition#lsd_}\",\"response_clip_dn\":70}"
+      ;;
+  esac
+  run_dir="$run_root/$condition"
   mkdir "$run_dir"
   report_config=$(.venv/bin/python - "$run_dir" <<'PY'
 import json
@@ -119,7 +156,8 @@ PY
   )
   PYTHONPATH="$run_root/plugins" .venv/bin/detect-meteors \
     --config config_examples/aircraft_trail_sample.yaml \
-    --detector "$detector" --hooks '' --no-roi --no-resume \
+    --detector "$detector" --detector-config "$detector_config" \
+    --hooks '' --no-roi --no-resume \
     --workers 1 --batch-size 4 --no-auto-batch-size --profile \
     --output-handler pair_report --output-handler-config "$report_config" \
     --progress-file "$run_dir/progress.json"
@@ -127,5 +165,6 @@ done
 
 .venv/bin/python experiments/region_comparison/summarize.py \
   rawfiles/2024GEMINI_AIRCRAFT \
-  "$run_root/hough/pairs.jsonl" "$run_root/region/pairs.jsonl"
+  "$run_root/hough/pairs.jsonl" "$run_root/region/pairs.jsonl" \
+  --lsd-reports "$run_root/lsd_dog/pairs.jsonl" "$run_root/lsd_tophat/pairs.jsonl"
 ```
