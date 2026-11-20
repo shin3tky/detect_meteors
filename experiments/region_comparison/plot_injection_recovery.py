@@ -79,7 +79,7 @@ def plot(table, path):
                 )
         for i, target in enumerate(("2", "4", "8", "16", "32")):
             x = left + round(i * (right - left) / 4)
-            draw.text((x, bottom + 7), target, anchor="mt", font=small, fill=ink)
+            draw.text((x, bottom + 12), target, anchor="mt", font=small, fill=ink)
         for length, color in palette.items():
             points = [
                 (

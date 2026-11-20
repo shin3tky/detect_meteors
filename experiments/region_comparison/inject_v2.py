@@ -8,7 +8,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import yaml
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from benchmark_v2 import METHODS, _lines, detector_for, inputs
 from meteor_core.image_io import load_and_bin_raw_fast
@@ -93,31 +93,33 @@ def _evidence(measured, axis):
 
 def _example(path, residual, injected, axis):
     """Show the actual analysis residual, not a noiseless template."""
-    out = Image.new("RGB", (960, 350), "white")
+    out = Image.new("RGB", (1012, 358), "white")
     drawing = ImageDraw.Draw(out)
+    font = ImageFont.load_default(size=17)
     center = np.rint(axis.mean(axis=0)).astype(int)
     x, y = center - 78
-    for i, (name, data) in enumerate(
+    for i, (name, data, low, high) in enumerate(
         (
-            ("Original signed RAW difference", residual),
-            ("Same difference with injected trail", injected),
+            ("Original RAW difference (-8 to 20 DN)", residual, -8, 20),
+            ("RAW + synthetic trail (-8 to 20 DN)", injected, -8, 20),
+            ("Added signal after rounding (0 to 5 DN)", injected - residual, 0, 5),
         )
     ):
         area = data[y : y + 156, x : x + 156]
         view = (
-            Image.fromarray(np.uint8(np.clip((area + 8) / 28, 0, 1) * 255))
+            Image.fromarray(np.uint8(np.clip((area - low) / (high - low), 0, 1) * 255))
             .resize((304, 304), Image.Resampling.NEAREST)
             .convert("RGB")
         )
-        origin = (26 + i * 460, 33)
+        origin = (22 + i * 332, 38)
         out.paste(view, origin)
-        drawing.text((origin[0], 10), name, fill="black")
+        drawing.text((origin[0], 11), name, fill="black", font=font)
         a, b = ((axis - (x, y)) * 304 / 156 + origin).tolist()
         for px, py in (a, b):
             drawing.ellipse(
                 (px - 5, py - 5, px + 5, py + 5), outline="#ffd36b", width=1
             )
-    out.crop((0, 0, 818, 350)).save(path)
+    out.save(path)
 
 
 def _trials(rng):
