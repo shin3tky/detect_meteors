@@ -1,6 +1,11 @@
 *
 !.gitignore
 
-# Keep the reproducible aircraft/meteor validation sample in Git.
-!2024GEMINI_AIRCRAFT/
-!2024GEMINI_AIRCRAFT/**
+# Track the validation datasets, including their original ORF files.
+!/2021GEMINI/
+!/2021GEMINI/**
+!/2024GEMINI/
+!/2024GEMINI/**
+!/2024GEMINI_AIRCRAFT/
+!/2024GEMINI_AIRCRAFT/**
+.DS_Store
