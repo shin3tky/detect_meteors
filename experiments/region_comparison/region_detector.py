@@ -93,7 +93,7 @@ def _fit_axis(points):
     return np.array((x0, y0), dtype=np.float64), np.array((vx, vy), dtype=np.float64)
 
 
-def _measure_axis(points, origin, direction, residual, roi, config):
+def _measure_axis(points, origin, direction, residual, roi, config, *, refit=False):
     normal = np.array((-direction[1], direction[0]))
     centered = points - origin
     along = centered @ direction
@@ -121,8 +121,13 @@ def _measure_axis(points, origin, direction, residual, roi, config):
     gates = {
         "length": length >= config.min_length_px,
         "aspect_ratio": ratio >= config.min_aspect_ratio,
-        "contrast": contrast is not None and contrast >= config.min_contrast,
     }
+    if refit and config.ransac_min_contrast is not None:
+        gates["ransac_contrast"] = (
+            contrast is not None and contrast >= config.ransac_min_contrast
+        )
+    else:
+        gates["contrast"] = contrast is not None and contrast >= config.min_contrast
     return {
         "length_px": length,
         "width_px": cross_width,
@@ -287,15 +292,10 @@ def _retry_rejected_regions(
             and fraction >= config.ransac_min_inlier_fraction
         )
         refit = (
-            _measure_axis(inliers, origin, direction, residual, roi, config)
+            _measure_axis(inliers, origin, direction, residual, roi, config, refit=True)
             if enough_inliers
             else None
         )
-        if refit is not None and config.ransac_min_contrast is not None:
-            contrast = refit["contrast"]
-            passes = contrast is not None and contrast >= config.ransac_min_contrast
-            refit["gates"]["ransac_contrast"] = passes
-            refit["accepted"] = refit["accepted"] and passes
         accepted = refit is not None and refit["accepted"]
         region["ransac"] = {
             "priority_rank": rank,
@@ -329,7 +329,7 @@ class RegionDetector(DataclassDetector[RegionConfig]):
 
     plugin_name = "region"
     name = "Experimental region detector"
-    version = "0.6.0"
+    version = "0.6.1"
     ConfigType = RegionConfig
 
     def compute_line_score(self, mask, hough_params):
