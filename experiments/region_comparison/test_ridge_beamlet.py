@@ -1,4 +1,4 @@
-"""Geometry, sign, and diary coverage of the experimental line proposals."""
+"""Test proposal geometry, difference polarity, and ROI handling."""
 
 import unittest
 
