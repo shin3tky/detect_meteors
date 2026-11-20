@@ -1,7 +1,7 @@
 """Opt-in experiment using connected regions and cross-trail contrast."""
 
 from dataclasses import dataclass
-from math import ceil, floor, isfinite, log1p
+from math import ceil, dist, floor, isfinite, log1p
 from time import perf_counter
 
 import cv2
@@ -30,6 +30,7 @@ class RegionConfig:
     ransac_distance_px: float = 2.0
     ransac_min_inlier_fraction: float = 0.20
     ransac_min_contrast: float | None = None
+    ransac_min_contiguous_support_px: float | None = None
     reject_negative_axis_fraction: float | None = None
     min_positive_axis_fraction: float | None = None
 
@@ -74,6 +75,13 @@ class RegionConfig:
             type(contrast) not in (int, float) or not isfinite(contrast) or contrast < 0
         ):
             raise ValueError("ransac_min_contrast must be a finite number >= 0 or null")
+        support = self.ransac_min_contiguous_support_px
+        if support is not None and (
+            type(support) not in (int, float) or not isfinite(support) or support <= 0
+        ):
+            raise ValueError(
+                "ransac_min_contiguous_support_px must be a finite number > 0 or null"
+            )
         for name in ("reject_negative_axis_fraction", "min_positive_axis_fraction"):
             fraction = getattr(self, name)
             if fraction is not None and (
@@ -128,15 +136,21 @@ def _measure_axis(points, origin, direction, residual, roi, config, *, refit=Fal
         )
     else:
         gates["contrast"] = contrast is not None and contrast >= config.min_contrast
-    return {
+    measurement = {
         "length_px": length,
         "width_px": cross_width,
         "aspect_ratio": ratio,
         "contrast": contrast,
         "axis_support": support,
         "gates": gates,
-        "accepted": all(gates.values()),
     }
+    min_support = config.ransac_min_contiguous_support_px
+    if refit and min_support is not None:
+        max_support = max((dist(start, end) for start, end in support), default=0.0)
+        measurement["max_contiguous_support_px"] = max_support
+        gates["contiguous_support"] = max_support >= min_support
+    measurement["accepted"] = all(gates.values())
+    return measurement
 
 
 def _measure_region(labels, label, stats, residual, roi, config):
@@ -321,6 +335,10 @@ def _retry_rejected_regions(
     }
     if config.ransac_min_contrast is not None:
         diagnostics["min_contrast"] = config.ransac_min_contrast
+    if config.ransac_min_contiguous_support_px is not None:
+        diagnostics["min_contiguous_support_px"] = (
+            config.ransac_min_contiguous_support_px
+        )
     return diagnostics
 
 
@@ -329,7 +347,7 @@ class RegionDetector(DataclassDetector[RegionConfig]):
 
     plugin_name = "region"
     name = "Experimental region detector"
-    version = "0.6.1"
+    version = "0.7.0"
     ConfigType = RegionConfig
 
     def compute_line_score(self, mask, hough_params):
