@@ -1,0 +1,20 @@
+[
+  {
+    "current": "_C150303.ORF",
+    "previous": "_C150302.ORF",
+    "axis": [[1992, 700], [2257, 1008]],
+    "half_width_px": 10
+  },
+  {
+    "current": "_C150319.ORF",
+    "previous": "_C150318.ORF",
+    "axis": [[615, 1021], [545, 1137]],
+    "half_width_px": 5
+  },
+  {
+    "current": "_C150326.ORF",
+    "previous": "_C150325.ORF",
+    "axis": [[1473, 1194], [1480, 1275]],
+    "half_width_px": 5
+  }
+]
