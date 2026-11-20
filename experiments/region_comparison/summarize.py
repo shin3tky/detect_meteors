@@ -1,4 +1,4 @@
-"""Compare reports for the bundled RAW sequence against reviewed meteor trails."""
+"""Compare RAW sequence reports against reviewed meteor trails."""
 
 import argparse
 import json
@@ -109,12 +109,15 @@ def main():
     parser.add_argument("raw_dir", type=Path)
     parser.add_argument("hough_report", type=Path)
     parser.add_argument("region_report", type=Path)
+    parser.add_argument(
+        "--labels", type=Path, default=Path(__file__).with_name("meteor_labels.json")
+    )
     parser.add_argument("--lsd-reports", type=Path, nargs=2, metavar=("DOG", "TOPHAT"))
     parser.add_argument("--radon-report", type=Path)
     parser.add_argument("--region-ransac-report", type=Path)
     args = parser.parse_args()
     frames = sorted(path.name for path in args.raw_dir.glob("*.ORF"))
-    labels = json.loads(Path(__file__).with_name("meteor_labels.json").read_text())
+    labels = json.loads(args.labels.read_text(encoding="utf-8"))
     hough = load_pairs(args.hough_report, frames)
     region = load_pairs(args.region_report, frames)
     region_ransac = {}
