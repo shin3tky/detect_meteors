@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "detect-meteors-region-experiment"
-version = "0.10.0"
+version = "0.11.0"
 requires-python = ">=3.12,<3.15"
 dependencies = ["detect-meteors>=1.6.13"]
 
@@ -14,6 +14,7 @@ lsd = "lsd_detector:LsdDetector"
 radon = "radon_detector:RadonDetector"
 ridge = "ridge_detector:RidgeDetector"
 beamlet = "beamlet_detector:BeamletDetector"
+frt = "frt_detector:FrtDetector"
 
 [project.entry-points."detect_meteors.output"]
 pair_report = "pair_report:PairReportHandler"
@@ -21,5 +22,5 @@ pair_report = "pair_report:PairReportHandler"
 [tool.setuptools]
 py-modules = [
     "region_detector", "lsd_detector", "radon_detector", "ridge_detector",
-    "beamlet_detector", "pair_report", "trail_measurement",
+    "beamlet_detector", "frt_detector", "pair_report", "trail_measurement",
 ]
