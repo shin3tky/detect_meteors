@@ -1,11 +1,12 @@
 """Pixel measurements shared by the experimental detectors."""
 
 from math import ceil, hypot
+from time import perf_counter
 
 import cv2
 import numpy as np
 
-from meteor_core.schema import DetectionContext
+from meteor_core.schema import DetectionContext, DetectionResult
 from meteor_core.utils import ensure_numpy
 
 
@@ -101,3 +102,32 @@ def measure_segment(
         "gates": gates,
         "accepted": all(gates.values()),
     }
+
+
+def signed_segment_result(method, segments, started, report_limit, **diagnostics):
+    """Keep the subpixel geometry of every accepted segment and some rejects."""
+    accepted = [segment for segment in segments if segment["accepted"]]
+    rejected = [segment for segment in segments if not segment["accepted"]]
+    report = accepted + rejected[: max(0, report_limit - len(accepted))]
+    return DetectionResult(
+        is_candidate=bool(accepted),
+        score=max((segment["response"] for segment in accepted), default=0.0),
+        lines=[
+            tuple(round(value) for value in segment["line_xyxy"])
+            for segment in accepted
+        ],
+        aspect_ratio=0.0,
+        debug_image=None,
+        extras={
+            method: {
+                **diagnostics,
+                "segments": report,
+                "segments_omitted": len(segments) - len(report),
+                "accepted_segments": len(accepted),
+            }
+        },
+        metrics={
+            "duration_ms": (perf_counter() - started) * 1000.0,
+            "num_segments": len(segments),
+        },
+    )
