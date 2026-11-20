@@ -475,6 +475,16 @@ ln(1 + A / 最小面積) × clip(C / max(最小コントラスト, 1), 0, 1)
 
 各方式とも3回の候補判定と検出軌跡が一致した。処理時間は macOS arm64、Python 3.14.10、OpenCV 5.0.0 で測った3回の中央値。検出器内の時間は75ペアの合計で、CLI全体にはRAWの読み込み、候補のコピー、診断と進捗の書き出しが含まれる。
 
+### 目視確認と検出の根拠画像
+
+目視注釈に使った `_C140518.ORF` から `_C140524.ORF` までの7枚。上段は2×2ビニング後のRAWの同じ位置、下段は `現在 − max(直前, 直後)` の表示。左右の端では片側の隣接画像で差分を取った。中央の521に斜めの光跡が写っている。
+
+![連続7コマのRAWと時間差分。中央の521にだけ斜めの光跡が見える](images/detector_comparison/c140521-raw-review.png)
+
+下図のAは `_C140521.ORF` の全画面、Bは実測ログに記録されたHoughの線分504本を重ねたもの。Cは黄色枠の拡大で、黄色の2本線が注釈の許容幅を示す。Dは同じ位置の `現在 − 直前` に、棄却された再推定軸の支持区間を水色で重ねた診断図。階調補正と平滑化は表示用で、表の数値は検出時の画素と軸から集計した。
+
+![現在RAW、Houghの検出線分、注釈した流星、6 DNと連続区間44.0 pxで棄却されたRANSAC軸の4面比較](images/detector_comparison/c140521-detector-evidence.png)
+
 ### 後半区間の比較を再実行する
 
 下記の手順で wheel を準備し、リポジトリのルートから対象の76枚だけを参照するディレクトリを作る。
@@ -495,6 +505,17 @@ done
   "$run_root/hough/pairs.jsonl" \
   "$run_root/region_ransac_ranked_contrast_signed_appearance/pairs.jsonl" \
   --labels experiments/region_comparison/2024_gemini_late_labels.json
+```
+
+掲載した2枚の図は、同じRAWと各方式の `pairs.jsonl` から生成する。Houghの線分はログを使い、RANSACの棄却軸は対象ペアだけ報告上限を広げて再取得する。
+
+```bash
+PYTHONPATH="$run_root/plugins" .venv/bin/python \
+  experiments/region_comparison/render_2024_gemini_late.py \
+  "$late_raw_dir" \
+  "$run_root/hough/pairs.jsonl" \
+  "$run_root/region_ransac_ranked_contrast_signed_appearance/pairs.jsonl" \
+  "$run_root/figures"
 ```
 
 ### 検出器比較を再実行する
