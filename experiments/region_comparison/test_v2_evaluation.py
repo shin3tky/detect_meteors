@@ -15,7 +15,7 @@ from review_metrics import (
     frame_metrics,
     read_truth,
 )
-from segment_verification import noise_tiles, verify_segments
+from segment_verification import noise_scaled_pair, noise_tiles, verify_segments
 
 FIRST, METEOR, NEXT = ("_C140520.ORF", "_C140521.ORF", "_C140522.ORF")
 
@@ -107,6 +107,21 @@ class AnalysisInputTests(unittest.TestCase):
         high = verify_segments(proposals, 4 * residual, noise_tiles(4 * residual))
         self.assertTrue(low["shared_sigma"])
         self.assertEqual(low["shared_sigma"], high["shared_sigma"])
+
+    def test_noise_scaled_images_preserve_polarity_and_positive_gain(self):
+        rng = np.random.default_rng(0)
+        shape = (79, 85)
+        signed = rng.normal(0, 5, size=shape).astype(np.float32)
+        signed[4, :3] = [-8, 0, 8]
+        current, prior = noise_scaled_pair(signed)
+        amplified, amplified_prior = noise_scaled_pair(4 * signed)
+        self.assertEqual(current.dtype, np.uint16)
+        self.assertEqual(prior.shape, shape)
+        self.assertEqual(
+            np.sign(current[4, :3].astype(int) - prior[4, :3]).tolist(), [-1, 0, 1]
+        )
+        np.testing.assert_array_equal(current, amplified)
+        np.testing.assert_array_equal(prior, amplified_prior)
 
     def test_injection_reports_quantized_signal_without_altering_original(self):
         current = np.full((96, 96), 512, dtype=np.uint16)

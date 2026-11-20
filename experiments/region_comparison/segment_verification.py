@@ -2,14 +2,15 @@
 
 from math import ceil
 
+import cv2
 import numpy as np
 
 TILE = 64
 SIGMA_FLOOR = 1.0
 POLARITY = 0.75
 CONTIGUOUS = 45.0
-MIN_LENGTH = 15.0
 THRESHOLDS = {"shared_dn": 9.0, "shared_sigma": 2.0}
+DN_PER_SIGMA = 4.5
 
 
 def noise_tiles(residual):
@@ -21,6 +22,28 @@ def noise_tiles(residual):
         center = np.median(values)
         output[i, j] = max(SIGMA_FLOOR, 1.4826 * np.median(np.abs(values - center)))
     return output
+
+
+def noise_scaled_pair(residual):
+    """Represent a standardized signed residual as two unsigned analysis images."""
+    scale = noise_tiles(residual)
+    height, width = residual.shape
+
+    def grid(size):
+        starts = np.arange(0, size, TILE)
+        centers = (starts + np.minimum(starts + TILE, size) - 1) / 2
+        return np.interp(np.arange(size), centers, np.arange(len(starts))).astype(
+            np.float32
+        )
+
+    x, y = np.meshgrid(grid(width), grid(height))
+    sigma = cv2.remap(scale, x, y, cv2.INTER_LINEAR)
+    pedestal = 32768
+    previous = np.full_like(residual, pedestal, dtype=np.uint16)
+    current = np.rint(
+        pedestal + np.clip((residual / sigma) * DN_PER_SIGMA, -pedestal, pedestal - 1)
+    )
+    return current.astype(np.uint16), previous
 
 
 def _support(supported, axis, spacing):
@@ -44,7 +67,7 @@ def verify_segments(lines, residual, tiles):
         start, stop = np.asarray(line, dtype=float).reshape(2, 2)
         delta = stop - start
         length = np.hypot(*delta)
-        if length < MIN_LENGTH:
+        if length < CONTIGUOUS:
             continue
         count = ceil(length)
         axis = np.linspace(start, stop, count + 1)

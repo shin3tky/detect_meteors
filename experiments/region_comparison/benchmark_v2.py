@@ -19,7 +19,12 @@ from meteor_core.detectors import DetectorRegistry
 from meteor_core.image_io import load_and_bin_raw_fast
 from meteor_core.pipeline import _build_runtime_params
 from meteor_core.schema import DetectionContext
-from segment_verification import THRESHOLDS, noise_tiles, verify_segments
+from segment_verification import (
+    THRESHOLDS,
+    noise_scaled_pair,
+    noise_tiles,
+    verify_segments,
+)
 from summarize import trail_coverage
 
 SEQUENCES = {
@@ -103,7 +108,16 @@ def _summarize_times(pairs, repeats):
     }
 
 
-def _bench(sequence, methods, repeats, raw_root, *, median_depth=0, common=False):
+def _bench(
+    sequence,
+    methods,
+    repeats,
+    raw_root,
+    *,
+    median_depth=0,
+    common=False,
+    noise_scaled=False,
+):
     source, frames, labels, input_hash = inputs(sequence, raw_root)
     params = yaml.safe_load(
         Path("config_examples/aircraft_trail_sample.yaml").read_text()
@@ -134,17 +148,21 @@ def _bench(sequence, methods, repeats, raw_root, *, median_depth=0, common=False
             else:
                 reference_image, preprocessing = previous, 0.0
             background_total += preprocessing
-            if common:
+            analysis_current, analysis_prior = current, reference_image
+            if common or noise_scaled:
                 started = perf_counter()
                 signed = cv2.subtract(current, reference_image, dtype=cv2.CV_32F)
-                tiles = noise_tiles(signed)
+                if common:
+                    tiles = noise_tiles(signed)
+                if noise_scaled:
+                    analysis_current, analysis_prior = noise_scaled_pair(signed)
                 sigma_total += perf_counter() - started
             for repeat in range(repeats):
                 shift = (repeat + index) % len(methods)
                 for method in methods[shift:] + methods[:shift]:
                     context = DetectionContext(
-                        current,
-                        reference_image,
+                        analysis_current,
+                        analysis_prior,
                         roi,
                         runtime[method],
                         {"frame_index": index},
@@ -218,6 +236,7 @@ def _bench(sequence, methods, repeats, raw_root, *, median_depth=0, common=False
         "frames": frames,
         "annotations": labels,
         "median_depth": median_depth,
+        "noise_scaled_input": noise_scaled,
         "background_seconds": background_total,
         "sigma_preparation_seconds": sigma_total,
         "results": {
@@ -247,8 +266,10 @@ def main():
     parser.add_argument("--sequences", nargs="+", choices=SEQUENCES, required=True)
     parser.add_argument("--methods", nargs="+", choices=METHODS, required=True)
     parser.add_argument("--repeats", type=int, default=1)
-    parser.add_argument("--temporal-median", action="store_true")
-    parser.add_argument("--common-verifier", action="store_true")
+    alternate = parser.add_mutually_exclusive_group()
+    alternate.add_argument("--temporal-median", action="store_true")
+    alternate.add_argument("--common-verifier", action="store_true")
+    alternate.add_argument("--noise-scaled", action="store_true")
     args = parser.parse_args()
     if args.repeats < 1 or len(args.methods) != len(set(args.methods)):
         parser.error("Use a positive repeat count and unique methods")
@@ -269,6 +290,7 @@ def main():
                     Path("config_examples/aircraft_trail_sample.yaml").read_text()
                 )["params"],
                 "common_verifier": args.common_verifier,
+                "noise_scaled_input": args.noise_scaled,
             },
             indent=2,
         )
@@ -282,6 +304,7 @@ def main():
             args.raw_root,
             median_depth=3 if args.temporal_median else 0,
             common=args.common_verifier,
+            noise_scaled=args.noise_scaled,
         )
         (args.output / f"{name}.json").write_text(json.dumps(result, indent=2) + "\n")
         print("Completed", name, flush=True)
