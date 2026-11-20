@@ -1,4 +1,4 @@
-"""Run the ridge/beamlet comparison from the repository root using an installed wheel."""
+"""Run a RAW-pair detector comparison from the repository root with an installed wheel."""
 
 import argparse
 import hashlib
@@ -43,7 +43,10 @@ METHODS = {
     "dog_lsd": ("lsd", {"preprocess": "dog"}),
     "ridge": ("ridge", {}),
     "beamlet": ("beamlet", {}),
+    "radon": ("radon", {}),
+    "frt": ("frt", {}),
 }
+DEFAULT_METHODS = ["hough", "region", "dog_lsd", "ridge", "beamlet"]
 EXPERIMENT = Path(__file__).resolve().parent
 
 
@@ -117,6 +120,37 @@ def _threshold_sweep(rows, labels, detector):
     return result
 
 
+def _frt_sweep(rows, labels):
+    """Raise the score gate without moving proposals or changing other gates."""
+    result = {}
+    for threshold in (8, 10, 12, 16, 20, 30):
+        selected = {}
+        for name, row in rows.items():
+            selected[name] = [
+                (segment["line_xyxy"][:2], segment["line_xyxy"][2:])
+                for segment in row["extras"]["frt"]["segments"]
+                if segment["accepted"] and segment["response"] >= threshold
+            ]
+        appear = {
+            label["current"]: trail_coverage(label, selected[label["current"]])
+            for label in labels
+        }
+        frame_names = list(rows)
+        following = {}
+        for label in labels:
+            index = frame_names.index(label["current"]) + 1
+            if index < len(frame_names):
+                following[label["current"]] = trail_coverage(
+                    label, selected[frame_names[index]]
+                )
+        result[str(threshold)] = {
+            "candidates": sum(bool(lines) for lines in selected.values()),
+            "appearance_coverage": appear,
+            "following_coverage": following,
+        }
+    return result
+
+
 def _run(output, method, data, frames, labels, base):
     output.mkdir()
     detector, detector_config = METHODS[method]
@@ -161,11 +195,21 @@ def _run(output, method, data, frames, labels, base):
     if saved != candidates:
         raise ValueError(f"Candidate files differ from the per-pair report in {output}")
     trails = {}
+    events = {}
     for label in labels:
         row = rows[label["current"]]
         if frames[row["prev_frame_index"]] != label["previous"]:
             raise ValueError(f"Unexpected previous frame for {label['current']}")
         trails[label["current"]] = _trail(label, row, detector)
+        index = row["frame_index"] + 1
+        following = frames[index] if index < len(frames) else None
+        next_pair = _trail(label, rows[following], detector) if following else None
+        events[label["current"]] = {
+            "following_frame": following,
+            "following": next_pair,
+            "event_match": trails[label["current"]]["match"]
+            or (next_pair is not None and next_pair["match"]),
+        }
     records = [
         {
             "current": name,
@@ -181,6 +225,7 @@ def _run(output, method, data, frames, labels, base):
                     "proposals_omitted",
                     "segments_omitted",
                     "accepted_segments",
+                    "projection_cells",
                 )
             },
         }
@@ -189,11 +234,14 @@ def _run(output, method, data, frames, labels, base):
     result = {
         "candidate_frames": candidates,
         "trails": trails,
+        "events": events,
         "detector_seconds": sum(r["detector_ms"] for r in records) / 1000,
         "wall_seconds": elapsed,
         "pairs": records,
         "contrast_sweep_dn": _threshold_sweep(rows, labels, detector),
     }
+    if detector == "frt":
+        result["snr_sweep"] = _frt_sweep(rows, labels)
     (output / "run.json").write_text(json.dumps(result, indent=2) + "\n")
     print(
         output.parent.name,
@@ -212,7 +260,9 @@ def main():
     parser.add_argument(
         "output", type=Path, help="new directory for reports and RAW copies"
     )
-    parser.add_argument("--methods", nargs="+", choices=METHODS, default=list(METHODS))
+    parser.add_argument(
+        "--methods", nargs="+", choices=METHODS, default=DEFAULT_METHODS
+    )
     parser.add_argument(
         "--sequences", nargs="+", choices=SEQUENCES, default=list(SEQUENCES)
     )
@@ -256,7 +306,14 @@ def main():
                 previous_runs = results[method]
                 if previous_runs and any(
                     run[key] != previous_runs[0][key]
-                    for key in ("candidate_frames", "trails", "contrast_sweep_dn")
+                    for key in (
+                        "candidate_frames",
+                        "trails",
+                        "events",
+                        "contrast_sweep_dn",
+                        "snr_sweep",
+                    )
+                    if key in run
                 ):
                     raise ValueError(
                         f"{name} {method} decisions changed across repeats"
