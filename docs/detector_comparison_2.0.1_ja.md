@@ -457,6 +457,46 @@ ln(1 + A / 最小面積) × clip(C / max(最小コントラスト, 1), 0, 1)
 
 対象のファイル名順に `shasum -a 256` を実行した出力全体のSHA-256は `fd2e5b3b1ba36c9a5161747cc85b66673746eb67d33d891a7d4baaa1c4ef7b06`。
 
+### 後半区間の実測結果
+
+| 指標 | Hough | 領域方式（固定条件） |
+| --- | ---: | ---: |
+| 正常に処理・記録したペア | 75 | 75 |
+| 候補画像 | 66 | 4 |
+| 注釈した流星が写った候補画像 | 1 / 1 | 0 / 1 |
+| 候補判定と軌跡照合がともに成立した流星 | 0 / 1 | 0 / 1 |
+| `_C140521.ORF` の注釈軌跡の被覆 | 0.0% | 0.0% |
+| 検出器内の時間合計 | 0.688 s | 31.437 s |
+| CLI全体の経過時間 | 43.929 s | 74.831 s |
+
+領域方式の候補は `_C140456.ORF`、`_C140506.ORF`、`_C140526.ORF`、`_C140527.ORF` の4枚で、いずれもHoughの候補に含まれた。Houghは注釈した `_C140521.ORF` も候補にしたが、返した線分504本による流星軌跡の被覆は0%だった。領域方式では同画像が候補から外れた。この区間で確認した淡く短い流星1本は、両方式とも軌跡を検出できなかった。
+
+報告上限を広げて `_C140521.ORF` のペアを調べると、注釈の許容幅にかかる差分成分のうち、面積と外接矩形の長さの条件を満たしたのは4領域だった。その中で軌跡に沿った領域 `[862, 772, 38, 38]` は優先順6位で再推定された。採用前の軸は注釈区間の48.6%を覆い、コントラスト6 DN、最長連続区間44.0 pxで、9 DNと45 pxの両条件に届かなかった。この軸は符号判定に進む前に外れた。
+
+各方式とも3回の候補判定と検出軌跡が一致した。処理時間は macOS arm64、Python 3.14.10、OpenCV 5.0.0 で測った3回の中央値。検出器内の時間は75ペアの合計で、CLI全体にはRAWの読み込み、候補のコピー、診断と進捗の書き出しが含まれる。
+
+### 後半区間の比較を再実行する
+
+下記の手順で wheel を準備し、リポジトリのルートから対象の76枚だけを参照するディレクトリを作る。
+
+```bash
+late_raw_dir="$run_root/2024-gemini-late"
+mkdir "$late_raw_dir"
+for frame in {452..527}; do
+  ln -s "$PWD/rawfiles/2024GEMINI/_C140${frame}.ORF" "$late_raw_dir/"
+done
+```
+
+下記のループで `hough` と `region_ransac_ranked_contrast_signed_appearance` の2条件を選び、両方式に `--target "$late_raw_dir"` を指定する。領域方式の設定では `ransac_min_contrast` を9にし、`ransac_min_contiguous_support_px` に45を指定する。次のコマンドで同じ注釈を使って集計する。
+
+```bash
+.venv/bin/python experiments/region_comparison/summarize.py \
+  "$late_raw_dir" \
+  "$run_root/hough/pairs.jsonl" \
+  "$run_root/region_ransac_ranked_contrast_signed_appearance/pairs.jsonl" \
+  --labels experiments/region_comparison/2024_gemini_late_labels.json
+```
+
 ### 検出器比較を再実行する
 
 リポジトリのルートから実行する。試作の wheel は実験用ディレクトリにインストールし、この比較を起動するプロセスから読み込む。
