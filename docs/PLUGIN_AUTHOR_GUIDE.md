@@ -166,6 +166,7 @@ filtering, transformation, and analysis.
 |-------|----------------|-------------------|
 | `on_file_found` | Invoked | Filter files before loading |
 | `on_image_loaded` | Invoked | Transform images or enrich metadata |
+| `on_before_detection` | Invoked | Prepare both images and the ROI for pair detection |
 | `on_detection_complete` | Invoked | Adjust scoring, attach metadata |
 | `on_output_saved` | Invoked | Record metrics, telemetry |
 | `on_batch_results_sorted` | Invoked (v1.6.10) | Batch-local analysis with frame order |
@@ -230,7 +231,7 @@ parallel runs when its class is importable by a worker.
 | Callback | Process | Hook instance lifetime |
 | --- | --- | --- |
 | `on_file_found`, `on_all_detections_sorted` | Main | Shared within one run |
-| `on_image_loaded`, `on_detection_complete` | Main for sequential processing; worker for parallel processing | Created per `process_image_batch()` call, shared across pairs within that batch |
+| `on_image_loaded`, `on_before_detection`, `on_detection_complete` | Main for sequential processing; worker for parallel processing | Created per batch and shared across its pairs |
 | `on_output_saved`, `on_batch_results_sorted` | Main | Shared within one run, separately from file-filter/final-analysis instances |
 | Output-handler lifecycle events | Main | The output handler held by the pipeline |
 
@@ -309,6 +310,28 @@ transform image data or enrich metadata for downstream detectors/output hooks.
 - Registered hooks are invoked in order for each frame.
 
 ---
+
+<a id="frame-pair-hook"></a>
+
+#### Frame-Pair Hook
+
+After both `on_image_loaded()` chains, the pipeline builds a
+`DetectionContext` and calls `on_before_detection(context) -> DetectionContext`
+in configured hook order. The accepted context goes to the detector and to
+`on_detection_complete()`. Output handlers receive the resulting context
+metadata and runtime settings without the image or mask arrays.
+
+Return a compatible `DetectionContext`. Match the detector's image and mask
+layout, and use `dataclasses.replace()` and fresh arrays or mappings for changes.
+The ROI array can be shared across pairs in a batch. Preserve current-image
+coordinates for candidate output and ROI overlays. Invalid returns follow
+`hook_error_mode`. In `warn` mode the next hook receives the last accepted
+context, so in-place changes made before a failure can still be visible.
+
+When a frame-pair hook is active, the progress hash includes the ordered hook
+settings and error mode. Enabling, disabling, or changing the configuration can
+cause saved pairs to be processed again. Programmatic settings that cannot be
+serialized for the hash cause processing to start from the beginning on resume.
 
 ### 1.8 Detection Result Hook (Pipeline)
 

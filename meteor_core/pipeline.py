@@ -16,6 +16,7 @@ import signal
 import time
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import asdict
 from itertools import pairwise
 from typing import (
     Any,
@@ -364,6 +365,43 @@ def _apply_image_loaded_hooks(
                 message_args=(context.filepath, role, exc),
                 filepath=context.filepath,
                 context={"frame_role": role},
+                plugin_name=hook.plugin_name,
+            )
+    return context
+
+
+def _apply_before_detection_hooks(
+    context: DetectionContext,
+    hooks: Sequence[BaseHook],
+    filepath: str,
+    hook_error_mode: str,
+) -> DetectionContext:
+    for hook in hooks:
+        try:
+            updated = hook.on_before_detection(context)
+            if not isinstance(updated, DetectionContext):
+                raise TypeError(
+                    f"Expected DetectionContext, got {type(updated).__name__}."
+                )
+            updated = _normalize_detection_context(updated)
+            for field in ("current_image", "previous_image", "roi_mask"):
+                if not _is_supported_image(getattr(updated, field)):
+                    raise TypeError(
+                        f"DetectionContext.{field} must be a supported image."
+                    )
+            if not isinstance(updated.metadata, dict):
+                raise TypeError("DetectionContext.metadata must be a dictionary.")
+            if not isinstance(updated.runtime_params, (dict, RuntimeParams)):
+                raise TypeError("Invalid DetectionContext.runtime_params.")
+            context = updated
+        except Exception as exc:
+            _handle_hook_exception(
+                exc,
+                hook_name="on_before_detection",
+                hook_error_mode=hook_error_mode,
+                message="on_before_detection hook failed for %s: %s",
+                message_args=(filepath, exc),
+                filepath=filepath,
                 plugin_name=hook.plugin_name,
             )
     return context
@@ -1106,6 +1144,11 @@ def _process_resolved_batch(
     """Detect frame pairs using the supplied plugin instances."""
     results = []
     runtime_params = _build_runtime_params(params, det)
+    pair_hooks = [
+        hook
+        for hook in hooks
+        if type(hook).on_before_detection is not BaseHook.on_before_detection
+    ]
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
     for frame_index, curr_file, prev_file in batch_data:
@@ -1159,6 +1202,9 @@ def _process_resolved_batch(
                 metadata=metadata,
             )
             context = _normalize_detection_context(context)
+            context = _apply_before_detection_hooks(
+                context, pair_hooks, curr_file, hook_error_mode
+            )
             result = det.detect(context)
             result = _normalize_detector_result(
                 result,
@@ -2237,7 +2283,7 @@ class MeteorDetectionPipeline:
         )
         runtime_params = _apply_normalized_diff_threshold(params, normalized_input)
 
-        self._prepare_progress(files, params, roi_polygon, resume, locale)
+        self._prepare_progress(files, params, roi_polygon, resume, locale, hooks)
 
         image_pairs = [
             (frame_index, current, previous)
@@ -2459,25 +2505,34 @@ class MeteorDetectionPipeline:
         roi_polygon: Optional[List[List[int]]],
         resume: bool,
         locale: str,
+        hooks: List[BaseHook],
     ) -> None:
         """Prepare the progress file before building the remaining frame pairs.
 
-        The hash combines configured thresholds and the effective ROI. A
-        mismatch resets saved results. Entries for files outside the current
-        input set are removed before progress is written.
+        Hash the configured thresholds and ROI, including the hook configuration
+        when a frame-pair hook is enabled. A mismatch resets saved results.
         """
         params_for_hash = params.copy()
         if roi_polygon:
             params_for_hash["roi_polygon"] = roi_polygon
-
-        self.progress_manager.set_params(params)
-        self.progress_manager.set_roi(roi_polygon or "full_image")
-        self.progress_manager.set_processing_params(params)
-        params_hash = compute_params_hash(params_for_hash)
-        self.progress_manager.set_params_hash(params_hash)
+        if any(
+            type(hook).on_before_detection is not BaseHook.on_before_detection
+            for hook in hooks
+        ):
+            params_for_hash["hooks"] = [
+                asdict(hook) for hook in self._config.hooks or ()
+            ]
+            params_for_hash["hook_error_mode"] = self._config.hook_error_mode
+        try:
+            params_hash = compute_params_hash(params_for_hash)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Progress cannot be resumed with non-JSON frame-pair hook settings."
+            )
+            params_hash = ""
 
         if resume and self.progress_manager.load():
-            if self.progress_manager.get_params_hash() == params_hash:
+            if params_hash and self.progress_manager.get_params_hash() == params_hash:
                 print(
                     get_message(
                         "ui.pipeline.progress.resuming",
@@ -2490,7 +2545,11 @@ class MeteorDetectionPipeline:
             else:
                 print(get_message("ui.pipeline.progress.param_mismatch", locale=locale))
                 self.progress_manager.reset()
-                self.progress_manager.set_params_hash(params_hash)
+
+        self.progress_manager.set_params_hash(params_hash)
+        self.progress_manager.set_params(params)
+        self.progress_manager.set_roi(roi_polygon or "full_image")
+        self.progress_manager.set_processing_params(params)
 
         existing_basenames = {os.path.basename(path) for path in files}
         self.progress_manager.filter_existing_files(existing_basenames)

@@ -4,18 +4,21 @@ import contextlib
 import io
 import json
 import os
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import numpy as np
 
-from meteor_core.exceptions import MeteorLoadError
+from meteor_core.exceptions import MeteorHookError, MeteorLoadError
+from meteor_core.hooks import HookRegistry
 from meteor_core.pipeline import (
+    _apply_before_detection_hooks,
     _apply_output_saved_hooks,
     _process_worker_batch,
     process_image_batch,
 )
-from meteor_core.schema import HookConfig, OutputResult
+from meteor_core.schema import DetectionContext, HookConfig, OutputResult
 from meteor_core.utils import compute_params_hash
 from tests.pipeline_fixtures import (
     MemoryLoader,
@@ -27,16 +30,42 @@ from tests.pipeline_fixtures import (
 )
 
 
+class RecordingPairHook(RecordingHook):
+    plugin_name = "test_recording_pair_hook"
+
+    def on_before_detection(self, context):
+        self._record("on_before_detection", context.metadata["frame_index"])
+        return replace(
+            context,
+            previous_image=context.previous_image + 1,
+            roi_mask=np.roll(context.roi_mask, 1, axis=0),
+            metadata={
+                **context.metadata,
+                "pair_hooks": [
+                    *context.metadata.get("pair_hooks", []),
+                    self.config.label,
+                ],
+                "pair_hook_pid": os.getpid(),
+            },
+        )
+
+
 class TestImagePairHooks(PipelineTestCase):
     def test_replacement_contexts_and_results_follow_configured_hook_order(self):
+        HookRegistry.register(RecordingPairHook)
+        detector = RecordingDetector()
+        mask = np.zeros((4, 4), dtype=np.uint8)
+        mask[0] = 255
+        detect = Mock(wraps=detector.detect)
+        detector.detect = detect
         results = process_image_batch(
             [(1, "b.CR2", "a.CR2")],
-            np.ones((4, 4), dtype=np.uint8),
+            mask,
             {},
             input_loader=MemoryLoader(),
-            detector=RecordingDetector(),
+            detector=detector,
             hook_configs=[
-                HookConfig(RecordingHook.plugin_name, RecordingHookConfig(label))
+                HookConfig(RecordingPairHook.plugin_name, RecordingHookConfig(label))
                 for label in ("first", "second")
             ],
         )
@@ -48,6 +77,8 @@ class TestImagePairHooks(PipelineTestCase):
                 ("second", "on_image_loaded", ("b.CR2", "current")),
                 ("first", "on_image_loaded", ("a.CR2", "previous")),
                 ("second", "on_image_loaded", ("a.CR2", "previous")),
+                ("first", "on_before_detection", 1),
+                ("second", "on_before_detection", 1),
                 ("first", "on_detection_complete", 1),
                 ("second", "on_detection_complete", 1),
             ],
@@ -55,10 +86,52 @@ class TestImagePairHooks(PipelineTestCase):
         result, payload = results[0][7:]
         self.assertEqual(result.score, 44.0)
         self.assertEqual(result.extras["detection_hooks"], ["first", "second"])
+        self.assertEqual(payload["metadata"]["pair_hooks"], ["first", "second"])
+        context = detect.call_args.args[0]
+        np.testing.assert_array_equal(context.previous_image, np.full((4, 4), 2))
+        np.testing.assert_array_equal(context.roi_mask, np.roll(mask, 2, axis=0))
         for role in ("current", "previous"):
             metadata = payload["metadata"][role]
             self.assertEqual(metadata["frame_role"], role)
             self.assertEqual(metadata["image_hooks"], ["first", "second"])
+
+    def test_invalid_pair_hook_return_follows_error_policy(self):
+        image = np.zeros((4, 4), dtype=np.uint16)
+        context = DetectionContext(
+            image,
+            image,
+            np.full((4, 4), 255, np.uint8),
+            {},
+            {
+                "frame_index": 1,
+            },
+        )
+        first = RecordingPairHook(RecordingHookConfig("first"))
+        invalid = RecordingPairHook(RecordingHookConfig("invalid"))
+        last = RecordingPairHook(RecordingHookConfig("last"))
+        for value in (
+            None,
+            replace(context, roi_mask=None),
+            replace(context, schema_version=-1),
+        ):
+            with self.subTest(value=type(value)):
+                with patch.object(invalid, "on_before_detection", return_value=value):
+                    with self.assertLogs("meteor_core.pipeline", "WARNING"):
+                        result = _apply_before_detection_hooks(
+                            context, [first, invalid, last], "b.CR2", "warn"
+                        )
+                    self.assertEqual(result.metadata["pair_hooks"], ["first", "last"])
+                    with self.assertLogs("meteor_core.pipeline", "ERROR"):
+                        with self.assertRaises(MeteorHookError) as raised:
+                            _apply_before_detection_hooks(
+                                context, [invalid, last], "b.CR2", "raise"
+                            )
+                    self.assertEqual(
+                        raised.exception.context["hook_name"], "on_before_detection"
+                    )
+                    self.assertEqual(
+                        raised.exception.context["plugin_name"], invalid.plugin_name
+                    )
 
     def test_hook_instance_is_shared_within_batch_and_recreated_for_next_batch(self):
         options = dict(
@@ -106,6 +179,43 @@ class TestImagePairHooks(PipelineTestCase):
 
 
 class TestPipelineHookLifecycle(PipelineTestCase):
+    def test_pair_hook_runs_in_spawn_worker_and_affects_resume(self):
+        HookRegistry.register(RecordingPairHook)
+        pipeline = self.make_pipeline(parallel=True, pairs=2, hooks=[])
+        with (
+            patch(
+                "meteor_core.pipeline.ProcessPoolExecutor",
+                side_effect=make_spawn_executor,
+            ),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(pipeline.run(resume=False), 2)
+            self.assertNotIn(
+                "pair_hooks", pipeline.output_handler.contexts[-1]["metadata"]
+            )
+
+            for label in ("first", "changed"):
+                pipeline.config.hooks = [
+                    HookConfig(RecordingPairHook.plugin_name, {"label": label})
+                ]
+                pipeline.output_handler.contexts.clear()
+                self.assertEqual(pipeline.run(resume=True), 2)
+                self.assertEqual(len(pipeline.output_handler.contexts), 2)
+                for item in pipeline.output_handler.contexts:
+                    self.assertEqual(item["metadata"]["pair_hooks"], [label])
+                    self.assertNotEqual(item["metadata"]["pair_hook_pid"], os.getpid())
+
+            pipeline.output_handler.contexts.clear()
+            self.assertEqual(pipeline.run(resume=True), 2)
+            self.assertEqual(pipeline.output_handler.contexts, [])
+
+            pipeline.config.hooks = []
+            self.assertEqual(pipeline.run(resume=True), 2)
+            self.assertEqual(len(pipeline.output_handler.contexts), 2)
+            self.assertNotIn(
+                "pair_hooks", pipeline.output_handler.contexts[-1]["metadata"]
+            )
+
     def test_no_configured_hooks_creates_no_hook_instances(self):
         pipeline = self.make_pipeline(hooks=[], pairs=1)
         pipeline.config.hooks = None

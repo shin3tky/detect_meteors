@@ -138,7 +138,7 @@ filepath ──▶ Input Loader ──▶ InputContext
 ### 1.3 画像ペアの処理
 
 1. 現在フレーム、前フレームの順に `load()` で読み込み、それぞれの `InputContext` を `on_image_loaded()` に渡します。
-2. 画素、ROI、実行時設定、フレームのメタデータを `DetectionContext` にまとめて `detect()` を呼びます。正規化した `DetectionResult` は `on_detection_complete()` で更新できます。
+2. 画素、ROI、実行時設定、フレームのメタデータを `DetectionContext` にまとめます。`on_before_detection()` で更新したコンテキストを `detect()` に渡します。正規化した `DetectionResult` は `on_detection_complete()` で更新できます。
 3. メインプロセスは検出結果を出力ハンドラーに通知し、候補は `save_candidate()` に渡します。候補とデバッグ画像の保存は出力ハンドラーが担当します。詳しい順序は[フックの実行場所とインスタンスの共有範囲](#hook-execution-and-state)を参照してください。
 
 <a id="14-hook-overview"></a>
@@ -166,6 +166,7 @@ filepath ──▶ Input Loader ──▶ InputContext
 |----------|------------|------|
 | `on_file_found` | 呼び出す | 読み込み前の選別 |
 | `on_image_loaded` | 呼び出す | 画像変換、メタデータ追加 |
+| `on_before_detection` | 呼び出す | 画像ペアと ROI の前処理 |
 | `on_detection_complete` | 呼び出す | スコア調整、メタデータ追加 |
 | `on_output_saved` | 呼び出す | 計測値の記録 |
 | `on_batch_results_sorted` | 呼び出す（v1.6.10） | フレーム順でバッチ内を解析 |
@@ -225,7 +226,7 @@ filepath ──▶ Input Loader ──▶ InputContext
 | コールバック | 実行場所 | フックのインスタンス |
 | --- | --- | --- |
 | `on_file_found`、`on_all_detections_sorted` | メインプロセス | 同じ実行内で共有 |
-| `on_image_loaded`、`on_detection_complete` | 逐次時はメイン、並列時はワーカー | `process_image_batch()` の呼び出しごとに生成し、同じバッチの画像ペア間で共有 |
+| `on_image_loaded`、`on_before_detection`、`on_detection_complete` | 逐次時はメイン、並列時はワーカー | バッチごとに生成し、同じバッチの画像ペア間で共有 |
 | `on_output_saved`、`on_batch_results_sorted` | メインプロセス | 同じ実行内で共有。ただしファイル選別・最終解析のインスタンスとは別 |
 | 出力ハンドラーのライフサイクルイベント | メインプロセス | パイプラインが保持する出力ハンドラー |
 
@@ -295,6 +296,26 @@ filepath ──▶ Input Loader ──▶ InputContext
 - フレームごとに登録順で実行します。
 
 ---
+
+<a id="frame-pair-hook"></a>
+
+#### 画像ペアの前処理フック
+
+両画像の `on_image_loaded()` が終わった後に `DetectionContext` を組み立て、設定順に
+`on_before_detection(context) -> DetectionContext` を呼びます。受理したコンテキストは
+検出器と `on_detection_complete()` に渡します。出力ハンドラーには、画像とマスクの配列を
+除いたメタデータと実行時設定を渡します。
+
+検出器が受け取れる形式の画像とマスクを持つ `DetectionContext` を返してください。
+変更時は `dataclasses.replace()` などでコンテキストを作り直し、新しい配列や辞書を使います。
+ROI 配列は同じバッチのペア間で共有される場合があります。候補出力や ROI の重ね描きに
+使う現在画像の座標系を維持してください。不正な戻り値は `hook_error_mode` に従います。
+`warn` では直前に受理したコンテキストで続行します。失敗前に入力を直接変更すると、
+その変更は後続のフックにも見える場合があります。
+
+画像ペアの前処理フックが有効な場合、進捗のハッシュに順序付きフック設定とエラーモードを
+含めます。追加、削除、設定変更によって処理済みペアが再処理される場合があります。
+ハッシュ用にシリアライズできない Python API の設定では、再開時に先頭から処理します。
 
 <a id="18-detection-result-hook-pipeline"></a>
 
