@@ -15,7 +15,7 @@
 - Python 3.14を対象に追加しました。Pydantic、PyYAML、Ruff、ty、coverageを更新し、
   検証用RAW・目視ラベル・チェックサムの配布先を `detect_meteors_assets` に移しました。
 
-[2.1.1のリリースノート](RELEASE_NOTES_2.1_ja.md#version-211)
+[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [2.1.1のリリースノート](RELEASE_NOTES_2.1_ja.md#version-211) · [インストールガイド](INSTALL_ja.md)
 
 <a id="v1613"></a>
 
