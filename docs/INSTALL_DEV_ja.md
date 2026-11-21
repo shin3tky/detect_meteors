@@ -571,6 +571,8 @@ detect_meteors/
 
 ## 貢献の手順
 
+`main` への直接 push は禁止です。`main` への変更はすべて、必須チェックの通過後に Pull Request（PR）経由でマージします。
+
 1. リポジトリを **Fork** します。
 2. Forkしたリポジトリをローカルに **Clone** します。
 3. このガイドに従って **開発環境を構築** します。
@@ -579,8 +581,8 @@ detect_meteors/
 6. **テストを実行** します：`uv run python run_tests.py`
 7. **カバレッジを測定** します：`uv run coverage run -m unittest discover tests && uv run coverage report`
 8. **コミット** します（インストール済みのフックがRuffとtyを実行）。
-9. Forkしたリポジトリへ **Push** します。
-10. **Pull Requestを作成** します。
+9. 作業用ブランチをForkしたリポジトリへ **Push** します。
+10. `main` をマージ先に指定して **Pull Requestを作成** します。
 
 ## 問題への対処
 

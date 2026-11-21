@@ -616,6 +616,9 @@ For creating custom plugins (input loaders, detectors, output handlers, pipeline
 
 ## Contribution Workflow
 
+Direct pushes to `main` are prohibited. All changes to `main` must be merged
+through a pull request after the required checks pass.
+
 1. **Fork** the repository
 2. **Clone** your fork locally
 3. **Set up** development environment (this guide)
@@ -624,8 +627,8 @@ For creating custom plugins (input loaders, detectors, output handlers, pipeline
 6. **Run** tests: `uv run python run_tests.py`
 7. **Measure** coverage: `uv run coverage run -m unittest discover tests && uv run coverage report`
 8. **Commit** (the installed hook runs Ruff and ty)
-9. **Push** to your fork
-10. **Create** a Pull Request
+9. **Push** the feature branch to your fork
+10. **Create** a pull request targeting `main`
 
 ## Troubleshooting
 
