@@ -2,6 +2,24 @@
 
 [日本語版](CHANGELOG_ja.md)
 
+<a id="v211"></a>
+
+## v2.1.1 (in preparation)
+
+- Add the `on_before_detection()` hook after loading both frames and before
+  detection. The built-in `star_registration` hook demonstrates rotation and
+  translation of the previous frame using stars.
+- Add a positive-difference mode for Hough and matched sample configurations
+  for conventional Hough, registration, positive differences, and experimental
+  FRT retry. Absolute-difference Hough remains the default.
+- Add experimental FRT retry with brief-gap support for pairs rejected by
+  unaligned positive-difference Hough. Document the 121-pair sequence holdout
+  and the false positives and processing costs observed on 2025LEO.
+- Add Python 3.14 support, update Pydantic, PyYAML, Ruff, ty, and coverage, and
+  move the validation RAWs, visual labels, and checksums to `detect_meteors_assets`.
+
+[2.1.1 release notes](RELEASE_NOTES_2.1.md#version-211)
+
 <a id="v1613"></a>
 
 ## v1.6.13 - 2026-11-16 - 🤝 International Day for Tolerance

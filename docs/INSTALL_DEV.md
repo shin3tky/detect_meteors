@@ -274,9 +274,30 @@ The test runner reports the total for the current checkout.
 
 ## Building a Release
 
+<a id="release-211-checklist"></a>
+
+### 2.1.1 release readiness checklist
+
+1. Set the version to `2.1.1` in `pyproject.toml` and `meteor_core/schema.py`,
+   regenerate `uv.lock`, and run `uv lock --check` and the local tests.
+2. Run all four configurations on the aircraft sample. Check candidate,
+   debug and progress paths, and resume with the conventional configuration.
+   Present FRT retry as experimental. [Configurations and validation results](RELEASE_NOTES_2.1.md#version-211)
+3. Merge the PR after required CI checks pass. Confirm that the annotated
+   `2.1.1` tag resolves to the intended release commit on `main`.
+4. Verify the wheel and source distribution on Python 3.12, 3.13, and 3.14.
+   Check that the package metadata and `detect-meteors --version` both report
+   `2.1.1`, and that the source distribution contains both sets of release
+   notes and all four configurations.
+5. Add the confirmed release date and distribution links to the documentation.
+   Publish the distributions and `SHA256SUMS`, then verify the public downloads
+   against the artifacts from the same build. [Public download verification](#verify-public-release-downloads)
+
+### Build and verify distributions
+
 Once CI passes for the release commit, open **Actions → Build release
 distributions → Run workflow** on the default branch. Enter the tag (for
-example, `1.6.12`) and the full commit SHA. A successful run saves the wheel,
+example, `2.1.1`) and the full commit SHA. A successful run saves the wheel,
 source distribution, and `SHA256SUMS` in one artifact. Download and unpack it,
 recheck the remote tag, and attach the three files in GitHub Release. Then
 follow [the public download checks](#verify-public-release-downloads).
@@ -308,7 +329,7 @@ annotated tag on that commit and push it to `origin`. Then check both the local
 and remote tag:
 
 ```bash
-release_version=1.6.12
+release_version=2.1.1
 release_commit=$(git rev-parse --verify HEAD)
 git rev-parse --verify "refs/tags/${release_version}^{commit}"
 git ls-remote --exit-code origin refs/heads/main "refs/tags/$release_version" "refs/tags/$release_version^{}"
@@ -344,21 +365,20 @@ TAR_OPTIONS= tar -tzf "$release_dir/dist/$sdist"
 ```
 
 Check that the output names match the release version. The source distribution
-includes the documentation, configuration examples, tests, lockfile, and the
-aircraft sample's README and checksums. RAW images and generated candidates
-stay outside the distribution. For tests using the local sample, see the
-[aircraft guide](aircraft_light_trails_hook_design.md).
+includes documentation, configuration examples, tests, and the lockfile.
+Get sample RAWs, visual labels, and checksums from `detect_meteors_assets`.
+[Sample RAW setup](INSTALL.md#sample-raw-images)
 
 Use the following check from the directory containing both distribution files.
-It creates a fresh virtual environment for each file on each supported Python
-version. Add `3.14` to the loop for releases that support it. Use the check
-before uploading and again on the public downloads.
+It creates a fresh virtual environment for each file on each Python version
+supported by 2.1.1. Adjust the loop to match `Requires-Python` for other releases.
+Use the check before uploading and again on the public downloads.
 
 ```bash
 check_release_install() (
   set -e
   install_dir=$(mktemp -d "$release_dir/install.XXXXXX")
-  for python_version in 3.12 3.13; do
+  for python_version in 3.12 3.13 3.14; do
     for asset in "$wheel" "$sdist"; do
       venv="$install_dir/$python_version-$asset"
       uv venv --python "$python_version" "$venv"
@@ -418,7 +438,7 @@ To verify manually using a build from Actions, unpack the artifact and copy its
 three files into `dist/` in a fresh working directory:
 
 ```bash
-release_version=1.6.12
+release_version=2.1.1
 artifact_dir="/path/to/unpacked-artifact"
 release_dir=$(mktemp -d)
 wheel="detect_meteors-$release_version-py3-none-any.whl"
@@ -615,8 +635,6 @@ For creating custom plugins (input loaders, detectors, output handlers, pipeline
 Use `on_before_detection()` to experiment with pair preprocessing while keeping
 the selected detector and output handler. Choose the preprocessing chain in
 `hooks`. [Frame-pair hook contract](PLUGIN_AUTHOR_GUIDE.md#frame-pair-hook) · [Adding and removing components](PLUGIN_AUTHOR_GUIDE.md#enable-disable-plugins)
-
-> ⚠️ **Note**: The plugin architecture is experimental and may change before v2.0.
 
 ## Contribution Workflow
 

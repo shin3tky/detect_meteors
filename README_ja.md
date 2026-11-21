@@ -303,6 +303,12 @@ RAWファイルとチェックサムは [`detect_meteors_assets/rawfiles/2024GEM
 | [飛行機サンプルの検証](docs/aircraft_sample_validation.md) | 12枚のサンプルでの結果と制約 |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | 技術的な詳細 |
 
+## v2.1.1 リリース準備
+
+検出直前の画像ペアフックと、従来ハフ・恒星位置合わせ・正の差分・実験用FRTを切り替える設定例を
+まとめています。移行時の再開、121ペアと2025LEOの検証結果、プラグイン開発についても参照できます。
+[2.1.1リリースノート](docs/RELEASE_NOTES_2.1_ja.md#version-211) · [変更履歴](docs/CHANGELOG_ja.md#v211)
+
 ## v1.6.13 の主な変更
 
 **2026年11月16日**

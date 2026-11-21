@@ -332,6 +332,14 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 | [Aircraft sample validation](docs/aircraft_sample_validation.md) | Results and limitations on the local 12-frame sequence |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
+## Preparing v2.1.1
+
+The release notes cover the frame-pair hook, switchable configurations for
+conventional Hough, stellar registration, positive differences, and
+experimental FRT retry. They also cover progress compatibility, the 121-pair
+and 2025LEO results, and the plugin interface.
+[2.1.1 release notes](docs/RELEASE_NOTES_2.1.md#version-211) · [Changelog](docs/CHANGELOG.md#v211)
+
 ## What's New in v1.6.13
 
 **November 16, 2026 (2026-11-16).**

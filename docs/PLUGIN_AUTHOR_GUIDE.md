@@ -2,9 +2,10 @@
 
 [日本語版](PLUGIN_AUTHOR_GUIDE_ja.md)
 
-This guide covers the 1.x interfaces for input loaders, detectors, output
-handlers, and pipeline hooks, including the compatibility behavior in
-[v1.6.12](RELEASE_NOTES_1.6.md#version-1612).
+This guide covers the interfaces for input loaders, detectors, output handlers,
+and pipeline hooks carried forward from 1.x, including the frame-pair
+preprocessing hook introduced for 2.1.1.
+[2.1.1 release notes](RELEASE_NOTES_2.1.md#version-211)
 
 Set up the environment using the [developer installation guide](INSTALL_DEV.md).
 Unless stated otherwise, run CLI and Python examples from the repository root
@@ -1022,7 +1023,7 @@ Its top-level `schema_version` identifies the pipeline file format. Use the
 integer `1` in new files. Existing files without the key are read as version 1,
 and other explicit values raise a configuration error.
 
-The plugin and hook API follows the 1.x calling and data contracts described
+The plugin and hook API follows the calling and data contracts described
 in this guide. Plugin payload schema versions and plugin release versions are
 independent of the file version. Each plugin still interprets its own settings.
 

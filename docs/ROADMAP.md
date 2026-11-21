@@ -340,12 +340,23 @@ and make new combinations opt-in.
   and representative legacy plugins. Check the wheel and source
   distribution with the existing release workflows on Python 3.12–3.14.
 
+### v2.1.1 - Configurable frame-pair preprocessing
+
+- Add the pre-detection frame-pair hook and stellar registration as a working
+  preprocessing example for the existing Hough workflow.
+- Provide matched configurations for conventional Hough, stellar registration,
+  and positive-difference Hough. Keep FRT retry available through an
+  experimental configuration.
+- Use reviewed independent sequences to evaluate suppression of moving trails
+  and measure retry memory use before considering broader use.
+  [2.1.1 release notes](RELEASE_NOTES_2.1.md#version-211) · [FRT results and measured cost (Japanese)](frt_retry_workflow_ja.md#2025leoでの結果と処理負荷)
+
 ### Candidate Detection and Classification Methods
 
-These methods are candidates for experiments. A detector plugin can first
-own processing that depends on both frames. Use image hooks for transforms
-that operate on each loaded image independently, and sorted hooks for
-analysis of the resulting evidence across frames.
+These methods are candidates for experiments. Use frame-pair hooks for
+transforms that need both images before detection, image hooks for transforms
+that operate on each loaded image independently, and sorted hooks for analysis
+of evidence across frames.
 [Plugin lifecycle](PLUGIN_AUTHOR_GUIDE.md#1-application-lifecycle)
 
 | Stage | Method | Use and feasibility |
