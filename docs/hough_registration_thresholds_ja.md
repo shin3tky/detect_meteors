@@ -149,6 +149,8 @@ uv run detect-meteors --config config_examples/hough_positive_sample.yaml --debu
 `session.yaml` にも方式を保存する。サンプルの `_C140345.ORF` を進捗から再現した結果は
 候補外、ハフ線分0本だった。
 
+[取りこぼした3枚の差分・輪郭と回収試験](hough_faint_meteor_recovery_ja.md)
+
 ## 再現
 
 実 RAW のチェックサムと採点結果は[実測 JSON](../experiments/region_comparison/results/hough_registration/thresholds.json)

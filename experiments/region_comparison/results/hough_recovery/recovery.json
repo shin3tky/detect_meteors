@@ -1,0 +1,2740 @@
+{
+  "python": "3.14.10",
+  "opencv": "5.0.0",
+  "numpy": "2.5.5",
+  "opening": [
+    "square",
+    "cross"
+  ],
+  "hough_profiles": [
+    {
+      "threshold": 10,
+      "min_line_length": 15,
+      "max_line_gap": 5
+    },
+    {
+      "threshold": 10,
+      "min_line_length": 15,
+      "max_line_gap": 12
+    },
+    {
+      "threshold": 10,
+      "min_line_length": 10,
+      "max_line_gap": 5
+    },
+    {
+      "threshold": 10,
+      "min_line_length": 10,
+      "max_line_gap": 12
+    },
+    {
+      "threshold": 6,
+      "min_line_length": 15,
+      "max_line_gap": 5
+    },
+    {
+      "threshold": 6,
+      "min_line_length": 15,
+      "max_line_gap": 12
+    },
+    {
+      "threshold": 6,
+      "min_line_length": 10,
+      "max_line_gap": 5
+    },
+    {
+      "threshold": 6,
+      "min_line_length": 10,
+      "max_line_gap": 12
+    }
+  ],
+  "grid": {
+    "diff_threshold": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      22,
+      24,
+      26,
+      28,
+      30,
+      35,
+      40
+    ],
+    "min_area": [
+      0,
+      1,
+      3,
+      6,
+      10,
+      20,
+      40,
+      80
+    ],
+    "min_aspect_ratio": [
+      1.5,
+      2.0,
+      2.5,
+      3.0,
+      3.5,
+      4.0,
+      5.0,
+      6.0,
+      8.0
+    ],
+    "min_line_score": [
+      10,
+      15,
+      30,
+      45,
+      60,
+      90,
+      120,
+      180,
+      240,
+      360,
+      480,
+      720,
+      1000,
+      1500,
+      2000
+    ]
+  },
+  "sequences": {
+    "bundled": {
+      "input_sha256": "5fba0cf7dbee10d0fcf5d891eb6e1597ac635d486b8306b42f71558ab6f6a3b0",
+      "truth_sha256": "d5a8f3c85bc6dabfbb31dfd338d37b5c8f606bf7e4e5ed525fcc6dc6f981ab60",
+      "sky_mask_pixels": 2544376,
+      "truth": {
+        "_C140336.ORF": false,
+        "_C140337.ORF": false,
+        "_C140338.ORF": true,
+        "_C140339.ORF": false,
+        "_C140340.ORF": false,
+        "_C140341.ORF": false,
+        "_C140342.ORF": false,
+        "_C140343.ORF": false,
+        "_C140344.ORF": true,
+        "_C140345.ORF": false,
+        "_C140346.ORF": false
+      }
+    },
+    "gemini2021": {
+      "input_sha256": "1184851a941556cad92421847946cb406481c5e1f11ac5faf1768211e21dbd33",
+      "truth_sha256": "01eef6582c147ad8e86afdc8df55ca3622dc0b659557de5a67829134e4288ff5",
+      "sky_mask_pixels": 2327453,
+      "truth": {
+        "_C150296.ORF": false,
+        "_C150297.ORF": false,
+        "_C150298.ORF": false,
+        "_C150299.ORF": false,
+        "_C150300.ORF": false,
+        "_C150301.ORF": false,
+        "_C150302.ORF": false,
+        "_C150303.ORF": true,
+        "_C150304.ORF": false,
+        "_C150305.ORF": false,
+        "_C150306.ORF": false,
+        "_C150307.ORF": false,
+        "_C150308.ORF": false,
+        "_C150309.ORF": false,
+        "_C150310.ORF": false,
+        "_C150311.ORF": false,
+        "_C150312.ORF": false,
+        "_C150313.ORF": false,
+        "_C150314.ORF": false,
+        "_C150315.ORF": false,
+        "_C150316.ORF": false,
+        "_C150317.ORF": false,
+        "_C150318.ORF": false,
+        "_C150319.ORF": true,
+        "_C150320.ORF": false,
+        "_C150321.ORF": false,
+        "_C150322.ORF": false,
+        "_C150323.ORF": false,
+        "_C150324.ORF": false,
+        "_C150325.ORF": false,
+        "_C150326.ORF": true,
+        "_C150327.ORF": false,
+        "_C150328.ORF": false,
+        "_C150329.ORF": false,
+        "_C150330.ORF": false
+      }
+    },
+    "late2024": {
+      "input_sha256": "fd2e5b3b1ba36c9a5161747cc85b66673746eb67d33d891a7d4baaa1c4ef7b06",
+      "truth_sha256": "5946cbc5c57b1da2f0d2381e430f5550dd0cc935c22912f640d14fbf6db3beef",
+      "sky_mask_pixels": 2544376,
+      "truth": {
+        "_C140453.ORF": false,
+        "_C140454.ORF": false,
+        "_C140455.ORF": false,
+        "_C140456.ORF": false,
+        "_C140457.ORF": false,
+        "_C140458.ORF": false,
+        "_C140459.ORF": false,
+        "_C140460.ORF": false,
+        "_C140461.ORF": false,
+        "_C140462.ORF": false,
+        "_C140463.ORF": false,
+        "_C140464.ORF": false,
+        "_C140465.ORF": false,
+        "_C140466.ORF": false,
+        "_C140467.ORF": false,
+        "_C140468.ORF": false,
+        "_C140469.ORF": false,
+        "_C140470.ORF": false,
+        "_C140471.ORF": false,
+        "_C140472.ORF": false,
+        "_C140473.ORF": false,
+        "_C140474.ORF": false,
+        "_C140475.ORF": false,
+        "_C140476.ORF": false,
+        "_C140477.ORF": false,
+        "_C140478.ORF": false,
+        "_C140479.ORF": false,
+        "_C140480.ORF": false,
+        "_C140481.ORF": false,
+        "_C140482.ORF": false,
+        "_C140483.ORF": false,
+        "_C140484.ORF": false,
+        "_C140485.ORF": false,
+        "_C140486.ORF": false,
+        "_C140487.ORF": false,
+        "_C140488.ORF": false,
+        "_C140489.ORF": false,
+        "_C140490.ORF": false,
+        "_C140491.ORF": false,
+        "_C140492.ORF": false,
+        "_C140493.ORF": false,
+        "_C140494.ORF": false,
+        "_C140495.ORF": false,
+        "_C140496.ORF": false,
+        "_C140497.ORF": false,
+        "_C140498.ORF": false,
+        "_C140499.ORF": false,
+        "_C140500.ORF": false,
+        "_C140501.ORF": false,
+        "_C140502.ORF": false,
+        "_C140503.ORF": false,
+        "_C140504.ORF": false,
+        "_C140505.ORF": false,
+        "_C140506.ORF": false,
+        "_C140507.ORF": false,
+        "_C140508.ORF": false,
+        "_C140509.ORF": false,
+        "_C140510.ORF": false,
+        "_C140511.ORF": false,
+        "_C140512.ORF": false,
+        "_C140513.ORF": false,
+        "_C140514.ORF": false,
+        "_C140515.ORF": false,
+        "_C140516.ORF": false,
+        "_C140517.ORF": false,
+        "_C140518.ORF": false,
+        "_C140519.ORF": false,
+        "_C140520.ORF": false,
+        "_C140521.ORF": true,
+        "_C140522.ORF": false,
+        "_C140523.ORF": false,
+        "_C140524.ORF": false,
+        "_C140525.ORF": false,
+        "_C140526.ORF": false,
+        "_C140527.ORF": false
+      }
+    }
+  },
+  "evaluation": {
+    "baseline": {
+      "opening": "square",
+      "settings": {
+        "hough_threshold": 10,
+        "hough_min_line_length": 15,
+        "hough_max_line_gap": 5,
+        "diff_threshold": 9,
+        "min_area": 3,
+        "min_aspect_ratio": 3.0,
+        "min_line_score": 30
+      },
+      "sequences": {
+        "bundled": {
+          "_C140336.ORF": {
+            "candidate": false
+          },
+          "_C140337.ORF": {
+            "candidate": false
+          },
+          "_C140338.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.9472729410579006,
+            "appearance_match": true
+          },
+          "_C140339.ORF": {
+            "candidate": false
+          },
+          "_C140340.ORF": {
+            "candidate": false
+          },
+          "_C140341.ORF": {
+            "candidate": false
+          },
+          "_C140342.ORF": {
+            "candidate": false
+          },
+          "_C140343.ORF": {
+            "candidate": false
+          },
+          "_C140344.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.7941908713692944,
+            "appearance_match": true
+          },
+          "_C140345.ORF": {
+            "candidate": false
+          },
+          "_C140346.ORF": {
+            "candidate": false
+          }
+        },
+        "gemini2021": {
+          "_C150296.ORF": {
+            "candidate": false
+          },
+          "_C150297.ORF": {
+            "candidate": false
+          },
+          "_C150298.ORF": {
+            "candidate": false
+          },
+          "_C150299.ORF": {
+            "candidate": false
+          },
+          "_C150300.ORF": {
+            "candidate": false
+          },
+          "_C150301.ORF": {
+            "candidate": false
+          },
+          "_C150302.ORF": {
+            "candidate": false
+          },
+          "_C150303.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.885722246788096,
+            "appearance_match": true
+          },
+          "_C150304.ORF": {
+            "candidate": false
+          },
+          "_C150305.ORF": {
+            "candidate": false
+          },
+          "_C150306.ORF": {
+            "candidate": false
+          },
+          "_C150307.ORF": {
+            "candidate": false
+          },
+          "_C150308.ORF": {
+            "candidate": false
+          },
+          "_C150309.ORF": {
+            "candidate": false
+          },
+          "_C150310.ORF": {
+            "candidate": false
+          },
+          "_C150311.ORF": {
+            "candidate": false
+          },
+          "_C150312.ORF": {
+            "candidate": false
+          },
+          "_C150313.ORF": {
+            "candidate": false
+          },
+          "_C150314.ORF": {
+            "candidate": false
+          },
+          "_C150315.ORF": {
+            "candidate": false
+          },
+          "_C150316.ORF": {
+            "candidate": false
+          },
+          "_C150317.ORF": {
+            "candidate": false
+          },
+          "_C150318.ORF": {
+            "candidate": false
+          },
+          "_C150319.ORF": {
+            "candidate": false,
+            "appearance_coverage": 0.0,
+            "appearance_match": false
+          },
+          "_C150320.ORF": {
+            "candidate": false
+          },
+          "_C150321.ORF": {
+            "candidate": false
+          },
+          "_C150322.ORF": {
+            "candidate": false
+          },
+          "_C150323.ORF": {
+            "candidate": false
+          },
+          "_C150324.ORF": {
+            "candidate": false
+          },
+          "_C150325.ORF": {
+            "candidate": false
+          },
+          "_C150326.ORF": {
+            "candidate": false,
+            "appearance_coverage": 0.0,
+            "appearance_match": false
+          },
+          "_C150327.ORF": {
+            "candidate": false
+          },
+          "_C150328.ORF": {
+            "candidate": false
+          },
+          "_C150329.ORF": {
+            "candidate": false
+          },
+          "_C150330.ORF": {
+            "candidate": false
+          }
+        },
+        "late2024": {
+          "_C140453.ORF": {
+            "candidate": false
+          },
+          "_C140454.ORF": {
+            "candidate": false
+          },
+          "_C140455.ORF": {
+            "candidate": false
+          },
+          "_C140456.ORF": {
+            "candidate": false
+          },
+          "_C140457.ORF": {
+            "candidate": false
+          },
+          "_C140458.ORF": {
+            "candidate": false
+          },
+          "_C140459.ORF": {
+            "candidate": false
+          },
+          "_C140460.ORF": {
+            "candidate": false
+          },
+          "_C140461.ORF": {
+            "candidate": false
+          },
+          "_C140462.ORF": {
+            "candidate": false
+          },
+          "_C140463.ORF": {
+            "candidate": false
+          },
+          "_C140464.ORF": {
+            "candidate": false
+          },
+          "_C140465.ORF": {
+            "candidate": false
+          },
+          "_C140466.ORF": {
+            "candidate": false
+          },
+          "_C140467.ORF": {
+            "candidate": false
+          },
+          "_C140468.ORF": {
+            "candidate": false
+          },
+          "_C140469.ORF": {
+            "candidate": false
+          },
+          "_C140470.ORF": {
+            "candidate": false
+          },
+          "_C140471.ORF": {
+            "candidate": false
+          },
+          "_C140472.ORF": {
+            "candidate": false
+          },
+          "_C140473.ORF": {
+            "candidate": false
+          },
+          "_C140474.ORF": {
+            "candidate": false
+          },
+          "_C140475.ORF": {
+            "candidate": false
+          },
+          "_C140476.ORF": {
+            "candidate": false
+          },
+          "_C140477.ORF": {
+            "candidate": false
+          },
+          "_C140478.ORF": {
+            "candidate": false
+          },
+          "_C140479.ORF": {
+            "candidate": false
+          },
+          "_C140480.ORF": {
+            "candidate": false
+          },
+          "_C140481.ORF": {
+            "candidate": false
+          },
+          "_C140482.ORF": {
+            "candidate": false
+          },
+          "_C140483.ORF": {
+            "candidate": false
+          },
+          "_C140484.ORF": {
+            "candidate": false
+          },
+          "_C140485.ORF": {
+            "candidate": false
+          },
+          "_C140486.ORF": {
+            "candidate": false
+          },
+          "_C140487.ORF": {
+            "candidate": false
+          },
+          "_C140488.ORF": {
+            "candidate": false
+          },
+          "_C140489.ORF": {
+            "candidate": false
+          },
+          "_C140490.ORF": {
+            "candidate": false
+          },
+          "_C140491.ORF": {
+            "candidate": false
+          },
+          "_C140492.ORF": {
+            "candidate": false
+          },
+          "_C140493.ORF": {
+            "candidate": false
+          },
+          "_C140494.ORF": {
+            "candidate": false
+          },
+          "_C140495.ORF": {
+            "candidate": false
+          },
+          "_C140496.ORF": {
+            "candidate": false
+          },
+          "_C140497.ORF": {
+            "candidate": false
+          },
+          "_C140498.ORF": {
+            "candidate": false
+          },
+          "_C140499.ORF": {
+            "candidate": false
+          },
+          "_C140500.ORF": {
+            "candidate": false
+          },
+          "_C140501.ORF": {
+            "candidate": false
+          },
+          "_C140502.ORF": {
+            "candidate": false
+          },
+          "_C140503.ORF": {
+            "candidate": false
+          },
+          "_C140504.ORF": {
+            "candidate": false
+          },
+          "_C140505.ORF": {
+            "candidate": false
+          },
+          "_C140506.ORF": {
+            "candidate": false
+          },
+          "_C140507.ORF": {
+            "candidate": false
+          },
+          "_C140508.ORF": {
+            "candidate": false
+          },
+          "_C140509.ORF": {
+            "candidate": false
+          },
+          "_C140510.ORF": {
+            "candidate": false
+          },
+          "_C140511.ORF": {
+            "candidate": false
+          },
+          "_C140512.ORF": {
+            "candidate": false
+          },
+          "_C140513.ORF": {
+            "candidate": false
+          },
+          "_C140514.ORF": {
+            "candidate": false
+          },
+          "_C140515.ORF": {
+            "candidate": false
+          },
+          "_C140516.ORF": {
+            "candidate": false
+          },
+          "_C140517.ORF": {
+            "candidate": false
+          },
+          "_C140518.ORF": {
+            "candidate": false
+          },
+          "_C140519.ORF": {
+            "candidate": false
+          },
+          "_C140520.ORF": {
+            "candidate": false
+          },
+          "_C140521.ORF": {
+            "candidate": false,
+            "appearance_coverage": 0.0,
+            "appearance_match": false
+          },
+          "_C140522.ORF": {
+            "candidate": false
+          },
+          "_C140523.ORF": {
+            "candidate": false
+          },
+          "_C140524.ORF": {
+            "candidate": false
+          },
+          "_C140525.ORF": {
+            "candidate": false
+          },
+          "_C140526.ORF": {
+            "candidate": false
+          },
+          "_C140527.ORF": {
+            "candidate": false
+          }
+        }
+      }
+    },
+    "leave_one_sequence_out": {
+      "bundled": {
+        "square": {
+          "opening": "square",
+          "settings": {
+            "hough_threshold": 10,
+            "hough_min_line_length": 15,
+            "hough_max_line_gap": 12,
+            "diff_threshold": 3,
+            "min_area": 3,
+            "min_aspect_ratio": 4.0,
+            "min_line_score": 30
+          },
+          "sequences": {
+            "bundled": {
+              "_C140336.ORF": {
+                "candidate": false
+              },
+              "_C140337.ORF": {
+                "candidate": false
+              },
+              "_C140338.ORF": {
+                "candidate": true,
+                "appearance_coverage": 0.9979675138158669,
+                "appearance_match": true
+              },
+              "_C140339.ORF": {
+                "candidate": false
+              },
+              "_C140340.ORF": {
+                "candidate": false
+              },
+              "_C140341.ORF": {
+                "candidate": false
+              },
+              "_C140342.ORF": {
+                "candidate": false
+              },
+              "_C140343.ORF": {
+                "candidate": false
+              },
+              "_C140344.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.81701244813278,
+                "appearance_match": false
+              },
+              "_C140345.ORF": {
+                "candidate": false
+              },
+              "_C140346.ORF": {
+                "candidate": false
+              }
+            }
+          }
+        },
+        "square_or_cross": {
+          "opening": "cross",
+          "settings": {
+            "hough_threshold": 10,
+            "hough_min_line_length": 15,
+            "hough_max_line_gap": 12,
+            "diff_threshold": 8,
+            "min_area": 3,
+            "min_aspect_ratio": 5.0,
+            "min_line_score": 30
+          },
+          "sequences": {
+            "bundled": {
+              "_C140336.ORF": {
+                "candidate": false
+              },
+              "_C140337.ORF": {
+                "candidate": false
+              },
+              "_C140338.ORF": {
+                "candidate": true,
+                "appearance_coverage": 1.0,
+                "appearance_match": true
+              },
+              "_C140339.ORF": {
+                "candidate": false
+              },
+              "_C140340.ORF": {
+                "candidate": false
+              },
+              "_C140341.ORF": {
+                "candidate": false
+              },
+              "_C140342.ORF": {
+                "candidate": false
+              },
+              "_C140343.ORF": {
+                "candidate": false
+              },
+              "_C140344.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.9580912863070541,
+                "appearance_match": false
+              },
+              "_C140345.ORF": {
+                "candidate": false
+              },
+              "_C140346.ORF": {
+                "candidate": false
+              }
+            }
+          }
+        },
+        "retry_rejected": {
+          "opening": "cross",
+          "settings": {
+            "hough_threshold": 10,
+            "hough_min_line_length": 15,
+            "hough_max_line_gap": 12,
+            "diff_threshold": 8,
+            "min_area": 3,
+            "min_aspect_ratio": 5.0,
+            "min_line_score": 30
+          },
+          "sequences": {
+            "bundled": {
+              "_C140336.ORF": {
+                "candidate": false
+              },
+              "_C140337.ORF": {
+                "candidate": false
+              },
+              "_C140338.ORF": {
+                "candidate": true,
+                "appearance_coverage": 0.9472729410579006,
+                "appearance_match": true
+              },
+              "_C140339.ORF": {
+                "candidate": false
+              },
+              "_C140340.ORF": {
+                "candidate": false
+              },
+              "_C140341.ORF": {
+                "candidate": false
+              },
+              "_C140342.ORF": {
+                "candidate": false
+              },
+              "_C140343.ORF": {
+                "candidate": false
+              },
+              "_C140344.ORF": {
+                "candidate": true,
+                "appearance_coverage": 0.7941908713692944,
+                "appearance_match": true
+              },
+              "_C140345.ORF": {
+                "candidate": false
+              },
+              "_C140346.ORF": {
+                "candidate": false
+              }
+            }
+          }
+        }
+      },
+      "gemini2021": {
+        "square": {
+          "opening": "square",
+          "settings": {
+            "hough_threshold": 10,
+            "hough_min_line_length": 15,
+            "hough_max_line_gap": 5,
+            "diff_threshold": 9,
+            "min_area": 3,
+            "min_aspect_ratio": 3.0,
+            "min_line_score": 30
+          },
+          "sequences": {
+            "gemini2021": {
+              "_C150296.ORF": {
+                "candidate": false
+              },
+              "_C150297.ORF": {
+                "candidate": false
+              },
+              "_C150298.ORF": {
+                "candidate": false
+              },
+              "_C150299.ORF": {
+                "candidate": false
+              },
+              "_C150300.ORF": {
+                "candidate": false
+              },
+              "_C150301.ORF": {
+                "candidate": false
+              },
+              "_C150302.ORF": {
+                "candidate": false
+              },
+              "_C150303.ORF": {
+                "candidate": true,
+                "appearance_coverage": 0.885722246788096,
+                "appearance_match": true
+              },
+              "_C150304.ORF": {
+                "candidate": false
+              },
+              "_C150305.ORF": {
+                "candidate": false
+              },
+              "_C150306.ORF": {
+                "candidate": false
+              },
+              "_C150307.ORF": {
+                "candidate": false
+              },
+              "_C150308.ORF": {
+                "candidate": false
+              },
+              "_C150309.ORF": {
+                "candidate": false
+              },
+              "_C150310.ORF": {
+                "candidate": false
+              },
+              "_C150311.ORF": {
+                "candidate": false
+              },
+              "_C150312.ORF": {
+                "candidate": false
+              },
+              "_C150313.ORF": {
+                "candidate": false
+              },
+              "_C150314.ORF": {
+                "candidate": false
+              },
+              "_C150315.ORF": {
+                "candidate": false
+              },
+              "_C150316.ORF": {
+                "candidate": false
+              },
+              "_C150317.ORF": {
+                "candidate": false
+              },
+              "_C150318.ORF": {
+                "candidate": false
+              },
+              "_C150319.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.0,
+                "appearance_match": false
+              },
+              "_C150320.ORF": {
+                "candidate": false
+              },
+              "_C150321.ORF": {
+                "candidate": false
+              },
+              "_C150322.ORF": {
+                "candidate": false
+              },
+              "_C150323.ORF": {
+                "candidate": false
+              },
+              "_C150324.ORF": {
+                "candidate": false
+              },
+              "_C150325.ORF": {
+                "candidate": false
+              },
+              "_C150326.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.0,
+                "appearance_match": false
+              },
+              "_C150327.ORF": {
+                "candidate": false
+              },
+              "_C150328.ORF": {
+                "candidate": false
+              },
+              "_C150329.ORF": {
+                "candidate": false
+              },
+              "_C150330.ORF": {
+                "candidate": false
+              }
+            }
+          }
+        },
+        "square_or_cross": {
+          "opening": "square",
+          "settings": {
+            "hough_threshold": 10,
+            "hough_min_line_length": 15,
+            "hough_max_line_gap": 5,
+            "diff_threshold": 9,
+            "min_area": 3,
+            "min_aspect_ratio": 3.0,
+            "min_line_score": 30
+          },
+          "sequences": {
+            "gemini2021": {
+              "_C150296.ORF": {
+                "candidate": false
+              },
+              "_C150297.ORF": {
+                "candidate": false
+              },
+              "_C150298.ORF": {
+                "candidate": false
+              },
+              "_C150299.ORF": {
+                "candidate": false
+              },
+              "_C150300.ORF": {
+                "candidate": false
+              },
+              "_C150301.ORF": {
+                "candidate": false
+              },
+              "_C150302.ORF": {
+                "candidate": false
+              },
+              "_C150303.ORF": {
+                "candidate": true,
+                "appearance_coverage": 0.885722246788096,
+                "appearance_match": true
+              },
+              "_C150304.ORF": {
+                "candidate": false
+              },
+              "_C150305.ORF": {
+                "candidate": false
+              },
+              "_C150306.ORF": {
+                "candidate": false
+              },
+              "_C150307.ORF": {
+                "candidate": false
+              },
+              "_C150308.ORF": {
+                "candidate": false
+              },
+              "_C150309.ORF": {
+                "candidate": false
+              },
+              "_C150310.ORF": {
+                "candidate": false
+              },
+              "_C150311.ORF": {
+                "candidate": false
+              },
+              "_C150312.ORF": {
+                "candidate": false
+              },
+              "_C150313.ORF": {
+                "candidate": false
+              },
+              "_C150314.ORF": {
+                "candidate": false
+              },
+              "_C150315.ORF": {
+                "candidate": false
+              },
+              "_C150316.ORF": {
+                "candidate": false
+              },
+              "_C150317.ORF": {
+                "candidate": false
+              },
+              "_C150318.ORF": {
+                "candidate": false
+              },
+              "_C150319.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.0,
+                "appearance_match": false
+              },
+              "_C150320.ORF": {
+                "candidate": false
+              },
+              "_C150321.ORF": {
+                "candidate": false
+              },
+              "_C150322.ORF": {
+                "candidate": false
+              },
+              "_C150323.ORF": {
+                "candidate": false
+              },
+              "_C150324.ORF": {
+                "candidate": false
+              },
+              "_C150325.ORF": {
+                "candidate": false
+              },
+              "_C150326.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.0,
+                "appearance_match": false
+              },
+              "_C150327.ORF": {
+                "candidate": false
+              },
+              "_C150328.ORF": {
+                "candidate": false
+              },
+              "_C150329.ORF": {
+                "candidate": false
+              },
+              "_C150330.ORF": {
+                "candidate": false
+              }
+            }
+          }
+        },
+        "retry_rejected": {
+          "opening": "square",
+          "settings": {
+            "hough_threshold": 10,
+            "hough_min_line_length": 15,
+            "hough_max_line_gap": 5,
+            "diff_threshold": 9,
+            "min_area": 3,
+            "min_aspect_ratio": 3.0,
+            "min_line_score": 30
+          },
+          "sequences": {
+            "gemini2021": {
+              "_C150296.ORF": {
+                "candidate": false
+              },
+              "_C150297.ORF": {
+                "candidate": false
+              },
+              "_C150298.ORF": {
+                "candidate": false
+              },
+              "_C150299.ORF": {
+                "candidate": false
+              },
+              "_C150300.ORF": {
+                "candidate": false
+              },
+              "_C150301.ORF": {
+                "candidate": false
+              },
+              "_C150302.ORF": {
+                "candidate": false
+              },
+              "_C150303.ORF": {
+                "candidate": true,
+                "appearance_coverage": 0.885722246788096,
+                "appearance_match": true
+              },
+              "_C150304.ORF": {
+                "candidate": false
+              },
+              "_C150305.ORF": {
+                "candidate": false
+              },
+              "_C150306.ORF": {
+                "candidate": false
+              },
+              "_C150307.ORF": {
+                "candidate": false
+              },
+              "_C150308.ORF": {
+                "candidate": false
+              },
+              "_C150309.ORF": {
+                "candidate": false
+              },
+              "_C150310.ORF": {
+                "candidate": false
+              },
+              "_C150311.ORF": {
+                "candidate": false
+              },
+              "_C150312.ORF": {
+                "candidate": false
+              },
+              "_C150313.ORF": {
+                "candidate": false
+              },
+              "_C150314.ORF": {
+                "candidate": false
+              },
+              "_C150315.ORF": {
+                "candidate": false
+              },
+              "_C150316.ORF": {
+                "candidate": false
+              },
+              "_C150317.ORF": {
+                "candidate": false
+              },
+              "_C150318.ORF": {
+                "candidate": false
+              },
+              "_C150319.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.0,
+                "appearance_match": false
+              },
+              "_C150320.ORF": {
+                "candidate": false
+              },
+              "_C150321.ORF": {
+                "candidate": false
+              },
+              "_C150322.ORF": {
+                "candidate": false
+              },
+              "_C150323.ORF": {
+                "candidate": false
+              },
+              "_C150324.ORF": {
+                "candidate": false
+              },
+              "_C150325.ORF": {
+                "candidate": false
+              },
+              "_C150326.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.0,
+                "appearance_match": false
+              },
+              "_C150327.ORF": {
+                "candidate": false
+              },
+              "_C150328.ORF": {
+                "candidate": false
+              },
+              "_C150329.ORF": {
+                "candidate": false
+              },
+              "_C150330.ORF": {
+                "candidate": false
+              }
+            }
+          }
+        }
+      },
+      "late2024": {
+        "square": {
+          "opening": "square",
+          "settings": {
+            "hough_threshold": 10,
+            "hough_min_line_length": 15,
+            "hough_max_line_gap": 5,
+            "diff_threshold": 9,
+            "min_area": 3,
+            "min_aspect_ratio": 3.0,
+            "min_line_score": 30
+          },
+          "sequences": {
+            "late2024": {
+              "_C140453.ORF": {
+                "candidate": false
+              },
+              "_C140454.ORF": {
+                "candidate": false
+              },
+              "_C140455.ORF": {
+                "candidate": false
+              },
+              "_C140456.ORF": {
+                "candidate": false
+              },
+              "_C140457.ORF": {
+                "candidate": false
+              },
+              "_C140458.ORF": {
+                "candidate": false
+              },
+              "_C140459.ORF": {
+                "candidate": false
+              },
+              "_C140460.ORF": {
+                "candidate": false
+              },
+              "_C140461.ORF": {
+                "candidate": false
+              },
+              "_C140462.ORF": {
+                "candidate": false
+              },
+              "_C140463.ORF": {
+                "candidate": false
+              },
+              "_C140464.ORF": {
+                "candidate": false
+              },
+              "_C140465.ORF": {
+                "candidate": false
+              },
+              "_C140466.ORF": {
+                "candidate": false
+              },
+              "_C140467.ORF": {
+                "candidate": false
+              },
+              "_C140468.ORF": {
+                "candidate": false
+              },
+              "_C140469.ORF": {
+                "candidate": false
+              },
+              "_C140470.ORF": {
+                "candidate": false
+              },
+              "_C140471.ORF": {
+                "candidate": false
+              },
+              "_C140472.ORF": {
+                "candidate": false
+              },
+              "_C140473.ORF": {
+                "candidate": false
+              },
+              "_C140474.ORF": {
+                "candidate": false
+              },
+              "_C140475.ORF": {
+                "candidate": false
+              },
+              "_C140476.ORF": {
+                "candidate": false
+              },
+              "_C140477.ORF": {
+                "candidate": false
+              },
+              "_C140478.ORF": {
+                "candidate": false
+              },
+              "_C140479.ORF": {
+                "candidate": false
+              },
+              "_C140480.ORF": {
+                "candidate": false
+              },
+              "_C140481.ORF": {
+                "candidate": false
+              },
+              "_C140482.ORF": {
+                "candidate": false
+              },
+              "_C140483.ORF": {
+                "candidate": false
+              },
+              "_C140484.ORF": {
+                "candidate": false
+              },
+              "_C140485.ORF": {
+                "candidate": false
+              },
+              "_C140486.ORF": {
+                "candidate": false
+              },
+              "_C140487.ORF": {
+                "candidate": false
+              },
+              "_C140488.ORF": {
+                "candidate": false
+              },
+              "_C140489.ORF": {
+                "candidate": false
+              },
+              "_C140490.ORF": {
+                "candidate": false
+              },
+              "_C140491.ORF": {
+                "candidate": false
+              },
+              "_C140492.ORF": {
+                "candidate": false
+              },
+              "_C140493.ORF": {
+                "candidate": false
+              },
+              "_C140494.ORF": {
+                "candidate": false
+              },
+              "_C140495.ORF": {
+                "candidate": false
+              },
+              "_C140496.ORF": {
+                "candidate": false
+              },
+              "_C140497.ORF": {
+                "candidate": false
+              },
+              "_C140498.ORF": {
+                "candidate": false
+              },
+              "_C140499.ORF": {
+                "candidate": false
+              },
+              "_C140500.ORF": {
+                "candidate": false
+              },
+              "_C140501.ORF": {
+                "candidate": false
+              },
+              "_C140502.ORF": {
+                "candidate": false
+              },
+              "_C140503.ORF": {
+                "candidate": false
+              },
+              "_C140504.ORF": {
+                "candidate": false
+              },
+              "_C140505.ORF": {
+                "candidate": false
+              },
+              "_C140506.ORF": {
+                "candidate": false
+              },
+              "_C140507.ORF": {
+                "candidate": false
+              },
+              "_C140508.ORF": {
+                "candidate": false
+              },
+              "_C140509.ORF": {
+                "candidate": false
+              },
+              "_C140510.ORF": {
+                "candidate": false
+              },
+              "_C140511.ORF": {
+                "candidate": false
+              },
+              "_C140512.ORF": {
+                "candidate": false
+              },
+              "_C140513.ORF": {
+                "candidate": false
+              },
+              "_C140514.ORF": {
+                "candidate": false
+              },
+              "_C140515.ORF": {
+                "candidate": false
+              },
+              "_C140516.ORF": {
+                "candidate": false
+              },
+              "_C140517.ORF": {
+                "candidate": false
+              },
+              "_C140518.ORF": {
+                "candidate": false
+              },
+              "_C140519.ORF": {
+                "candidate": false
+              },
+              "_C140520.ORF": {
+                "candidate": false
+              },
+              "_C140521.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.0,
+                "appearance_match": false
+              },
+              "_C140522.ORF": {
+                "candidate": false
+              },
+              "_C140523.ORF": {
+                "candidate": false
+              },
+              "_C140524.ORF": {
+                "candidate": false
+              },
+              "_C140525.ORF": {
+                "candidate": false
+              },
+              "_C140526.ORF": {
+                "candidate": false
+              },
+              "_C140527.ORF": {
+                "candidate": false
+              }
+            }
+          }
+        },
+        "square_or_cross": {
+          "opening": "cross",
+          "settings": {
+            "hough_threshold": 10,
+            "hough_min_line_length": 15,
+            "hough_max_line_gap": 12,
+            "diff_threshold": 8,
+            "min_area": 3,
+            "min_aspect_ratio": 4.0,
+            "min_line_score": 30
+          },
+          "sequences": {
+            "late2024": {
+              "_C140453.ORF": {
+                "candidate": false
+              },
+              "_C140454.ORF": {
+                "candidate": false
+              },
+              "_C140455.ORF": {
+                "candidate": false
+              },
+              "_C140456.ORF": {
+                "candidate": false
+              },
+              "_C140457.ORF": {
+                "candidate": false
+              },
+              "_C140458.ORF": {
+                "candidate": false
+              },
+              "_C140459.ORF": {
+                "candidate": false
+              },
+              "_C140460.ORF": {
+                "candidate": false
+              },
+              "_C140461.ORF": {
+                "candidate": false
+              },
+              "_C140462.ORF": {
+                "candidate": false
+              },
+              "_C140463.ORF": {
+                "candidate": false
+              },
+              "_C140464.ORF": {
+                "candidate": false
+              },
+              "_C140465.ORF": {
+                "candidate": false
+              },
+              "_C140466.ORF": {
+                "candidate": false
+              },
+              "_C140467.ORF": {
+                "candidate": false
+              },
+              "_C140468.ORF": {
+                "candidate": false
+              },
+              "_C140469.ORF": {
+                "candidate": false
+              },
+              "_C140470.ORF": {
+                "candidate": false
+              },
+              "_C140471.ORF": {
+                "candidate": false
+              },
+              "_C140472.ORF": {
+                "candidate": false
+              },
+              "_C140473.ORF": {
+                "candidate": false
+              },
+              "_C140474.ORF": {
+                "candidate": false
+              },
+              "_C140475.ORF": {
+                "candidate": false
+              },
+              "_C140476.ORF": {
+                "candidate": false
+              },
+              "_C140477.ORF": {
+                "candidate": false
+              },
+              "_C140478.ORF": {
+                "candidate": false
+              },
+              "_C140479.ORF": {
+                "candidate": false
+              },
+              "_C140480.ORF": {
+                "candidate": false
+              },
+              "_C140481.ORF": {
+                "candidate": false
+              },
+              "_C140482.ORF": {
+                "candidate": false
+              },
+              "_C140483.ORF": {
+                "candidate": false
+              },
+              "_C140484.ORF": {
+                "candidate": false
+              },
+              "_C140485.ORF": {
+                "candidate": false
+              },
+              "_C140486.ORF": {
+                "candidate": false
+              },
+              "_C140487.ORF": {
+                "candidate": false
+              },
+              "_C140488.ORF": {
+                "candidate": true
+              },
+              "_C140489.ORF": {
+                "candidate": false
+              },
+              "_C140490.ORF": {
+                "candidate": false
+              },
+              "_C140491.ORF": {
+                "candidate": false
+              },
+              "_C140492.ORF": {
+                "candidate": false
+              },
+              "_C140493.ORF": {
+                "candidate": false
+              },
+              "_C140494.ORF": {
+                "candidate": false
+              },
+              "_C140495.ORF": {
+                "candidate": false
+              },
+              "_C140496.ORF": {
+                "candidate": false
+              },
+              "_C140497.ORF": {
+                "candidate": false
+              },
+              "_C140498.ORF": {
+                "candidate": false
+              },
+              "_C140499.ORF": {
+                "candidate": false
+              },
+              "_C140500.ORF": {
+                "candidate": false
+              },
+              "_C140501.ORF": {
+                "candidate": false
+              },
+              "_C140502.ORF": {
+                "candidate": false
+              },
+              "_C140503.ORF": {
+                "candidate": false
+              },
+              "_C140504.ORF": {
+                "candidate": false
+              },
+              "_C140505.ORF": {
+                "candidate": false
+              },
+              "_C140506.ORF": {
+                "candidate": false
+              },
+              "_C140507.ORF": {
+                "candidate": false
+              },
+              "_C140508.ORF": {
+                "candidate": false
+              },
+              "_C140509.ORF": {
+                "candidate": false
+              },
+              "_C140510.ORF": {
+                "candidate": false
+              },
+              "_C140511.ORF": {
+                "candidate": false
+              },
+              "_C140512.ORF": {
+                "candidate": false
+              },
+              "_C140513.ORF": {
+                "candidate": false
+              },
+              "_C140514.ORF": {
+                "candidate": false
+              },
+              "_C140515.ORF": {
+                "candidate": false
+              },
+              "_C140516.ORF": {
+                "candidate": false
+              },
+              "_C140517.ORF": {
+                "candidate": false
+              },
+              "_C140518.ORF": {
+                "candidate": false
+              },
+              "_C140519.ORF": {
+                "candidate": false
+              },
+              "_C140520.ORF": {
+                "candidate": false
+              },
+              "_C140521.ORF": {
+                "candidate": false,
+                "appearance_coverage": 0.0,
+                "appearance_match": false
+              },
+              "_C140522.ORF": {
+                "candidate": true
+              },
+              "_C140523.ORF": {
+                "candidate": false
+              },
+              "_C140524.ORF": {
+                "candidate": false
+              },
+              "_C140525.ORF": {
+                "candidate": false
+              },
+              "_C140526.ORF": {
+                "candidate": false
+              },
+              "_C140527.ORF": {
+                "candidate": false
+              }
+            }
+          }
+        },
+        "retry_rejected": {
+          "opening": "cross",
+          "settings": {
+            "hough_threshold": 10,
+            "hough_min_line_length": 15,
+            "hough_max_line_gap": 12,
+            "diff_threshold": 7,
+            "min_area": 3,
+            "min_aspect_ratio": 3.5,
+            "min_line_score": 30
+          },
+          "sequences": {
+            "late2024": {
+              "_C140453.ORF": {
+                "candidate": false
+              },
+              "_C140454.ORF": {
+                "candidate": false
+              },
+              "_C140455.ORF": {
+                "candidate": true
+              },
+              "_C140456.ORF": {
+                "candidate": false
+              },
+              "_C140457.ORF": {
+                "candidate": false
+              },
+              "_C140458.ORF": {
+                "candidate": false
+              },
+              "_C140459.ORF": {
+                "candidate": false
+              },
+              "_C140460.ORF": {
+                "candidate": false
+              },
+              "_C140461.ORF": {
+                "candidate": true
+              },
+              "_C140462.ORF": {
+                "candidate": false
+              },
+              "_C140463.ORF": {
+                "candidate": false
+              },
+              "_C140464.ORF": {
+                "candidate": false
+              },
+              "_C140465.ORF": {
+                "candidate": true
+              },
+              "_C140466.ORF": {
+                "candidate": false
+              },
+              "_C140467.ORF": {
+                "candidate": false
+              },
+              "_C140468.ORF": {
+                "candidate": false
+              },
+              "_C140469.ORF": {
+                "candidate": false
+              },
+              "_C140470.ORF": {
+                "candidate": false
+              },
+              "_C140471.ORF": {
+                "candidate": false
+              },
+              "_C140472.ORF": {
+                "candidate": false
+              },
+              "_C140473.ORF": {
+                "candidate": false
+              },
+              "_C140474.ORF": {
+                "candidate": false
+              },
+              "_C140475.ORF": {
+                "candidate": false
+              },
+              "_C140476.ORF": {
+                "candidate": false
+              },
+              "_C140477.ORF": {
+                "candidate": false
+              },
+              "_C140478.ORF": {
+                "candidate": false
+              },
+              "_C140479.ORF": {
+                "candidate": false
+              },
+              "_C140480.ORF": {
+                "candidate": false
+              },
+              "_C140481.ORF": {
+                "candidate": false
+              },
+              "_C140482.ORF": {
+                "candidate": false
+              },
+              "_C140483.ORF": {
+                "candidate": true
+              },
+              "_C140484.ORF": {
+                "candidate": false
+              },
+              "_C140485.ORF": {
+                "candidate": false
+              },
+              "_C140486.ORF": {
+                "candidate": false
+              },
+              "_C140487.ORF": {
+                "candidate": false
+              },
+              "_C140488.ORF": {
+                "candidate": true
+              },
+              "_C140489.ORF": {
+                "candidate": false
+              },
+              "_C140490.ORF": {
+                "candidate": false
+              },
+              "_C140491.ORF": {
+                "candidate": false
+              },
+              "_C140492.ORF": {
+                "candidate": false
+              },
+              "_C140493.ORF": {
+                "candidate": false
+              },
+              "_C140494.ORF": {
+                "candidate": false
+              },
+              "_C140495.ORF": {
+                "candidate": false
+              },
+              "_C140496.ORF": {
+                "candidate": false
+              },
+              "_C140497.ORF": {
+                "candidate": true
+              },
+              "_C140498.ORF": {
+                "candidate": false
+              },
+              "_C140499.ORF": {
+                "candidate": true
+              },
+              "_C140500.ORF": {
+                "candidate": false
+              },
+              "_C140501.ORF": {
+                "candidate": true
+              },
+              "_C140502.ORF": {
+                "candidate": false
+              },
+              "_C140503.ORF": {
+                "candidate": false
+              },
+              "_C140504.ORF": {
+                "candidate": false
+              },
+              "_C140505.ORF": {
+                "candidate": false
+              },
+              "_C140506.ORF": {
+                "candidate": false
+              },
+              "_C140507.ORF": {
+                "candidate": false
+              },
+              "_C140508.ORF": {
+                "candidate": false
+              },
+              "_C140509.ORF": {
+                "candidate": false
+              },
+              "_C140510.ORF": {
+                "candidate": true
+              },
+              "_C140511.ORF": {
+                "candidate": false
+              },
+              "_C140512.ORF": {
+                "candidate": false
+              },
+              "_C140513.ORF": {
+                "candidate": true
+              },
+              "_C140514.ORF": {
+                "candidate": false
+              },
+              "_C140515.ORF": {
+                "candidate": false
+              },
+              "_C140516.ORF": {
+                "candidate": true
+              },
+              "_C140517.ORF": {
+                "candidate": false
+              },
+              "_C140518.ORF": {
+                "candidate": true
+              },
+              "_C140519.ORF": {
+                "candidate": false
+              },
+              "_C140520.ORF": {
+                "candidate": true
+              },
+              "_C140521.ORF": {
+                "candidate": true,
+                "appearance_coverage": 0.0,
+                "appearance_match": false
+              },
+              "_C140522.ORF": {
+                "candidate": false
+              },
+              "_C140523.ORF": {
+                "candidate": false
+              },
+              "_C140524.ORF": {
+                "candidate": false
+              },
+              "_C140525.ORF": {
+                "candidate": false
+              },
+              "_C140526.ORF": {
+                "candidate": false
+              },
+              "_C140527.ORF": {
+                "candidate": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "zero_fp_with_all_labels": {
+      "opening": "cross",
+      "settings": {
+        "hough_threshold": 10,
+        "hough_min_line_length": 15,
+        "hough_max_line_gap": 5,
+        "diff_threshold": 8,
+        "min_area": 20,
+        "min_aspect_ratio": 4.0,
+        "min_line_score": 30
+      },
+      "sequences": {
+        "bundled": {
+          "_C140336.ORF": {
+            "candidate": false
+          },
+          "_C140337.ORF": {
+            "candidate": false
+          },
+          "_C140338.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.9960190146641359,
+            "appearance_match": true
+          },
+          "_C140339.ORF": {
+            "candidate": false
+          },
+          "_C140340.ORF": {
+            "candidate": false
+          },
+          "_C140341.ORF": {
+            "candidate": false
+          },
+          "_C140342.ORF": {
+            "candidate": false
+          },
+          "_C140343.ORF": {
+            "candidate": false
+          },
+          "_C140344.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.9390041493775934,
+            "appearance_match": true
+          },
+          "_C140345.ORF": {
+            "candidate": false
+          },
+          "_C140346.ORF": {
+            "candidate": false
+          }
+        },
+        "gemini2021": {
+          "_C150296.ORF": {
+            "candidate": false
+          },
+          "_C150297.ORF": {
+            "candidate": false
+          },
+          "_C150298.ORF": {
+            "candidate": false
+          },
+          "_C150299.ORF": {
+            "candidate": false
+          },
+          "_C150300.ORF": {
+            "candidate": false
+          },
+          "_C150301.ORF": {
+            "candidate": false
+          },
+          "_C150302.ORF": {
+            "candidate": false
+          },
+          "_C150303.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.9799986673854709,
+            "appearance_match": true
+          },
+          "_C150304.ORF": {
+            "candidate": false
+          },
+          "_C150305.ORF": {
+            "candidate": false
+          },
+          "_C150306.ORF": {
+            "candidate": false
+          },
+          "_C150307.ORF": {
+            "candidate": false
+          },
+          "_C150308.ORF": {
+            "candidate": false
+          },
+          "_C150309.ORF": {
+            "candidate": false
+          },
+          "_C150310.ORF": {
+            "candidate": false
+          },
+          "_C150311.ORF": {
+            "candidate": false
+          },
+          "_C150312.ORF": {
+            "candidate": false
+          },
+          "_C150313.ORF": {
+            "candidate": false
+          },
+          "_C150314.ORF": {
+            "candidate": false
+          },
+          "_C150315.ORF": {
+            "candidate": false
+          },
+          "_C150316.ORF": {
+            "candidate": false
+          },
+          "_C150317.ORF": {
+            "candidate": false
+          },
+          "_C150318.ORF": {
+            "candidate": false
+          },
+          "_C150319.ORF": {
+            "candidate": false,
+            "appearance_coverage": 0.48354761385922845,
+            "appearance_match": false
+          },
+          "_C150320.ORF": {
+            "candidate": false
+          },
+          "_C150321.ORF": {
+            "candidate": false
+          },
+          "_C150322.ORF": {
+            "candidate": false
+          },
+          "_C150323.ORF": {
+            "candidate": false
+          },
+          "_C150324.ORF": {
+            "candidate": false
+          },
+          "_C150325.ORF": {
+            "candidate": false
+          },
+          "_C150326.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.6792738275340393,
+            "appearance_match": true
+          },
+          "_C150327.ORF": {
+            "candidate": false
+          },
+          "_C150328.ORF": {
+            "candidate": false
+          },
+          "_C150329.ORF": {
+            "candidate": false
+          },
+          "_C150330.ORF": {
+            "candidate": false
+          }
+        },
+        "late2024": {
+          "_C140453.ORF": {
+            "candidate": false
+          },
+          "_C140454.ORF": {
+            "candidate": false
+          },
+          "_C140455.ORF": {
+            "candidate": false
+          },
+          "_C140456.ORF": {
+            "candidate": false
+          },
+          "_C140457.ORF": {
+            "candidate": false
+          },
+          "_C140458.ORF": {
+            "candidate": false
+          },
+          "_C140459.ORF": {
+            "candidate": false
+          },
+          "_C140460.ORF": {
+            "candidate": false
+          },
+          "_C140461.ORF": {
+            "candidate": false
+          },
+          "_C140462.ORF": {
+            "candidate": false
+          },
+          "_C140463.ORF": {
+            "candidate": false
+          },
+          "_C140464.ORF": {
+            "candidate": false
+          },
+          "_C140465.ORF": {
+            "candidate": false
+          },
+          "_C140466.ORF": {
+            "candidate": false
+          },
+          "_C140467.ORF": {
+            "candidate": false
+          },
+          "_C140468.ORF": {
+            "candidate": false
+          },
+          "_C140469.ORF": {
+            "candidate": false
+          },
+          "_C140470.ORF": {
+            "candidate": false
+          },
+          "_C140471.ORF": {
+            "candidate": false
+          },
+          "_C140472.ORF": {
+            "candidate": false
+          },
+          "_C140473.ORF": {
+            "candidate": false
+          },
+          "_C140474.ORF": {
+            "candidate": false
+          },
+          "_C140475.ORF": {
+            "candidate": false
+          },
+          "_C140476.ORF": {
+            "candidate": false
+          },
+          "_C140477.ORF": {
+            "candidate": false
+          },
+          "_C140478.ORF": {
+            "candidate": false
+          },
+          "_C140479.ORF": {
+            "candidate": false
+          },
+          "_C140480.ORF": {
+            "candidate": false
+          },
+          "_C140481.ORF": {
+            "candidate": false
+          },
+          "_C140482.ORF": {
+            "candidate": false
+          },
+          "_C140483.ORF": {
+            "candidate": false
+          },
+          "_C140484.ORF": {
+            "candidate": false
+          },
+          "_C140485.ORF": {
+            "candidate": false
+          },
+          "_C140486.ORF": {
+            "candidate": false
+          },
+          "_C140487.ORF": {
+            "candidate": false
+          },
+          "_C140488.ORF": {
+            "candidate": false
+          },
+          "_C140489.ORF": {
+            "candidate": false
+          },
+          "_C140490.ORF": {
+            "candidate": false
+          },
+          "_C140491.ORF": {
+            "candidate": false
+          },
+          "_C140492.ORF": {
+            "candidate": false
+          },
+          "_C140493.ORF": {
+            "candidate": false
+          },
+          "_C140494.ORF": {
+            "candidate": false
+          },
+          "_C140495.ORF": {
+            "candidate": false
+          },
+          "_C140496.ORF": {
+            "candidate": false
+          },
+          "_C140497.ORF": {
+            "candidate": false
+          },
+          "_C140498.ORF": {
+            "candidate": false
+          },
+          "_C140499.ORF": {
+            "candidate": false
+          },
+          "_C140500.ORF": {
+            "candidate": false
+          },
+          "_C140501.ORF": {
+            "candidate": false
+          },
+          "_C140502.ORF": {
+            "candidate": false
+          },
+          "_C140503.ORF": {
+            "candidate": false
+          },
+          "_C140504.ORF": {
+            "candidate": false
+          },
+          "_C140505.ORF": {
+            "candidate": false
+          },
+          "_C140506.ORF": {
+            "candidate": false
+          },
+          "_C140507.ORF": {
+            "candidate": false
+          },
+          "_C140508.ORF": {
+            "candidate": false
+          },
+          "_C140509.ORF": {
+            "candidate": false
+          },
+          "_C140510.ORF": {
+            "candidate": false
+          },
+          "_C140511.ORF": {
+            "candidate": false
+          },
+          "_C140512.ORF": {
+            "candidate": false
+          },
+          "_C140513.ORF": {
+            "candidate": false
+          },
+          "_C140514.ORF": {
+            "candidate": false
+          },
+          "_C140515.ORF": {
+            "candidate": false
+          },
+          "_C140516.ORF": {
+            "candidate": false
+          },
+          "_C140517.ORF": {
+            "candidate": false
+          },
+          "_C140518.ORF": {
+            "candidate": false
+          },
+          "_C140519.ORF": {
+            "candidate": false
+          },
+          "_C140520.ORF": {
+            "candidate": false
+          },
+          "_C140521.ORF": {
+            "candidate": false,
+            "appearance_coverage": 0.0,
+            "appearance_match": false
+          },
+          "_C140522.ORF": {
+            "candidate": false
+          },
+          "_C140523.ORF": {
+            "candidate": false
+          },
+          "_C140524.ORF": {
+            "candidate": false
+          },
+          "_C140525.ORF": {
+            "candidate": false
+          },
+          "_C140526.ORF": {
+            "candidate": false
+          },
+          "_C140527.ORF": {
+            "candidate": false
+          }
+        }
+      }
+    },
+    "zero_fp_retry_rejected_with_all_labels": {
+      "opening": "cross",
+      "settings": {
+        "hough_threshold": 10,
+        "hough_min_line_length": 15,
+        "hough_max_line_gap": 12,
+        "diff_threshold": 8,
+        "min_area": 3,
+        "min_aspect_ratio": 5.0,
+        "min_line_score": 30
+      },
+      "sequences": {
+        "bundled": {
+          "_C140336.ORF": {
+            "candidate": false
+          },
+          "_C140337.ORF": {
+            "candidate": false
+          },
+          "_C140338.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.9472729410579006,
+            "appearance_match": true
+          },
+          "_C140339.ORF": {
+            "candidate": false
+          },
+          "_C140340.ORF": {
+            "candidate": false
+          },
+          "_C140341.ORF": {
+            "candidate": false
+          },
+          "_C140342.ORF": {
+            "candidate": false
+          },
+          "_C140343.ORF": {
+            "candidate": false
+          },
+          "_C140344.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.7941908713692944,
+            "appearance_match": true
+          },
+          "_C140345.ORF": {
+            "candidate": false
+          },
+          "_C140346.ORF": {
+            "candidate": false
+          }
+        },
+        "gemini2021": {
+          "_C150296.ORF": {
+            "candidate": false
+          },
+          "_C150297.ORF": {
+            "candidate": false
+          },
+          "_C150298.ORF": {
+            "candidate": false
+          },
+          "_C150299.ORF": {
+            "candidate": false
+          },
+          "_C150300.ORF": {
+            "candidate": false
+          },
+          "_C150301.ORF": {
+            "candidate": false
+          },
+          "_C150302.ORF": {
+            "candidate": false
+          },
+          "_C150303.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.885722246788096,
+            "appearance_match": true
+          },
+          "_C150304.ORF": {
+            "candidate": false
+          },
+          "_C150305.ORF": {
+            "candidate": false
+          },
+          "_C150306.ORF": {
+            "candidate": false
+          },
+          "_C150307.ORF": {
+            "candidate": false
+          },
+          "_C150308.ORF": {
+            "candidate": false
+          },
+          "_C150309.ORF": {
+            "candidate": false
+          },
+          "_C150310.ORF": {
+            "candidate": false
+          },
+          "_C150311.ORF": {
+            "candidate": false
+          },
+          "_C150312.ORF": {
+            "candidate": false
+          },
+          "_C150313.ORF": {
+            "candidate": false
+          },
+          "_C150314.ORF": {
+            "candidate": false
+          },
+          "_C150315.ORF": {
+            "candidate": false
+          },
+          "_C150316.ORF": {
+            "candidate": false
+          },
+          "_C150317.ORF": {
+            "candidate": false
+          },
+          "_C150318.ORF": {
+            "candidate": false
+          },
+          "_C150319.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.7050555676617999,
+            "appearance_match": true
+          },
+          "_C150320.ORF": {
+            "candidate": false
+          },
+          "_C150321.ORF": {
+            "candidate": false
+          },
+          "_C150322.ORF": {
+            "candidate": false
+          },
+          "_C150323.ORF": {
+            "candidate": false
+          },
+          "_C150324.ORF": {
+            "candidate": false
+          },
+          "_C150325.ORF": {
+            "candidate": false
+          },
+          "_C150326.ORF": {
+            "candidate": true,
+            "appearance_coverage": 0.6792738275340393,
+            "appearance_match": true
+          },
+          "_C150327.ORF": {
+            "candidate": false
+          },
+          "_C150328.ORF": {
+            "candidate": false
+          },
+          "_C150329.ORF": {
+            "candidate": false
+          },
+          "_C150330.ORF": {
+            "candidate": false
+          }
+        },
+        "late2024": {
+          "_C140453.ORF": {
+            "candidate": false
+          },
+          "_C140454.ORF": {
+            "candidate": false
+          },
+          "_C140455.ORF": {
+            "candidate": false
+          },
+          "_C140456.ORF": {
+            "candidate": false
+          },
+          "_C140457.ORF": {
+            "candidate": false
+          },
+          "_C140458.ORF": {
+            "candidate": false
+          },
+          "_C140459.ORF": {
+            "candidate": false
+          },
+          "_C140460.ORF": {
+            "candidate": false
+          },
+          "_C140461.ORF": {
+            "candidate": false
+          },
+          "_C140462.ORF": {
+            "candidate": false
+          },
+          "_C140463.ORF": {
+            "candidate": false
+          },
+          "_C140464.ORF": {
+            "candidate": false
+          },
+          "_C140465.ORF": {
+            "candidate": false
+          },
+          "_C140466.ORF": {
+            "candidate": false
+          },
+          "_C140467.ORF": {
+            "candidate": false
+          },
+          "_C140468.ORF": {
+            "candidate": false
+          },
+          "_C140469.ORF": {
+            "candidate": false
+          },
+          "_C140470.ORF": {
+            "candidate": false
+          },
+          "_C140471.ORF": {
+            "candidate": false
+          },
+          "_C140472.ORF": {
+            "candidate": false
+          },
+          "_C140473.ORF": {
+            "candidate": false
+          },
+          "_C140474.ORF": {
+            "candidate": false
+          },
+          "_C140475.ORF": {
+            "candidate": false
+          },
+          "_C140476.ORF": {
+            "candidate": false
+          },
+          "_C140477.ORF": {
+            "candidate": false
+          },
+          "_C140478.ORF": {
+            "candidate": false
+          },
+          "_C140479.ORF": {
+            "candidate": false
+          },
+          "_C140480.ORF": {
+            "candidate": false
+          },
+          "_C140481.ORF": {
+            "candidate": false
+          },
+          "_C140482.ORF": {
+            "candidate": false
+          },
+          "_C140483.ORF": {
+            "candidate": false
+          },
+          "_C140484.ORF": {
+            "candidate": false
+          },
+          "_C140485.ORF": {
+            "candidate": false
+          },
+          "_C140486.ORF": {
+            "candidate": false
+          },
+          "_C140487.ORF": {
+            "candidate": false
+          },
+          "_C140488.ORF": {
+            "candidate": false
+          },
+          "_C140489.ORF": {
+            "candidate": false
+          },
+          "_C140490.ORF": {
+            "candidate": false
+          },
+          "_C140491.ORF": {
+            "candidate": false
+          },
+          "_C140492.ORF": {
+            "candidate": false
+          },
+          "_C140493.ORF": {
+            "candidate": false
+          },
+          "_C140494.ORF": {
+            "candidate": false
+          },
+          "_C140495.ORF": {
+            "candidate": false
+          },
+          "_C140496.ORF": {
+            "candidate": false
+          },
+          "_C140497.ORF": {
+            "candidate": false
+          },
+          "_C140498.ORF": {
+            "candidate": false
+          },
+          "_C140499.ORF": {
+            "candidate": false
+          },
+          "_C140500.ORF": {
+            "candidate": false
+          },
+          "_C140501.ORF": {
+            "candidate": false
+          },
+          "_C140502.ORF": {
+            "candidate": false
+          },
+          "_C140503.ORF": {
+            "candidate": false
+          },
+          "_C140504.ORF": {
+            "candidate": false
+          },
+          "_C140505.ORF": {
+            "candidate": false
+          },
+          "_C140506.ORF": {
+            "candidate": false
+          },
+          "_C140507.ORF": {
+            "candidate": false
+          },
+          "_C140508.ORF": {
+            "candidate": false
+          },
+          "_C140509.ORF": {
+            "candidate": false
+          },
+          "_C140510.ORF": {
+            "candidate": false
+          },
+          "_C140511.ORF": {
+            "candidate": false
+          },
+          "_C140512.ORF": {
+            "candidate": false
+          },
+          "_C140513.ORF": {
+            "candidate": false
+          },
+          "_C140514.ORF": {
+            "candidate": false
+          },
+          "_C140515.ORF": {
+            "candidate": false
+          },
+          "_C140516.ORF": {
+            "candidate": false
+          },
+          "_C140517.ORF": {
+            "candidate": false
+          },
+          "_C140518.ORF": {
+            "candidate": false
+          },
+          "_C140519.ORF": {
+            "candidate": false
+          },
+          "_C140520.ORF": {
+            "candidate": false
+          },
+          "_C140521.ORF": {
+            "candidate": false,
+            "appearance_coverage": 0.0,
+            "appearance_match": false
+          },
+          "_C140522.ORF": {
+            "candidate": false
+          },
+          "_C140523.ORF": {
+            "candidate": false
+          },
+          "_C140524.ORF": {
+            "candidate": false
+          },
+          "_C140525.ORF": {
+            "candidate": false
+          },
+          "_C140526.ORF": {
+            "candidate": false
+          },
+          "_C140527.ORF": {
+            "candidate": false
+          }
+        }
+      }
+    },
+    "minimum_fp_with_all_labels_for_each_meteor": {
+      "_C150319.ORF": {
+        "square": 3,
+        "cross": 1
+      },
+      "_C150326.ORF": {
+        "square": 3,
+        "cross": 0
+      },
+      "_C140521.ORF": {
+        "square": null,
+        "cross": 1
+      }
+    }
+  }
+}
