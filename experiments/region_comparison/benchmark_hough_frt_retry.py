@@ -29,7 +29,7 @@ from summarize import trail_coverage
 FRT_CONFIG = FrtConfig(max_report_segments=100_000)
 
 
-def collect(sequence, raw_root, settings):
+def collect(sequence, raw_root, settings, proposal_root=None):
     cv2.setNumThreads(1)
     source, frames, labels, digest = inputs(sequence, raw_root)
     checksum_file = source / ("SHA256SUMS" if sequence == "bundled" else "SHA256SUM")
@@ -46,6 +46,9 @@ def collect(sequence, raw_root, settings):
     frt = FrtDetector(FRT_CONFIG)
     previous = load_and_bin_raw_fast(str(source / frames[0]))
     roi = analysis_mask(previous.shape, sequence)
+    if proposal_root is not None:
+        proposal_folder = proposal_root / sequence
+        proposal_folder.mkdir(parents=True, exist_ok=True)
     pairs = {}
     for index, (prior, name) in enumerate(pairwise(frames), start=1):
         current = load_and_bin_raw_fast(str(source / name))
@@ -63,6 +66,16 @@ def collect(sequence, raw_root, settings):
                 **_scores(result, references),
                 "detector_seconds": perf_counter() - started,
             }
+            if proposal_root is not None:
+                accepted = [
+                    (*line["line_xyxy"], line["response"], line["positive_fraction"])
+                    for line in result.extras["frt"]["segments"]
+                    if line["accepted"]
+                ]
+                np.save(
+                    proposal_folder / f"{name}.npy",
+                    np.asarray(accepted, dtype=np.float64).reshape(-1, 6),
+                )
         pairs[name] = row
         previous = current
         if index % 15 == 0 or index == len(frames) - 1:
@@ -205,15 +218,24 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("--raw-root", type=Path, default=Path("rawfiles"))
     parser.add_argument("--workers", type=int, choices=range(1, 4), default=1)
+    parser.add_argument(
+        "--save-proposals",
+        action="store_true",
+        help="Save FRT proposal endpoints, scores and positive fractions for verification.",
+    )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     settings = load_pipeline_config(CONFIG).params.to_dict()
+    proposal_root = args.output / "proposals" if args.save_proposals else None
     if args.workers == 1:
-        sequences = {name: collect(name, args.raw_root, settings) for name in SKY_ROIS}
+        sequences = {
+            name: collect(name, args.raw_root, settings, proposal_root)
+            for name in SKY_ROIS
+        }
     else:
         with ProcessPoolExecutor(max_workers=args.workers) as pool:
             jobs = {
-                name: pool.submit(collect, name, args.raw_root, settings)
+                name: pool.submit(collect, name, args.raw_root, settings, proposal_root)
                 for name in SKY_ROIS
             }
             sequences = {name: job.result() for name, job in jobs.items()}

@@ -1,0 +1,3857 @@
+{
+  "grid": {
+    "contrasts": [
+      [
+        "dn",
+        2
+      ],
+      [
+        "dn",
+        3
+      ],
+      [
+        "dn",
+        4
+      ],
+      [
+        "dn",
+        5
+      ],
+      [
+        "dn",
+        6
+      ],
+      [
+        "dn",
+        8
+      ],
+      [
+        "dn",
+        9
+      ],
+      [
+        "dn",
+        12
+      ],
+      [
+        "noise",
+        0.3
+      ],
+      [
+        "noise",
+        0.45
+      ],
+      [
+        "noise",
+        0.6
+      ],
+      [
+        "noise",
+        0.8
+      ],
+      [
+        "noise",
+        1.0
+      ],
+      [
+        "noise",
+        1.5
+      ],
+      [
+        "noise",
+        2.0
+      ],
+      [
+        "noise",
+        2.5
+      ],
+      [
+        "both_sides_noise",
+        0.3
+      ],
+      [
+        "both_sides_noise",
+        0.45
+      ],
+      [
+        "both_sides_noise",
+        0.6
+      ],
+      [
+        "both_sides_noise",
+        0.8
+      ],
+      [
+        "both_sides_noise",
+        1.0
+      ],
+      [
+        "both_sides_noise",
+        1.5
+      ],
+      [
+        "both_sides_noise",
+        2.0
+      ],
+      [
+        "both_sides_noise",
+        2.5
+      ]
+    ],
+    "max_gap_samples": [
+      0,
+      3
+    ],
+    "min_support_px": [
+      16,
+      24,
+      32,
+      45,
+      60,
+      80
+    ],
+    "min_supported_density": 0.75,
+    "smoothing_samples": 5
+  },
+  "source_checks": {
+    "bundled": {
+      "input_sha256": "5fba0cf7dbee10d0fcf5d891eb6e1597ac635d486b8306b42f71558ab6f6a3b0",
+      "truth_sha256": "d5a8f3c85bc6dabfbb31dfd338d37b5c8f606bf7e4e5ed525fcc6dc6f981ab60",
+      "sky_mask_pixels": 2544376
+    },
+    "gemini2021": {
+      "input_sha256": "1184851a941556cad92421847946cb406481c5e1f11ac5faf1768211e21dbd33",
+      "truth_sha256": "01eef6582c147ad8e86afdc8df55ca3622dc0b659557de5a67829134e4288ff5",
+      "sky_mask_pixels": 2327453
+    },
+    "late2024": {
+      "input_sha256": "fd2e5b3b1ba36c9a5161747cc85b66673746eb67d33d891a7d4baaa1c4ef7b06",
+      "truth_sha256": "5946cbc5c57b1da2f0d2381e430f5550dd0cc935c22912f640d14fbf6db3beef",
+      "sky_mask_pixels": 2544376
+    }
+  },
+  "previous_hough_only": {
+    "bundled": {
+      "frames": {
+        "tp": [
+          "_C140338.ORF",
+          "_C140344.ORF"
+        ],
+        "fp": [],
+        "fn": [],
+        "tn_count": 9,
+        "precision": 1.0,
+        "recall": 1.0,
+        "recall_95_exact_if_independent": [
+          0.158113883008419,
+          1.0
+        ],
+        "false_positive_rate": 0.0,
+        "candidates_per_meteor_frame": 1.0
+      },
+      "events": {
+        "_C140338.ORF": {
+          "appearance": {
+            "coverage": 0.9472729410579006,
+            "match": true
+          },
+          "following": {
+            "coverage": 0.0,
+            "match": false
+          },
+          "event_match": true
+        },
+        "_C140344.ORF": {
+          "appearance": {
+            "coverage": 0.7941908713692944,
+            "match": true
+          },
+          "following": {
+            "coverage": 0.0,
+            "match": false
+          },
+          "event_match": true
+        }
+      },
+      "added_by_frt": []
+    },
+    "gemini2021": {
+      "frames": {
+        "tp": [
+          "_C150303.ORF"
+        ],
+        "fp": [],
+        "fn": [
+          "_C150319.ORF",
+          "_C150326.ORF"
+        ],
+        "tn_count": 32,
+        "precision": 1.0,
+        "recall": 0.3333333333333333,
+        "recall_95_exact_if_independent": [
+          0.008403758659612404,
+          0.9057006759497539
+        ],
+        "false_positive_rate": 0.0,
+        "candidates_per_meteor_frame": 1.0
+      },
+      "events": {
+        "_C150303.ORF": {
+          "appearance": {
+            "coverage": 0.885722246788096,
+            "match": true
+          },
+          "following": {
+            "coverage": 0.0,
+            "match": false
+          },
+          "event_match": true
+        },
+        "_C150319.ORF": {
+          "appearance": {
+            "coverage": 0.0,
+            "match": false
+          },
+          "following": {
+            "coverage": 0.0,
+            "match": false
+          },
+          "event_match": false
+        },
+        "_C150326.ORF": {
+          "appearance": {
+            "coverage": 0.0,
+            "match": false
+          },
+          "following": {
+            "coverage": 0.0,
+            "match": false
+          },
+          "event_match": false
+        }
+      },
+      "added_by_frt": []
+    },
+    "late2024": {
+      "frames": {
+        "tp": [],
+        "fp": [],
+        "fn": [
+          "_C140521.ORF"
+        ],
+        "tn_count": 74,
+        "precision": null,
+        "recall": 0.0,
+        "recall_95_exact_if_independent": [
+          0.0,
+          0.9750000000000001
+        ],
+        "false_positive_rate": 0.0,
+        "candidates_per_meteor_frame": null
+      },
+      "events": {
+        "_C140521.ORF": {
+          "appearance": {
+            "coverage": 0.0,
+            "match": false
+          },
+          "following": {
+            "coverage": 0.0,
+            "match": false
+          },
+          "event_match": false
+        }
+      },
+      "added_by_frt": []
+    }
+  },
+  "previous_frt_snr_only": {
+    "bundled": {
+      "training_sequences": [
+        "gemini2021",
+        "late2024"
+      ],
+      "calibration": {
+        "min_snr": 597.7915649414064,
+        "negative_count": 106,
+        "max_negative_score": 597.7915649414062,
+        "max_negative_frames": [
+          {
+            "sequence": "gemini2021",
+            "frame": "_C150298.ORF"
+          }
+        ]
+      },
+      "training": {
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF"
+            ],
+            "fp": [],
+            "fn": [
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 0.3333333333333333,
+            "recall_95_exact_if_independent": [
+              0.008403758659612404,
+              0.9057006759497539
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          },
+          "added_by_frt": []
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          },
+          "added_by_frt": []
+        }
+      },
+      "held_out": {
+        "frames": {
+          "tp": [
+            "_C140338.ORF",
+            "_C140344.ORF"
+          ],
+          "fp": [],
+          "fn": [],
+          "tn_count": 9,
+          "precision": 1.0,
+          "recall": 1.0,
+          "recall_95_exact_if_independent": [
+            0.158113883008419,
+            1.0
+          ],
+          "false_positive_rate": 0.0,
+          "candidates_per_meteor_frame": 1.0
+        },
+        "events": {
+          "_C140338.ORF": {
+            "appearance": {
+              "coverage": 0.9472729410579006,
+              "match": true
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": true
+          },
+          "_C140344.ORF": {
+            "appearance": {
+              "coverage": 0.7941908713692944,
+              "match": true
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": true
+          }
+        },
+        "added_by_frt": []
+      }
+    },
+    "gemini2021": {
+      "training_sequences": [
+        "bundled",
+        "late2024"
+      ],
+      "calibration": {
+        "min_snr": 189.85191345214847,
+        "negative_count": 83,
+        "max_negative_score": 189.85191345214844,
+        "max_negative_frames": [
+          {
+            "sequence": "late2024",
+            "frame": "_C140468.ORF"
+          }
+        ]
+      },
+      "training": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          },
+          "added_by_frt": []
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          },
+          "added_by_frt": []
+        }
+      },
+      "held_out": {
+        "frames": {
+          "tp": [
+            "_C150303.ORF",
+            "_C150319.ORF",
+            "_C150326.ORF"
+          ],
+          "fp": [
+            "_C150296.ORF",
+            "_C150297.ORF",
+            "_C150298.ORF",
+            "_C150300.ORF",
+            "_C150301.ORF",
+            "_C150302.ORF",
+            "_C150305.ORF",
+            "_C150307.ORF",
+            "_C150308.ORF",
+            "_C150310.ORF",
+            "_C150311.ORF",
+            "_C150313.ORF",
+            "_C150315.ORF",
+            "_C150316.ORF",
+            "_C150318.ORF",
+            "_C150320.ORF",
+            "_C150323.ORF",
+            "_C150324.ORF",
+            "_C150328.ORF",
+            "_C150329.ORF"
+          ],
+          "fn": [],
+          "tn_count": 12,
+          "precision": 0.13043478260869565,
+          "recall": 1.0,
+          "recall_95_exact_if_independent": [
+            0.2924017738212865,
+            1.0
+          ],
+          "false_positive_rate": 0.625,
+          "candidates_per_meteor_frame": 7.666666666666667
+        },
+        "events": {
+          "_C150303.ORF": {
+            "appearance": {
+              "coverage": 0.885722246788096,
+              "match": true
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": true
+          },
+          "_C150319.ORF": {
+            "appearance": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": false
+          },
+          "_C150326.ORF": {
+            "appearance": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": false
+          }
+        },
+        "added_by_frt": [
+          "_C150296.ORF",
+          "_C150297.ORF",
+          "_C150298.ORF",
+          "_C150300.ORF",
+          "_C150301.ORF",
+          "_C150302.ORF",
+          "_C150305.ORF",
+          "_C150307.ORF",
+          "_C150308.ORF",
+          "_C150310.ORF",
+          "_C150311.ORF",
+          "_C150313.ORF",
+          "_C150315.ORF",
+          "_C150316.ORF",
+          "_C150318.ORF",
+          "_C150319.ORF",
+          "_C150320.ORF",
+          "_C150323.ORF",
+          "_C150324.ORF",
+          "_C150326.ORF",
+          "_C150328.ORF",
+          "_C150329.ORF"
+        ]
+      }
+    },
+    "late2024": {
+      "training_sequences": [
+        "bundled",
+        "gemini2021"
+      ],
+      "calibration": {
+        "min_snr": 597.7915649414064,
+        "negative_count": 41,
+        "max_negative_score": 597.7915649414062,
+        "max_negative_frames": [
+          {
+            "sequence": "gemini2021",
+            "frame": "_C150298.ORF"
+          }
+        ]
+      },
+      "training": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          },
+          "added_by_frt": []
+        },
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF"
+            ],
+            "fp": [],
+            "fn": [
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 0.3333333333333333,
+            "recall_95_exact_if_independent": [
+              0.008403758659612404,
+              0.9057006759497539
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          },
+          "added_by_frt": []
+        }
+      },
+      "held_out": {
+        "frames": {
+          "tp": [],
+          "fp": [],
+          "fn": [
+            "_C140521.ORF"
+          ],
+          "tn_count": 74,
+          "precision": null,
+          "recall": 0.0,
+          "recall_95_exact_if_independent": [
+            0.0,
+            0.9750000000000001
+          ],
+          "false_positive_rate": 0.0,
+          "candidates_per_meteor_frame": null
+        },
+        "events": {
+          "_C140521.ORF": {
+            "appearance": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": false
+          }
+        },
+        "added_by_frt": []
+      }
+    }
+  },
+  "fixed": {
+    "dn": {
+      "bundled": {
+        "frames": {
+          "tp": [
+            "_C140338.ORF",
+            "_C140344.ORF"
+          ],
+          "fp": [],
+          "fn": [],
+          "tn_count": 9,
+          "precision": 1.0,
+          "recall": 1.0,
+          "recall_95_exact_if_independent": [
+            0.158113883008419,
+            1.0
+          ],
+          "false_positive_rate": 0.0,
+          "candidates_per_meteor_frame": 1.0
+        },
+        "events": {
+          "_C140338.ORF": {
+            "appearance": {
+              "coverage": 0.9472729410579006,
+              "match": true
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": true
+          },
+          "_C140344.ORF": {
+            "appearance": {
+              "coverage": 0.7941908713692944,
+              "match": true
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": true
+          }
+        }
+      },
+      "gemini2021": {
+        "frames": {
+          "tp": [
+            "_C150303.ORF"
+          ],
+          "fp": [],
+          "fn": [
+            "_C150319.ORF",
+            "_C150326.ORF"
+          ],
+          "tn_count": 32,
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "recall_95_exact_if_independent": [
+            0.008403758659612404,
+            0.9057006759497539
+          ],
+          "false_positive_rate": 0.0,
+          "candidates_per_meteor_frame": 1.0
+        },
+        "events": {
+          "_C150303.ORF": {
+            "appearance": {
+              "coverage": 0.885722246788096,
+              "match": true
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": true
+          },
+          "_C150319.ORF": {
+            "appearance": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": false
+          },
+          "_C150326.ORF": {
+            "appearance": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": false
+          }
+        }
+      },
+      "late2024": {
+        "frames": {
+          "tp": [],
+          "fp": [
+            "_C140525.ORF",
+            "_C140526.ORF",
+            "_C140527.ORF"
+          ],
+          "fn": [
+            "_C140521.ORF"
+          ],
+          "tn_count": 71,
+          "precision": 0.0,
+          "recall": 0.0,
+          "recall_95_exact_if_independent": [
+            0.0,
+            0.9750000000000001
+          ],
+          "false_positive_rate": 0.04054054054054054,
+          "candidates_per_meteor_frame": null
+        },
+        "events": {
+          "_C140521.ORF": {
+            "appearance": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": false
+          }
+        }
+      }
+    },
+    "noise": {
+      "bundled": {
+        "frames": {
+          "tp": [
+            "_C140338.ORF",
+            "_C140344.ORF"
+          ],
+          "fp": [],
+          "fn": [],
+          "tn_count": 9,
+          "precision": 1.0,
+          "recall": 1.0,
+          "recall_95_exact_if_independent": [
+            0.158113883008419,
+            1.0
+          ],
+          "false_positive_rate": 0.0,
+          "candidates_per_meteor_frame": 1.0
+        },
+        "events": {
+          "_C140338.ORF": {
+            "appearance": {
+              "coverage": 0.9472729410579006,
+              "match": true
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": true
+          },
+          "_C140344.ORF": {
+            "appearance": {
+              "coverage": 0.7941908713692944,
+              "match": true
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": true
+          }
+        }
+      },
+      "gemini2021": {
+        "frames": {
+          "tp": [
+            "_C150303.ORF"
+          ],
+          "fp": [],
+          "fn": [
+            "_C150319.ORF",
+            "_C150326.ORF"
+          ],
+          "tn_count": 32,
+          "precision": 1.0,
+          "recall": 0.3333333333333333,
+          "recall_95_exact_if_independent": [
+            0.008403758659612404,
+            0.9057006759497539
+          ],
+          "false_positive_rate": 0.0,
+          "candidates_per_meteor_frame": 1.0
+        },
+        "events": {
+          "_C150303.ORF": {
+            "appearance": {
+              "coverage": 0.885722246788096,
+              "match": true
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": true
+          },
+          "_C150319.ORF": {
+            "appearance": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": false
+          },
+          "_C150326.ORF": {
+            "appearance": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": false
+          }
+        }
+      },
+      "late2024": {
+        "frames": {
+          "tp": [],
+          "fp": [],
+          "fn": [
+            "_C140521.ORF"
+          ],
+          "tn_count": 74,
+          "precision": null,
+          "recall": 0.0,
+          "recall_95_exact_if_independent": [
+            0.0,
+            0.9750000000000001
+          ],
+          "false_positive_rate": 0.0,
+          "candidates_per_meteor_frame": null
+        },
+        "events": {
+          "_C140521.ORF": {
+            "appearance": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "following": {
+              "coverage": 0.0,
+              "match": false
+            },
+            "event_match": false
+          }
+        }
+      }
+    }
+  },
+  "leave_one_sequence_out": {
+    "bundled": {
+      "support_only": {
+        "settings": {
+          "contrast_unit": "noise",
+          "min_local_contrast": 1.5,
+          "max_gap_px_approx": 0,
+          "min_support_px": 32,
+          "min_snr": 8.0
+        },
+        "training": {
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.532993644967711,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.50379556277621,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 74,
+              "precision": null,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        }
+      },
+      "support_and_snr": {
+        "settings": {
+          "contrast_unit": "noise",
+          "min_local_contrast": 1.5,
+          "max_gap_px_approx": 0,
+          "min_support_px": 32,
+          "min_snr": 8.0
+        },
+        "training": {
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.532993644967711,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.50379556277621,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 74,
+              "precision": null,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        }
+      },
+      "both_sides_only": {
+        "settings": {
+          "contrast_unit": "both_sides_noise",
+          "min_local_contrast": 0.6,
+          "max_gap_px_approx": 0,
+          "min_support_px": 32,
+          "min_snr": 8.0
+        },
+        "training": {
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.5477078506623907,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.8179365600249169,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 74,
+              "precision": null,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        }
+      },
+      "both_sides_and_snr": {
+        "settings": {
+          "contrast_unit": "both_sides_noise",
+          "min_local_contrast": 0.6,
+          "max_gap_px_approx": 0,
+          "min_support_px": 32,
+          "min_snr": 8.0
+        },
+        "training": {
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.5477078506623907,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.8179365600249169,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 74,
+              "precision": null,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "gemini2021": {
+      "support_only": {
+        "settings": {
+          "contrast_unit": "dn",
+          "min_local_contrast": 9,
+          "max_gap_px_approx": 0,
+          "min_support_px": 80,
+          "min_snr": 8.0
+        },
+        "training": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 74,
+              "precision": null,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF"
+              ],
+              "fp": [],
+              "fn": [
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 0.3333333333333333,
+              "recall_95_exact_if_independent": [
+                0.008403758659612404,
+                0.9057006759497539
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        }
+      },
+      "support_and_snr": {
+        "settings": {
+          "contrast_unit": "noise",
+          "min_local_contrast": 0.3,
+          "max_gap_px_approx": 3,
+          "min_support_px": 60,
+          "min_snr": 9.49031162261963
+        },
+        "training": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "late2024": {
+            "frames": {
+              "tp": [
+                "_C140521.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 74,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.02499999999999991,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.9612597579901739,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [
+                "_C150308.ORF"
+              ],
+              "fn": [],
+              "tn_count": 31,
+              "precision": 0.75,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.03125,
+              "candidates_per_meteor_frame": 1.3333333333333333
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.9764496860814142,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 1.0,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        }
+      },
+      "both_sides_only": {
+        "settings": {
+          "contrast_unit": "both_sides_noise",
+          "min_local_contrast": 0.3,
+          "max_gap_px_approx": 0,
+          "min_support_px": 80,
+          "min_snr": 8.0
+        },
+        "training": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 74,
+              "precision": null,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF"
+              ],
+              "fp": [],
+              "fn": [
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 0.3333333333333333,
+              "recall_95_exact_if_independent": [
+                0.008403758659612404,
+                0.9057006759497539
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        }
+      },
+      "both_sides_and_snr": {
+        "settings": {
+          "contrast_unit": "both_sides_noise",
+          "min_local_contrast": 0.3,
+          "max_gap_px_approx": 3,
+          "min_support_px": 32,
+          "min_snr": 9.393261909484865
+        },
+        "training": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "late2024": {
+            "frames": {
+              "tp": [
+                "_C140521.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 74,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.02499999999999991,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.5005360198326277,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [
+                "_C150298.ORF",
+                "_C150308.ORF",
+                "_C150309.ORF"
+              ],
+              "fn": [],
+              "tn_count": 29,
+              "precision": 0.5,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.09375,
+              "candidates_per_meteor_frame": 2.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.9173914569564514,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.9859237340927287,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "late2024": {
+      "support_only": {
+        "settings": {
+          "contrast_unit": "dn",
+          "min_local_contrast": 6,
+          "max_gap_px_approx": 0,
+          "min_support_px": 32,
+          "min_snr": 8.0
+        },
+        "training": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.5477078506623907,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.8167681230768672,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [
+                "_C140523.ORF",
+                "_C140524.ORF",
+                "_C140525.ORF",
+                "_C140526.ORF",
+                "_C140527.ORF"
+              ],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 69,
+              "precision": 0.0,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.06756756756756757,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        }
+      },
+      "support_and_snr": {
+        "settings": {
+          "contrast_unit": "dn",
+          "min_local_contrast": 6,
+          "max_gap_px_approx": 0,
+          "min_support_px": 32,
+          "min_snr": 8.0
+        },
+        "training": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.5477078506623907,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.8167681230768672,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [
+                "_C140523.ORF",
+                "_C140524.ORF",
+                "_C140525.ORF",
+                "_C140526.ORF",
+                "_C140527.ORF"
+              ],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 69,
+              "precision": 0.0,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.06756756756756757,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        }
+      },
+      "both_sides_only": {
+        "settings": {
+          "contrast_unit": "both_sides_noise",
+          "min_local_contrast": 0.6,
+          "max_gap_px_approx": 0,
+          "min_support_px": 32,
+          "min_snr": 8.0
+        },
+        "training": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.5477078506623907,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.8179365600249169,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 74,
+              "precision": null,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        }
+      },
+      "both_sides_and_snr": {
+        "settings": {
+          "contrast_unit": "both_sides_noise",
+          "min_local_contrast": 0.6,
+          "max_gap_px_approx": 0,
+          "min_support_px": 32,
+          "min_snr": 8.0
+        },
+        "training": {
+          "bundled": {
+            "frames": {
+              "tp": [
+                "_C140338.ORF",
+                "_C140344.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 9,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.158113883008419,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C140338.ORF": {
+                "appearance": {
+                  "coverage": 0.9472729410579006,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C140344.ORF": {
+                "appearance": {
+                  "coverage": 0.7941908713692944,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          },
+          "gemini2021": {
+            "frames": {
+              "tp": [
+                "_C150303.ORF",
+                "_C150319.ORF",
+                "_C150326.ORF"
+              ],
+              "fp": [],
+              "fn": [],
+              "tn_count": 32,
+              "precision": 1.0,
+              "recall": 1.0,
+              "recall_95_exact_if_independent": [
+                0.2924017738212865,
+                1.0
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": 1.0
+            },
+            "events": {
+              "_C150303.ORF": {
+                "appearance": {
+                  "coverage": 0.885722246788096,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150319.ORF": {
+                "appearance": {
+                  "coverage": 0.5477078506623907,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              },
+              "_C150326.ORF": {
+                "appearance": {
+                  "coverage": 0.8179365600249169,
+                  "match": true
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": true
+              }
+            }
+          }
+        },
+        "evaluation": {
+          "late2024": {
+            "frames": {
+              "tp": [],
+              "fp": [],
+              "fn": [
+                "_C140521.ORF"
+              ],
+              "tn_count": 74,
+              "precision": null,
+              "recall": 0.0,
+              "recall_95_exact_if_independent": [
+                0.0,
+                0.9750000000000001
+              ],
+              "false_positive_rate": 0.0,
+              "candidates_per_meteor_frame": null
+            },
+            "events": {
+              "_C140521.ORF": {
+                "appearance": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "following": {
+                  "coverage": 0.0,
+                  "match": false
+                },
+                "event_match": false
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "zero_fp_with_all_labels": {
+    "support_only": {
+      "settings": {
+        "contrast_unit": "noise",
+        "min_local_contrast": 1.5,
+        "max_gap_px_approx": 0,
+        "min_support_px": 32,
+        "min_snr": 8.0
+      },
+      "training": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF",
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.2924017738212865,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.532993644967711,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.50379556277621,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          }
+        }
+      },
+      "evaluation": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF",
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.2924017738212865,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.532993644967711,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.50379556277621,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          }
+        }
+      }
+    },
+    "support_and_snr": {
+      "settings": {
+        "contrast_unit": "noise",
+        "min_local_contrast": 1.5,
+        "max_gap_px_approx": 0,
+        "min_support_px": 32,
+        "min_snr": 8.0
+      },
+      "training": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF",
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.2924017738212865,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.532993644967711,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.50379556277621,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          }
+        }
+      },
+      "evaluation": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF",
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.2924017738212865,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.532993644967711,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.50379556277621,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          }
+        }
+      }
+    },
+    "both_sides_only": {
+      "settings": {
+        "contrast_unit": "both_sides_noise",
+        "min_local_contrast": 0.6,
+        "max_gap_px_approx": 0,
+        "min_support_px": 32,
+        "min_snr": 8.0
+      },
+      "training": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF",
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.2924017738212865,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.5477078506623907,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.8179365600249169,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          }
+        }
+      },
+      "evaluation": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF",
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.2924017738212865,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.5477078506623907,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.8179365600249169,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          }
+        }
+      }
+    },
+    "both_sides_and_snr": {
+      "settings": {
+        "contrast_unit": "both_sides_noise",
+        "min_local_contrast": 0.6,
+        "max_gap_px_approx": 0,
+        "min_support_px": 32,
+        "min_snr": 8.0
+      },
+      "training": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF",
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.2924017738212865,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.5477078506623907,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.8179365600249169,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          }
+        }
+      },
+      "evaluation": {
+        "bundled": {
+          "frames": {
+            "tp": [
+              "_C140338.ORF",
+              "_C140344.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 9,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.158113883008419,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C140338.ORF": {
+              "appearance": {
+                "coverage": 0.9472729410579006,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C140344.ORF": {
+              "appearance": {
+                "coverage": 0.7941908713692944,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "gemini2021": {
+          "frames": {
+            "tp": [
+              "_C150303.ORF",
+              "_C150319.ORF",
+              "_C150326.ORF"
+            ],
+            "fp": [],
+            "fn": [],
+            "tn_count": 32,
+            "precision": 1.0,
+            "recall": 1.0,
+            "recall_95_exact_if_independent": [
+              0.2924017738212865,
+              1.0
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": 1.0
+          },
+          "events": {
+            "_C150303.ORF": {
+              "appearance": {
+                "coverage": 0.885722246788096,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150319.ORF": {
+              "appearance": {
+                "coverage": 0.5477078506623907,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            },
+            "_C150326.ORF": {
+              "appearance": {
+                "coverage": 0.8179365600249169,
+                "match": true
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": true
+            }
+          }
+        },
+        "late2024": {
+          "frames": {
+            "tp": [],
+            "fp": [],
+            "fn": [
+              "_C140521.ORF"
+            ],
+            "tn_count": 74,
+            "precision": null,
+            "recall": 0.0,
+            "recall_95_exact_if_independent": [
+              0.0,
+              0.9750000000000001
+            ],
+            "false_positive_rate": 0.0,
+            "candidates_per_meteor_frame": null
+          },
+          "events": {
+            "_C140521.ORF": {
+              "appearance": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "following": {
+                "coverage": 0.0,
+                "match": false
+              },
+              "event_match": false
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -50,6 +50,8 @@
 この121ペアでは、既存の3枚を維持できたが、試作FRTの得点下限だけで
 偽陽性を増やさずに3枚を追加回収できる範囲は得られなかった。
 
+[高得点線分の差分像と局所コントラスト・連続性による再検証](frt_line_verification_ja.md)
+
 ## 再現
 
 [実測 JSON](../experiments/region_comparison/results/hough_frt_retry/hough_frt_retry.json)には
