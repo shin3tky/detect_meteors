@@ -77,4 +77,7 @@ uv run detect-meteors --config config_examples/hough_legacy_sample.yaml --debug-
 実行時のPydantic 2.14.4とPyYAML 6.0.4、開発用のRuff 0.17.6、ty 0.0.107、coverage 7.17.4です。
 設定例とガイドはソース配布物で参照できます。サンプルRAW、目視ラベル、チェックサムは
 `detect_meteors_assets` から取得します。実験スクリプトを再実行するときはGitのチェックアウトを使います。
+
+最終点検では、既存57件を再確認し、手順5の日英2箇所への追加6リンクもたどりました。
+重複を除く59件すべてで、目的のページや見出しに到達しました。
 [公開前の確認手順](INSTALL_DEV_ja.md#release-211-checklist) · [公開後の確認（手順5）](INSTALL_DEV_ja.md#post-publication-documentation)

@@ -96,4 +96,8 @@ Development updates include Ruff 0.17.6, ty 0.0.107, and coverage 7.17.4.
 The source distribution includes the guides and sample configurations. Get
 the sample RAWs, visual labels, and checksums from `detect_meteors_assets`.
 Use a Git checkout to rerun the experiment scripts.
+
+The final audit rechecked the original 57 destinations and followed six new
+links to the two language versions of step 5. All 59 distinct page and
+section URLs resolved.
 [Release readiness checklist](INSTALL_DEV.md#release-211-checklist) · [Post-publication checks (step 5)](INSTALL_DEV.md#post-publication-documentation)
