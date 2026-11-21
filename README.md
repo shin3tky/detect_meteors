@@ -340,7 +340,12 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 - Support Python 3.14 alongside Python 3.12 and 3.13.
 
 See the release notes for migration instructions and the 121-pair and 2025LEO evaluation results.
-[2.1.1 release notes](docs/RELEASE_NOTES_2.1.md#version-211) · [Changelog](docs/CHANGELOG.md#v211)
+
+The final audit rechecked the original 57 destinations and followed six new
+links from the Wiki, GitHub Release, and release notes to the two language
+versions of step 5. All 59 distinct page and section URLs resolved.
+
+[2.1.1 release notes](docs/RELEASE_NOTES_2.1.md#version-211) · [Changelog](docs/CHANGELOG.md#v211) · [Post-publication checks (step 5)](docs/INSTALL_DEV.md#post-publication-documentation)
 
 ### Previous Releases
 
