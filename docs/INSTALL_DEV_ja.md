@@ -278,7 +278,8 @@ uv run coverage html
 タグ名（例 `2.1.1`）とコミットの完全な SHA を指定してください。
 成功した実行では、wheel、ソース配布物、`SHA256SUMS` が1つのアーティファクトに保存されます。
 ダウンロードして展開し、`origin` のタグを再確認してから、GitHub Release に3ファイルを手動で添付します。
-公開後は、[公開 URL から取得して検証する手順](#verify-public-release-downloads)を実行します。
+公開後は、公開 URL からの取得結果と、公開ページの案内を確認します。
+[公開配布物の検証](#verify-public-release-downloads) · [公開後のドキュメント確認](#post-publication-documentation)
 
 手元でビルドする場合は、以下の手順に従ってください。
 
@@ -477,6 +478,39 @@ cp "$artifact_dir/$wheel" "$artifact_dir/$sdist" "$artifact_dir/SHA256SUMS" "$re
 3. テスト用リリースページと添付3ファイルの公開 URL がすべて HTTP `404` を返すことを確認します。
    本番リリースのタグの参照先、リリースノート、添付ファイルをテスト前の記録と照合し、GitHub で引き続き **Latest** と表示されることを確認します。
    今回は `1.6.12` についてこれらを確認しました。
+
+<a id="post-publication-documentation"></a>
+
+### 5. 公開後のドキュメントを更新し、リリースを再確認する
+
+1. 初回の公開配布物の検証後に、リリースコミットの完全なSHA、リモートの注釈付きタグ自体とその参照先、
+   ビルド実行・試行番号、検証実行を記録します。元のアーティファクトのコピーを保存し、公開した添付ファイル
+   それぞれの名前・ID・SHA-256を記録します。`release_version` に公開済みのタグを設定すると、次のコマンドで
+   タグと添付の情報を確認できます。添付情報の取得にはGitHub CLI（`gh`）を使います。
+
+   ```bash
+   git ls-remote --exit-code origin "refs/tags/$release_version" "refs/tags/$release_version^{}"
+   gh api "repos/shin3tky/detect_meteors/releases/tags/$release_version" \
+     --jq '{tag_name, assets: ([.assets[] | {name, id, digest}] | sort_by(.name))}'
+   ```
+
+2. 日英のREADME、インストールガイド、リリースノート、変更履歴を更新し、必須チェックを通過したPRで
+   `main` に反映します。Wikiホームの日英案内とGitHub Release本文も更新します。公開Releaseと配布物には
+   版を指定したURLを使い、インストール、サンプルRAWの取得、設定切り替えの現行手順は `main` にリンクします。
+   公開版と同じ設定例が必要な場合は、リリースタグの設定ファイルにリンクします。 [プロジェクトWiki](https://github.com/shin3tky/detect_meteors/wiki/Home)
+3. 反映後の公開ページからリンクをたどり、ページと、URLに指定された見出しに到達することを確認します。
+   リリースノートと変更履歴は両方向を確認します。技術解説を経由するリンクもたどり、
+   インストールやサンプルRAWの取得が `main` の公開済み手順に行き着くことを確認します。
+   確認したページ、PR、修正したリンク切れを記録します。
+4. 上の読み取りコマンドを再実行し、タグ自体と参照先、添付ファイル名・ID・SHA-256を記録と照合します。
+   公開時と同じビルド実行・試行のアーティファクトを使い、公開配布物の検証を再実行します。ワークフローから
+   そのアーティファクトを取得できない場合は、保存したコピーを使って手元で比較します。公開された
+   3ファイルをバイト単位で比較し、両配布物を公開された `SHA256SUMS` で照合します。
+   [公開配布物の検証](#verify-public-release-downloads)
+
+2.1.1では、見出しを含め、重複を除いた公開リンク先57件を確認しました。タグと添付3点は公開時の記録と一致し、
+公開URLから再取得した3ファイルもビルド成果物とバイト単位で一致しました。
+[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [ビルド実行 #44887379412](https://github.com/shin3tky/detect_meteors/actions/runs/44887379412) · [検証実行 #44890775339](https://github.com/shin3tky/detect_meteors/actions/runs/44890775339)
 
 ## コードスタイル
 

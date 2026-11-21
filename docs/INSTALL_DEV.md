@@ -300,7 +300,8 @@ distributions → Run workflow** on the default branch. Enter the tag (for
 example, `2.1.1`) and the full commit SHA. A successful run saves the wheel,
 source distribution, and `SHA256SUMS` in one artifact. Download and unpack it,
 recheck the remote tag, and attach the three files in GitHub Release. Then
-follow [the public download checks](#verify-public-release-downloads).
+verify the public downloads and review the published documentation.
+[Public download verification](#verify-public-release-downloads) · [Post-publication documentation checks](#post-publication-documentation)
 
 For a manual build, follow the steps in this section.
 
@@ -525,6 +526,50 @@ Confirm that the release page shows the intended commit and all three assets.
    attachments with their pre-test values, and confirm that GitHub still marks
    the production release as **Latest**. After this test, `1.6.12` passed those
    checks.
+
+<a id="post-publication-documentation"></a>
+
+### 5. Update documentation and recheck the published release
+
+1. After the initial download verification, record the full release commit SHA,
+   the remote annotated tag object and its target, the build run and attempt,
+   and the verification run. Save a copy of the original artifact and record
+   the name, ID, and SHA-256 digest of each published attachment. The following
+   commands print the tag and attachment details. Set `release_version` to the
+   published tag. The attachment query uses GitHub CLI (`gh`).
+
+   ```bash
+   git ls-remote --exit-code origin "refs/tags/$release_version" "refs/tags/$release_version^{}"
+   gh api "repos/shin3tky/detect_meteors/releases/tags/$release_version" \
+     --jq '{tag_name, assets: ([.assets[] | {name, id, digest}] | sort_by(.name))}'
+   ```
+
+2. Update the English and Japanese READMEs, installation guides, release notes,
+   and changelogs on `main` through PRs with passing required checks. Update
+   both language sections of the Wiki home page and edit the GitHub Release
+   body. Link to the published release and downloads by version. Use `main`
+   for current installation, sample RAW, and configuration-switching
+   instructions. Use the release tag for configuration files when the example
+   needs to match the published version. [Project Wiki](https://github.com/shin3tky/detect_meteors/wiki/Home)
+3. Follow the links from the rendered public pages after the updates land.
+   Check each destination and its heading when the URL includes a fragment.
+   Check the links in both directions between the release notes and changelog,
+   and follow the links inside technical guides that lead to installation or
+   sample RAW setup. Those routes should reach the published instructions on
+   `main`. Record the confirmed pages, PRs, and any broken links you repaired.
+4. Rerun the read-only commands above and compare the tag object, target
+   commit, attachment names, IDs, and digests with the saved record. Repeat
+   the public download verification using the original build run and attempt.
+   If that artifact is unavailable to the workflow, use the saved copy for the manual
+   comparison. Check all three public files byte for byte and validate both
+   distributions against the downloaded `SHA256SUMS`.
+   [Public download verification](#verify-public-release-downloads)
+
+For 2.1.1, the post-publication review checked 57 distinct public link targets,
+including section fragments. The tag and all three published attachments
+matched the original records. The public files matched the build artifact
+byte for byte.
+[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [Build run #44887379412](https://github.com/shin3tky/detect_meteors/actions/runs/44887379412) · [Verification run #44890775339](https://github.com/shin3tky/detect_meteors/actions/runs/44890775339)
 
 ## Code Style
 
