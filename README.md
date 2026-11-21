@@ -334,6 +334,8 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 
 ## Preparing v2.1.1
 
+**Scheduled for November 21, 2026 (2026-11-21) · 📺 World Television Day**
+
 The release notes cover the frame-pair hook, switchable configurations for
 conventional Hough, stellar registration, positive differences, and
 experimental FRT retry. They also cover progress compatibility, the 121-pair

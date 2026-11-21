@@ -4,7 +4,7 @@
 
 <a id="v211"></a>
 
-## v2.1.1 (in preparation)
+## v2.1.1 - 2026-11-21 - 📺 World Television Day
 
 - Add the `on_before_detection()` hook after loading both frames and before
   detection. The built-in `star_registration` hook demonstrates rotation and

@@ -4,7 +4,7 @@
 
 <a id="version-211"></a>
 
-## Version 2.1.1 (in preparation)
+## Version 2.1.1 (2026-11-21) 📺 World Television Day
 
 2.1.1 adds a way to preprocess a frame pair immediately before detection while
 using the existing detector and output handler. Conventional absolute-difference
