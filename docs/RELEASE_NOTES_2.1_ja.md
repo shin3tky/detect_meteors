@@ -46,6 +46,7 @@ uv run detect-meteors --config config_examples/hough_legacy_sample.yaml --debug-
 
 従来の検出に戻すには `hough_legacy_sample.yaml` を選びます。手元の設定でフックだけを外すには
 `hooks: []` または `--hooks ""` を指定します。FRTだけを外すには `frt_retry` を省略するか `null` にします。
+[インストールガイドの設定切り替え手順](INSTALL_ja.md#検出設定の切り替え) · [Wikiの設定切り替え手順](https://github.com/shin3tky/detect_meteors/wiki/Home#検出設定の切り替え)
 
 ### 検証結果
 
@@ -68,8 +69,12 @@ uv run detect-meteors --config config_examples/hough_legacy_sample.yaml --debug-
 
 ### 動作環境と配布
 
-対象のPythonは3.12、3.13、3.14です。1.6.13からの依存関係の更新は、
+公開した2.1.1のwheelとソース配布物は、どちらも Python 3.12、3.13、3.14 で uv を使って
+インストールできます。導入前に `SHA256SUMS` と照合してください。
+[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [インストールガイド](INSTALL_ja.md) · [ダウンロードした配布物の検証](INSTALL_ja.md#verify-release-downloads)
+
+1.6.13からの依存関係の更新は、
 実行時のPydantic 2.14.4とPyYAML 6.0.4、開発用のRuff 0.17.6、ty 0.0.107、coverage 7.17.4です。
 設定例とガイドはソース配布物で参照できます。サンプルRAW、目視ラベル、チェックサムは
 `detect_meteors_assets` から取得します。実験スクリプトを再実行するときはGitのチェックアウトを使います。
-[インストール手順](INSTALL_ja.md) · [公開前の確認手順](INSTALL_DEV_ja.md#release-211-checklist)
+[公開前の確認手順](INSTALL_DEV_ja.md#release-211-checklist)
