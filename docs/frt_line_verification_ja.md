@@ -68,6 +68,8 @@
 偽陽性は0枚だった。評価対象を閾値選択から外した比較では、追加回収と偽陽性0枚の
 両立は確認できなかった。[系列別の設定・候補・被覆率](../experiments/region_comparison/results/frt_verification/frt_verification.json)
 
+[残った3枚の区間診断と直前RAWを使った再検証](frt_foreground_verification_ja.md)
+
 ## 再現
 
 リポジトリのルートで実行し、`--raw-root` にRAWの配置先を指定する。
