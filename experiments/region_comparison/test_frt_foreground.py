@@ -12,6 +12,7 @@ from benchmark_frt_foreground import (
     SHAPE,
     TEXTURE_CAPS,
     highest_axis_cutoff,
+    improves_training_coverage,
     interval_texture,
     measure,
     texture_map,
@@ -111,3 +112,33 @@ class FrtForegroundTests(unittest.TestCase):
             result["training"]["train"]["events"]["meteor"]["appearance"]["match"]
         )
         self.assertEqual(result["evaluation"]["test"]["frames"]["fp"], ["bright"])
+
+    def test_relaxation_requires_improved_training_coverage_and_no_new_fp(self):
+        def result(coverage, false_positive=False):
+            return {
+                "train": {
+                    "frames": {"fp": ["false"] if false_positive else []},
+                    "events": {
+                        name: {"appearance": {"coverage": value, "match": value >= 0.5}}
+                        for name, value in coverage.items()
+                    },
+                }
+            }
+
+        original = result({"first": 0.55, "second": 0.80})
+        self.assertTrue(
+            improves_training_coverage(
+                original, result({"first": 0.90, "second": 0.80})
+            )
+        )
+        self.assertFalse(
+            improves_training_coverage(
+                original, result({"first": 0.90, "second": 0.80}, false_positive=True)
+            )
+        )
+        self.assertFalse(
+            improves_training_coverage(
+                original, result({"first": 0.90, "second": 0.79})
+            )
+        )
+        self.assertFalse(improves_training_coverage(original, original))

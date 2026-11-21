@@ -62,6 +62,8 @@ FRT得点下限の最低値10と得点の余裕を使う方法の両方で、航
 系列除外は閾値選択に適用した。
 [各系列の設定、候補と軸被覆](../experiments/region_comparison/results/frt_foreground/background_verification.json)
 
+[_C140521.ORF の途切れの診断と、系列除外で6枚を回収した追試](frt_c140521_gap_verification_ja.md)
+
 ## 再現
 
 リポジトリのルートから実行する。`--raw-root` にはRAWの配置先を指定する。

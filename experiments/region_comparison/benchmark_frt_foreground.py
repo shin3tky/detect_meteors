@@ -30,6 +30,16 @@ CALIBRATIONS = {
     "calibrated_snr": {"calibrate_snr": True},
     "floor_ten": {"calibrate_snr": True, "snr_floor": 10.0},
     "separation_margin": {"calibrate_snr": True, "use_margin": True},
+    "training_coverage": {
+        "calibrate_snr": True,
+        "snr_floor": 10.0,
+        "prefer_coverage": True,
+    },
+    "validate_gap_relaxation": {
+        "calibrate_snr": True,
+        "snr_floor": 10.0,
+        "verify_gaps": True,
+    },
 }
 
 
@@ -198,6 +208,21 @@ def highest_axis_cutoff(label, lines, low):
     )
 
 
+def improves_training_coverage(original, relaxed):
+    """Require zero FPs, preserved matches and a wider training-axis match."""
+    if any(result["frames"]["fp"] for result in relaxed.values()):
+        return False
+    improved = False
+    for name, result in original.items():
+        for axis, event in result["events"].items():
+            before = event["appearance"]
+            after = relaxed[name]["events"][axis]["appearance"]
+            if before["match"] and after["coverage"] < before["coverage"]:
+                return False
+            improved |= after["match"] and after["coverage"] > before["coverage"]
+    return improved
+
+
 def train_and_test(
     train,
     test,
@@ -206,6 +231,8 @@ def train_and_test(
     calibrate_snr,
     snr_floor=FRT_CONFIG.min_snr,
     use_margin=False,
+    prefer_coverage=False,
+    verify_gaps=False,
 ):
     negative = np.maximum.reduce(
         [
@@ -248,16 +275,18 @@ def train_and_test(
             name: evaluate(data, verified[name], trial, cutoff)
             for name, data in train.items()
         }
-        matches = sum(
-            item["appearance"]["match"]
+        matches = [
+            item["appearance"]["coverage"]
             for rows in training.values()
             for item in rows["events"].values()
-        )
+            if item["appearance"]["match"]
+        ]
         i, j, length, cap = trial
         rank = (
-            -matches,
+            -len(matches),
             -margin,
             cutoff,
+            -sum(matches) if prefer_coverage else 0.0,
             GAPS[j],
             -LENGTHS[length],
             TEXTURE_CAPS[cap],
@@ -268,6 +297,17 @@ def train_and_test(
     if best is None:
         return None
     _, (i, j, length, cap), cutoff, training = best
+    if verify_gaps and GAPS[j] == 0:
+        relaxed_index = GAPS.index(3)
+        relaxed = {
+            name: evaluate(
+                data, verified[name], (i, relaxed_index, length, cap), cutoff
+            )
+            for name, data in train.items()
+        }
+        if improves_training_coverage(training, relaxed):
+            j = relaxed_index
+            training = relaxed
     return {
         "settings": {
             "bilateral_noise_min": LEVELS[i],
