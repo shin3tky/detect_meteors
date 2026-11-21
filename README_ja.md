@@ -102,10 +102,10 @@ uv run detect-meteors \
 `--analysis-sequence DIR` を使うと、明示した系列のファイル名順で直前RAWを選択します。
 参照がない場合は `reference_missing` と終了コード2を返し、判定しません。
 
-#### 同梱サンプルで調整を試す
+#### 航空機サンプルで調整を試す
 
-リポジトリのルートで次を実行できます。比率閾値を意図的に高くして取りこぼしを作り、
-実測値に基づく緩和案を確認する例です。
+[サンプルの取得手順](docs/INSTALL_ja.md#サンプル-raw-画像)に従って RAW 画像を配置し、プロジェクトルートで次を実行してください。
+比率閾値を意図的に高くして取りこぼしを作り、実測値に基づく緩和案を確認する例です。
 
 ```bash
 uv run detect-meteors \
@@ -117,7 +117,6 @@ uv run detect-meteors \
 
 数値は動作例であり、カメラやレンズの推奨値ではありません。このサンプルには確認済み流星と
 飛行機が映っています。候補フレームになったことと、その流星を検出したことは区別してください。
-RAWサンプルはリポジトリに収録され、Python配布物には含まれません。
 
 `--analysis-output analysis/review-001` を追加すると、**新規**フォルダーへJSONレポートと
 PNGの証拠画像を保存します。案を確認した後、同じオプションに `--analysis-proposal 1` を付け、
@@ -236,7 +235,7 @@ uv run detect-meteors --hooks aircraft_trail --no-roi
 このフックは処理完了後にフレーム順で線分の形状を追跡し、`progress.json` の `detected_details` にある候補レコードへ `aircraft` 情報を書き込みます。候補判定、スコア、コピー済みRAWファイルは変えません。likelihoodはヒューリスティックなスコアであり、校正された確率ではありません。
 再開時に解析するのは、その実行で新たに処理したフレームのみです。前回の進捗から追跡状態は復元しません。設定と制約は[実装説明](docs/aircraft_light_trails_hook_design.md)を参照してください。
 
-再現可能なサンプルとして、[`config_examples/aircraft_trail_sample.yaml`](config_examples/aircraft_trail_sample.yaml)を利用できます。
+[航空機サンプルを取得](docs/INSTALL_ja.md#サンプル-raw-画像)したら、[`config_examples/aircraft_trail_sample.yaml`](config_examples/aircraft_trail_sample.yaml)を使って再現できます。
 
 ```bash
 uv run detect-meteors \
@@ -244,8 +243,8 @@ uv run detect-meteors \
   --no-roi --no-resume --debug-image
 ```
 
-Gitで管理している12枚のサンプルには、すべて飛行機が映っています。所有者が流星を確認しているのは `_C140338.ORF` と `_C140344.ORF` です。解析する11組はすべて候補として残ります。このフックは飛行機を除外するフィルターではありません。後者の流星画像はサンプル設定で飛行機のlikelihoodも高くなるため、両方が映った画像も目視確認してください。
-RAWファイルとチェックサムは、リポジトリの [`rawfiles/2024GEMINI_AIRCRAFT`](rawfiles/2024GEMINI_AIRCRAFT/README.md) にあります。RAW画像はPythonの配布ファイルには含めません。[使い方と結果の読み方](docs/aircraft_light_trails_hook_design.md#read-the-results)、[サンプルの検証結果](docs/aircraft_sample_validation.md)も参照してください。
+12枚のサンプルには、すべて飛行機が映っています。所有者が流星を確認しているのは `_C140338.ORF` と `_C140344.ORF` です。解析する11組はすべて候補として残ります。このフックは飛行機を除外するフィルターではありません。後者の流星画像はサンプル設定で飛行機のlikelihoodも高くなるため、両方が映った画像も目視確認してください。
+RAWファイルとチェックサムは [`detect_meteors_assets/rawfiles/2024GEMINI_AIRCRAFT`](https://github.com/shin3tky/detect_meteors_assets/tree/main/rawfiles/2024GEMINI_AIRCRAFT) にあります。[使い方と結果の読み方](docs/aircraft_light_trails_hook_design.md#read-the-results)、[サンプルの検証結果](docs/aircraft_sample_validation.md)も参照してください。
 
 ## ドキュメント
 

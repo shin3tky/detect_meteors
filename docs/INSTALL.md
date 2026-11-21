@@ -56,8 +56,8 @@ uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 
 All application examples below use `uv run detect-meteors` (with a hyphen)
 from the source directory. The source includes documentation, configuration
-examples, and tests. The RAW images for the `rawfiles/2024GEMINI_AIRCRAFT`
-sample are available in the Git checkout or GitHub's **Source code** archives.
+examples, and tests. Get the sample RAW images from
+[detect_meteors_assets](#sample-raw-images).
 
 ### Install the Release Wheel
 
@@ -81,7 +81,26 @@ uv run detect-meteors --help
 
 The wheel includes the command but not the source tree, RAW sample, or generated
 candidates. Use the source instructions above for documentation, configuration
-examples, tests, and sample images.
+examples, and tests.
+
+### Sample RAW Images
+
+The [detect_meteors_assets repository](https://github.com/shin3tky/detect_meteors_assets/tree/main/rawfiles)
+contains the RAW sequences, labels, and checksums. Install Git LFS to download
+the images. From the `detect_meteors` source directory, run these commands to
+download the 12-frame aircraft sample and place it where the examples expect it:
+
+```bash
+git lfs install --skip-repo
+GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/shin3tky/detect_meteors_assets.git ../detect_meteors_assets
+git -C ../detect_meteors_assets lfs pull --include='rawfiles/2024GEMINI_AIRCRAFT/**'
+mkdir -p rawfiles
+cp -R ../detect_meteors_assets/rawfiles/2024GEMINI_AIRCRAFT rawfiles/
+```
+
+If you already cloned `detect_meteors_assets` alongside the source, start with
+`git lfs pull` in that checkout. To use `2021GEMINI` or `2024GEMINI`, substitute
+the sequence name in the pull and copy commands.
 
 <a id="verify-release-downloads"></a>
 

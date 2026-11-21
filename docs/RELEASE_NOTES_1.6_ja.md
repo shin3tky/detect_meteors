@@ -163,7 +163,7 @@ v1.6.11 への更新手順は、[当時のインストールガイド](https://g
 - 通常検出は面積・比率が閾値より大きく、画像全体の線分スコアが閾値以上という従来条件です。スコアはHough線分長の合計です。飛行機likelihoodは引き続きメタデータで、自動除外や追跡結合は追加しません。
 - 最終検証は681テストすべての成功（期待失敗なし）、基盤整理時の実画像44比較の一致、ローカルの飛行機・流星サンプルでの意図的な取りこぼしの調整・保存・再処理を含みます。元の `P8136507.ORF` 報告は直前RAWがないため、元のペア判定を再現した事例には含めません。
 
-まず[READMEの同梱サンプル例](../README_ja.md#同梱サンプルで調整を試す)を試せます。
+まず[READMEの航空機サンプル例](../README_ja.md#航空機サンプルで調整を試す)を試せます。
 変更全体は[CHANGELOG](CHANGELOG_ja.md#v1611---2026-11-07)、正確な上限と組み合わせは
 [オプション一覧](COMMAND_OPTIONS.md#read-only-image-analysis-v1611)、実装と拡張点は
 [設計・検証記録](parameter_analysis_1.6.11_ja.md)を参照してください。
@@ -194,9 +194,9 @@ uv run detect-meteors --hooks aircraft_trail --no-roi
 
 ### 飛行機サンプルと配布ファイル
 
-Gitで管理する `2024GEMINI_AIRCRAFT` の12枚にはすべて飛行機が映り、所有者が流星を確認しているのは `_C140338.ORF` と `_C140344.ORF` のみです。[設定例](../config_examples/aircraft_trail_sample.yaml)で追跡の許容値を調整できます。両流星画像は候補に残り、`_C140344.ORF` の飛行機likelihoodも高くなります。両方が映った画像を、このメタデータだけで丸ごと除外しないでください。[検証結果](aircraft_sample_validation.md)を参照してください。
+`2024GEMINI_AIRCRAFT` の12枚にはすべて飛行機が映り、所有者が流星を確認しているのは `_C140338.ORF` と `_C140344.ORF` のみです。[設定例](../config_examples/aircraft_trail_sample.yaml)で追跡の許容値を調整できます。両流星画像は候補に残り、`_C140344.ORF` の飛行機likelihoodも高くなります。両方が映った画像を、このメタデータだけで丸ごと除外しないでください。[検証結果](aircraft_sample_validation.md)を参照してください。
 
-v1.6.10のwheelにはCLIモジュールを含め、`detect-meteors` をインストールします。ソース配布版には文書、設定例、テストを含めます。Python配布版にはRAW画像や生成済み出力は含めず、サンプルRAWはリポジトリにあります。[インストール](INSTALL_ja.md)、[リリースのビルド手順](INSTALL_DEV_ja.md#building-a-release)を参照してください。
+v1.6.10のwheelにはCLIモジュールを含め、`detect-meteors` をインストールします。ソース配布版には文書、設定例、テストを含めます。サンプルRAWは [detect_meteors_assets](INSTALL_ja.md#サンプル-raw-画像) から取得できます。[インストール](INSTALL_ja.md)、[リリースのビルド手順](INSTALL_DEV_ja.md#building-a-release)を参照してください。
 
 ## バージョン1.6.8（2026-01-07）🌿
 

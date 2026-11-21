@@ -56,7 +56,7 @@ uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
 ```
 
 以降のアプリ起動例も `uv run detect-meteors` に統一しています。コマンド名はハイフン付きです。
-ソースにはドキュメント、設定例、テストが含まれます。`rawfiles/2024GEMINI_AIRCRAFT` のサンプル RAW 画像は、Git でクローンしたソースか GitHub の **Source code** アーカイブで取得できます。
+ソースにはドキュメント、設定例、テストが含まれます。サンプル RAW 画像は [detect_meteors_assets](#サンプル-raw-画像) から取得できます。
 
 ### リリースの wheel からインストールする
 
@@ -78,7 +78,23 @@ uv run detect-meteors --help
 ```
 
 wheelにはコマンドを含みますが、ソース一式、RAWサンプル、生成済み候補は含みません。
-ドキュメント、設定例、テスト、サンプル画像を使う場合は、上記のソース取得手順に従ってください。
+ドキュメント、設定例、テストを使う場合は、上記のソース取得手順に従ってください。
+
+### サンプル RAW 画像
+
+RAW 画像、目視ラベル、チェックサムは [detect_meteors_assets の rawfiles](https://github.com/shin3tky/detect_meteors_assets/tree/main/rawfiles) で公開しています。
+Git LFS を導入し、`detect_meteors` のソースディレクトリから次のコマンドを実行すると、航空機が写った12枚のサンプルを取得し、実行例で使う場所に配置できます。
+
+```bash
+git lfs install --skip-repo
+GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/shin3tky/detect_meteors_assets.git ../detect_meteors_assets
+git -C ../detect_meteors_assets lfs pull --include='rawfiles/2024GEMINI_AIRCRAFT/**'
+mkdir -p rawfiles
+cp -R ../detect_meteors_assets/rawfiles/2024GEMINI_AIRCRAFT rawfiles/
+```
+
+隣に `detect_meteors_assets` をクローン済みの場合は `git lfs pull` から実行してください。
+`2021GEMINI` または `2024GEMINI` を使う場合は、取得とコピーのコマンド内の系列名を置き換えてください。
 
 <a id="verify-release-downloads"></a>
 

@@ -2,9 +2,8 @@
 
 Validated locally on 2026-10-06 with Python 3.12.14 on macOS. This is a
 reproducible usage example for auxiliary metadata, not a classification accuracy
-benchmark. The RAW files are tracked in the repository for reproducibility and
-excluded from the Python wheel and source distribution. See the
-[sample README and checksum instructions](../rawfiles/2024GEMINI_AIRCRAFT/README.md).
+benchmark. The RAW files and checksums are available in `detect_meteors_assets`.
+[Sample README and checksum instructions](https://github.com/shin3tky/detect_meteors_assets/blob/main/rawfiles/2024GEMINI_AIRCRAFT/README.md).
 
 ## Ground Truth and Processing
 
@@ -22,9 +21,8 @@ built-in defaults. These exact values are saved in the sample configuration.
 
 ## Commands
 
-Run from a repository checkout containing the tracked RAW files. For an
-extracted source distribution, copy the sample directory from a repository
-checkout first. All commands below use the project root as the working directory.
+[Download the aircraft sample](INSTALL.md#sample-raw-images), then run the
+commands below from the project root.
 
 ### Default Aircraft Matching
 

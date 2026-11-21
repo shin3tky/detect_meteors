@@ -285,7 +285,7 @@ configurations and plugins in 2.x.
   [Replay and tuning validation](parameter_analysis_1.6.11.md)
 - [ ] Continue refining the built-in aircraft annotations on reviewed
   sequences. Evaluate track continuity and cases with both a meteor and an
-  aircraft using the [bundled sample](aircraft_sample_validation.md) and
+  aircraft using the [aircraft sample](aircraft_sample_validation.md) and
   additional observations as they become available.
 
 ### Pending (Deferred from v1.x)
@@ -392,7 +392,7 @@ analysis of the resulting evidence across frames.
 
 Compare each experiment on the same RAW pairs and ROI, changing one stage at
 a time. Record reviewed trail matches, missed trails, extra frames to review,
-runtime and peak memory. Use the [bundled aircraft sequence](aircraft_sample_validation.md)
+runtime and peak memory. Use the [aircraft sequence](aircraft_sample_validation.md)
 as a starting point for mixed meteor and aircraft frames. Add independent
 reviewed sequences with satellites, clouds, and faint or short meteors before
 judging classification or detection quality across shooting conditions.
