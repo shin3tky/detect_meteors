@@ -35,14 +35,12 @@ During meteor shower events, manually reviewing thousands of RAW images to find 
 - macOS, Windows, or Linux
 - Dependencies: `numpy`, `opencv-python`, `rawpy`, `psutil`, `pillow`, `pydantic`, `pyyaml`
 
-Exact versions: [installation guide](docs/INSTALL.md#dependency-versions-v1613).
+See the pinned runtime dependency versions in the installation guide. [2.1.1 dependency versions](docs/INSTALL.md#dependency-versions-v211)
 
 ## Installation
 
-Download the [latest release](https://github.com/shin3tky/detect_meteors/releases/latest)
-and follow the [installation guide](docs/INSTALL.md).
-For Python 3.14, install from the
-[current repository checkout](docs/INSTALL.md#python-requirements).
+Both the published wheel and source distribution for 2.1.1 can be installed
+with uv on Python 3.12, 3.13, and 3.14. [GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [Installation guide](docs/INSTALL.md)
 
 ## Quick Start
 
