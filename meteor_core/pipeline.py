@@ -16,6 +16,7 @@ import signal
 import time
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import asdict
 from itertools import pairwise
 from typing import (
     Any,
@@ -69,7 +70,7 @@ from .schema import (
 from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
-from .hooks import BaseHook, HookRegistry
+from .hooks import BaseHook, HookRegistry, StarRegistrationHook
 from ._worker_plugins import (
     WorkerPluginError,
     WorkerPluginState,
@@ -78,6 +79,7 @@ from ._worker_plugins import (
 )
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, DetectorRegistry
+from .detectors.hough_default import DifferenceMode, HoughDetector, frame_difference
 from .utils import _display_width, _is_supported_image, _pad_label, ensure_numpy
 from .outputs import (
     BaseOutputHandler,
@@ -369,6 +371,43 @@ def _apply_image_loaded_hooks(
     return context
 
 
+def _apply_before_detection_hooks(
+    context: DetectionContext,
+    hooks: Sequence[BaseHook],
+    filepath: str,
+    hook_error_mode: str,
+) -> DetectionContext:
+    for hook in hooks:
+        try:
+            updated = hook.on_before_detection(context)
+            if not isinstance(updated, DetectionContext):
+                raise TypeError(
+                    f"Expected DetectionContext, got {type(updated).__name__}."
+                )
+            updated = _normalize_detection_context(updated)
+            for field in ("current_image", "previous_image", "roi_mask"):
+                if not _is_supported_image(getattr(updated, field)):
+                    raise TypeError(
+                        f"DetectionContext.{field} must be a supported image."
+                    )
+            if not isinstance(updated.metadata, dict):
+                raise TypeError("DetectionContext.metadata must be a dictionary.")
+            if not isinstance(updated.runtime_params, (dict, RuntimeParams)):
+                raise TypeError("Invalid DetectionContext.runtime_params.")
+            context = updated
+        except Exception as exc:
+            _handle_hook_exception(
+                exc,
+                hook_name="on_before_detection",
+                hook_error_mode=hook_error_mode,
+                message="on_before_detection hook failed for %s: %s",
+                message_args=(filepath, exc),
+                filepath=filepath,
+                plugin_name=hook.plugin_name,
+            )
+    return context
+
+
 def _apply_detection_complete_hooks(
     result: DetectionResult,
     context: DetectionContext,
@@ -626,8 +665,7 @@ def _resolve_detector(
     Args:
         detector: Pre-initialized BaseDetector instance.
         detector_name: Name of detector to use (e.g., "hough").
-        detector_config: Configuration dict for the detector (currently unused,
-            reserved for future detector configuration support).
+        detector_config: Configuration dict for the selected detector.
 
     Returns:
         BaseDetector instance ready for use.
@@ -644,7 +682,8 @@ def _resolve_detector(
         logger.debug("Using provided detector instance: %s", type(detector).__name__)
         return detector
 
-    if detector_name:
+    if detector_name or detector_config:
+        detector_name = detector_name or DEFAULT_DETECTOR_NAME
         logger.debug("Resolving detector by name: %s", detector_name)
         try:
             return DetectorRegistry.create(detector_name, detector_config)
@@ -662,6 +701,13 @@ def _resolve_detector(
                 original_error=e,
                 context={"available_detectors": available},
             ) from e
+        except (TypeError, ValueError) as exc:
+            raise MeteorConfigError(
+                f"Invalid detector configuration: {exc}",
+                config_key="detector_config",
+                plugin_name=detector_name,
+                original_error=exc,
+            ) from exc
 
     logger.debug("Using default detector")
     return _get_default_detector()
@@ -1106,6 +1152,11 @@ def _process_resolved_batch(
     """Detect frame pairs using the supplied plugin instances."""
     results = []
     runtime_params = _build_runtime_params(params, det)
+    pair_hooks = [
+        hook
+        for hook in hooks
+        if type(hook).on_before_detection is not BaseHook.on_before_detection
+    ]
     logger.debug("Processing batch of %d image pairs", len(batch_data))
 
     for frame_index, curr_file, prev_file in batch_data:
@@ -1159,6 +1210,9 @@ def _process_resolved_batch(
                 metadata=metadata,
             )
             context = _normalize_detection_context(context)
+            context = _apply_before_detection_hooks(
+                context, pair_hooks, curr_file, hook_error_mode
+            )
             result = det.detect(context)
             result = _normalize_detector_result(
                 result,
@@ -1247,6 +1301,8 @@ def estimate_diff_threshold_from_samples(
     sample_size: int = 5,
     input_loader: Optional[BaseInputLoader] = None,
     locale: Optional[str] = None,
+    *,
+    difference_mode: DifferenceMode = "absolute",
 ) -> int:
     """Estimate a difference threshold from the first valid sample pairs.
 
@@ -1256,6 +1312,7 @@ def estimate_diff_threshold_from_samples(
         sample_size: Maximum number of initial files to load.
         input_loader: Loader for sample images. Defaults to the built-in RAW loader.
         locale: Locale for the printed sample statistics.
+        difference_mode: Difference used by the Hough detector.
 
     Returns:
         The smallest of three estimates from the ROI differences, clamped to
@@ -1296,7 +1353,7 @@ def estimate_diff_threshold_from_samples(
                 loader.load(files[i]),
                 filepath=files[i],
             )
-            samples.append(context.image_data)
+            samples.append(ensure_numpy(context.image_data))
         except Exception as exc:
             print(
                 get_message(
@@ -1330,7 +1387,7 @@ def estimate_diff_threshold_from_samples(
     roi_pixels = roi_mask == 255
     differences = []
     for previous, current in pairwise(samples):
-        diff = cv2.absdiff(current, previous)
+        diff = frame_difference(current, previous, difference_mode)
         differences.append(diff[roi_pixels])
     print(get_message("ui.pipeline.estimate.done", locale=locale))
 
@@ -2196,6 +2253,15 @@ class MeteorDetectionPipeline:
             hook_configs,
             hook_error_mode=self._config.hook_error_mode,
         )
+        frt_retry = (
+            isinstance(self.detector, HoughDetector)
+            and self.detector.config.frt_retry is not None
+        )
+        if frt_retry and any(isinstance(hook, StarRegistrationHook) for hook in hooks):
+            raise MeteorConfigError(
+                "frt_retry requires unaligned frames; remove the star_registration hook",
+                config_key="hooks",
+            )
         files = _apply_file_found_hooks(files, hooks, self._config.hook_error_mode)
 
         if len(files) < 2:
@@ -2225,6 +2291,11 @@ class MeteorDetectionPipeline:
         if profile:
             timing["first_load"] = time.time() - t_load
         first_image = ensure_numpy(first_context.image_data)
+        if frt_retry and first_image.dtype not in (np.uint8, np.uint16):
+            raise MeteorConfigError(
+                "frt_retry requires uint8 or uint16 frames; disable input normalization",
+                config_key="input_loader_config",
+            )
         first_context.image_data = first_image
         roi_mask, roi_polygon = self._resolve_roi(
             first_image, roi_polygon_cli, enable_roi_selection, locale
@@ -2237,7 +2308,7 @@ class MeteorDetectionPipeline:
         )
         runtime_params = _apply_normalized_diff_threshold(params, normalized_input)
 
-        self._prepare_progress(files, params, roi_polygon, resume, locale)
+        self._prepare_progress(files, params, roi_polygon, resume, locale, hooks)
 
         image_pairs = [
             (frame_index, current, previous)
@@ -2459,25 +2530,47 @@ class MeteorDetectionPipeline:
         roi_polygon: Optional[List[List[int]]],
         resume: bool,
         locale: str,
+        hooks: List[BaseHook],
     ) -> None:
         """Prepare the progress file before building the remaining frame pairs.
 
-        The hash combines configured thresholds and the effective ROI. A
-        mismatch resets saved results. Entries for files outside the current
-        input set are removed before progress is written.
+        Hash the configured thresholds and ROI, including positive Hough
+        differences, FRT retry, and active frame-pair hook settings.
+        A mismatch resets results.
         """
         params_for_hash = params.copy()
         if roi_polygon:
             params_for_hash["roi_polygon"] = roi_polygon
-
-        self.progress_manager.set_params(params)
-        self.progress_manager.set_roi(roi_polygon or "full_image")
-        self.progress_manager.set_processing_params(params)
-        params_hash = compute_params_hash(params_for_hash)
-        self.progress_manager.set_params_hash(params_hash)
+        detector = self.detector
+        positive_difference = (
+            type(detector) is HoughDetector
+            and detector.config.difference_mode == "positive"
+        )
+        if positive_difference:
+            params_for_hash["hough_difference_mode"] = "positive"
+        frt_retry = (
+            detector.config.frt_retry if isinstance(detector, HoughDetector) else None
+        )
+        if frt_retry is not None:
+            params_for_hash["hough_frt_retry"] = asdict(frt_retry)
+        if any(
+            type(hook).on_before_detection is not BaseHook.on_before_detection
+            for hook in hooks
+        ):
+            params_for_hash["hooks"] = [
+                asdict(hook) for hook in self._config.hooks or ()
+            ]
+            params_for_hash["hook_error_mode"] = self._config.hook_error_mode
+        try:
+            params_hash = compute_params_hash(params_for_hash)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Progress cannot be resumed with non-JSON frame-pair hook settings."
+            )
+            params_hash = ""
 
         if resume and self.progress_manager.load():
-            if self.progress_manager.get_params_hash() == params_hash:
+            if params_hash and self.progress_manager.get_params_hash() == params_hash:
                 print(
                     get_message(
                         "ui.pipeline.progress.resuming",
@@ -2490,7 +2583,19 @@ class MeteorDetectionPipeline:
             else:
                 print(get_message("ui.pipeline.progress.param_mismatch", locale=locale))
                 self.progress_manager.reset()
-                self.progress_manager.set_params_hash(params_hash)
+
+        self.progress_manager.set_params_hash(params_hash)
+        self.progress_manager.set_params(params)
+        self.progress_manager.set_roi(roi_polygon or "full_image")
+        self.progress_manager.set_processing_params(params)
+        if positive_difference:
+            self.progress_manager.progress_data["hough_difference_mode"] = "positive"
+        else:
+            self.progress_manager.progress_data.pop("hough_difference_mode", None)
+        if frt_retry is not None:
+            self.progress_manager.progress_data["hough_frt_retry"] = asdict(frt_retry)
+        else:
+            self.progress_manager.progress_data.pop("hough_frt_retry", None)
 
         existing_basenames = {os.path.basename(path) for path in files}
         self.progress_manager.filter_existing_files(existing_basenames)

@@ -3,9 +3,13 @@ Pipeline execution coverage tests for meteor_core.pipeline (v1.x).
 """
 
 import os
+import io
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -27,10 +31,12 @@ from meteor_core.schema import (  # noqa: E402
     PipelineConfig,
 )
 from meteor_core.detectors.base import BaseDetector  # noqa: E402
+from meteor_core.detectors import DetectorRegistry  # noqa: E402
 from dataclasses import dataclass
 
 from meteor_core.outputs.base import BaseOutputHandler  # noqa: E402
 from meteor_core.hooks import DataclassHook, HookRegistry  # noqa: E402
+from meteor_core.utils import compute_params_hash  # noqa: E402
 
 
 class DummyInputLoader:
@@ -237,6 +243,173 @@ class TestProcessImageBatch(unittest.TestCase):
 
 
 class TestPipelineRun(unittest.TestCase):
+    def test_frt_retry_uses_short_gaps_and_invalidates_progress_on_change(self):
+        with tempfile.TemporaryDirectory() as directory, redirect_stdout(io.StringIO()):
+            root = Path(directory).resolve()
+            raw = root / "raw"
+            raw.mkdir()
+            first, second, third, fourth = [raw / f"{i}.ORF" for i in range(4)]
+            for path in (first, second, third, fourth):
+                path.touch()
+            prior = np.full((104, 112), 100, np.uint16)
+            faint = prior.copy()
+            for start in (15, 35, 55, 75):
+                faint[49:52, start : start + 18] += 8
+            bright = prior.copy()
+            bright[20:25, 10:90] += 50
+            loader = DummyInputLoader(
+                {
+                    str(first): prior,
+                    str(second): faint,
+                    str(third): prior,
+                    str(fourth): bright,
+                }
+            )
+            config = PipelineConfig(
+                target_folder=str(raw),
+                output_folder=str(root / "candidates"),
+                debug_folder=str(root / "debug"),
+                progress_file=str(root / "progress.json"),
+                params=DetectionParams(diff_threshold=9, min_line_score=30),
+                enable_parallel=False,
+                enable_roi_selection=False,
+            )
+            for retry, detected, reprocessed in (
+                (None, False, True),
+                ({"max_gap_samples": 0}, False, True),
+                ({}, True, True),
+                ({"max_gap_samples": 3}, True, False),
+                (None, False, True),
+            ):
+                with self.subTest(retry=retry):
+                    config.detector_config = {
+                        "difference_mode": "positive",
+                        "frt_retry": retry,
+                    }
+                    output = DummyOutputHandler()
+                    pipeline = MeteorDetectionPipeline(
+                        config, input_loader=loader, output_handler=output
+                    )
+                    self.assertEqual(pipeline.run(), 1 + int(detected))
+                    progress = pipeline.progress_manager.progress_data
+                    self.assertEqual("hough_frt_retry" in progress, retry is not None)
+                    expected = {fourth.name}
+                    if detected:
+                        expected.add(second.name)
+                    self.assertEqual(set(progress["detected_files"]), expected)
+                    if not reprocessed:
+                        self.assertEqual(pipeline._all_sorted_detections, [])
+                        self.assertEqual(output.saved_candidates, [])
+                        continue
+                    appear, disappear, hough = pipeline._all_sorted_detections
+                    self.assertEqual(appear.is_candidate, detected)
+                    self.assertFalse(disappear.is_candidate)
+                    self.assertTrue(hough.is_candidate)
+                    self.assertNotIn("frt_retry", hough.extras)
+                    if detected:
+                        intervals = appear.extras["frt_retry"]["intervals"]
+                        self.assertTrue(intervals)
+                        self.assertEqual(
+                            appear.score, max(r["response"] for r in intervals)
+                        )
+                        self.assertTrue(all(r["length_px"] >= 32 for r in intervals))
+
+    def test_frt_retry_requires_positive_hough_and_valid_thresholds(self):
+        for options, error in (
+            ({"frt_retry": {}}, "requires difference_mode"),
+            ({"difference_mode": "positive", "frt_retry": False}, "mapping or null"),
+            (
+                {"difference_mode": "positive", "frt_retry": {"max_gap_samples": 4}},
+                "max_gap_samples",
+            ),
+            (
+                {
+                    "difference_mode": "positive",
+                    "frt_retry": {"frt_min_snr": float("nan")},
+                },
+                "frt_min_snr",
+            ),
+        ):
+            with (
+                self.subTest(options=options),
+                self.assertRaisesRegex((TypeError, ValueError), error),
+            ):
+                DetectorRegistry.create("hough", options)
+
+    def test_frt_retry_rejects_registration_and_normalized_input_before_processing(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as directory, redirect_stdout(io.StringIO()):
+            root = Path(directory).resolve()
+            frames = [str(root / name) for name in ("a.ORF", "b.ORF")]
+            loader = DummyInputLoader(
+                {name: np.zeros((8, 8), np.float32) for name in frames}
+            )
+            config = PipelineConfig(
+                target_folder=str(root),
+                output_folder=str(root / "candidates"),
+                debug_folder=str(root / "debug"),
+                progress_file=str(root / "progress.json"),
+                params=DetectionParams(),
+                detector_config={"difference_mode": "positive", "frt_retry": {}},
+                hooks=[HookConfig("star_registration")],
+            )
+            with patch("meteor_core.pipeline.collect_files", return_value=frames):
+                pipeline = MeteorDetectionPipeline(config, input_loader=loader)
+                with self.assertRaisesRegex(MeteorConfigError, "star_registration"):
+                    pipeline.run()
+                config.hooks = []
+                with self.assertRaisesRegex(MeteorConfigError, "normalization"):
+                    pipeline.run()
+            self.assertFalse(Path(config.progress_file).exists())
+
+    def test_hough_mode_change_reprocesses_progress_and_matching_mode_resumes(self):
+        with tempfile.TemporaryDirectory() as directory, redirect_stdout(io.StringIO()):
+            root = Path(directory).resolve()
+            raw = root / "raw"
+            raw.mkdir()
+            first, second = [raw / name for name in ("a.ORF", "b.ORF")]
+            for path in (first, second):
+                path.touch()
+            dim = np.zeros((96, 96), dtype=np.uint16)
+            bright = dim.copy()
+            bright[30:35, 10:80] = 400
+            loader = DummyInputLoader({str(first): bright, str(second): dim})
+            config = PipelineConfig(
+                target_folder=str(raw),
+                output_folder=str(root / "candidates"),
+                debug_folder=str(root / "debug"),
+                progress_file=str(root / "progress.json"),
+                params=DetectionParams(diff_threshold=9, min_line_score=30),
+                enable_parallel=False,
+                enable_roi_selection=False,
+            )
+            for mode, expected, reprocessed in (
+                (None, 1, True),
+                ("positive", 0, True),
+                ("positive", 0, False),
+                ("absolute", 1, True),
+            ):
+                with self.subTest(mode=mode, reprocessed=reprocessed):
+                    config.detector_config = {"difference_mode": mode} if mode else None
+                    pipeline = MeteorDetectionPipeline(
+                        config, input_loader=loader, output_handler=DummyOutputHandler()
+                    )
+                    self.assertEqual(pipeline.run(), expected)
+                    self.assertEqual(
+                        len(pipeline._all_sorted_detections), int(reprocessed)
+                    )
+                    progress = pipeline.progress_manager.progress_data
+                    hash_params = config.params.to_dict()
+                    if mode == "positive":
+                        hash_params["hough_difference_mode"] = mode
+                        self.assertEqual(progress["hough_difference_mode"], mode)
+                    else:
+                        self.assertNotIn("hough_difference_mode", progress)
+                    self.assertEqual(
+                        progress["params_hash"], compute_params_hash(hash_params)
+                    )
+
     def test_pipeline_run_same_target_and_output(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             config = PipelineConfig(

@@ -5,15 +5,15 @@ import unittest
 import cv2
 import numpy as np
 
-from star_registration import (
+from meteor_core.star_registration import (
     TILE_PX,
-    estimate_registration,
     match_centroids,
     rigid_transform,
     star_centroids,
     transform_points,
     warp_reference,
 )
+from star_registration import estimate_registration
 
 
 class StarRegistrationTests(unittest.TestCase):

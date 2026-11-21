@@ -79,6 +79,8 @@ from meteor_core import (
     load_pipeline_config,
     SUPPORTED_CONFIG_EXTENSIONS,
 )
+from meteor_core.detectors.hough_default import DifferenceMode, HoughDetector
+from meteor_core.pipeline import _resolve_detector
 from meteor_core.utils import _display_width, _pad_label
 
 
@@ -1266,6 +1268,8 @@ def _run_auto_params(
     pixel_pitch_um,
     fisheye: bool,
     locale: Optional[str] = None,
+    *,
+    difference_mode: DifferenceMode = "absolute",
 ):
     """
     Run automatic parameter estimation based on EXIF and NPF Rule.
@@ -1386,6 +1390,7 @@ def _run_auto_params(
             user_specified_min_line_score,
             focal_length_mm,
             locale=locale,
+            difference_mode=difference_mode,
         )
 
     return diff_threshold, min_area, min_line_score, focal_length_mm
@@ -1550,6 +1555,8 @@ def _optimize_with_legacy(
     user_specified_min_line_score,
     focal_length_mm,
     locale: Optional[str] = None,
+    *,
+    difference_mode: DifferenceMode = "absolute",
 ):
     """Fallback to legacy parameter estimation method."""
     print(get_message("ui.cli.auto_params.legacy.insufficient", locale=locale))
@@ -1557,7 +1564,11 @@ def _optimize_with_legacy(
 
     if not user_specified_diff_threshold:
         diff_threshold = estimate_diff_threshold_from_samples(
-            files, roi_mask, sample_size=5, locale=locale
+            files,
+            roi_mask,
+            sample_size=5,
+            locale=locale,
+            difference_mode=difference_mode,
         )
         print(
             get_message(
@@ -2501,8 +2512,6 @@ def _run_image_analysis(args):
     from meteor_core.analysis import load_reproduction_settings, reproduce_hough_pair
     from meteor_core.analysis_cli import display_reproduction, select_reference_image
     from meteor_core.config_io import _load_config_mapping
-    from meteor_core.detectors.hough_default import HoughDetector
-    from meteor_core.pipeline import _resolve_detector
     from meteor_core.tuning import TuningOptions
 
     sources = {}
@@ -2577,6 +2586,7 @@ def _run_image_analysis(args):
         fallback_roi_polygon=config.roi_polygon,
         fallback_full_image=config.roi_polygon is None
         and not config.enable_roi_selection,
+        detector_config=detector.config if config.detector_config else None,
     )
     reference, source = select_reference_image(
         args.analyze_image,
@@ -2818,7 +2828,12 @@ def _run_main(args: argparse.Namespace, cli_param_string: str) -> None:
     elif args.no_roi and args.roi is None:
         roi_polygon_cli = []
 
+    detector = None
     if args.auto_params:
+        detector = _resolve_detector(
+            detector_name=pipeline_config.detector_name,
+            detector_config=pipeline_config.detector_config,
+        )
         files = collect_files(pipeline_config.target_folder)
         if len(files) < 2:
             raise MeteorValidationError(
@@ -2853,6 +2868,9 @@ def _run_main(args: argparse.Namespace, cli_param_string: str) -> None:
             pixel_pitch_um=pixel_pitch_value,
             fisheye=args.fisheye,
             locale=locale,
+            difference_mode=detector.config.difference_mode
+            if type(detector) is HoughDetector
+            else "absolute",
         )
         pipeline_config.params = replace(
             pipeline_config.params,
@@ -2865,7 +2883,7 @@ def _run_main(args: argparse.Namespace, cli_param_string: str) -> None:
 
     _print_processing_params(pipeline_config.params.to_dict(), locale=locale)
 
-    pipeline = MeteorDetectionPipeline(pipeline_config)
+    pipeline = MeteorDetectionPipeline(pipeline_config, detector=detector)
     pipeline.run(
         enable_roi_selection=enable_roi_selection,
         roi_polygon_cli=roi_polygon_cli,

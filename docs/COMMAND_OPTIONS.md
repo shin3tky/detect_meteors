@@ -231,8 +231,8 @@ evidence, not automatic meteor classification or a claim of optimal settings.
 - **`--hook-config`**: Hook config as a JSON/YAML list or mapping (or file path) keyed by hook name.
 
 Built-in plugin defaults are `raw`, `hough`, and `file`. The RAW loader supports
-only `binning: 2` and defaults to `normalize: false`. The Hough detector accepts
-`detector_config: {}` and reads thresholds from `params`. The file output
+only `binning: 2` and defaults to `normalize: false`. The Hough detector reads
+thresholds from `params`. The file output
 handler's overwrite field is `output_overwrite`. Set `hook_error_mode` to
 `raise` (default) or `warn` in the configuration file; there is no CLI flag for it.
 The optional `aircraft_trail` hook adds metadata after processing without
@@ -240,6 +240,72 @@ changing candidate decisions or removing copied files.
 With an explicit `--output-handler file` (or `output_handler_name: file`), use
 the handler config for output paths and overwrite settings; top-level pipeline
 settings are only inherited when the default handler is selected implicitly.
+
+### Comparison Configurations
+
+Pass one of these YAML files to `--config` when using the aircraft sample RAWs.
+They share the same input, sky ROI, and Hough thresholds. Each writes to its own
+candidate folder, debug folder, and progress file.
+
+| Workflow | YAML configuration |
+| --- | --- |
+| Conventional absolute-difference Hough | [hough_legacy_sample.yaml](../config_examples/hough_legacy_sample.yaml) |
+| Stellar registration before absolute-difference Hough | [hough_registered_sample.yaml](../config_examples/hough_registered_sample.yaml) |
+| Unaligned positive-difference Hough | [hough_positive_sample.yaml](../config_examples/hough_positive_sample.yaml) |
+| Unaligned positive-difference Hough with experimental FRT retry | [hough_frt_retry_sample.yaml](../config_examples/hough_frt_retry_sample.yaml) |
+
+Select `hough_legacy_sample.yaml` to return to conventional detection. Use
+`--hooks ""` to clear the configured hooks for a run. When switching a plugin
+with the CLI, supply that plugin's config with the matching `*-config` option.
+Use `{}` for its defaults. For example, `--detector hough --detector-config '{}'`
+selects conventional Hough with its default detector options.
+[Hook and plugin configuration](PLUGIN_AUTHOR_GUIDE.md#configuration-precedence)
+
+### Hough Difference Mode
+
+The Hough detector defaults to `difference_mode: absolute`, which uses
+`abs(current - previous)`. Use `positive` to apply the same thresholds and
+geometry tests to `max(current - previous, 0)`.
+
+```yaml
+detector_name: hough
+detector_config:
+  difference_mode: positive
+hooks: []
+```
+
+Use `--detector-config '{"difference_mode":"positive"}'` to select the same
+mode from the CLI. Specify `--hooks ""` to clear a configured hook list.
+The [sample configuration](../config_examples/hough_positive_sample.yaml) sets
+an ROI and fixed thresholds for the 2024 aircraft sequence.
+
+Changing modes causes a resumed run to reprocess its pairs. Use separate
+output folders and progress files to compare configurations. The positive mode
+is recorded in progress and used by `--analyze-image --analysis-progress`.
+An explicit detector mode in analysis configuration takes precedence, and
+exported `session.yaml` files save the effective mode.
+
+### FRT Retry (Optional)
+
+FRT retry is an experimental workflow. Use the built-in Hough detector with positive differences and unaligned,
+unnormalized frames. Set `detector_config.frt_retry: {}` to retry pairs rejected
+by Hough using the Fast Radon Transform. Leave the setting out or set it to
+`null` to disable the retry. Remove `star_registration` from the hook list.
+
+```yaml
+detector_name: hough
+detector_config:
+  difference_mode: positive
+  frt_retry: {}
+hooks: []
+```
+
+The retry accepts a supported interval if it passes the local contrast,
+continuity, preceding-frame texture and FRT score thresholds. The default
+recipe allows gaps of up to three samples. The progress file records the
+effective retry thresholds and triggers reprocessing when they change.
+Retry adds processing time and increases memory use per worker.
+`--analyze-image` measures the initial Hough pass. [Sample YAML](../config_examples/hough_frt_retry_sample.yaml) · [Thresholds, validation and reproduction (Japanese)](frt_retry_workflow_ja.md)
 
 > **Note**: The CLI now runs through `MeteorDetectionPipeline`. The legacy path
 > remains for backward compatibility but is slated for deprecation.

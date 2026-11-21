@@ -24,6 +24,14 @@ cd detect_meteors
 uv sync --locked
 ```
 
+## Try the 2.1.1 sources during release preparation
+
+Run `uv sync --locked` in a local checkout containing the 2.1.1 changes.
+Place the sample RAWs in the source tree and run the example configurations
+from its root. For installation from the published distributions, follow the
+1.6.13 instructions below.
+[2.1.1 configurations and requirements](RELEASE_NOTES_2.1.md#version-211) · [Sample RAWs](#sample-raw-images)
+
 ## Install v1.6.13 from Source
 
 Install Git and uv using the platform-specific steps below, then obtain the

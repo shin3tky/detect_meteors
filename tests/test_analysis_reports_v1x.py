@@ -86,6 +86,65 @@ class TestAnalysisReports(unittest.TestCase):
     def manifest(self):
         return json.loads((self.output / "report.json").read_text())
 
+    def test_positive_mode_is_retained_in_replay_tuning_and_exported_session(self):
+        self.current.fill(0)
+        self.current[36:42, 10:85] = 400
+        progress = self.root / "positive.json"
+        progress.write_text(
+            json.dumps(
+                {
+                    "processed_files": [self.target.name],
+                    "processing_params": self.params.to_dict(),
+                    "roi": "full_image",
+                    "hough_difference_mode": "positive",
+                }
+            ),
+            encoding="utf-8",
+        )
+        # Reverse the images so the only trail disappears in the target.
+        options = [
+            "--analyze-image",
+            str(self.reference),
+            "--reference-image",
+            str(self.target),
+            "--analysis-progress",
+            str(progress),
+        ]
+        code, out, err = self.run_cli(
+            options
+            + [
+                "--analysis-output",
+                str(self.output),
+                "--analysis-proposal",
+                "baseline",
+            ]
+        )
+        self.assertEqual(code, 0, err)
+        self.assertIn("difference_mode: positive", out)
+        self.assertFalse(self.manifest()["baseline"]["decision"]["is_candidate"])
+        positive = {"difference_mode": "positive"}
+        self.assertEqual(self.manifest()["detector"]["config"], positive)
+        session = load_pipeline_config(self.output / "session.yaml")
+        self.assertEqual(session.detector_config, positive)
+
+        settings = load_reproduction_settings(progress_path=progress)
+        replay = reproduce_hough_pair(
+            self.reference, self.target, settings=settings, input_loader=self.loader
+        )
+        self.assertEqual(
+            replay.remeasure(replace(self.params, diff_threshold=5)).lines, []
+        )
+        code, out, err = self.run_cli(
+            options
+            + [
+                "--detector-config",
+                '{"difference_mode":"absolute"}',
+            ]
+        )
+        self.assertEqual(code, 0, err)
+        self.assertIn("difference_mode: positive -> absolute", out)
+        self.assertIn("Candidate: True", out)
+
     def run_cli(self, arguments):
         out, err = io.StringIO(), io.StringIO()
         with (

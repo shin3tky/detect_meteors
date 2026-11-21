@@ -1,5 +1,9 @@
 # 恒星による位置合わせを差分の前に適用する試験
 
+組み込みフックでの実行方法とサンプルの検証結果は
+[恒星位置合わせ付きの流星検出](star_registration_workflow_ja.md)を参照してください。
+[同じ121ペアでのハフ閾値の比較](hough_registration_thresholds_ja.md)も実施しました。
+
 ## 目的
 
 直前3枚を現在座標に合わせて中央値を取る方式は、[位置合わせ付き中央値背景の比較](registered_median_evaluation_ja.md)で同じRAW系列を使って評価した。

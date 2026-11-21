@@ -15,7 +15,7 @@ from typing import Any, Mapping
 import numpy as np
 
 from .detectors.hough_analysis import CandidateDecision, HoughAnalysis
-from .detectors.hough_default import HoughDetector
+from .detectors.hough_default import HoughDetector, HoughDetectorConfig
 from .exceptions import MeteorConfigError, MeteorLoadError, MeteorValidationError
 from .inputs.base import BaseInputLoader
 from .pipeline import _normalize_input_context, _resolve_input_loader
@@ -42,6 +42,7 @@ class ReproductionSettings:
     limitations: tuple[str, ...]
     progress_path: str | None
     progress_stamp: tuple[int, ...] | None = None
+    detector_config: HoughDetectorConfig = field(default_factory=HoughDetectorConfig)
 
 
 @dataclass(frozen=True)
@@ -76,7 +77,7 @@ class HoughReproduction:
         """Measure fresh evidence from the same loaded images and ROI snapshot."""
         if self._context is None:
             raise MeteorValidationError("Cannot remeasure without a reference image")
-        detector = HoughDetector()
+        detector = HoughDetector(self.settings.detector_config)
         context = replace(
             self._context,
             runtime_params=detector.build_runtime_params(
@@ -147,6 +148,7 @@ def load_reproduction_settings(
     use_full_image: bool = False,
     fallback_roi_polygon: list[list[int]] | None = None,
     fallback_full_image: bool = False,
+    detector_config: HoughDetectorConfig | None = None,
 ) -> ReproductionSettings:
     """Resolve a baseline without updating the input progress file.
 
@@ -156,6 +158,7 @@ def load_reproduction_settings(
     params does not implicitly override values recorded in progress.
 
     A polygon or ``use_full_image=True`` explicitly overrides the recorded ROI.
+    A supplied detector configuration overrides the difference mode in progress.
     Missing legacy fields are accepted but identified in ``limitations``.
     """
     if roi_polygon is not None and use_full_image:
@@ -175,6 +178,7 @@ def load_reproduction_settings(
     )
     resolved_progress = None
     progress_stamp = None
+    recorded_config = HoughDetectorConfig()
 
     if progress_path is not None:
         path = Path(progress_path).expanduser().resolve()
@@ -200,6 +204,14 @@ def load_reproduction_settings(
                 "Expected a progress file, not a pipeline configuration",
                 filepath=str(path),
             )
+        try:
+            recorded_config = HoughDetectorConfig(
+                difference_mode=progress.get("hough_difference_mode", "absolute")
+            )
+        except ValueError as exc:
+            raise MeteorConfigError(
+                str(exc), filepath=str(path), config_key="hough_difference_mode"
+            ) from exc
         recorded_keys = set()
         for field in ("params", "processing_params"):
             recorded = progress.get(field, {})
@@ -224,6 +236,13 @@ def load_reproduction_settings(
     else:
         limitations.append("no_recorded_baseline")
 
+    if (detector_config is not None and detector_config.frt_retry is not None) or (
+        progress_path is not None and progress.get("hough_frt_retry") is not None
+    ):
+        limitations.append("frt_retry_not_replayed")
+    if detector_config is not None:
+        detector_config = HoughDetectorConfig(detector_config.difference_mode)
+
     baseline = _validated_params(values)
     overrides = dict(parameter_overrides) if parameter_overrides is not None else {}
     _validated_params(overrides)
@@ -232,6 +251,15 @@ def load_reproduction_settings(
         for key, value in overrides.items()
         if values[key] != value
     }
+    if (
+        detector_config is not None
+        and progress_path is not None
+        and detector_config != recorded_config
+    ):
+        changes["difference_mode"] = {
+            "before": recorded_config.difference_mode,
+            "after": detector_config.difference_mode,
+        }
     values.update(overrides)
     sources.update(dict.fromkeys(overrides, "override"))
 
@@ -254,6 +282,7 @@ def load_reproduction_settings(
         limitations=tuple(limitations),
         progress_path=resolved_progress,
         progress_stamp=progress_stamp,
+        detector_config=detector_config or recorded_config,
     )
 
 
@@ -351,7 +380,7 @@ def reproduce_hough_pair(
                 parameter_name="reference_image",
                 provided_value={"shape": previous.shape, "dtype": str(previous.dtype)},
             )
-        detector = HoughDetector()
+        detector = HoughDetector(settings.detector_config)
         context = DetectionContext(
             current_image=current,
             previous_image=previous,

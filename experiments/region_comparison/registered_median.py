@@ -1,7 +1,8 @@
 """Build a causal three-frame background in the current sky coordinates."""
 
 from benchmark_v2 import temporal_median
-from star_registration import estimate_registration, match_centroids, warp_reference
+from meteor_core.star_registration import match_centroids, warp_reference
+from star_registration import estimate_registration
 
 HISTORY_DEPTH = 3
 

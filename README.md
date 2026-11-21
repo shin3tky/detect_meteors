@@ -211,9 +211,9 @@ output_handler_name: file
 
 The RAW loader defaults to `normalize: false`; `true` returns `float32` pixels
 in [0, 1], and the pipeline scales `diff_threshold` accordingly. The built-in
-Hough detector uses `params` for its thresholds and accepts an empty
-`detector_config`. The file output handler uses `output_overwrite`, not
-`overwrite`, for overwrite control.
+Hough detector uses `params` for its thresholds and
+`detector_config.difference_mode` for the pixel difference. The file output
+handler controls overwrites with `output_overwrite`.
 
 When `output_handler_name: file` is explicitly selected, set output paths and
 overwrite behavior in `output_handler_config`; its own defaults are used for
@@ -246,11 +246,43 @@ pipeline = MeteorDetectionPipeline(config)
 pipeline.run()
 ```
 
+### Positive Differences (Optional)
+
+Set `detector_config: {difference_mode: positive}` to detect only pixels that
+brighten from the previous frame. The default `absolute` uses changes in both
+directions. The following example runs without registration on the
+[aircraft sample RAWs](docs/INSTALL.md#sample-raw-images).
+
+```bash
+uv run detect-meteors --config config_examples/hough_positive_sample.yaml --debug-image
+```
+
+[Validation on 121 RAW pairs (Japanese)](docs/hough_registration_thresholds_ja.md#正の差分だけを渡した場合)
+
+Select a comparison YAML to switch between conventional absolute-difference
+Hough, stellar preprocessing, positive-difference Hough, and experimental
+FRT retry. Each sample uses separate output and progress paths.
+[Configuration examples](docs/COMMAND_OPTIONS.md#comparison-configurations)
+
 ## Resumable Processing
 
 - Interrupt with Ctrl-C anytime
 - Resume by running the same command again
 - Use `--no-resume` for a fresh start
+
+### Stellar Registration (Optional)
+
+The `star_registration` hook uses stars in the ROI to rotate and translate the previous exposure
+into the current image's coordinates before detection.
+Try it with the [aircraft sample RAWs](docs/INSTALL.md#sample-raw-images).
+
+```bash
+uv run detect-meteors --config config_examples/star_registration_sample.yaml --debug-image
+```
+
+The sample config sets the sky ROI and enables Hough detection and aircraft trail analysis.
+For your own exposures, use `--hooks star_registration` and select a sky ROI with widely
+distributed stars. See the [workflow and RAW validation results (Japanese)](docs/star_registration_workflow_ja.md).
 
 ### Aircraft Trail Analysis (Optional)
 
@@ -299,6 +331,16 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 | [Aircraft trail guide](docs/aircraft_light_trails_hook_design.md) | Enable, configure, and inspect aircraft metadata |
 | [Aircraft sample validation](docs/aircraft_sample_validation.md) | Results and limitations on the local 12-frame sequence |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
+
+## Preparing v2.1.1
+
+**Scheduled for November 21, 2026 (2026-11-21) · 📺 World Television Day**
+
+The release notes cover the frame-pair hook, switchable configurations for
+conventional Hough, stellar registration, positive differences, and
+experimental FRT retry. They also cover progress compatibility, the 121-pair
+and 2025LEO results, and the plugin interface.
+[2.1.1 release notes](docs/RELEASE_NOTES_2.1.md#version-211) · [Changelog](docs/CHANGELOG.md#v211)
 
 ## What's New in v1.6.13
 

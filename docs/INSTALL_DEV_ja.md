@@ -257,8 +257,25 @@ uv run coverage html
 
 ## リリース手順
 
+<a id="release-211-checklist"></a>
+
+### 2.1.1の公開前チェック
+
+1. `pyproject.toml` と `meteor_core/schema.py` の版を `2.1.1` に揃えて `uv.lock` を再生成し、
+   `uv lock --check` とローカルテストを実行します。
+2. 航空機サンプルで4設定を実行し、候補・デバッグ画像・進捗の保存先と、従来設定での再開を確認します。
+   FRT再検査は実験設定として案内します。[設定と検証結果](RELEASE_NOTES_2.1_ja.md#version-211)
+3. 必須CIチェックを通過したPRを `main` に取り込み、公開対象コミットと注釈付きタグ `2.1.1` を照合します。
+4. wheelとソース配布物をPython 3.12、3.13、3.14で検証し、パッケージ情報と
+   `detect-meteors --version` がともに `2.1.1` であることを確認します。
+   ソース配布物に日英のリリースノートと4つの設定例が含まれることも確認します。
+5. 確定した公開日と配布物を案内に反映し、`SHA256SUMS` とともに公開します。
+   公開後は同じビルドの成果物と照合します。[公開後の検証手順](#verify-public-release-downloads)
+
+### 配布物のビルドと検証
+
 リリースするコミットの CI が成功したら、GitHub の **Actions → Build release distributions → Run workflow** を開き、既定ブランチで実行します。
-タグ名（例 `1.6.12`）とコミットの完全な SHA を指定してください。
+タグ名（例 `2.1.1`）とコミットの完全な SHA を指定してください。
 成功した実行では、wheel、ソース配布物、`SHA256SUMS` が1つのアーティファクトに保存されます。
 ダウンロードして展開し、`origin` のタグを再確認してから、GitHub Release に3ファイルを手動で添付します。
 公開後は、[公開 URL から取得して検証する手順](#verify-public-release-downloads)を実行します。
@@ -288,7 +305,7 @@ uv run --locked ty check
 ローカルと `origin` のタグをそれぞれ確認します。
 
 ```bash
-release_version=1.6.12
+release_version=2.1.1
 release_commit=$(git rev-parse --verify HEAD)
 git rev-parse --verify "refs/tags/${release_version}^{commit}"
 git ls-remote --exit-code origin refs/heads/main "refs/tags/$release_version" "refs/tags/$release_version^{}"
@@ -322,20 +339,20 @@ sdist="detect_meteors-$release_version.tar.gz"
 TAR_OPTIONS= tar -tzf "$release_dir/dist/$sdist"
 ```
 
-生成されたファイル名のバージョンを確認します。ソース配布物には、ドキュメント、設定例、テスト、ロックファイル、
-飛行機サンプルの README とチェックサムが含まれます。RAW 画像と生成済みの候補は配布対象外です。
-手元のサンプルで動作を確認する手順は[飛行機ガイド](aircraft_light_trails_hook_design.md)を参照してください。
+生成されたファイル名のバージョンを確認します。ソース配布物には、ドキュメント、設定例、テスト、
+ロックファイルが含まれます。サンプルRAW、ラベル、チェックサムは `detect_meteors_assets` から取得します。
+[サンプルRAWの配置手順](INSTALL_ja.md#サンプル-raw-画像)
 
 両方の配布物があるディレクトリで、次の関数を使ってインストールを確認します。
-対応する Python のバージョンと配布物の組み合わせごとに、新しい仮想環境を作ります。
-リリースが Python 3.14 に対応する場合は、ループに `3.14` を追加してください。
+2.1.1が対象とするPythonの版と配布物の組み合わせごとに、新しい仮想環境を作ります。
+別のリリースを検証する場合は、`Requires-Python` に合わせてループを調整します。
 公開前のビルド結果と、公開後にダウンロードしたファイルの両方に使います。
 
 ```bash
 check_release_install() (
   set -e
   install_dir=$(mktemp -d "$release_dir/install.XXXXXX")
-  for python_version in 3.12 3.13; do
+  for python_version in 3.12 3.13 3.14; do
     for asset in "$wheel" "$sdist"; do
       venv="$install_dir/$python_version-$asset"
       uv venv --python "$python_version" "$venv"
@@ -388,7 +405,7 @@ check_release_install() (
 Actions でビルドした配布物を手元で検証する場合は、展開したアーティファクトの3ファイルを、新しい作業ディレクトリの `dist/` にコピーします。
 
 ```bash
-release_version=1.6.12
+release_version=2.1.1
 artifact_dir="/path/to/unpacked-artifact"
 release_dir=$(mktemp -d)
 wheel="detect_meteors-$release_version-py3-none-any.whl"
@@ -567,7 +584,9 @@ detect_meteors/
 
 入力ローダー、検出器、出力ハンドラー、パイプラインフックの作成方法は[PLUGIN_AUTHOR_GUIDE_ja.md](PLUGIN_AUTHOR_GUIDE_ja.md)を参照してください。
 
-> ⚠️ **補足**：プラグイン構成は実験的であり、v2.0より前に変更される可能性があります。
+直前画像と現在画像をそろえるような処理は、検出直前の `on_before_detection()` に追加できます。
+ハフや既存の出力を使ったまま、設定の `hooks` で前処理を試せます。
+[前処理フックの契約](PLUGIN_AUTHOR_GUIDE_ja.md#frame-pair-hook) · [設定からの追加・取り外し](PLUGIN_AUTHOR_GUIDE_ja.md#enable-disable-plugins)
 
 ## 貢献の手順
 

@@ -148,6 +148,14 @@ class TestAnalysisReproduction(unittest.TestCase):
             settings.limitations,
         )
 
+    def test_progress_from_frt_retry_describes_hough_only_analysis(self):
+        progress = json.loads(self.progress.read_text())
+        progress.update(hough_difference_mode="positive", hough_frt_retry={})
+        self.write_progress(progress)
+        settings = load_reproduction_settings(progress_path=self.progress)
+        self.assertEqual(settings.detector_config.difference_mode, "positive")
+        self.assertIn("frt_retry_not_replayed", settings.limitations)
+
     def test_recorded_roi_is_used_until_explicitly_overridden(self):
         polygon = [[0, 0], [8, 0], [8, 95], [0, 95]]
         data = json.loads(self.progress.read_text())

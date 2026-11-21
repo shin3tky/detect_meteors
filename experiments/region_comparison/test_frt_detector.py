@@ -5,7 +5,8 @@ import unittest
 import cv2
 import numpy as np
 
-from frt_detector import FrtConfig, FrtDetector, _digital_offsets, _frt_stages
+from frt_detector import FrtConfig, FrtDetector
+from meteor_core.detectors.frt_projection import _digital_offsets, _frt_stages
 from meteor_core.schema import DetectionContext
 from summarize import line_trail_evidence
 

@@ -23,6 +23,7 @@ from .._plugin_import import load_local_plugin as _load_module_from_file
 from .base import BaseHook, _is_valid_hook
 from .aircraft_trail import AircraftTrailHook
 from .file_found import AllowAllFilesFoundHook
+from .star_registration import StarRegistrationHook
 
 # Module-level logger for discovery diagnostics
 logger = logging.getLogger(__name__)
@@ -204,6 +205,7 @@ def _discover_handlers_internal(
     logger.debug("Phase 1: Registering built-in hooks")
     _add_hook(registry, AllowAllFilesFoundHook, "built-in AllowAllFilesFoundHook")
     _add_hook(registry, AircraftTrailHook, "built-in AircraftTrailHook")
+    _add_hook(registry, StarRegistrationHook, "built-in StarRegistrationHook")
 
     # 2. Register hooks from entry points (sorted for determinism)
     logger.debug(

@@ -7,7 +7,7 @@ from unittest.mock import patch
 import numpy as np
 
 from meteor_core.detectors.hough_analysis import CandidateThresholds
-from meteor_core.detectors.hough_default import HoughDetector
+from meteor_core.detectors.hough_default import HoughDetector, HoughDetectorConfig
 from meteor_core.schema import DetectionContext, DetectionParams
 
 
@@ -142,6 +142,40 @@ class TestHoughAnalysis(unittest.TestCase):
         np.testing.assert_array_equal(analysis.mask, expected)
         self.assertEqual(image[30, 10], 0.5)
         self.assertEqual(roi[30, 10], 255)
+
+    def test_positive_difference_works_on_raw_and_normalized_images(self):
+        current = np.full((96, 96), 1024, dtype=np.uint16)
+        previous = current.copy()
+        previous[10:15, 10:80] = 4096  # Disappearing trail.
+        current[30:35, 10:80] = 4096  # Appearing trail.
+        current[60:65, 10:80] = 2048  # Exactly at the cutoff.
+        roi = np.full(current.shape, 255, np.uint8)
+        roi[:, 70:] = 0
+        expected = np.zeros_like(roi)
+        expected[30:35, 10:70] = 255
+        detector = HoughDetector(HoughDetectorConfig("positive"))
+        for scale in (1, 4096):
+            with self.subTest(scale=scale):
+                current_image = (
+                    current if scale == 1 else current.astype(np.float32) / scale
+                )
+                previous_image = (
+                    previous if scale == 1 else previous.astype(np.float32) / scale
+                )
+                context = replace(
+                    self.context(current_image, roi=roi),
+                    previous_image=previous_image,
+                    runtime_params=self.detector.build_runtime_params(
+                        {**self.params.to_dict(), "diff_threshold": 1024 / scale}
+                    ),
+                )
+                absolute = self.detector.analyze(context)
+                positive = detector.analyze(context)
+                self.assertTrue(np.any(absolute.mask[10:15]))
+                np.testing.assert_array_equal(positive.mask, expected)
+                self.assertTrue(positive.evaluate().is_candidate)
+                np.testing.assert_array_equal(current_image * scale, current)
+                np.testing.assert_array_equal(previous_image * scale, previous)
 
     def test_namespaced_hough_settings_remain_supported(self):
         image = np.zeros((96, 96), np.uint16)

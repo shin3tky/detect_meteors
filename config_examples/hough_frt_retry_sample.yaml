@@ -1,0 +1,28 @@
+# Experimental retry after positive-difference Hough. Extra memory per worker.
+schema_version: 1
+target_folder: ./rawfiles/2024GEMINI_AIRCRAFT
+output_folder: ./candidates/hough_frt_retry
+debug_folder: ./debug_masks/hough_frt_retry
+progress_file: ./candidates/hough_frt_retry/progress.json
+
+# Sky ROI for this sequence with the evaluation's 16 px margin.
+roi_polygon: [[141, 101], [2424, 101], [2424, 1214], [141, 1214]]
+params:
+  diff_threshold: 9
+  min_area: 3
+  min_aspect_ratio: 3.0
+  hough_threshold: 10
+  hough_min_line_length: 15
+  hough_max_line_gap: 5
+  min_line_score: 30.0
+
+input_loader_name: raw
+input_loader_config:
+  normalize: false
+detector_name: hough
+detector_config:
+  difference_mode: positive
+  frt_retry: {}
+hooks: []
+num_workers: 2
+batch_size: 4

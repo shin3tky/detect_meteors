@@ -11,12 +11,13 @@ Default meteor detector using Hough line transform.
 import logging
 import time
 from dataclasses import dataclass
-from typing import Tuple, List, Optional, Dict, Any
+from typing import Tuple, List, Optional, Dict, Any, Literal
 
 import cv2
 import numpy as np
 
 from .base import BaseDetector
+from .frt_retry import FrtRetryConfig, retry_rejected_pair
 from .hough_analysis import CandidateThresholds, ContourMeasurement, HoughAnalysis
 from meteor_core.schema import DetectionContext, DetectionResult
 from meteor_core.utils import ensure_numpy
@@ -24,16 +25,39 @@ from meteor_core.utils import ensure_numpy
 
 logger = logging.getLogger(__name__)
 
+DifferenceMode = Literal["absolute", "positive"]
 
-@dataclass
+
+@dataclass(frozen=True)
 class HoughDetectorConfig:
-    """Default configuration placeholder for :class:`HoughDetector`."""
+    """Choose which pixel changes are used and whether to retry rejected pairs."""
 
-    # The default Hough detector currently relies on runtime parameters provided
-    # by the pipeline, so no fields are necessary. This dataclass exists to
-    # satisfy registry expectations for a zero-argument ``ConfigType`` that
-    # yields a complete default configuration.
-    pass
+    difference_mode: DifferenceMode = "absolute"
+    frt_retry: FrtRetryConfig | None = None
+
+    def __post_init__(self) -> None:
+        if self.difference_mode not in ("absolute", "positive"):
+            raise ValueError("difference_mode must be 'absolute' or 'positive'")
+        if isinstance(self.frt_retry, dict):
+            object.__setattr__(self, "frt_retry", FrtRetryConfig(**self.frt_retry))
+        if self.frt_retry is not None:
+            if not isinstance(self.frt_retry, FrtRetryConfig):
+                raise TypeError("frt_retry must be a mapping or null")
+            if self.difference_mode != "positive":
+                raise ValueError("frt_retry requires difference_mode: positive")
+
+
+def frame_difference(
+    current: np.ndarray, previous: np.ndarray, mode: DifferenceMode
+) -> np.ndarray:
+    """Return the absolute difference or the current frame's positive changes."""
+    if mode == "absolute":
+        return cv2.absdiff(current, previous)
+    residual = cv2.subtract(current, previous)
+    # Unsigned subtraction saturates at zero. Signed and floating inputs need clipping.
+    if residual.dtype.kind != "u":
+        np.maximum(residual, 0, out=residual)
+    return residual
 
 
 class HoughDetector(BaseDetector):
@@ -58,8 +82,7 @@ class HoughDetector(BaseDetector):
         """Initialize the Hough detector.
 
         Args:
-            config: Optional configuration to align with registry expectations.
-                Currently unused because the default detector is parameter-free.
+            config: Optional configuration for the difference mode.
         """
         self.config = config or HoughDetectorConfig()
         # Pre-create morphology kernel (reused across detections)
@@ -98,7 +121,7 @@ class HoughDetector(BaseDetector):
             analysis.score,
             decision.max_aspect_ratio,
         )
-        return DetectionResult(
+        result = DetectionResult(
             is_candidate=decision.is_candidate,
             score=analysis.score,
             lines=analysis.lines,
@@ -107,6 +130,9 @@ class HoughDetector(BaseDetector):
             extras={},
             metrics=metrics,
         )
+        if not result.is_candidate and self.config.frt_retry is not None:
+            return retry_rejected_pair(context, result, self.config.frt_retry)
+        return result
 
     def analyze(self, context: DetectionContext) -> HoughAnalysis:
         """Measure the mask, Hough lines, and contours for a frame pair.
@@ -146,9 +172,11 @@ class HoughDetector(BaseDetector):
         hough_params = self._resolve_hough_params(params)
 
         try:
-            # Threshold the absolute difference, restrict it to the ROI, and
+            # Threshold the difference, restrict it to the ROI, and
             # remove small features with a morphological opening.
-            mask = cv2.absdiff(current_image, previous_image)
+            mask = frame_difference(
+                current_image, previous_image, self.config.difference_mode
+            )
             _, mask = cv2.threshold(
                 mask, params["diff_threshold"], 255, cv2.THRESH_BINARY, dst=mask
             )

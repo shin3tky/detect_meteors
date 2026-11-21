@@ -194,7 +194,7 @@ detector_name: hough
 output_handler_name: file
 ```
 
-RAWローダーの既定値は `normalize: false` です。`true` にすると画素を [0, 1] の範囲の `float32` として返し、パイプラインはそれに合わせて `diff_threshold` を調整します。組み込みHough検出器の閾値は `params` で指定し、`detector_config` には空の設定を渡せます。ファイル出力ハンドラーの上書き制御には、`overwrite` ではなく `output_overwrite` を使います。
+RAWローダーの既定値は `normalize: false` です。`true` にすると画素を [0, 1] の範囲の `float32` として返し、パイプラインはそれに合わせて `diff_threshold` を調整します。組み込みHough検出器の閾値は `params`、差分方式は `detector_config.difference_mode` で指定します。ファイル出力ハンドラーの上書きは `output_overwrite` で設定します。
 
 `output_handler_name: file` を明示的に選ぶ場合は、保存先と上書き動作を `output_handler_config` で指定してください。省略したフィールドにはハンドラー自身の既定値を使います。最上位の `output_folder`、`debug_folder`、`output_overwrite` を引き継ぐには、`output_handler_name` を省略し、既定のファイルハンドラーを使ってください。
 
@@ -218,11 +218,55 @@ pipeline = MeteorDetectionPipeline(config)
 pipeline.run()
 ```
 
+### 正の差分だけで検出する（任意）
+
+`hough` の `difference_mode: positive` は、現在画像が直前画像より明るくなった画素だけを検出に使います。既定値の `absolute` は両方向の変化を使います。位置合わせなしで試すには、[航空機サンプルの RAW](docs/INSTALL_ja.md#サンプル-raw-画像)を用意し、次の設定例を実行します。
+
+```bash
+uv run detect-meteors --config config_examples/hough_positive_sample.yaml --debug-image
+```
+
+既存設定に追加する場合は、`detector_config: {difference_mode: positive}` を指定し、`hooks` から `star_registration` を外します。 [121ペアでの検証](docs/hough_registration_thresholds_ja.md#正の差分だけを渡した場合)
+
+### 従来の検出と試行設定を切り替える
+
+航空機サンプルを使う場合は、実行時に `--config` へ次のいずれかを指定します。
+4つの設定は入力、空のROI、ハフ閾値が共通で、候補・デバッグ画像・進捗の保存先が分かれています。
+
+| 試す処理 | 設定ファイル |
+| --- | --- |
+| 従来の絶対差分ハフ | [hough_legacy_sample.yaml](config_examples/hough_legacy_sample.yaml) |
+| 恒星位置合わせを前処理に追加 | [hough_registered_sample.yaml](config_examples/hough_registered_sample.yaml) |
+| 位置合わせなしの正の差分ハフ | [hough_positive_sample.yaml](config_examples/hough_positive_sample.yaml) |
+| 正の差分ハフ＋FRT再検査の実験 | [hough_frt_retry_sample.yaml](config_examples/hough_frt_retry_sample.yaml) |
+
+たとえば、従来の検出と恒星位置合わせを次のように切り替えます。
+
+```bash
+uv run detect-meteors --config config_examples/hough_legacy_sample.yaml --debug-image
+uv run detect-meteors --config config_examples/hough_registered_sample.yaml --debug-image
+```
+
+従来の処理に戻すには `hough_legacy_sample.yaml` を指定します。恒星位置合わせの行は、
+既存の検出器の手前に前処理を差し込む例です。FRTは棄却ペアの再検査を試すための実験設定で、
+有効にすると時間とメモリの使用量が増えます。 [FRTの設定と系列別の結果](docs/frt_retry_workflow_ja.md) · [フックとプラグインの切り替え](docs/PLUGIN_AUTHOR_GUIDE_ja.md#cli-plugin-selection)
+
 ## 中断と再開
 
 - Ctrl-Cでいつでも中断できます。
 - 同じコマンドを再実行すると再開できます。
 - 最初から処理する場合は `--no-resume` を使います。
+
+### 恒星を使った画像ペアの位置合わせ（任意）
+
+`star_registration` フックは、ROI 内の恒星に合わせて直前画像を回転・平行移動してから、通常の検出を実行します。
+[航空機サンプルの RAW](docs/INSTALL_ja.md#サンプル-raw-画像) では次の設定で試せます。
+
+```bash
+uv run detect-meteors --config config_examples/star_registration_sample.yaml --debug-image
+```
+
+[使い方と実 RAW での検証結果](docs/star_registration_workflow_ja.md)
 
 ### 飛行機の光跡解析（任意）
 
@@ -258,6 +302,14 @@ RAWファイルとチェックサムは [`detect_meteors_assets/rawfiles/2024GEM
 | [飛行機の光跡ガイド](docs/aircraft_light_trails_hook_design.md) | フックの有効化、設定、メタデータの確認 |
 | [飛行機サンプルの検証](docs/aircraft_sample_validation.md) | 12枚のサンプルでの結果と制約 |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | 技術的な詳細 |
+
+## v2.1.1 リリース準備
+
+**公開予定日 2026年11月21日 📺 世界テレビ・デー**
+
+検出直前の画像ペアフックと、従来ハフ・恒星位置合わせ・正の差分・実験用FRTを切り替える設定例を
+まとめています。移行時の再開、121ペアと2025LEOの検証結果、プラグイン開発についても参照できます。
+[2.1.1リリースノート](docs/RELEASE_NOTES_2.1_ja.md#version-211) · [変更履歴](docs/CHANGELOG_ja.md#v211)
 
 ## v1.6.13 の主な変更
 

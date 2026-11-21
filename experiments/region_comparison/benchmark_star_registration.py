@@ -16,16 +16,16 @@ from meteor_core.image_io import load_and_bin_raw_fast
 from meteor_core.pipeline import _build_runtime_params
 from meteor_core.roi_selector import create_roi_mask_from_polygon
 from meteor_core.schema import DetectionContext
-from review_frt import _crop, _gray, _overlay
-from review_metrics import event_matches, frame_metrics, read_truth
-from star_registration import (
+from meteor_core.star_registration import (
     IDENTITY,
-    estimate_registration,
     match_centroids,
     star_centroids,
     transform_points,
     warp_reference,
 )
+from review_frt import _crop, _gray, _overlay
+from review_metrics import event_matches, frame_metrics, read_truth
+from star_registration import estimate_registration
 from trail_measurement import profile_contrast
 
 ROI_2024 = [(125, 85), (2440, 85), (2440, 1230), (125, 1230)]

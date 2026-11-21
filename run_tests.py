@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Version-aware test runner for detect_meteors_cli
-Runs different test suites based on the major version number
+Run the shared CLI and compatibility tests for supported major versions.
 """
 
 import sys
@@ -14,7 +13,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 
 def get_version():
-    """Extract version from detect_meteors_cli.py"""
+    """Extract the application version from meteor_core/schema.py."""
     try:
         with open("meteor_core/schema.py", "r") as f:
             content = f.read()
@@ -22,10 +21,10 @@ def get_version():
             if match:
                 return match.group(1)
     except FileNotFoundError:
-        print("Error: detect_meteors_cli.py not found")
+        print("Error: meteor_core/schema.py not found")
         sys.exit(1)
 
-    print("Error: Could not find VERSION in detect_meteors_cli.py")
+    print("Error: Could not find VERSION in meteor_core/schema.py")
     sys.exit(1)
 
 
@@ -38,34 +37,15 @@ def get_major_version(version_string):
 
 
 def run_tests_for_version(major_version):
-    """Run appropriate tests based on major version"""
-
-    if major_version == 1:
-        print("Running tests for version 1.x")
-        # Discover and run tests in tests/ directory (for version 1.x)
-        loader = unittest.TestLoader()
-        suite = loader.discover("tests", pattern="test_*.py")
-
-        runner = unittest.TextTestRunner(verbosity=2)
-        result = runner.run(suite)
-
-        return 0 if result.wasSuccessful() else 1
-
-    elif major_version == 2:
-        print("Running tests for version 2.x")
-        # For version 2.x, use different test directory or patterns
-        # This is a placeholder - adjust based on actual 2.x structure
-        loader = unittest.TestLoader()
-        suite = loader.discover("tests_v2", pattern="test_*.py")
-
-        runner = unittest.TextTestRunner(verbosity=2)
-        result = runner.run(suite)
-
-        return 0 if result.wasSuccessful() else 1
-
-    else:
+    """Use the same regression tests for the 1.x and 2.x workflows."""
+    if major_version not in (1, 2):
         print(f"Error: Unsupported major version {major_version}")
         return 1
+
+    print(f"Running tests for version {major_version}.x")
+    suite = unittest.TestLoader().discover("tests", pattern="test_*.py")
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    return 0 if result.wasSuccessful() else 1
 
 
 def main():

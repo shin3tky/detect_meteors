@@ -10,7 +10,12 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from benchmark_ridge_beamlet import SEQUENCES
-from frt_detector import FrtConfig, _frt_stages, _projection_input, _segment
+from frt_detector import FrtConfig
+from meteor_core.detectors.frt_projection import (
+    _frt_stages,
+    _projection_input,
+    _segment,
+)
 from meteor_core.image_io import load_and_bin_raw_fast
 from summarize import load_pairs, trail_coverage
 

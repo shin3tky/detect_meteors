@@ -60,6 +60,14 @@ class BaseHook(ABC, Generic[ConfigType]):
         """
         return context
 
+    def on_before_detection(self, context: DetectionContext) -> DetectionContext:
+        """Prepare a frame pair after both image-load hooks and before detection.
+
+        Return an updated context in the coordinate system expected by the
+        detector and outputs. The default implementation leaves it unchanged.
+        """
+        return context
+
     def on_detection_complete(
         self,
         result: DetectionResult,
