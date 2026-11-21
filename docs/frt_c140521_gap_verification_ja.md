@@ -50,6 +50,8 @@ FRT得点の最低値を10とした従来の方式では、全ラベルで選ん
 診断をもとに設計した。今回追加回収した1枚の被覆は判定基準に近い。
 [系列ごとの設定、候補、軸被覆](../experiments/region_comparison/results/frt_c140521/background_verification.json)
 
+[既存ワークフローでの設定と再現結果](frt_retry_workflow_ja.md)
+
 ## 再現
 
 リポジトリのルートで実行する。`--raw-root` にはRAWの配置先を指定する。

@@ -217,7 +217,9 @@ def _session_config(
         input_loader_name=name,
         input_loader_config=loader_config,
         detector_name="hough",
-        detector_config=asdict(replay.settings.detector_config),
+        detector_config={
+            "difference_mode": replay.settings.detector_config.difference_mode
+        },
         hooks=[],
         roi_polygon=[list(point) for point in replay.settings.roi_polygon]
         if replay.settings.roi_polygon is not None
@@ -334,7 +336,9 @@ def save_analysis_bundle(
         for path, stamp in sorted(comparison_stamps.items())
     ]
     notes = []
-    detector_config = asdict(replay.settings.detector_config)
+    detector_config = {
+        "difference_mode": replay.settings.detector_config.difference_mode
+    }
     effective_config = pipeline_config.to_dict() if pipeline_config else None
     if effective_config is not None:
         effective_config.update(

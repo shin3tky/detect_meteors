@@ -12,16 +12,16 @@ import numpy as np
 
 from benchmark_hough_frt_retry import FRT_CONFIG, analysis_mask, axis_coverage
 from benchmark_v2 import inputs
-from frt_support import (
+from meteor_core.detectors.frt_support import (
     MIN_DENSITY,
     WIDTH,
-    sample_profiles,
+    noise_tiles,
+    profiles,
     smooth_profiles,
     support_runs,
 )
 from meteor_core.image_io import load_and_bin_raw_fast
 from review_metrics import event_matches, frame_metrics
-from segment_verification import noise_tiles
 from summarize import trail_coverage
 
 CONTRASTS = tuple(
@@ -57,16 +57,6 @@ def key(combination):
         "max_gap_px_approx": GAPS[gap],
         "min_support_px": LENGTHS[length],
     }
-
-
-def profiles(proposals, residual, roi, tiles):
-    lengths = np.linalg.norm(proposals[:, 2:4] - proposals[:, :2], axis=1)
-    counts = np.ceil(lengths).astype(int)
-    for count in np.unique(counts):
-        if count < LENGTHS[0]:
-            continue
-        indices = np.flatnonzero(counts == count)
-        yield indices, sample_profiles(proposals[indices], count, residual, roi, tiles)
 
 
 def measure(proposals, residual, roi, refs, tiles):

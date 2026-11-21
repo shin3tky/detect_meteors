@@ -17,6 +17,7 @@ import cv2
 import numpy as np
 
 from .base import BaseDetector
+from .frt_retry import FrtRetryConfig, retry_rejected_pair
 from .hough_analysis import CandidateThresholds, ContourMeasurement, HoughAnalysis
 from meteor_core.schema import DetectionContext, DetectionResult
 from meteor_core.utils import ensure_numpy
@@ -29,13 +30,21 @@ DifferenceMode = Literal["absolute", "positive"]
 
 @dataclass(frozen=True)
 class HoughDetectorConfig:
-    """Choose which pixel changes contribute to Hough detection."""
+    """Choose which pixel changes are used and whether to retry rejected pairs."""
 
     difference_mode: DifferenceMode = "absolute"
+    frt_retry: FrtRetryConfig | None = None
 
     def __post_init__(self) -> None:
         if self.difference_mode not in ("absolute", "positive"):
             raise ValueError("difference_mode must be 'absolute' or 'positive'")
+        if isinstance(self.frt_retry, dict):
+            object.__setattr__(self, "frt_retry", FrtRetryConfig(**self.frt_retry))
+        if self.frt_retry is not None:
+            if not isinstance(self.frt_retry, FrtRetryConfig):
+                raise TypeError("frt_retry must be a mapping or null")
+            if self.difference_mode != "positive":
+                raise ValueError("frt_retry requires difference_mode: positive")
 
 
 def frame_difference(
@@ -112,7 +121,7 @@ class HoughDetector(BaseDetector):
             analysis.score,
             decision.max_aspect_ratio,
         )
-        return DetectionResult(
+        result = DetectionResult(
             is_candidate=decision.is_candidate,
             score=analysis.score,
             lines=analysis.lines,
@@ -121,6 +130,9 @@ class HoughDetector(BaseDetector):
             extras={},
             metrics=metrics,
         )
+        if not result.is_candidate and self.config.frt_retry is not None:
+            return retry_rejected_pair(context, result, self.config.frt_retry)
+        return result
 
     def analyze(self, context: DetectionContext) -> HoughAnalysis:
         """Measure the mask, Hough lines, and contours for a frame pair.

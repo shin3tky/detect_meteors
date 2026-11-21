@@ -13,12 +13,10 @@ from benchmark_frt_foreground import (
     TEXTURE_CAPS,
     highest_axis_cutoff,
     improves_training_coverage,
-    interval_texture,
     measure,
-    texture_map,
     train_and_test,
 )
-from segment_verification import noise_tiles
+from meteor_core.detectors.frt_support import interval_texture, noise_tiles, texture_map
 
 
 class FrtForegroundTests(unittest.TestCase):

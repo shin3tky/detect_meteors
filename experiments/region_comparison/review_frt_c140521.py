@@ -16,12 +16,16 @@ from benchmark_frt_foreground import (
     LEVELS,
     analysis_mask,
     interval_batches,
+)
+from meteor_core.detectors.frt_support import (
+    noise_tiles,
+    sample_profiles,
+    smooth_profiles,
+    support_runs,
     texture_map,
 )
-from frt_support import sample_profiles, smooth_profiles, support_runs
 from meteor_core.image_io import load_and_bin_raw_fast
 from review_frt import _crop, _gray, _overlay
-from segment_verification import noise_tiles
 from summarize import trail_coverage
 
 SEQUENCE = "late2024"

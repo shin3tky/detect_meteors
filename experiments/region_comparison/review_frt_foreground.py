@@ -13,14 +13,19 @@ from benchmark_frt_foreground import (
     LEVELS,
     analysis_mask,
     interval_batches,
-    texture_map,
 )
 from benchmark_frt_verification import GAPS
 from benchmark_v2 import inputs
-from frt_support import sample_profiles, smooth_profiles, support_runs
+from meteor_core.detectors.frt_support import (
+    TILE,
+    noise_tiles,
+    sample_profiles,
+    smooth_profiles,
+    support_runs,
+    texture_map,
+)
 from meteor_core.image_io import load_and_bin_raw_fast
 from review_frt import _gray
-from segment_verification import TILE, noise_tiles
 from summarize import trail_coverage
 
 

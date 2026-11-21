@@ -228,6 +228,12 @@ uv run detect-meteors --config config_examples/hough_positive_sample.yaml --debu
 
 既存設定に追加する場合は、`detector_config: {difference_mode: positive}` を指定し、`hooks` から `star_registration` を外します。 [121ペアでの検証](docs/hough_registration_thresholds_ja.md#正の差分だけを渡した場合)
 
+### ハフで棄却したペアをFRTで再検査する（任意）
+
+位置合わせなしの正の差分ハフに `detector_config.frt_retry: {}` を追加すると、
+棄却したペアに Fast Radon Transform（FRT）を適用します。短い途切れを含む薄い光跡も
+再検査できます。 [使い方と121ペアの検証結果](docs/frt_retry_workflow_ja.md)
+
 ## 中断と再開
 
 - Ctrl-Cでいつでも中断できます。

@@ -1,0 +1,215 @@
+{
+  "bundled": {
+    "training_sequences": [
+      "gemini2021",
+      "late2024"
+    ],
+    "settings": {
+      "bilateral_noise_min": 0.3,
+      "max_gap_samples": 3,
+      "min_support_px": 32,
+      "maximum_prior_texture_noise": 0.8,
+      "frt_min_snr": 10.0
+    },
+    "input_sha256": "5fba0cf7dbee10d0fcf5d891eb6e1597ac635d486b8306b42f71558ab6f6a3b0",
+    "truth_sha256": "d5a8f3c85bc6dabfbb31dfd338d37b5c8f606bf7e4e5ed525fcc6dc6f981ab60",
+    "sky_mask_pixels": 2544376,
+    "pairs": 11,
+    "frt_retries": 9,
+    "candidates": {
+      "_C140338.ORF": {
+        "stage": "hough",
+        "score": 1829.0111658828996,
+        "line_count": 14
+      },
+      "_C140344.ORF": {
+        "stage": "hough",
+        "score": 88.1045884577768,
+        "line_count": 3
+      }
+    },
+    "frames": {
+      "tp": [
+        "_C140338.ORF",
+        "_C140344.ORF"
+      ],
+      "fp": [],
+      "fn": [],
+      "tn_count": 9,
+      "precision": 1.0,
+      "recall": 1.0,
+      "recall_95_exact_if_independent": [
+        0.158113883008419,
+        1.0
+      ],
+      "false_positive_rate": 0.0,
+      "candidates_per_meteor_frame": 1.0
+    },
+    "events": {
+      "_C140338.ORF": {
+        "appearance": {
+          "coverage": 0.9472729410579006,
+          "match": true
+        },
+        "following": {
+          "coverage": 0.0,
+          "match": false
+        },
+        "event_match": true
+      },
+      "_C140344.ORF": {
+        "appearance": {
+          "coverage": 0.7941908713692944,
+          "match": true
+        },
+        "following": {
+          "coverage": 0.0,
+          "match": false
+        },
+        "event_match": true
+      }
+    }
+  },
+  "gemini2021": {
+    "training_sequences": [
+      "bundled",
+      "late2024"
+    ],
+    "settings": {
+      "bilateral_noise_min": 0.3,
+      "max_gap_samples": 3,
+      "min_support_px": 32,
+      "maximum_prior_texture_noise": 0.8,
+      "frt_min_snr": 10.0
+    },
+    "input_sha256": "1184851a941556cad92421847946cb406481c5e1f11ac5faf1768211e21dbd33",
+    "truth_sha256": "01eef6582c147ad8e86afdc8df55ca3622dc0b659557de5a67829134e4288ff5",
+    "sky_mask_pixels": 2327453,
+    "pairs": 35,
+    "frt_retries": 34,
+    "candidates": {
+      "_C150303.ORF": {
+        "stage": "hough",
+        "score": 3882.7403621297535,
+        "line_count": 41
+      },
+      "_C150319.ORF": {
+        "stage": "frt_retry",
+        "score": 60.5841178894043,
+        "line_count": 8
+      },
+      "_C150326.ORF": {
+        "stage": "frt_retry",
+        "score": 42.69220733642578,
+        "line_count": 3
+      }
+    },
+    "frames": {
+      "tp": [
+        "_C150303.ORF",
+        "_C150319.ORF",
+        "_C150326.ORF"
+      ],
+      "fp": [],
+      "fn": [],
+      "tn_count": 32,
+      "precision": 1.0,
+      "recall": 1.0,
+      "recall_95_exact_if_independent": [
+        0.2924017738212865,
+        1.0
+      ],
+      "false_positive_rate": 0.0,
+      "candidates_per_meteor_frame": 1.0
+    },
+    "events": {
+      "_C150303.ORF": {
+        "appearance": {
+          "coverage": 0.885722246788096,
+          "match": true
+        },
+        "following": {
+          "coverage": 0.0,
+          "match": false
+        },
+        "event_match": true
+      },
+      "_C150319.ORF": {
+        "appearance": {
+          "coverage": 0.9018282704044249,
+          "match": true
+        },
+        "following": {
+          "coverage": 0.0,
+          "match": false
+        },
+        "event_match": true
+      },
+      "_C150326.ORF": {
+        "appearance": {
+          "coverage": 0.7044345688350983,
+          "match": true
+        },
+        "following": {
+          "coverage": 0.0,
+          "match": false
+        },
+        "event_match": true
+      }
+    }
+  },
+  "late2024": {
+    "training_sequences": [
+      "bundled",
+      "gemini2021"
+    ],
+    "settings": {
+      "bilateral_noise_min": 0.3,
+      "max_gap_samples": 3,
+      "min_support_px": 32,
+      "maximum_prior_texture_noise": 0.8,
+      "frt_min_snr": 10.0
+    },
+    "input_sha256": "fd2e5b3b1ba36c9a5161747cc85b66673746eb67d33d891a7d4baaa1c4ef7b06",
+    "truth_sha256": "5946cbc5c57b1da2f0d2381e430f5550dd0cc935c22912f640d14fbf6db3beef",
+    "sky_mask_pixels": 2544376,
+    "pairs": 75,
+    "frt_retries": 75,
+    "candidates": {
+      "_C140521.ORF": {
+        "stage": "frt_retry",
+        "score": 13.606815338134766,
+        "line_count": 3
+      }
+    },
+    "frames": {
+      "tp": [
+        "_C140521.ORF"
+      ],
+      "fp": [],
+      "fn": [],
+      "tn_count": 74,
+      "precision": 1.0,
+      "recall": 1.0,
+      "recall_95_exact_if_independent": [
+        0.02499999999999991,
+        1.0
+      ],
+      "false_positive_rate": 0.0,
+      "candidates_per_meteor_frame": 1.0
+    },
+    "events": {
+      "_C140521.ORF": {
+        "appearance": {
+          "coverage": 0.5005360198326277,
+          "match": true
+        },
+        "following": {
+          "coverage": 0.0,
+          "match": false
+        },
+        "event_match": true
+      }
+    }
+  }
+}

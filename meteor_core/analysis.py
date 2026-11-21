@@ -236,6 +236,13 @@ def load_reproduction_settings(
     else:
         limitations.append("no_recorded_baseline")
 
+    if (detector_config is not None and detector_config.frt_retry is not None) or (
+        progress_path is not None and progress.get("hough_frt_retry") is not None
+    ):
+        limitations.append("frt_retry_not_replayed")
+    if detector_config is not None:
+        detector_config = HoughDetectorConfig(detector_config.difference_mode)
+
     baseline = _validated_params(values)
     overrides = dict(parameter_overrides) if parameter_overrides is not None else {}
     _validated_params(overrides)

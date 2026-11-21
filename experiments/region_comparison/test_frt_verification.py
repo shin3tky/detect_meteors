@@ -6,8 +6,7 @@ import unittest
 import numpy as np
 
 from benchmark_frt_verification import CONTRASTS, GAPS, LENGTHS, measure, score_verified
-from frt_support import sample_profiles, support_runs
-from segment_verification import noise_tiles
+from meteor_core.detectors.frt_support import noise_tiles, sample_profiles, support_runs
 
 
 class FrtVerificationTests(unittest.TestCase):

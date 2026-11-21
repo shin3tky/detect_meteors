@@ -10,20 +10,25 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from benchmark_frt_verification import CONTRASTS, GAPS, LENGTHS, profiles
+from benchmark_frt_verification import CONTRASTS, GAPS, LENGTHS
 from benchmark_hough_frt_retry import FRT_CONFIG, analysis_mask, axis_coverage
 from benchmark_v2 import inputs
-from frt_support import smooth_profiles, support_runs
+from meteor_core.detectors.frt_support import (
+    TEXTURE_QUANTILE,
+    TEXTURE_SIGMA_PX,
+    TEXTURE_WINDOW_PX,
+    noise_tiles,
+    profiles,
+    smooth_profiles,
+    supported_intervals,
+    texture_map,
+)
 from meteor_core.image_io import load_and_bin_raw_fast
 from review_metrics import event_matches, frame_metrics
-from segment_verification import noise_tiles
 from summarize import trail_coverage
 
 LEVELS = tuple(value for unit, value in CONTRASTS if unit == "both_sides_noise")
 TEXTURE_CAPS = (0.8, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0)
-TEXTURE_QUANTILE = 0.9
-TEXTURE_SIGMA_PX = 4.0
-TEXTURE_WINDOW_PX = 13
 SHAPE = (len(LEVELS), len(GAPS), len(LENGTHS), len(TEXTURE_CAPS))
 CALIBRATIONS = {
     "fixed_snr": {"calibrate_snr": False},
@@ -43,24 +48,6 @@ CALIBRATIONS = {
 }
 
 
-def texture_map(previous):
-    """Average the amplitude of spatial structure in the preceding RAW."""
-    raw = previous.astype(np.float32)
-    background = cv2.GaussianBlur(raw, (0, 0), TEXTURE_SIGMA_PX)
-    return cv2.blur(np.abs(raw - background), (TEXTURE_WINDOW_PX, TEXTURE_WINDOW_PX))
-
-
-def interval_texture(profile, row, start, stop):
-    """Use a percentile of background texture over each supported interval."""
-    counts = stop - start
-    output = np.empty(len(row))
-    for count in np.unique(counts):
-        selected = np.flatnonzero(counts == count)
-        values = profile[row[selected, None], start[selected, None] + np.arange(count)]
-        output[selected] = np.quantile(values, TEXTURE_QUANTILE, axis=1)
-    return output
-
-
 def interval_batches(proposals, residual, roi, tiles, texture):
     """Yield bilateral support regions with their preceding-RAW texture."""
     for ids, (axis, spacing, valid, center, _, bilateral, sigma) in profiles(
@@ -72,16 +59,11 @@ def interval_batches(proposals, residual, roi, tiles, texture):
         for i, cutoff in enumerate(LEVELS):
             supported = valid & (center > 0) & (brightness >= cutoff)
             for j, gap in enumerate(GAPS):
-                row, first, stop, length = support_runs(supported, valid, spacing, gap)
-                keep = length >= LENGTHS[0]
-                row, first, stop, length = (
-                    value[keep] for value in (row, first, stop, length)
+                row, length, roughness, lines = supported_intervals(
+                    axis, spacing, valid, supported, raw_texture, gap, LENGTHS[0]
                 )
-                if not row.size:
-                    continue
-                roughness = interval_texture(raw_texture, row, first, stop)
-                lines = np.column_stack((axis[row, first], axis[row, stop - 1]))
-                yield (i, j), ids[row], length, roughness, lines
+                if row.size:
+                    yield (i, j), ids[row], length, roughness, lines
 
 
 def measure(proposals, residual, roi, tiles, texture, references):

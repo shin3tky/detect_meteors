@@ -1,13 +1,19 @@
 """Measure signed local contrast and supported intervals on FRT chords."""
 
+from math import ceil
+
 import cv2
 import numpy as np
 
-from segment_verification import TILE
+TILE = 64
+SIGMA_FLOOR = 1.0
 
 OFFSETS = np.array([-8, -7, -6, -1, 0, 1, 6, 7, 8])
 MIN_DENSITY = 0.75
 WIDTH = 5
+TEXTURE_QUANTILE = 0.9
+TEXTURE_SIGMA_PX = 4.0
+TEXTURE_WINDOW_PX = 13
 
 
 def sample_profiles(lines, count, residual, roi, tiles):
@@ -70,3 +76,53 @@ def support_runs(supported, valid, spacing, max_gap):
         start = np.r_[start[first[keep]], start[unmerged]]
         stop = np.r_[stop[last[keep]], stop[unmerged]]
     return row, start, stop, (stop - start - 1) * spacing[row]
+
+
+def noise_tiles(residual):
+    """Estimate robust RAW residual noise on 64-pixel tiles, with a 1 DN floor."""
+    height, width = residual.shape
+    output = np.empty((ceil(height / TILE), ceil(width / TILE)), dtype=np.float32)
+    for i, j in np.ndindex(output.shape):
+        values = residual[i * TILE : (i + 1) * TILE : 2, j * TILE : (j + 1) * TILE : 2]
+        center = np.median(values)
+        output[i, j] = max(SIGMA_FLOOR, 1.4826 * np.median(np.abs(values - center)))
+    return output
+
+
+def texture_map(previous):
+    """Average the amplitude of spatial structure in the preceding RAW."""
+    raw = previous.astype(np.float32)
+    background = cv2.GaussianBlur(raw, (0, 0), TEXTURE_SIGMA_PX)
+    return cv2.blur(np.abs(raw - background), (TEXTURE_WINDOW_PX, TEXTURE_WINDOW_PX))
+
+
+def interval_texture(profile, row, start, stop):
+    """Use a percentile of background texture over each supported interval."""
+    counts = stop - start
+    output = np.empty(len(row))
+    for count in np.unique(counts):
+        selected = np.flatnonzero(counts == count)
+        values = profile[row[selected, None], start[selected, None] + np.arange(count)]
+        output[selected] = np.quantile(values, TEXTURE_QUANTILE, axis=1)
+    return output
+
+
+def profiles(proposals, residual, roi, tiles, min_length=16):
+    """Sample chords in batches grouped by their number of axial steps."""
+    lengths = np.linalg.norm(proposals[:, 2:4] - proposals[:, :2], axis=1)
+    counts = np.ceil(lengths).astype(int)
+    for count in np.unique(counts):
+        if count < min_length:
+            continue
+        indices = np.flatnonzero(counts == count)
+        yield indices, sample_profiles(proposals[indices], count, residual, roi, tiles)
+
+
+def supported_intervals(axis, spacing, valid, support, roughness, max_gap, min_length):
+    """Return the source rows, lengths, textures and endpoints of supported intervals."""
+    row, first, stop, length = support_runs(support, valid, spacing, max_gap)
+    keep = length >= min_length
+    row, first, stop, length = (values[keep] for values in (row, first, stop, length))
+    texture = interval_texture(roughness, row, first, stop)
+    lines = np.column_stack((axis[row, first], axis[row, stop - 1]))
+    return row, length, texture, lines

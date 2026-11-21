@@ -265,6 +265,27 @@ is recorded in progress and used by `--analyze-image --analysis-progress`.
 An explicit detector mode in analysis configuration takes precedence, and
 exported `session.yaml` files save the effective mode.
 
+### FRT Retry (Optional)
+
+Use the built-in Hough detector with positive differences and unaligned,
+unnormalized frames. Set `detector_config.frt_retry: {}` to retry pairs rejected
+by Hough using the Fast Radon Transform. Leave the setting out or set it to
+`null` to disable the retry. Remove `star_registration` from the hook list.
+
+```yaml
+detector_name: hough
+detector_config:
+  difference_mode: positive
+  frt_retry: {}
+hooks: []
+```
+
+The retry accepts a supported interval if it passes the local contrast,
+continuity, preceding-frame texture and FRT score thresholds. The default
+recipe allows gaps of up to three samples. The progress file records the
+effective retry thresholds and triggers reprocessing when they change.
+`--analyze-image` measures the initial Hough pass. [Sample YAML](../config_examples/hough_frt_retry_sample.yaml) · [Thresholds, validation and reproduction (Japanese)](frt_retry_workflow_ja.md)
+
 > **Note**: The CLI now runs through `MeteorDetectionPipeline`. The legacy path
 > remains for backward compatibility but is slated for deprecation.
 

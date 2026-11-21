@@ -5,23 +5,12 @@ from math import ceil
 import cv2
 import numpy as np
 
-TILE = 64
-SIGMA_FLOOR = 1.0
+from meteor_core.detectors.frt_support import TILE as TILE, noise_tiles as noise_tiles
+
 POLARITY = 0.75
 CONTIGUOUS = 45.0
 THRESHOLDS = {"shared_dn": 9.0, "shared_sigma": 2.0}
 DN_PER_SIGMA = 4.5
-
-
-def noise_tiles(residual):
-    """Estimate robust RAW residual noise on 64-pixel tiles, with a 1 DN floor."""
-    height, width = residual.shape
-    output = np.empty((ceil(height / TILE), ceil(width / TILE)), dtype=np.float32)
-    for i, j in np.ndindex(output.shape):
-        values = residual[i * TILE : (i + 1) * TILE : 2, j * TILE : (j + 1) * TILE : 2]
-        center = np.median(values)
-        output[i, j] = max(SIGMA_FLOOR, 1.4826 * np.median(np.abs(values - center)))
-    return output
 
 
 def noise_scaled_pair(residual):

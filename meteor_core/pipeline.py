@@ -70,7 +70,7 @@ from .schema import (
 from .image_io import extract_exif_metadata
 from .inputs import BaseInputLoader, LoaderRegistry
 from .inputs.base import supports_metadata_extraction
-from .hooks import BaseHook, HookRegistry
+from .hooks import BaseHook, HookRegistry, StarRegistrationHook
 from ._worker_plugins import (
     WorkerPluginError,
     WorkerPluginState,
@@ -2253,6 +2253,15 @@ class MeteorDetectionPipeline:
             hook_configs,
             hook_error_mode=self._config.hook_error_mode,
         )
+        frt_retry = (
+            isinstance(self.detector, HoughDetector)
+            and self.detector.config.frt_retry is not None
+        )
+        if frt_retry and any(isinstance(hook, StarRegistrationHook) for hook in hooks):
+            raise MeteorConfigError(
+                "frt_retry requires unaligned frames; remove the star_registration hook",
+                config_key="hooks",
+            )
         files = _apply_file_found_hooks(files, hooks, self._config.hook_error_mode)
 
         if len(files) < 2:
@@ -2282,6 +2291,11 @@ class MeteorDetectionPipeline:
         if profile:
             timing["first_load"] = time.time() - t_load
         first_image = ensure_numpy(first_context.image_data)
+        if frt_retry and first_image.dtype not in (np.uint8, np.uint16):
+            raise MeteorConfigError(
+                "frt_retry requires uint8 or uint16 frames; disable input normalization",
+                config_key="input_loader_config",
+            )
         first_context.image_data = first_image
         roi_mask, roi_polygon = self._resolve_roi(
             first_image, roi_polygon_cli, enable_roi_selection, locale
@@ -2521,7 +2535,8 @@ class MeteorDetectionPipeline:
         """Prepare the progress file before building the remaining frame pairs.
 
         Hash the configured thresholds and ROI, including positive Hough
-        differences and active frame-pair hook settings. A mismatch resets results.
+        differences, FRT retry, and active frame-pair hook settings.
+        A mismatch resets results.
         """
         params_for_hash = params.copy()
         if roi_polygon:
@@ -2533,6 +2548,11 @@ class MeteorDetectionPipeline:
         )
         if positive_difference:
             params_for_hash["hough_difference_mode"] = "positive"
+        frt_retry = (
+            detector.config.frt_retry if isinstance(detector, HoughDetector) else None
+        )
+        if frt_retry is not None:
+            params_for_hash["hough_frt_retry"] = asdict(frt_retry)
         if any(
             type(hook).on_before_detection is not BaseHook.on_before_detection
             for hook in hooks
@@ -2572,6 +2592,10 @@ class MeteorDetectionPipeline:
             self.progress_manager.progress_data["hough_difference_mode"] = "positive"
         else:
             self.progress_manager.progress_data.pop("hough_difference_mode", None)
+        if frt_retry is not None:
+            self.progress_manager.progress_data["hough_frt_retry"] = asdict(frt_retry)
+        else:
+            self.progress_manager.progress_data.pop("hough_frt_retry", None)
 
         existing_basenames = {os.path.basename(path) for path in files}
         self.progress_manager.filter_existing_files(existing_basenames)

@@ -409,6 +409,7 @@ ui:
       incomplete_recorded_parameters: "Some original parameters were missing; supplied values or defaults filled the gaps."
       missing_recorded_roi: "The original ROI was not recorded."
       original_loader_and_hooks_not_reproduced_from_progress: "Progress alone does not reproduce the original loader settings or hooks."
+      frt_retry_not_replayed: "Image analysis measures the initial Hough pass. Run the detection workflow to include FRT retry."
       no_recorded_baseline: "No original progress baseline was supplied."
       assumed_full_image_roi: "No ROI was recorded or specified; the full image was assumed."
   roi:
