@@ -18,7 +18,11 @@
 - Add Python 3.14 support, update Pydantic, PyYAML, Ruff, ty, and coverage, and
   move the validation RAWs, visual labels, and checksums to `detect_meteors_assets`.
 
-[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [2.1.1 release notes](RELEASE_NOTES_2.1.md#version-211) · [Installation guide](INSTALL.md)
+The final audit rechecked the original 57 destinations and followed six new
+links from the Wiki, GitHub Release, and release notes to the two language
+versions of step 5. All 59 distinct page and section URLs resolved.
+
+[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [2.1.1 release notes](RELEASE_NOTES_2.1.md#version-211) · [Installation guide](INSTALL.md) · [Post-publication checks (step 5)](INSTALL_DEV.md#post-publication-documentation)
 
 <a id="v1613"></a>
 
