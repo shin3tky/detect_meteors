@@ -108,7 +108,7 @@ Understanding the detection pipeline lifecycle is essential for effective plugin
 
 ```text
 Main process   Collect and filter files → Load first frame and set ROI → Restore progress
-Per batch      Load each pair → Image hooks → Detect → Detection result hooks
+Per batch      Load each pair → Image hooks → Frame-pair hooks → Detect → Detection result hooks
 Main process   Notify handler → Save candidates → Record progress → Sorted batch hooks
 Main process   Notify handler of completion → Sorted run hooks → Update progress
 ```
@@ -124,17 +124,19 @@ batches and writes output.
 2. Load the first accepted file and resolve the ROI from a supplied polygon,
    interactive selection, or the full image. This initial load bypasses
    `on_image_loaded()`.
-3. When resuming, compare the configured parameters and ROI with the progress
-   hash. Build adjacent pairs from the accepted files and skip pairs whose
-   current frame is already processed.
+3. When resuming, compare the progress hash. It covers the configured
+   parameters, ROI, active frame-pair hook settings, and the built-in Hough
+   settings for positive differences and FRT retry. Build adjacent pairs from
+   the accepted files and skip pairs whose current frame is already processed.
 
 ### 1.3 Processing Flow Detail
 
 1. Call `load()` for the current and previous frame, in that order. Run
    `on_image_loaded()` on each returned `InputContext`.
 2. Build a `DetectionContext` from pixels, ROI, runtime parameters, and frame
-   metadata. Call `detect()`, normalize its `DetectionResult`, and pass the
-   result through `on_detection_complete()`.
+   metadata. Run the `on_before_detection()` hooks and pass the resulting context
+   to `detect()`. Normalize its `DetectionResult` and pass it through
+   `on_detection_complete()` with that context.
 3. In the main process, notify the output handler for each successful result
    and pass candidates to `save_candidate()`. The handler owns candidate and
    debug output. See [Execution and Instance Lifetime](#hook-execution-and-state)
@@ -321,6 +323,12 @@ in configured hook order. The accepted context goes to the detector and to
 `on_detection_complete()`. Output handlers receive the resulting context
 metadata and runtime settings without the image or mask arrays.
 
+| Field | What a preprocessing hook should preserve |
+| --- | --- |
+| `current_image`, `previous_image`, `roi_mask` | Use layouts and data types supported by the selected detector. A registration hook can warp the previous image into current-image coordinates and return the valid overlap as the ROI. |
+| `metadata` | Keep `current`, `previous`, `frame_index`, and `prev_frame_index`. Add diagnostics under a hook-specific key and use values that can be sent between processes. |
+| `runtime_params` | Retain the effective parameters. When adjusting them, preserve the `RuntimeParams` or dictionary contract. |
+
 Return a compatible `DetectionContext`. Match the detector's image and mask
 layout, and use `dataclasses.replace()` and fresh arrays or mappings for changes.
 The ROI array can be shared across pairs in a batch. Preserve current-image
@@ -332,6 +340,14 @@ When a frame-pair hook is active, the progress hash includes the ordered hook
 settings and error mode. Enabling, disabling, or changing the configuration can
 cause saved pairs to be processed again. Programmatic settings that cannot be
 serialized for the hash cause processing to start from the beginning on resume.
+
+This callback runs during normal pair detection. `--auto-params` estimates
+parameters from the initial image loads, and `--analyze-image` measures the
+initial built-in Hough pass. Run the detection workflow to exercise the
+preprocessing chain. `StarRegistrationHook` shows how to replace the previous
+image, ROI and diagnostics. Experimental FRT retry runs inside the Hough
+detector on pairs it rejects. Its result goes to `on_detection_complete()`.
+[Base hook](../meteor_core/hooks/base.py) · [Stellar registration implementation](../meteor_core/hooks/star_registration.py) · [FRT settings](COMMAND_OPTIONS.md#frt-retry-optional)
 
 ### 1.8 Detection Result Hook (Pipeline)
 
@@ -963,6 +979,7 @@ BaseOutputHandler
 └── PydanticOutputHandler[ConfigType]
 
 BaseHook
+├── StarRegistrationHook
 ├── DataclassHook[ConfigType]
 │   ├── AllowAllFilesFoundHook
 │   └── AircraftTrailHook
@@ -1055,16 +1072,16 @@ output_handler_config:
 
 The `*_config` dicts are coerced into each plugin's `ConfigType` using the standard coercion rules (see [3.3 Configuration Management](#33-configuration-management-configtype)).
 
-The built-in RAW loader supports only `binning: 2`; normalization defaults to
-`false`. Hough detector thresholds belong in `params`, since its `ConfigType`
-has no fields. With an explicit `output_handler_name: file`, the handler uses
-`output_handler_config` and its own defaults; top-level output paths and overwrite
-settings are not merged into that config. Omit `output_handler_name` to let the
-default file handler inherit those top-level settings.
+The built-in RAW loader supports `binning: 2` and defaults to
+`normalize: false`. Set Hough thresholds in `params` and select the difference
+mode and experimental FRT retry under `detector_config.difference_mode` and
+`detector_config.frt_retry`. An explicit `output_handler_name: file` uses
+`output_handler_config` and the handler's defaults. Omit `output_handler_name`
+to let the default file handler inherit the top-level paths and overwrite setting.
 
 The built-in plugins are `raw`, `hough`, `simple_threshold`, and `file`, with
-`allow_all_files` and `aircraft_trail` hooks. TIFF/FITS loaders, ML detectors, and
-cloud/notification handlers mentioned in this guide are custom extension examples.
+`allow_all_files`, `aircraft_trail`, and `star_registration` hooks. TIFF/FITS
+loaders, ML detectors, and cloud/notification handlers are custom extension examples.
 
 **Loading in Python**:
 
@@ -1138,6 +1155,23 @@ A CLI plugin-config argument replaces the corresponding configuration mapping.
 When supplied, `--hooks` selects the ordered list and `--hook-config` supplies
 the matching configurations. With just `--hook-config`, its entries define
 the hook list. These options replace the hook settings from the pipeline file.
+
+<a id="enable-disable-plugins"></a>
+
+#### Adding and Removing Components in Config
+
+- Add hook names to `hooks` in execution order. Remove an entry to disable that
+  hook for a run, or use `hooks: []` or `--hooks ""` to clear the list.
+- Change the plugin name and its corresponding `*_config` together. Changing
+  the name through the CLI alone inherits the mapping from the configuration
+  file. For example, use `--detector simple_threshold --detector-config '{}'`
+  to try that detector's defaults, or `--detector hough --detector-config '{}'`
+  to return to conventional Hough.
+- Use separate candidate, debug, and progress paths for comparisons. When
+  switching detectors or loaders with an existing progress file, use
+  `--no-resume` to process the inputs from the start.
+
+[Conventional Hough sample](../config_examples/hough_legacy_sample.yaml) · [Preprocessing sample with the same ROI](../config_examples/hough_registered_sample.yaml)
 
 #### Plugin Author Considerations
 
@@ -1224,6 +1258,12 @@ package in a sibling directory, verify discovery from the Detect Meteors root:
 ```bash
 uv run --with-editable ../my-plugin python -c "from meteor_core.inputs import LoaderRegistry; print(LoaderRegistry.list_available())"
 ```
+
+To remove a plugin from discovery, remove its references from the config,
+uninstall its package or move its local `*.py` out of the discovery directory,
+then start a new run. `Registry.unregister(name)` removes entries added with
+`register()` in the current process. A discovered entry with that name remains
+available for normal lookup.
 
 ---
 

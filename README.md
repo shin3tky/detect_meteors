@@ -259,8 +259,10 @@ uv run detect-meteors --config config_examples/hough_positive_sample.yaml --debu
 
 [Validation on 121 RAW pairs (Japanese)](docs/hough_registration_thresholds_ja.md#正の差分だけを渡した場合)
 
-For unaligned positive-difference Hough runs, set `detector_config.frt_retry: {}`
-to recheck rejected pairs for faint trails with brief gaps. [FRT retry options](docs/COMMAND_OPTIONS.md#frt-retry-optional)
+Select a comparison YAML to switch between conventional absolute-difference
+Hough, stellar preprocessing, positive-difference Hough, and experimental
+FRT retry. Each sample uses separate output and progress paths.
+[Configuration examples](docs/COMMAND_OPTIONS.md#comparison-configurations)
 
 ## Resumable Processing
 

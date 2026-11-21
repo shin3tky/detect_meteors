@@ -567,6 +567,10 @@ detect_meteors/
 
 入力ローダー、検出器、出力ハンドラー、パイプラインフックの作成方法は[PLUGIN_AUTHOR_GUIDE_ja.md](PLUGIN_AUTHOR_GUIDE_ja.md)を参照してください。
 
+直前画像と現在画像をそろえるような処理は、検出直前の `on_before_detection()` に追加できます。
+ハフや既存の出力を使ったまま、設定の `hooks` で前処理を試せます。
+[前処理フックの契約](PLUGIN_AUTHOR_GUIDE_ja.md#frame-pair-hook) · [設定からの追加・取り外し](PLUGIN_AUTHOR_GUIDE_ja.md#enable-disable-plugins)
+
 > ⚠️ **補足**：プラグイン構成は実験的であり、v2.0より前に変更される可能性があります。
 
 ## 貢献の手順

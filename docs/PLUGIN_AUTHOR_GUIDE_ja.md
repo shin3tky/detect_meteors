@@ -118,7 +118,7 @@ filepath ──▶ Input Loader ──▶ InputContext
 
 ```text
 メイン       ファイル収集・選別 → 初回画像・ROI → 進捗の復元
-各バッチ     ペアを読み込む → 画像フック → 検出 → 検出結果フック
+各バッチ     ペアを読み込む → 画像フック → ペア前処理フック → 検出 → 検出結果フック
 メイン       結果通知 → 候補の保存 → 進捗記録 → バッチごとの解析フック
 メイン       出力ハンドラーの完了通知 → 実行全体の解析フック → 進捗へ反映
 ```
@@ -131,7 +131,7 @@ filepath ──▶ Input Loader ──▶ InputContext
 
 1. 対象ディレクトリ直下から、対応する拡張子の RAW ファイルを集め、パス順に並べます。`on_file_found()` には正規化した絶対パスを渡します。
 2. 選別後の最初の画像を読み込みます。設定済みの多角形、画面上での選択、画像全体のいずれかを検出範囲（ROI）に使います。この読み込みでは `on_image_loaded()` を呼びません。
-3. 再開時は、検出パラメータと ROI が前回と一致するかハッシュで確認します。選別後の隣り合う画像でペアを作り、後ろの画像が処理済みのペアを除きます。
+3. 再開時は進捗のハッシュを照合します。検出パラメータとROIに加え、使用中の画像ペア前処理フック設定、組み込みハフの正の差分とFRT再検査の設定も反映されます。選別後の隣り合う画像でペアを作り、後ろの画像が処理済みのペアを除きます。
 
 <a id="13-processing-flow-detail"></a>
 
@@ -306,6 +306,12 @@ filepath ──▶ Input Loader ──▶ InputContext
 検出器と `on_detection_complete()` に渡します。出力ハンドラーには、画像とマスクの配列を
 除いたメタデータと実行時設定を渡します。
 
+| フィールド | 前処理を実装するときの扱い |
+| --- | --- |
+| `current_image`、`previous_image`、`roi_mask` | 選んだ検出器が扱える形状・型をそろえます。位置合わせでは現在画像の座標上に直前画像を変換し、変換後に有効な重なりをROIに返します。 |
+| `metadata` | `current`、`previous`、`frame_index`、`prev_frame_index` を保持します。診断値は `metadata["star_registration"]` のようにフック名の下に追加できます。並列処理では出力側へ転送できる値にします。 |
+| `runtime_params` | 既存の値を保持します。実行時パラメータを調整する場合は、`RuntimeParams` または既存の辞書形式を維持します。 |
+
 検出器が受け取れる形式の画像とマスクを持つ `DetectionContext` を返してください。
 変更時は `dataclasses.replace()` などでコンテキストを作り直し、新しい配列や辞書を使います。
 ROI 配列は同じバッチのペア間で共有される場合があります。候補出力や ROI の重ね描きに
@@ -316,6 +322,12 @@ ROI 配列は同じバッチのペア間で共有される場合があります�
 画像ペアの前処理フックが有効な場合、進捗のハッシュに順序付きフック設定とエラーモードを
 含めます。追加、削除、設定変更によって処理済みペアが再処理される場合があります。
 ハッシュ用にシリアライズできない Python API の設定では、再開時に先頭から処理します。
+
+このフックは通常のペア検出で呼び出されます。`--auto-params` は初期推定に読み込んだ画像を使い、
+`--analyze-image` は組み込みハフの測定を行います。前処理込みの検証は通常の検出コマンドで行ってください。
+`StarRegistrationHook` は直前画像・ROI・診断情報を差し替える前処理の実装例です。
+FRT再検査は組み込みハフが棄却したペアにだけ検出器内で実行され、その結果を `on_detection_complete()` に渡します。
+[基底クラス](../meteor_core/hooks/base.py) · [恒星位置合わせの実装](../meteor_core/hooks/star_registration.py) · [FRT実験設定](frt_retry_workflow_ja.md)
 
 <a id="18-detection-result-hook-pipeline"></a>
 
@@ -900,6 +912,7 @@ BaseOutputHandler
 └── PydanticOutputHandler[ConfigType]
 
 BaseHook
+├── StarRegistrationHook
 ├── DataclassHook[ConfigType]
 │   ├── AllowAllFilesFoundHook
 │   └── AircraftTrailHook
@@ -983,7 +996,7 @@ output_handler_config:
 |------|------|
 | `input_loader_name` | 名前（`"raw"`、`"tiff"`、`"fits"` など） |
 | `input_loader_config` | ローダーの `ConfigType` へ渡す辞書 |
-| `detector_name` | 名前（`"hough"`、`"threshold"` など） |
+| `detector_name` | 名前（`"hough"`、`"simple_threshold"` など） |
 | `detector_config` | 検出器の `ConfigType` へ渡す辞書 |
 | `output_handler_name` | 名前（`"file"`、`"slack"` など） |
 | `output_handler_config` | ハンドラーの `ConfigType` へ渡す辞書 |
@@ -992,9 +1005,13 @@ output_handler_config:
 
 `*_config` は標準のルールで各 `ConfigType` へ変換します。[3.3 設定管理](#33-configuration-management-configtype)を参照してください。
 
-組み込みRAWローダーは `binning: 2` のみ対応し、正規化の既定は `false` です。Hough検出器の `ConfigType` はフィールドを持たないため、閾値は `params` で設定します。`output_handler_name: file` を明示すると `output_handler_config` とハンドラーの既定値を使い、最上位の保存先・上書き設定は統合しません。最上位の設定を引き継ぐ場合は `output_handler_name` を省略してください。
+組み込みRAWローダーは `binning: 2` のみ対応し、正規化の既定は `false` です。
+ハフの閾値は `params`、差分方式と実験用のFRT再検査は `detector_config` の `difference_mode` と
+`frt_retry` で設定します。`output_handler_name: file` を明示すると `output_handler_config` と
+ハンドラーの既定値を使います。最上位の保存先・上書き設定を引き継ぐには `output_handler_name` を省略します。
 
-組み込みは `raw`、`hough`、`simple_threshold`、`file` と、`allow_all_files`、`aircraft_trail` のフックです。このガイドのTIFF/FITS、ML、クラウド・通知は独自拡張の例です。
+組み込みは `raw`、`hough`、`simple_threshold`、`file` と、`allow_all_files`、
+`aircraft_trail`、`star_registration` のフックです。このガイドのTIFF/FITS、ML、クラウド・通知は独自拡張の例です。
 
 **Pythonでの読み込み**：
 
@@ -1068,6 +1085,21 @@ uv run detect-meteors \
 3. **組み込みの既定値**。
 
 CLI でプラグイン固有の設定を渡すと、そのプラグインの設定全体が置き換わります。フックは `--hooks` に実行順を、`--hook-config` に各フックの設定を書きます。`--hook-config` だけを指定した場合は、そこに記載したフックを使います。どちらのオプションでも、設定ファイルにあるフックの設定は置き換わります。
+
+<a id="enable-disable-plugins"></a>
+
+#### 設定による追加・取り外し
+
+- フックを追加するには `hooks` に名前を並べます。1つだけ外すにはその項目を削り、
+  すべて外すには `hooks: []` または `--hooks ""` を使います。
+- ローダー・検出器・出力ハンドラーを切り替えるときは、名前と対応する `*_config` を合わせて変更します。
+  CLIから名前だけ変えた場合、設定ファイル側の `*_config` が引き継がれます。選んだプラグインの既定値を
+  使う場合は、たとえば `--detector simple_threshold --detector-config '{}'` と指定します。
+  組み込みハフに戻すには `--detector hough --detector-config '{}'` を使います。
+- 同じRAWに異なる設定を適用するときは、候補・デバッグ画像・進捗の保存先を分けます。
+  既存の進捗を使って検出器やローダーを切り替える場合は、`--no-resume` で先頭から処理します。
+
+[従来のハフの設定例](../config_examples/hough_legacy_sample.yaml) · [同じROIで前処理を追加する設定例](../config_examples/hough_registered_sample.yaml)
 
 <a id="plugin-author-considerations"></a>
 
@@ -1157,6 +1189,11 @@ Detect Meteorsを実行する環境にプラグインをインストールしま
 ```bash
 uv run --with-editable ../my-plugin python -c "from meteor_core.inputs import LoaderRegistry; print(LoaderRegistry.list_available())"
 ```
+
+検出対象から外す場合は設定の参照を外し、配布パッケージを実行環境からアンインストールするか、
+ローカルの `*.py` を検出ディレクトリから移動して実行を開始し直します。
+Pythonの `Registry.unregister(name)` は、そのプロセスで `register()` した項目を解除します。
+対応する組み込みやエントリーポイントがあれば、以降は通常の検出結果を使います。
 
 ---
 

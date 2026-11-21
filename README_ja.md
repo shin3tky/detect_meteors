@@ -228,11 +228,28 @@ uv run detect-meteors --config config_examples/hough_positive_sample.yaml --debu
 
 既存設定に追加する場合は、`detector_config: {difference_mode: positive}` を指定し、`hooks` から `star_registration` を外します。 [121ペアでの検証](docs/hough_registration_thresholds_ja.md#正の差分だけを渡した場合)
 
-### ハフで棄却したペアをFRTで再検査する（任意）
+### 従来の検出と試行設定を切り替える
 
-位置合わせなしの正の差分ハフに `detector_config.frt_retry: {}` を追加すると、
-棄却したペアに Fast Radon Transform（FRT）を適用します。短い途切れを含む薄い光跡も
-再検査できます。 [使い方と121ペアの検証結果](docs/frt_retry_workflow_ja.md)
+航空機サンプルを使う場合は、実行時に `--config` へ次のいずれかを指定します。
+4つの設定は入力、空のROI、ハフ閾値が共通で、候補・デバッグ画像・進捗の保存先が分かれています。
+
+| 試す処理 | 設定ファイル |
+| --- | --- |
+| 従来の絶対差分ハフ | [hough_legacy_sample.yaml](config_examples/hough_legacy_sample.yaml) |
+| 恒星位置合わせを前処理に追加 | [hough_registered_sample.yaml](config_examples/hough_registered_sample.yaml) |
+| 位置合わせなしの正の差分ハフ | [hough_positive_sample.yaml](config_examples/hough_positive_sample.yaml) |
+| 正の差分ハフ＋FRT再検査の実験 | [hough_frt_retry_sample.yaml](config_examples/hough_frt_retry_sample.yaml) |
+
+たとえば、従来の検出と恒星位置合わせを次のように切り替えます。
+
+```bash
+uv run detect-meteors --config config_examples/hough_legacy_sample.yaml --debug-image
+uv run detect-meteors --config config_examples/hough_registered_sample.yaml --debug-image
+```
+
+従来の処理に戻すには `hough_legacy_sample.yaml` を指定します。恒星位置合わせの行は、
+既存の検出器の手前に前処理を差し込む例です。FRTは棄却ペアの再検査を試すための実験設定で、
+有効にすると時間とメモリの使用量が増えます。 [FRTの設定と系列別の結果](docs/frt_retry_workflow_ja.md) · [フックとプラグインの切り替え](docs/PLUGIN_AUTHOR_GUIDE_ja.md#cli-plugin-selection)
 
 ## 中断と再開
 

@@ -1,6 +1,7 @@
 # 恒星位置合わせ付きの流星検出
 
-`star_registration` フックを有効にすると、ROI 内の恒星から直前画像の回転と平行移動を推定し、
+`star_registration` は既存の検出に画像ペアの前処理を差し込む例です。フックを有効にすると、
+ROI 内の恒星から直前画像の回転と平行移動を推定し、
 現在画像の座標に合わせます。その画像ペアを 1.6.13 ベースのハフ検出に渡し、
 候補 RAW のコピー、デバッグ画像の出力、進捗の記録を行います。必要に応じて
 `aircraft_trail` による光跡解析も併用できます。
@@ -14,6 +15,10 @@
 ```bash
 uv run detect-meteors --config config_examples/star_registration_sample.yaml --debug-image
 ```
+
+位置合わせだけの効果を比較する場合は、同じROIとハフ閾値を持つ2つの設定を切り替えます。
+各設定は別の出力先と進捗を使います。
+[従来の検出](../config_examples/hough_legacy_sample.yaml) · [位置合わせを追加](../config_examples/hough_registered_sample.yaml) · [前処理フックの契約](PLUGIN_AUTHOR_GUIDE_ja.md#frame-pair-hook)
 
 ほかの撮影系列で使う場合は、同じカメラの連続露光を対象にし、木や地上物を除いた、
 恒星が画像内に広く分布する ROI を選びます。座標は 2×2 ビニング後の画素単位です。

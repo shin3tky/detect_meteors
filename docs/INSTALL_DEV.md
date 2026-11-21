@@ -612,6 +612,10 @@ detect_meteors/
 
 For creating custom plugins (input loaders, detectors, output handlers, pipeline hooks), see the comprehensive [PLUGIN_AUTHOR_GUIDE.md](PLUGIN_AUTHOR_GUIDE.md).
 
+Use `on_before_detection()` to experiment with pair preprocessing while keeping
+the selected detector and output handler. Choose the preprocessing chain in
+`hooks`. [Frame-pair hook contract](PLUGIN_AUTHOR_GUIDE.md#frame-pair-hook) · [Adding and removing components](PLUGIN_AUTHOR_GUIDE.md#enable-disable-plugins)
+
 > ⚠️ **Note**: The plugin architecture is experimental and may change before v2.0.
 
 ## Contribution Workflow

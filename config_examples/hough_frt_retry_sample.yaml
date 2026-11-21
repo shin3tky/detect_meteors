@@ -1,3 +1,4 @@
+# Experimental retry after positive-difference Hough. Extra memory per worker.
 schema_version: 1
 target_folder: ./rawfiles/2024GEMINI_AIRCRAFT
 output_folder: ./candidates/hough_frt_retry

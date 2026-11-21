@@ -16,8 +16,11 @@ params:
   min_line_score: 30.0
 
 input_loader_name: raw
+input_loader_config:
+  normalize: false
 detector_name: hough
 detector_config:
   difference_mode: positive
+hooks: []
 num_workers: 2
 batch_size: 4

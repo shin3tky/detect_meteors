@@ -1,6 +1,7 @@
 # 正の差分ハフで棄却したペアのFRT再検査
 
-組み込みの `hough` で `difference_mode: positive` と `frt_retry: {}` を指定すると、
+FRT再検査は設定で有効にする実験です。組み込みの `hough` で
+`difference_mode: positive` と `frt_retry: {}` を指定すると、
 棄却した画像ペアを Fast Radon Transform（FRT）で再検査する。元のハフで採用したペアは
 そのまま保存する。FRTで採用したペアも、通常の候補RAWとデバッグ画像の保存経路を通る。
 
@@ -12,6 +13,10 @@
 ```bash
 uv run detect-meteors --config config_examples/hough_frt_retry_sample.yaml --debug-image
 ```
+
+同じ入力とROIで戻し先を選べる。`hough_positive_sample.yaml` は正の差分ハフまでを実行し、
+`hough_legacy_sample.yaml` は従来の絶対差分ハフを実行する。候補と進捗の保存先は設定ごとに分かれている。
+[正の差分ハフ](../config_examples/hough_positive_sample.yaml) · [従来のハフ](../config_examples/hough_legacy_sample.yaml)
 
 既存の設定では `detector_config` に以下を指定し、`hooks` から `star_registration` を外す。
 RAWローダーは `normalize: false` で使う。有効にすると再検査の分だけ処理時間が増える。
@@ -57,6 +62,14 @@ FRTが追加したのは `_C150319.ORF`、`_C150326.ORF`、`_C140521.ORF`。6枚
 前回の実験と同じ注釈軸被覆を再現し、候補RAWとデバッグ画像の保存を確認した。
 `_C140521.ORF` の被覆は50.0536%で、判定基準の50%に近い。緩和の方法はこの121ペアの
 診断から設計した。 [各系列の設定・候補・軸被覆](../experiments/region_comparison/results/frt_c140521/frt_retry_workflow.json) · [短い途切れの診断と閾値選択](frt_c140521_gap_verification_ja.md)
+
+## 2025LEOでの結果と処理負荷
+
+121ペアに含まれない2025LEOでは、FRT閾値を固定して連続95ペアを比較した。目視で確認できた
+流星の追加回収は0枚で、連続する露光で移動する動体の光跡が追加され、偽陽性は2枚から20枚に増えた。
+撮影間隔の空いた4ペアも含めた99ペアの実測では、2ワーカーの処理時間は約30秒から約107秒に増えた。
+ビニング後2620×1956 pxの代表1ペアを単一プロセスで再検査した際のピーク常駐メモリは約2.2〜2.5 GiBだった。
+サンプル設定ではワーカー数を2に指定している。
 
 ## 再現
 
