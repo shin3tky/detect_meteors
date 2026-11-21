@@ -84,6 +84,7 @@ def display_reproduction(
     print(message("params_header"))
     for name, value in replay.settings.params.to_dict().items():
         print(f"  {name}: {value} [{replay.settings.parameter_sources[name]}]")
+    print(f"  difference_mode: {replay.settings.detector_config.difference_mode}")
     if replay.settings.changes:
         print(message("changes_header"))
         for name, change in replay.settings.changes.items():

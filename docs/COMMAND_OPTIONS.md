@@ -231,8 +231,8 @@ evidence, not automatic meteor classification or a claim of optimal settings.
 - **`--hook-config`**: Hook config as a JSON/YAML list or mapping (or file path) keyed by hook name.
 
 Built-in plugin defaults are `raw`, `hough`, and `file`. The RAW loader supports
-only `binning: 2` and defaults to `normalize: false`. The Hough detector accepts
-`detector_config: {}` and reads thresholds from `params`. The file output
+only `binning: 2` and defaults to `normalize: false`. The Hough detector reads
+thresholds from `params`. The file output
 handler's overwrite field is `output_overwrite`. Set `hook_error_mode` to
 `raise` (default) or `warn` in the configuration file; there is no CLI flag for it.
 The optional `aircraft_trail` hook adds metadata after processing without
@@ -240,6 +240,30 @@ changing candidate decisions or removing copied files.
 With an explicit `--output-handler file` (or `output_handler_name: file`), use
 the handler config for output paths and overwrite settings; top-level pipeline
 settings are only inherited when the default handler is selected implicitly.
+
+### Hough Difference Mode
+
+The Hough detector defaults to `difference_mode: absolute`, which uses
+`abs(current - previous)`. Use `positive` to apply the same thresholds and
+geometry tests to `max(current - previous, 0)`.
+
+```yaml
+detector_name: hough
+detector_config:
+  difference_mode: positive
+hooks: []
+```
+
+Use `--detector-config '{"difference_mode":"positive"}'` to select the same
+mode from the CLI. Specify `--hooks ""` to clear a configured hook list.
+The [sample configuration](../config_examples/hough_positive_sample.yaml) sets
+an ROI and fixed thresholds for the 2024 aircraft sequence.
+
+Changing modes causes a resumed run to reprocess its pairs. Use separate
+output folders and progress files to compare configurations. The positive mode
+is recorded in progress and used by `--analyze-image --analysis-progress`.
+An explicit detector mode in analysis configuration takes precedence, and
+exported `session.yaml` files save the effective mode.
 
 > **Note**: The CLI now runs through `MeteorDetectionPipeline`. The legacy path
 > remains for backward compatibility but is slated for deprecation.

@@ -13,7 +13,7 @@ import numpy as np
 from benchmark_star_registration import MARGIN, SKY_ROIS
 from benchmark_v2 import inputs
 from meteor_core.config_io import load_pipeline_config
-from meteor_core.detectors.hough_default import HoughDetector
+from meteor_core.detectors.hough_default import HoughDetector, HoughDetectorConfig
 from meteor_core.hooks.star_registration import StarRegistrationHook
 from meteor_core.image_io import load_and_bin_raw_fast
 from meteor_core.pipeline import _build_runtime_params
@@ -47,15 +47,6 @@ GRID = {
     ),
 }
 SHAPE = tuple(map(len, GRID.values()))
-
-
-def positive_difference_pair(context):
-    """Pass max(current - previous, 0) through the Hough detector's absdiff."""
-    # The binned RAWs are uint16. OpenCV saturates their subtraction at zero.
-    difference = cv2.subtract(context.current_image, context.previous_image)
-    return replace(
-        context, current_image=difference, previous_image=np.zeros_like(difference)
-    )
 
 
 def measure(detector, context, settings, references):
@@ -104,6 +95,7 @@ def collect(sequence, raw_root, settings, *, positive_only=False):
         raise ValueError(f"An axis disagrees with exposure truth for {sequence}")
     axes = {label["current"]: label for label in labels}
     detector = HoughDetector()
+    positive_detector = HoughDetector(HoughDetectorConfig(difference_mode="positive"))
     hook = StarRegistrationHook()
     previous = load_and_bin_raw_fast(str(source / frames[0]))
     roi = create_roi_mask_from_polygon(SKY_ROIS[sequence], previous.shape)
@@ -125,10 +117,13 @@ def collect(sequence, raw_root, settings, *, positive_only=False):
         references = [axes[frame] for frame in (name, prior) if frame in axes]
         contexts = (context, aligned)
         if positive_only:
-            contexts = (context, *(positive_difference_pair(pair) for pair in contexts))
+            contexts = (context, *contexts)
         for policy, pair in zip(policies, contexts, strict=True):
             pairs[policy][name] = measure(
-                detector, replace(pair, roi_mask=common_roi), settings, references
+                positive_detector if policy in POSITIVE_POLICIES else detector,
+                replace(pair, roi_mask=common_roi),
+                settings,
+                references,
             )
         previous = current
     return {

@@ -11,7 +11,7 @@ Default meteor detector using Hough line transform.
 import logging
 import time
 from dataclasses import dataclass
-from typing import Tuple, List, Optional, Dict, Any
+from typing import Tuple, List, Optional, Dict, Any, Literal
 
 import cv2
 import numpy as np
@@ -24,16 +24,31 @@ from meteor_core.utils import ensure_numpy
 
 logger = logging.getLogger(__name__)
 
+DifferenceMode = Literal["absolute", "positive"]
 
-@dataclass
+
+@dataclass(frozen=True)
 class HoughDetectorConfig:
-    """Default configuration placeholder for :class:`HoughDetector`."""
+    """Choose which pixel changes contribute to Hough detection."""
 
-    # The default Hough detector currently relies on runtime parameters provided
-    # by the pipeline, so no fields are necessary. This dataclass exists to
-    # satisfy registry expectations for a zero-argument ``ConfigType`` that
-    # yields a complete default configuration.
-    pass
+    difference_mode: DifferenceMode = "absolute"
+
+    def __post_init__(self) -> None:
+        if self.difference_mode not in ("absolute", "positive"):
+            raise ValueError("difference_mode must be 'absolute' or 'positive'")
+
+
+def frame_difference(
+    current: np.ndarray, previous: np.ndarray, mode: DifferenceMode
+) -> np.ndarray:
+    """Return the absolute difference or the current frame's positive changes."""
+    if mode == "absolute":
+        return cv2.absdiff(current, previous)
+    residual = cv2.subtract(current, previous)
+    # Unsigned subtraction saturates at zero. Signed and floating inputs need clipping.
+    if residual.dtype.kind != "u":
+        np.maximum(residual, 0, out=residual)
+    return residual
 
 
 class HoughDetector(BaseDetector):
@@ -58,8 +73,7 @@ class HoughDetector(BaseDetector):
         """Initialize the Hough detector.
 
         Args:
-            config: Optional configuration to align with registry expectations.
-                Currently unused because the default detector is parameter-free.
+            config: Optional configuration for the difference mode.
         """
         self.config = config or HoughDetectorConfig()
         # Pre-create morphology kernel (reused across detections)
@@ -146,9 +160,11 @@ class HoughDetector(BaseDetector):
         hough_params = self._resolve_hough_params(params)
 
         try:
-            # Threshold the absolute difference, restrict it to the ROI, and
+            # Threshold the difference, restrict it to the ROI, and
             # remove small features with a morphological opening.
-            mask = cv2.absdiff(current_image, previous_image)
+            mask = frame_difference(
+                current_image, previous_image, self.config.difference_mode
+            )
             _, mask = cv2.threshold(
                 mask, params["diff_threshold"], 255, cv2.THRESH_BINARY, dst=mask
             )

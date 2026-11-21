@@ -128,6 +128,27 @@
 航空機サンプルと2024GEMINI後半は同じ撮影系列の別区間を含む。
 [正の差分の実測 JSON](../experiments/region_comparison/results/hough_registration/thresholds_positive.json)
 
+### 組み込み設定での再現
+
+組み込みの `hough` で `detector_config.difference_mode: positive` を選べるようにした。
+[位置合わせなしのサンプル設定](../config_examples/hough_positive_sample.yaml)は
+固定値 9 / 3 / 3.0 / 30 を使用する。
+
+```bash
+uv run detect-meteors --config config_examples/hough_positive_sample.yaml --debug-image
+```
+
+同じ入力と ROI を読み込んだ通常パイプラインを2ワーカーで実行し、
+121ペアすべてで試作方式の候補判定、ハフ線分、線スコア、最大縦横比と一致することを
+確認した。保存した候補 RAW は元画像と同じ SHA-256 だった。
+候補は `_C140338.ORF`、`_C140344.ORF`、`_C150303.ORF` の3枚で、偽陽性は0枚だった。
+組み込み検出器で閾値探索を再実行した実測 JSON も、系列除外の結果を含めて試作時の記録と一致した。
+
+進捗ファイルには `hough_difference_mode: positive` を記録し、方式を切り替えたときは
+ペアを再処理する。画像分析でその進捗を指定すると正の差分で再現でき、出力した
+`session.yaml` にも方式を保存する。サンプルの `_C140345.ORF` を進捗から再現した結果は
+候補外、ハフ線分0本だった。
+
 ## 再現
 
 実 RAW のチェックサムと採点結果は[実測 JSON](../experiments/region_comparison/results/hough_registration/thresholds.json)

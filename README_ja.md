@@ -194,7 +194,7 @@ detector_name: hough
 output_handler_name: file
 ```
 
-RAWローダーの既定値は `normalize: false` です。`true` にすると画素を [0, 1] の範囲の `float32` として返し、パイプラインはそれに合わせて `diff_threshold` を調整します。組み込みHough検出器の閾値は `params` で指定し、`detector_config` には空の設定を渡せます。ファイル出力ハンドラーの上書き制御には、`overwrite` ではなく `output_overwrite` を使います。
+RAWローダーの既定値は `normalize: false` です。`true` にすると画素を [0, 1] の範囲の `float32` として返し、パイプラインはそれに合わせて `diff_threshold` を調整します。組み込みHough検出器の閾値は `params`、差分方式は `detector_config.difference_mode` で指定します。ファイル出力ハンドラーの上書きは `output_overwrite` で設定します。
 
 `output_handler_name: file` を明示的に選ぶ場合は、保存先と上書き動作を `output_handler_config` で指定してください。省略したフィールドにはハンドラー自身の既定値を使います。最上位の `output_folder`、`debug_folder`、`output_overwrite` を引き継ぐには、`output_handler_name` を省略し、既定のファイルハンドラーを使ってください。
 
@@ -217,6 +217,16 @@ config = load_pipeline_config("config_examples/pipeline.yaml")
 pipeline = MeteorDetectionPipeline(config)
 pipeline.run()
 ```
+
+### 正の差分だけで検出する（任意）
+
+`hough` の `difference_mode: positive` は、現在画像が直前画像より明るくなった画素だけを検出に使います。既定値の `absolute` は両方向の変化を使います。位置合わせなしで試すには、[航空機サンプルの RAW](docs/INSTALL_ja.md#サンプル-raw-画像)を用意し、次の設定例を実行します。
+
+```bash
+uv run detect-meteors --config config_examples/hough_positive_sample.yaml --debug-image
+```
+
+既存設定に追加する場合は、`detector_config: {difference_mode: positive}` を指定し、`hooks` から `star_registration` を外します。 [121ペアでの検証](docs/hough_registration_thresholds_ja.md#正の差分だけを渡した場合)
 
 ## 中断と再開
 

@@ -3,9 +3,12 @@ Pipeline execution coverage tests for meteor_core.pipeline (v1.x).
 """
 
 import os
+import io
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
 
 import numpy as np
 
@@ -31,6 +34,7 @@ from dataclasses import dataclass
 
 from meteor_core.outputs.base import BaseOutputHandler  # noqa: E402
 from meteor_core.hooks import DataclassHook, HookRegistry  # noqa: E402
+from meteor_core.utils import compute_params_hash  # noqa: E402
 
 
 class DummyInputLoader:
@@ -237,6 +241,53 @@ class TestProcessImageBatch(unittest.TestCase):
 
 
 class TestPipelineRun(unittest.TestCase):
+    def test_hough_mode_change_reprocesses_progress_and_matching_mode_resumes(self):
+        with tempfile.TemporaryDirectory() as directory, redirect_stdout(io.StringIO()):
+            root = Path(directory).resolve()
+            raw = root / "raw"
+            raw.mkdir()
+            first, second = [raw / name for name in ("a.ORF", "b.ORF")]
+            for path in (first, second):
+                path.touch()
+            dim = np.zeros((96, 96), dtype=np.uint16)
+            bright = dim.copy()
+            bright[30:35, 10:80] = 400
+            loader = DummyInputLoader({str(first): bright, str(second): dim})
+            config = PipelineConfig(
+                target_folder=str(raw),
+                output_folder=str(root / "candidates"),
+                debug_folder=str(root / "debug"),
+                progress_file=str(root / "progress.json"),
+                params=DetectionParams(diff_threshold=9, min_line_score=30),
+                enable_parallel=False,
+                enable_roi_selection=False,
+            )
+            for mode, expected, reprocessed in (
+                (None, 1, True),
+                ("positive", 0, True),
+                ("positive", 0, False),
+                ("absolute", 1, True),
+            ):
+                with self.subTest(mode=mode, reprocessed=reprocessed):
+                    config.detector_config = {"difference_mode": mode} if mode else None
+                    pipeline = MeteorDetectionPipeline(
+                        config, input_loader=loader, output_handler=DummyOutputHandler()
+                    )
+                    self.assertEqual(pipeline.run(), expected)
+                    self.assertEqual(
+                        len(pipeline._all_sorted_detections), int(reprocessed)
+                    )
+                    progress = pipeline.progress_manager.progress_data
+                    hash_params = config.params.to_dict()
+                    if mode == "positive":
+                        hash_params["hough_difference_mode"] = mode
+                        self.assertEqual(progress["hough_difference_mode"], mode)
+                    else:
+                        self.assertNotIn("hough_difference_mode", progress)
+                    self.assertEqual(
+                        progress["params_hash"], compute_params_hash(hash_params)
+                    )
+
     def test_pipeline_run_same_target_and_output(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             config = PipelineConfig(

@@ -288,6 +288,7 @@ class TestAnalysisCli(unittest.TestCase):
         for option in (
             ["--detector", "simple_threshold"],
             ["--detector-config", '{"unsupported": 3}'],
+            ["--detector-config", '{"difference_mode": "signed"}'],
         ):
             with self.subTest(option=option):
                 code, _, err, create = self.run_cli(self.pair_options() + option)

@@ -10,7 +10,6 @@ from benchmark_hough_registration import (
     GRID,
     SHAPE,
     measure,
-    positive_difference_pair,
     select_thresholds,
 )
 from meteor_core.detectors.hough_analysis import (
@@ -18,7 +17,7 @@ from meteor_core.detectors.hough_analysis import (
     ContourMeasurement,
     HoughAnalysis,
 )
-from meteor_core.detectors.hough_default import HoughDetector
+from meteor_core.detectors.hough_default import HoughDetector, HoughDetectorConfig
 from meteor_core.pipeline import _build_runtime_params
 from meteor_core.schema import DetectionContext, DetectionParams
 
@@ -37,7 +36,7 @@ class HoughRegistrationCalibrationTests(unittest.TestCase):
             current, previous, np.full(current.shape, 255, np.uint8), settings, {}
         )
         absolute = detector.analyze(context)
-        positive = detector.analyze(positive_difference_pair(context))
+        positive = HoughDetector(HoughDetectorConfig("positive")).analyze(context)
 
         self.assertGreater(cv2.countNonZero(absolute.mask[35:46]), 0)
         self.assertEqual(cv2.countNonZero(positive.mask[35:46]), 0)

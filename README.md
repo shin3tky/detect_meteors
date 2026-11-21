@@ -211,9 +211,9 @@ output_handler_name: file
 
 The RAW loader defaults to `normalize: false`; `true` returns `float32` pixels
 in [0, 1], and the pipeline scales `diff_threshold` accordingly. The built-in
-Hough detector uses `params` for its thresholds and accepts an empty
-`detector_config`. The file output handler uses `output_overwrite`, not
-`overwrite`, for overwrite control.
+Hough detector uses `params` for its thresholds and
+`detector_config.difference_mode` for the pixel difference. The file output
+handler controls overwrites with `output_overwrite`.
 
 When `output_handler_name: file` is explicitly selected, set output paths and
 overwrite behavior in `output_handler_config`; its own defaults are used for
@@ -245,6 +245,19 @@ config = load_pipeline_config("config_examples/pipeline.yaml")
 pipeline = MeteorDetectionPipeline(config)
 pipeline.run()
 ```
+
+### Positive Differences (Optional)
+
+Set `detector_config: {difference_mode: positive}` to detect only pixels that
+brighten from the previous frame. The default `absolute` uses changes in both
+directions. The following example runs without registration on the
+[aircraft sample RAWs](docs/INSTALL.md#sample-raw-images).
+
+```bash
+uv run detect-meteors --config config_examples/hough_positive_sample.yaml --debug-image
+```
+
+[Validation on 121 RAW pairs (Japanese)](docs/hough_registration_thresholds_ja.md#正の差分だけを渡した場合)
 
 ## Resumable Processing
 

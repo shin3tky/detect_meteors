@@ -342,6 +342,26 @@ class TestAutoEstimationLogic(unittest.TestCase):
         )
         self.assertEqual(threshold, 8)
 
+    def test_sample_estimate_respects_positive_difference_mode(self):
+        frames = [np.full((4, 4), value, dtype=np.uint16) for value in (80, 40, 0)]
+        names = ["f1", "f2", "f3"]
+        roi = np.full(frames[0].shape, 255, dtype=np.uint8)
+        self.assertEqual(
+            estimate_diff_threshold_from_samples(
+                names, roi, input_loader=_IteratorLoader(frames)
+            ),
+            18,
+        )
+        self.assertEqual(
+            estimate_diff_threshold_from_samples(
+                names,
+                roi,
+                input_loader=_IteratorLoader(frames),
+                difference_mode="positive",
+            ),
+            3,
+        )
+
     def test_estimate_min_area(self):
         """Test min_area estimation based on star sizes."""
         images = []

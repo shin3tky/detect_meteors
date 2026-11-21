@@ -79,6 +79,7 @@ from ._worker_plugins import (
 )
 from .roi_selector import select_roi, create_roi_mask_from_polygon, create_full_roi_mask
 from .detectors import BaseDetector, DetectorRegistry
+from .detectors.hough_default import DifferenceMode, HoughDetector, frame_difference
 from .utils import _display_width, _is_supported_image, _pad_label, ensure_numpy
 from .outputs import (
     BaseOutputHandler,
@@ -664,8 +665,7 @@ def _resolve_detector(
     Args:
         detector: Pre-initialized BaseDetector instance.
         detector_name: Name of detector to use (e.g., "hough").
-        detector_config: Configuration dict for the detector (currently unused,
-            reserved for future detector configuration support).
+        detector_config: Configuration dict for the selected detector.
 
     Returns:
         BaseDetector instance ready for use.
@@ -682,7 +682,8 @@ def _resolve_detector(
         logger.debug("Using provided detector instance: %s", type(detector).__name__)
         return detector
 
-    if detector_name:
+    if detector_name or detector_config:
+        detector_name = detector_name or DEFAULT_DETECTOR_NAME
         logger.debug("Resolving detector by name: %s", detector_name)
         try:
             return DetectorRegistry.create(detector_name, detector_config)
@@ -700,6 +701,13 @@ def _resolve_detector(
                 original_error=e,
                 context={"available_detectors": available},
             ) from e
+        except (TypeError, ValueError) as exc:
+            raise MeteorConfigError(
+                f"Invalid detector configuration: {exc}",
+                config_key="detector_config",
+                plugin_name=detector_name,
+                original_error=exc,
+            ) from exc
 
     logger.debug("Using default detector")
     return _get_default_detector()
@@ -1293,6 +1301,8 @@ def estimate_diff_threshold_from_samples(
     sample_size: int = 5,
     input_loader: Optional[BaseInputLoader] = None,
     locale: Optional[str] = None,
+    *,
+    difference_mode: DifferenceMode = "absolute",
 ) -> int:
     """Estimate a difference threshold from the first valid sample pairs.
 
@@ -1302,6 +1312,7 @@ def estimate_diff_threshold_from_samples(
         sample_size: Maximum number of initial files to load.
         input_loader: Loader for sample images. Defaults to the built-in RAW loader.
         locale: Locale for the printed sample statistics.
+        difference_mode: Difference used by the Hough detector.
 
     Returns:
         The smallest of three estimates from the ROI differences, clamped to
@@ -1342,7 +1353,7 @@ def estimate_diff_threshold_from_samples(
                 loader.load(files[i]),
                 filepath=files[i],
             )
-            samples.append(context.image_data)
+            samples.append(ensure_numpy(context.image_data))
         except Exception as exc:
             print(
                 get_message(
@@ -1376,7 +1387,7 @@ def estimate_diff_threshold_from_samples(
     roi_pixels = roi_mask == 255
     differences = []
     for previous, current in pairwise(samples):
-        diff = cv2.absdiff(current, previous)
+        diff = frame_difference(current, previous, difference_mode)
         differences.append(diff[roi_pixels])
     print(get_message("ui.pipeline.estimate.done", locale=locale))
 
@@ -2509,12 +2520,19 @@ class MeteorDetectionPipeline:
     ) -> None:
         """Prepare the progress file before building the remaining frame pairs.
 
-        Hash the configured thresholds and ROI, including the hook configuration
-        when a frame-pair hook is enabled. A mismatch resets saved results.
+        Hash the configured thresholds and ROI, including positive Hough
+        differences and active frame-pair hook settings. A mismatch resets results.
         """
         params_for_hash = params.copy()
         if roi_polygon:
             params_for_hash["roi_polygon"] = roi_polygon
+        detector = self.detector
+        positive_difference = (
+            type(detector) is HoughDetector
+            and detector.config.difference_mode == "positive"
+        )
+        if positive_difference:
+            params_for_hash["hough_difference_mode"] = "positive"
         if any(
             type(hook).on_before_detection is not BaseHook.on_before_detection
             for hook in hooks
@@ -2550,6 +2568,10 @@ class MeteorDetectionPipeline:
         self.progress_manager.set_params(params)
         self.progress_manager.set_roi(roi_polygon or "full_image")
         self.progress_manager.set_processing_params(params)
+        if positive_difference:
+            self.progress_manager.progress_data["hough_difference_mode"] = "positive"
+        else:
+            self.progress_manager.progress_data.pop("hough_difference_mode", None)
 
         existing_basenames = {os.path.basename(path) for path in files}
         self.progress_manager.filter_existing_files(existing_basenames)

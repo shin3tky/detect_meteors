@@ -20,7 +20,7 @@ from .detectors.hough_analysis import (
     CandidateThresholds,
     HoughAnalysis,
 )
-from .detectors.hough_default import HoughDetector
+from .detectors.hough_default import HoughDetector, HoughDetectorConfig
 from .exceptions import MeteorConfigError, MeteorValidationError, MeteorWriteError
 from .inputs.registry import LoaderRegistry
 from .schema import PipelineConfig, VERSION
@@ -143,10 +143,17 @@ def _session_config(
         raise MeteorConfigError(
             "A detector-only session configuration cannot preserve active hooks"
         )
-    if base.detector_name not in (None, "hough") or base.detector_config:
+    if base.detector_name not in (None, "hough"):
         raise MeteorConfigError(
             "Session configuration export requires the built-in Hough detector configuration"
         )
+    try:
+        HoughDetectorConfig(**(base.detector_config or {}))
+    except (TypeError, ValueError) as exc:
+        raise MeteorConfigError(
+            "Invalid Hough detector configuration for session export",
+            original_error=exc,
+        ) from exc
     if base.output_handler_name not in (None, "file"):
         raise MeteorConfigError(
             "Session configuration export supports the built-in file output handler only"
@@ -210,7 +217,7 @@ def _session_config(
         input_loader_name=name,
         input_loader_config=loader_config,
         detector_name="hough",
-        detector_config={},
+        detector_config=asdict(replay.settings.detector_config),
         hooks=[],
         roi_polygon=[list(point) for point in replay.settings.roi_polygon]
         if replay.settings.roi_polygon is not None
@@ -327,10 +334,12 @@ def save_analysis_bundle(
         for path, stamp in sorted(comparison_stamps.items())
     ]
     notes = []
+    detector_config = asdict(replay.settings.detector_config)
     effective_config = pipeline_config.to_dict() if pipeline_config else None
     if effective_config is not None:
         effective_config.update(
             params=replay.settings.params.to_dict(),
+            detector_config=detector_config,
             roi_polygon=replay.settings.roi_polygon,
             enable_roi_selection=False,
         )
@@ -343,7 +352,7 @@ def save_analysis_bundle(
             "numpy": np.__version__,
             "opencv": cv2.__version__,
         },
-        "detector": HoughDetector().get_info(),
+        "detector": {**HoughDetector().get_info(), "config": detector_config},
         "created_at": datetime.now(timezone.utc).isoformat(),
         "working_directory": str(Path.cwd()),
         "status": replay.status,
