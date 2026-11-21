@@ -318,6 +318,14 @@ and make new combinations opt-in.
   Hough on the same sequence using separate configurations. Record how each
   detector reaches its decision and what information it makes available to
   hooks and outputs. See the [paired comparison plan](detector_comparison_2.0.1_ja.md).
+- [ ] Evaluate opt-in stellar registration before frame differencing as an
+  early 2.x preprocessing candidate. Across 121 RAW pairs, the prototype
+  added about 61 ms per pair and reduced stellar residuals. Start with
+  translation, which accounted for most of the measured improvement. Compare
+  adjacent subtraction and a temporal-median background with and without
+  registration at matched false-positive rates. Record faint and short trail
+  recovery and preprocessing time before selecting a configuration.
+  [Stellar registration evaluation](star_registration_evaluation_ja.md)
 - [ ] Package an opt-in local review output that writes a structured report
   through the existing output handler interface. Exercise it with both
   detectors using a common format for frame identity, candidate decision,
@@ -342,6 +350,7 @@ analysis of the resulting evidence across frames.
 
 | Stage | Method | Use and feasibility |
 | --- | --- | --- |
+| Preprocessing | Stellar registration | Match stars in the sky ROI and resample the reference exposure into the current frame's coordinates before subtraction. Use the unregistered pair if too few well-distributed matches support the transform. |
 | Preprocessing | Difference of Gaussians (DoG) | Subtract two differently blurred images to emphasize a range of feature widths. Try it on the pair residual with the existing OpenCV dependency. Check how faint trails and star residuals respond to the chosen scales. |
 | Preprocessing | White top-hat transform | Extract bright detail relative to a morphological opening. Try it as an alternative to DoG. Check how the structuring element affects wide or broken trails. |
 | Background subtraction | Adjacent-frame subtraction and median filtering | Use the current frame difference as a control. Test a spatial median filter for isolated noise and check whether it also removes thin trails. Evaluate a temporal median of several reference frames as a separate background estimate. |
