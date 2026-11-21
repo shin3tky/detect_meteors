@@ -313,7 +313,11 @@ RAWファイルとチェックサムは [`detect_meteors_assets/rawfiles/2024GEM
 - Python 3.12・3.13に加え、3.14に対応しました。
 
 移行手順と、121ペアおよび2025LEOでの検証結果をリリースノートにまとめています。
-[2.1.1リリースノート](docs/RELEASE_NOTES_2.1_ja.md#version-211) · [変更履歴](docs/CHANGELOG_ja.md#v211)
+
+最終点検では、既存57件を再確認し、Wiki、GitHub Release本文、リリースノートから日英の手順5への追加6リンクをたどりました。
+重複を除く59件すべてで、目的のページや見出しに到達しました。
+
+[2.1.1リリースノート](docs/RELEASE_NOTES_2.1_ja.md#version-211) · [変更履歴](docs/CHANGELOG_ja.md#v211) · [公開後の確認（手順5）](docs/INSTALL_DEV_ja.md#post-publication-documentation)
 
 ### 以前のリリース
 
