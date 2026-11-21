@@ -71,7 +71,7 @@ uv run detect-meteors --config config_examples/hough_legacy_sample.yaml --debug-
 
 公開した2.1.1のwheelとソース配布物は、どちらも Python 3.12、3.13、3.14 で uv を使って
 インストールできます。導入前に `SHA256SUMS` と照合してください。
-[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [インストールガイド](INSTALL_ja.md) · [ダウンロードした配布物の検証](INSTALL_ja.md#verify-release-downloads)
+[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [インストールガイド](INSTALL_ja.md) · [ダウンロードした配布物の検証](INSTALL_ja.md#verify-release-downloads) · [2.1.1の変更履歴](CHANGELOG_ja.md#v211)
 
 1.6.13からの依存関係の更新は、
 実行時のPydantic 2.14.4とPyYAML 6.0.4、開発用のRuff 0.17.6、ty 0.0.107、coverage 7.17.4です。
