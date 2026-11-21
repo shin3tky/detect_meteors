@@ -24,6 +24,7 @@ from summarize import trail_coverage
 
 CONFIG = Path("config_examples/star_registration_sample.yaml")
 POLICIES = ("unaligned", "aligned")
+POSITIVE_POLICIES = ("positive_unaligned", "positive_aligned")
 GRID = {
     "diff_threshold": (*range(5, 21), 22, 24, 26, 28, 30, 35, 40),
     "min_area": (1, 3, 6, 10, 20, 40, 80),
@@ -46,6 +47,15 @@ GRID = {
     ),
 }
 SHAPE = tuple(map(len, GRID.values()))
+
+
+def positive_difference_pair(context):
+    """Pass max(current - previous, 0) through the Hough detector's absdiff."""
+    # The binned RAWs are uint16. OpenCV saturates their subtraction at zero.
+    difference = cv2.subtract(context.current_image, context.previous_image)
+    return replace(
+        context, current_image=difference, previous_image=np.zeros_like(difference)
+    )
 
 
 def measure(detector, context, settings, references):
@@ -82,7 +92,7 @@ def measure(detector, context, settings, references):
     return shape_passed & line_passed, coverage
 
 
-def collect(sequence, raw_root, settings):
+def collect(sequence, raw_root, settings, *, positive_only=False):
     source, frames, labels, digest = inputs(sequence, raw_root)
     readme = source / "README.md"
     checksums = source / ("SHA256SUMS" if sequence == "bundled" else "SHA256SUM")
@@ -98,7 +108,9 @@ def collect(sequence, raw_root, settings):
     previous = load_and_bin_raw_fast(str(source / frames[0]))
     roi = create_roi_mask_from_polygon(SKY_ROIS[sequence], previous.shape)
     margin = cv2.erode(roi, np.ones((2 * MARGIN + 1, 2 * MARGIN + 1), np.uint8))
-    pairs = {policy: {} for policy in POLICIES}
+    # Keep the absolute, unaligned control as the threshold-selection reference.
+    policies = ("unaligned", *POSITIVE_POLICIES) if positive_only else POLICIES
+    pairs = {policy: {} for policy in policies}
     registration = {}
     for index, (prior, name) in enumerate(zip(frames, frames[1:]), start=1):
         current = load_and_bin_raw_fast(str(source / name))
@@ -111,7 +123,10 @@ def collect(sequence, raw_root, settings):
             - cv2.countNonZero(common_roi),
         }
         references = [axes[frame] for frame in (name, prior) if frame in axes]
-        for policy, pair in zip(POLICIES, (context, aligned), strict=True):
+        contexts = (context, aligned)
+        if positive_only:
+            contexts = (context, *(positive_difference_pair(pair) for pair in contexts))
+        for policy, pair in zip(policies, contexts, strict=True):
             pairs[policy][name] = measure(
                 detector, replace(pair, roi_mask=common_roi), settings, references
             )
@@ -209,7 +224,7 @@ def evaluate(sequences, policy, index):
     return out
 
 
-def benchmark(sequences, settings):
+def benchmark(sequences, settings, policies=POLICIES):
     baseline = tuple(values.index(settings[key]) for key, values in GRID.items())
     return {
         policy: {
@@ -241,7 +256,7 @@ def benchmark(sequences, settings):
                 for held_out, data in sequences.items()
             },
         }
-        for policy in POLICIES
+        for policy in policies
     }
 
 
@@ -249,13 +264,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     parser.add_argument("--raw-root", type=Path, default=Path("rawfiles"))
+    parser.add_argument(
+        "--positive-only",
+        action="store_true",
+        help="Compare positive differences before and after registration.",
+    )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     cv2.setNumThreads(1)
     settings = load_pipeline_config(CONFIG).params.to_dict()
     sequences = {}
     for sequence in SKY_ROIS:
-        sequences[sequence] = collect(sequence, args.raw_root, settings)
+        sequences[sequence] = collect(
+            sequence, args.raw_root, settings, positive_only=args.positive_only
+        )
         print("Measured", sequence, flush=True)
     report = {
         "platform": platform.platform(),
@@ -268,8 +290,14 @@ def main():
             name: {key: value for key, value in sequence.items() if key != "pairs"}
             for name, sequence in sequences.items()
         },
-        "evaluation": benchmark(sequences, settings),
+        "evaluation": benchmark(
+            sequences, settings, POSITIVE_POLICIES if args.positive_only else POLICIES
+        ),
     }
+    if args.positive_only:
+        report["selection_reference"] = (
+            "unaligned absolute difference at baseline settings"
+        )
     (args.output / "thresholds.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
