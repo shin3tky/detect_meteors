@@ -60,3 +60,5 @@ uv run detect-meteors --target ./rawfiles --hooks star_registration --debug-imag
 
 この条件では位置合わせにより候補が1枚増えました。恒星の残差や別の RAW 系列での結果は
 [試作の評価](star_registration_evaluation_ja.md)を参照してください。
+
+[追加候補の差分・線分と121ペアでの閾値比較](hough_registration_thresholds_ja.md)

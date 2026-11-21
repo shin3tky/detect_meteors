@@ -2,6 +2,7 @@
 
 組み込みフックでの実行方法とサンプルの検証結果は
 [恒星位置合わせ付きの流星検出](star_registration_workflow_ja.md)を参照してください。
+[同じ121ペアでのハフ閾値の比較](hough_registration_thresholds_ja.md)も実施しました。
 
 ## 目的
 

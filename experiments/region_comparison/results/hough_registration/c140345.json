@@ -1,0 +1,260 @@
+{
+  "input_sha256": "5fba0cf7dbee10d0fcf5d891eb6e1597ac635d486b8306b42f71558ab6f6a3b0",
+  "current": "_C140345.ORF",
+  "previous": "_C140344.ORF",
+  "previous_meteor": {
+    "current": "_C140344.ORF",
+    "previous": "_C140343.ORF",
+    "axis": [
+      [
+        1570,
+        200
+      ],
+      [
+        1567,
+        249
+      ]
+    ],
+    "half_width_px": 6
+  },
+  "roi_polygon": [
+    [
+      125,
+      85
+    ],
+    [
+      2440,
+      85
+    ],
+    [
+      2440,
+      1230
+    ],
+    [
+      125,
+      1230
+    ]
+  ],
+  "settings": {
+    "diff_threshold": 9,
+    "min_area": 3,
+    "min_aspect_ratio": 3.0,
+    "hough_threshold": 10,
+    "hough_min_line_length": 15,
+    "hough_max_line_gap": 5,
+    "min_line_score": 30.0
+  },
+  "registration": {
+    "status": "applied",
+    "matched_stars": 499,
+    "inliers": 487,
+    "matrix": [
+      [
+        0.999999998793099,
+        4.913046398524248e-05,
+        0.8224713029808299
+      ],
+      [
+        -4.913046398524829e-05,
+        0.9999999987930989,
+        0.4373655880415299
+      ]
+    ]
+  },
+  "diagnosis": {
+    "unaligned": {
+      "candidate": false,
+      "rejection_reasons": [
+        "min_aspect_ratio"
+      ],
+      "mask_pixels": 3093,
+      "contour_count": 247,
+      "max_aspect_ratio": 2.4968942591519765,
+      "highest_ratio_contour": {
+        "area": 106.0,
+        "rect": [
+          [
+            1568.8734130859375,
+            230.09957885742188
+          ],
+          [
+            25.895095825195312,
+            10.370922088623047
+          ],
+          -75.0685806274414
+        ]
+      },
+      "accepted_contours": [],
+      "line_score": 126.37612122262402,
+      "lines": [
+        {
+          "xyxy": [
+            1567,
+            243,
+            1567,
+            217
+          ],
+          "length_px": 26.0,
+          "negative_fraction_on_line": 1.0,
+          "previous_meteor_coverage": 0.5286307053941909
+        },
+        {
+          "xyxy": [
+            1166,
+            704,
+            1181,
+            707
+          ],
+          "length_px": 15.297058540778355,
+          "negative_fraction_on_line": 0.47058823529411764,
+          "previous_meteor_coverage": 0.0
+        },
+        {
+          "xyxy": [
+            1570,
+            237,
+            1571,
+            210
+          ],
+          "length_px": 27.018512172212592,
+          "negative_fraction_on_line": 0.9655172413793104,
+          "previous_meteor_coverage": 0.5502074688796681
+        },
+        {
+          "xyxy": [
+            1568,
+            243,
+            1570,
+            210
+          ],
+          "length_px": 33.06055050963308,
+          "negative_fraction_on_line": 1.0,
+          "previous_meteor_coverage": 0.6734439834024896
+        },
+        {
+          "xyxy": [
+            1568,
+            242,
+            1568,
+            217
+          ],
+          "length_px": 25.0,
+          "negative_fraction_on_line": 1.0,
+          "previous_meteor_coverage": 0.508298755186722
+        }
+      ],
+      "previous_meteor_coverage": 0.675933609958506,
+      "previous_meteor_center_minus_sides_dn": -36.0,
+      "positive_only": {
+        "candidate": false,
+        "score": 0.0,
+        "num_lines": 0,
+        "max_aspect_ratio": 1.7857142502498153
+      },
+      "negative_only": {
+        "candidate": false,
+        "score": 133.20819769078895,
+        "num_lines": 5,
+        "max_aspect_ratio": 2.7534245450173094
+      }
+    },
+    "aligned": {
+      "candidate": true,
+      "rejection_reasons": [],
+      "mask_pixels": 1060,
+      "contour_count": 78,
+      "max_aspect_ratio": 4.25,
+      "highest_ratio_contour": {
+        "area": 150.0,
+        "rect": [
+          [
+            1569.0,
+            226.0
+          ],
+          [
+            34.0,
+            8.0
+          ],
+          -90.0
+        ]
+      },
+      "accepted_contours": [
+        {
+          "area": 150.0,
+          "rect": [
+            [
+              1569.0,
+              226.0
+            ],
+            [
+              34.0,
+              8.0
+            ],
+            -90.0
+          ]
+        }
+      ],
+      "line_score": 150.33311111175286,
+      "lines": [
+        {
+          "xyxy": [
+            1567,
+            240,
+            1569,
+            209
+          ],
+          "length_px": 31.064449134018133,
+          "negative_fraction_on_line": 1.0,
+          "previous_meteor_coverage": 0.6327800829875518
+        },
+        {
+          "xyxy": [
+            1569,
+            243,
+            1572,
+            198
+          ],
+          "length_px": 45.09988913511872,
+          "negative_fraction_on_line": 1.0,
+          "previous_meteor_coverage": 0.87551867219917
+        },
+        {
+          "xyxy": [
+            1568,
+            243,
+            1571,
+            198
+          ],
+          "length_px": 45.09988913511872,
+          "negative_fraction_on_line": 1.0,
+          "previous_meteor_coverage": 0.8767634854771784
+        },
+        {
+          "xyxy": [
+            1570,
+            243,
+            1572,
+            214
+          ],
+          "length_px": 29.068883707497267,
+          "negative_fraction_on_line": 1.0,
+          "previous_meteor_coverage": 0.5921161825726141
+        }
+      ],
+      "previous_meteor_coverage": 0.8767634854771784,
+      "previous_meteor_center_minus_sides_dn": -21.0,
+      "positive_only": {
+        "candidate": false,
+        "score": 0.0,
+        "num_lines": 0,
+        "max_aspect_ratio": 0.0
+      },
+      "negative_only": {
+        "candidate": true,
+        "score": 199.42217043601602,
+        "num_lines": 6,
+        "max_aspect_ratio": 4.25
+      }
+    }
+  }
+}
