@@ -2,7 +2,9 @@
 
 [日本語版](INSTALL_ja.md)
 
-This guide provides detailed installation instructions for Detect Meteors CLI on macOS and Windows.
+📺 Detect Meteors 2.1.1 was released on November 21, 2026 (World Television Day).
+This guide covers installation on macOS and Windows.
+[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [Release notes](RELEASE_NOTES_2.1.md#version-211)
 
 > [!IMPORTANT]
 > **macOS: choose a checkout location outside iCloud Drive.**
@@ -15,88 +17,65 @@ This guide provides detailed installation instructions for Detect Meteors CLI on
 
 ## Python Requirements
 
-The current repository checkout supports Python 3.12, 3.13, and 3.14.
-To install with Python 3.14, use Git and uv to install from the current source.
+Use uv with Python 3.12, 3.13, or 3.14. The release wheel and source
+distribution were verified on all three versions. The Git checkout defaults
+to Python 3.14. Installing dependencies requires access to the package index.
+
+## Install 2.1.1 from Source
+
+Set up Git and uv using the platform-specific steps below, then check out
+the release tag and install from the lockfile.
 
 ```bash
-git clone https://github.com/shin3tky/detect_meteors.git
+git clone --branch 2.1.1 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
-uv sync --locked
-```
-
-## Try the 2.1.1 sources during release preparation
-
-Run `uv sync --locked` in a local checkout containing the 2.1.1 changes.
-Place the sample RAWs in the source tree and run the example configurations
-from its root. For installation from the published distributions, follow the
-1.6.13 instructions below.
-[2.1.1 configurations and requirements](RELEASE_NOTES_2.1.md#version-211) · [Sample RAWs](#sample-raw-images)
-
-## Install v1.6.13 from Source
-
-Install Git and uv using the platform-specific steps below, then obtain the
-released source and install its locked dependencies. The v1.6.13 release
-requires Python 3.12 or 3.13. Installing dependencies requires access to the
-package index.
-
-```bash
-git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git
-cd detect_meteors
-uv python install 3.12
 uv sync --locked
 uv run detect-meteors --version
 uv run detect-meteors --help
 ```
 
-Alternatively, download the [v1.6.13 source distribution](https://github.com/shin3tky/detect_meteors/releases/download/1.6.13/detect_meteors-1.6.13.tar.gz)
-or one of GitHub's **Source code** archives from the
-[release page](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.13).
-If you downloaded the source distribution, [verify it with SHA256SUMS](#verify-release-downloads) before extracting it.
-Extract it, open a terminal in the extracted directory containing `pyproject.toml`,
-and run the commands above starting with `uv python install 3.12`.
+You can also download the source distribution. Verify it before extracting
+it, open a terminal in the extracted directory containing `pyproject.toml`,
+and run the commands above starting with `uv sync --locked`.
+[Download the source distribution](https://github.com/shin3tky/detect_meteors/releases/download/2.1.1/detect_meteors-2.1.1.tar.gz) · [Verify with SHA256SUMS](#verify-release-downloads)
 
 `uv sync --locked` installs the project and the `detect-meteors` command into
-`.venv`. From the source directory, run detection with:
+`.venv`. The version command should report `2.1.1`. To run detection on the
+full frame of your own RAW images, replace `/path/to/rawfiles` with their
+directory.
 
 ```bash
-uv run detect-meteors --target /path/to/rawfiles --hooks aircraft_trail --no-roi
+uv run detect-meteors --target /path/to/rawfiles --no-roi
 ```
 
-All application examples below use `uv run detect-meteors` (with a hyphen)
-from the source directory. The source includes documentation, configuration
-examples, and tests. Get the sample RAW images from
-[detect_meteors_assets](#sample-raw-images).
+The Git checkout and source distribution include the documentation,
+configuration examples, and tests.
 
 ### Install the Release Wheel
 
-Download the [v1.6.13 wheel](https://github.com/shin3tky/detect_meteors/releases/download/1.6.13/detect_meteors-1.6.13-py3-none-any.whl)
-and open a terminal in the directory where you saved it.
-[Verify the wheel with SHA256SUMS](#verify-release-downloads) before installing it.
+Download and verify the wheel, then open a terminal in the directory where
+you saved it, outside a project checkout.
+[Download the wheel](https://github.com/shin3tky/detect_meteors/releases/download/2.1.1/detect_meteors-2.1.1-py3-none-any.whl) · [Verify with SHA256SUMS](#verify-release-downloads)
 
 ```bash
-uv venv --python 3.12
-uv pip install ./detect_meteors-1.6.13-py3-none-any.whl
-```
-
-If you saved the wheel elsewhere, replace the filename with its actual path.
-On macOS or Linux, activate with `source .venv/bin/activate`; on Windows
-PowerShell, use `.venv\Scripts\Activate.ps1`. Then run:
-
-```bash
+uv venv --python 3.14
+uv pip install ./detect_meteors-2.1.1-py3-none-any.whl
 uv run detect-meteors --version
 uv run detect-meteors --help
 ```
 
-The wheel includes the command but not the source tree, RAW sample, or generated
-candidates. Use the source instructions above for documentation, configuration
-examples, and tests.
+The version command should report `2.1.1`. Run `uv run detect-meteors`
+from the directory containing this `.venv`. To try the configuration examples
+below, use the Git checkout or source distribution.
 
 ### Sample RAW Images
 
 The [detect_meteors_assets repository](https://github.com/shin3tky/detect_meteors_assets/tree/main/rawfiles)
 contains the RAW sequences, labels, and checksums. Install Git LFS to download
-the images. From the `detect_meteors` source directory, run these commands to
-download the 12-frame aircraft sample and place it where the examples expect it:
+the images. Run the commands for your shell from the `detect_meteors` source
+directory to download the 12-frame aircraft sample.
+
+Run this block on macOS or Linux.
 
 ```bash
 git lfs install --skip-repo
@@ -106,20 +85,61 @@ mkdir -p rawfiles
 cp -R ../detect_meteors_assets/rawfiles/2024GEMINI_AIRCRAFT rawfiles/
 ```
 
+Run this block in Windows PowerShell.
+
+```powershell
+git lfs install --skip-repo
+$env:GIT_LFS_SKIP_SMUDGE = '1'
+git clone https://github.com/shin3tky/detect_meteors_assets.git ../detect_meteors_assets
+Remove-Item Env:GIT_LFS_SKIP_SMUDGE
+git -C ../detect_meteors_assets lfs pull --include='rawfiles/2024GEMINI_AIRCRAFT/**'
+New-Item -ItemType Directory -Force -Path rawfiles | Out-Null
+Copy-Item -Recurse ../detect_meteors_assets/rawfiles/2024GEMINI_AIRCRAFT -Destination rawfiles
+```
+
 If you already cloned `detect_meteors_assets` alongside the source, start with
 `git lfs pull` in that checkout. To use `2021GEMINI` or `2024GEMINI`, substitute
 the sequence name in the pull and copy commands.
+
+### Switch Detection Configurations
+
+Place the aircraft sample in `rawfiles/2024GEMINI_AIRCRAFT/` in the checkout or
+extracted source distribution. Run the following command from that source
+directory. Relative paths in the YAML files are resolved from the working
+directory.
+
+```bash
+uv run detect-meteors --config config_examples/hough_legacy_sample.yaml --debug-image
+```
+
+Change the file passed to `--config` to select a workflow.
+
+| Workflow | File in `config_examples/` |
+| --- | --- |
+| Conventional absolute-difference Hough (default) | [hough_legacy_sample.yaml](../config_examples/hough_legacy_sample.yaml) |
+| Align the previous frame to stars in the ROI, then run absolute-difference Hough | [hough_registered_sample.yaml](../config_examples/hough_registered_sample.yaml) |
+| Run Hough on positive differences without alignment | [hough_positive_sample.yaml](../config_examples/hough_positive_sample.yaml) |
+| Run experimental FRT retry on pairs rejected by unaligned positive-difference Hough | [hough_frt_retry_sample.yaml](../config_examples/hough_frt_retry_sample.yaml) |
+
+Select `hough_legacy_sample.yaml` again to return to conventional detection.
+The examples share the input, ROI, and Hough thresholds. Each writes
+candidates, debug images, and progress to its own paths. To use your own RAW
+sequence, copy an example and update `target_folder` and `roi_polygon`.
+[Configuration and migration details](RELEASE_NOTES_2.1.md#switching-configurations-and-upgrading)
+
+Stellar registration adds preprocessing time. FRT retry adds processing time
+and memory use per worker. The 2025LEO comparison produced more false positives
+with FRT retry.
+[Registration workflow (Japanese)](star_registration_workflow_ja.md) · [FRT results and cost (Japanese)](frt_retry_workflow_ja.md)
 
 <a id="verify-release-downloads"></a>
 
 ### Verify the Release Downloads
 
-From [GitHub Release 1.6.13](https://github.com/shin3tky/detect_meteors/releases/tag/1.6.13),
-save the wheel, the `detect_meteors-1.6.13.tar.gz` source distribution, and
-[`SHA256SUMS`](https://github.com/shin3tky/detect_meteors/releases/download/1.6.13/SHA256SUMS)
-in the same directory. Keep the original filenames. The checksums cover these two
-distribution files. GitHub's automatically generated **Source code** archives
-are separate downloads.
+Save the wheel, `detect_meteors-2.1.1.tar.gz`, and `SHA256SUMS` in the
+same directory with their original filenames. The listed checksums are for
+the wheel and source distribution attached to the release.
+[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [Download SHA256SUMS](https://github.com/shin3tky/detect_meteors/releases/download/2.1.1/SHA256SUMS)
 
 On macOS, open a terminal in that directory and run:
 
@@ -127,13 +147,13 @@ On macOS, open a terminal in that directory and run:
 shasum -a 256 -c SHA256SUMS
 ```
 
-Both files should report `OK`.
+On Linux, use `sha256sum -c SHA256SUMS`. Both files should report `OK`.
 
 On Windows, open PowerShell in the same directory and run:
 
 ```powershell
 Get-Content -LiteralPath .\SHA256SUMS
-Get-FileHash -Algorithm SHA256 -LiteralPath .\detect_meteors-1.6.13-py3-none-any.whl, .\detect_meteors-1.6.13.tar.gz
+Get-FileHash -Algorithm SHA256 -LiteralPath .\detect_meteors-2.1.1-py3-none-any.whl, .\detect_meteors-2.1.1.tar.gz
 ```
 
 Compare each value in the `Hash` column with the checksum for the same filename
@@ -141,11 +161,12 @@ in `SHA256SUMS`. Uppercase and lowercase letters are equivalent.
 If a checksum differs, download the affected file again and verify it before installing.
 
 <a id="dependency-versions-v1613"></a>
+<a id="dependency-versions-v211"></a>
 
-## Dependency Versions (v1.6.13)
+## Dependency Versions (2.1.1)
 
-Python **3.12 and 3.13** are supported. The following runtime package versions
-are pinned in `pyproject.toml` and recorded in `uv.lock`.
+The following runtime package versions are pinned in `pyproject.toml` and
+recorded in `uv.lock`.
 
 | Package | Pinned version |
 | --- | --- |
@@ -154,17 +175,16 @@ are pinned in `pyproject.toml` and recorded in `uv.lock`.
 | `rawpy` | `0.28.0` |
 | `psutil` | `7.2.2` |
 | `pillow` | `13.0.0` |
-| `pydantic` | `2.14.3` |
-| `pyyaml` | `6.0.3` |
+| `pydantic` | `2.14.4` |
+| `pyyaml` | `6.0.4` |
 
-NumPy was updated from `2.5.4` to `2.5.5`. See the [changelog](CHANGELOG.md#v1613) and
-[development tool versions](INSTALL_DEV.md#development-tool-versions).
+Pydantic and PyYAML were updated in 2.1.1.
+[Changelog](CHANGELOG.md#v211) · [Development tool versions](INSTALL_DEV.md#development-tool-versions)
 
-<a id="upgrading-from-1612"></a>
+## Upgrading to 2.1.1
 
-## Upgrading from 1.6.12
-
-After switching to the 1.6.13 source, run from the project root:
+After switching to the 2.1.1 source, run the command for your environment
+from the project root.
 
 ```bash
 uv sync --locked
@@ -172,19 +192,25 @@ uv sync --locked
 uv sync --locked --all-extras
 ```
 
-Choose the command for your environment. It installs direct and transitive
-versions recorded in `uv.lock`. For a wheel installation, download the v1.6.13
-wheel from the release page and [verify it with SHA256SUMS](#verify-release-downloads).
-Then activate your existing virtual environment and run the following from the
-directory where you saved the wheel. Use its actual path if it is saved elsewhere:
+For a wheel installation, download and verify the 2.1.1 wheel. From the
+directory containing your wheel installation's `.venv`, run the following
+with the path to the downloaded wheel.
+[Download the wheel](https://github.com/shin3tky/detect_meteors/releases/download/2.1.1/detect_meteors-2.1.1-py3-none-any.whl) · [Verify with SHA256SUMS](#verify-release-downloads)
 
 ```bash
-uv pip install --upgrade ./detect_meteors-1.6.13-py3-none-any.whl
+uv pip install --upgrade ./detect_meteors-2.1.1-py3-none-any.whl
+uv run detect-meteors --version
 ```
 
-The wheel pins direct runtime dependencies; transitive packages resolve according
-to their package constraints. See the [v1.6.13 release notes](RELEASE_NOTES_1.6.md#version-1613)
-for the dependency updates.
+The wheel pins direct runtime dependencies. Transitive packages resolve
+according to their package constraints. See the release notes for configuration
+compatibility and how changes affect progress files.
+[2.1.1 migration notes](RELEASE_NOTES_2.1.md#switching-configurations-and-upgrading)
+
+<a id="upgrading-from-1612"></a>
+
+For the earlier upgrade from 1.6.12 to 1.6.13, see the
+[1.6.13 installation guide](https://github.com/shin3tky/detect_meteors/blob/1.6.13/docs/INSTALL.md#upgrading-from-1612).
 
 ## macOS Installation
 
@@ -206,7 +232,7 @@ brew install git
 
 ```bash
 # Clone the repository
-git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 2.1.1 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -232,15 +258,15 @@ brew install opencv libraw
 uv manages Python versions and virtual environments automatically:
 
 ```bash
-# Install the latest Python 3.12.x
-uv python install 3.12
+# Install the latest Python 3.14.x
+uv python install 3.14
 
 # Create virtual environment and install dependencies
 uv sync --locked
 ```
 
 This will:
-- Download and install the latest Python 3.12.x patch release
+- Download and install the latest Python 3.14.x patch release
 - Create a virtual environment in `.venv`
 - Install runtime dependencies according to `uv.lock`
 
@@ -340,7 +366,7 @@ After installation, restart your terminal or open a new one to ensure uv is in y
 
 ```powershell
 # Clone the repository
-git clone --branch 1.6.13 --single-branch https://github.com/shin3tky/detect_meteors.git
+git clone --branch 2.1.1 --single-branch https://github.com/shin3tky/detect_meteors.git
 cd detect_meteors
 ```
 
@@ -353,15 +379,15 @@ cd detect_meteors
 uv manages Python versions and virtual environments automatically:
 
 ```powershell
-# Install the latest Python 3.12.x
-uv python install 3.12
+# Install the latest Python 3.14.x
+uv python install 3.14
 
 # Create virtual environment and install dependencies
 uv sync --locked
 ```
 
 This will:
-- Download and install the latest Python 3.12.x patch release
+- Download and install the latest Python 3.14.x patch release
 - Create a virtual environment in `.venv`
 - Install runtime dependencies according to `uv.lock`
 
