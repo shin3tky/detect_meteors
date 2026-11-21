@@ -35,12 +35,12 @@
 - macOS、Windows、Linux
 - 依存ライブラリ：`numpy`、`opencv-python`、`rawpy`、`psutil`、`pillow`、`pydantic`、`pyyaml`
 
-固定バージョンは[インストールガイド](docs/INSTALL_ja.md#dependency-versions-v1613)を参照してください。
+実行時の依存ライブラリの固定バージョンは、インストールガイドを参照してください。 [2.1.1の依存ライブラリ](docs/INSTALL_ja.md#dependency-versions-v211)
 
 ## インストール
 
-[最新リリース](https://github.com/shin3tky/detect_meteors/releases/latest)をダウンロードし、[インストールガイド](docs/INSTALL_ja.md)に沿って導入してください。
-Python 3.14 を使う場合は、[リポジトリの現在のソース](docs/INSTALL_ja.md#python-requirements)からインストールしてください。
+公開済みの2.1.1のwheelとソース配布物は、どちらも Python 3.12、3.13、3.14 で uv を使ってインストールできます。
+[GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [インストールガイド](docs/INSTALL_ja.md)
 
 ## クイックスタート
 
