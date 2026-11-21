@@ -34,7 +34,8 @@ discovered from `~/.detect_meteors/hook_plugins/`.
 
 ### Configure from the Command Line
 
-Use `--hook-config` to set matching tolerances without a pipeline file:
+Use `--hook-config` to set matching tolerances without a pipeline file. To run
+this example, first [download the aircraft sample](INSTALL.md#sample-raw-images).
 
 ```bash
 uv run detect-meteors \
@@ -55,11 +56,10 @@ weighting; `likelihood_threshold` currently has no effect.
 
 ### Run the Local Sample
 
-The Git-tracked `rawfiles/2024GEMINI_AIRCRAFT` sequence contains 12 RAW files, all with
+The `2024GEMINI_AIRCRAFT` sequence contains 12 RAW files, all with
 aircraft trails. The owner identifies meteors only in `_C140338.ORF` and
-`_C140344.ORF`. Clone the repository to obtain the RAW files and verify the
-checksums in the [sample README](../rawfiles/2024GEMINI_AIRCRAFT/README.md).
-The RAW images are excluded from the Python wheel and source distribution.
+`_C140344.ORF`. Follow the [sample download instructions](INSTALL.md#sample-raw-images)
+and verify the checksums in the [sample README](https://github.com/shin3tky/detect_meteors_assets/blob/main/rawfiles/2024GEMINI_AIRCRAFT/README.md).
 
 From the repository or extracted source distribution directory, run:
 

@@ -219,7 +219,7 @@ For environment updates specific to v1.6.11, see its tagged
 - Normal detection still requires contour area and aspect ratio strictly above their thresholds, and image-wide line score at least its threshold. The score sums Hough segment lengths. Aircraft likelihood remains metadata; no automatic filtering or track merging is added.
 - Final validation includes all 681 tests passing with no expected failures, 44 unchanged real-pair comparisons during refactoring, and controlled tuning/export/session replay on the local aircraft/meteor sample. The original `P8136507.ORF` report is not a reproduced original-pair case because its preceding RAW is unavailable.
 
-Try the repository-sample command in the [README](../README.md#try-tuning-with-the-repository-sample).
+Try the aircraft sample command in the [README](../README.md#try-tuning-with-the-aircraft-sample).
 See [CHANGELOG](CHANGELOG.md#v1611---2026-11-07) for all changes,
 [command options](COMMAND_OPTIONS.md#read-only-image-analysis-v1611) for precise
 limits and combinations, and the [design and validation record](parameter_analysis_1.6.11.md)
@@ -271,7 +271,7 @@ for configuration and lifecycle details.
 
 ### Local Aircraft Sample and Distribution Files
 
-The Git-tracked `2024GEMINI_AIRCRAFT` sample contains 12 images, all with aircraft;
+The `2024GEMINI_AIRCRAFT` sample contains 12 images, all with aircraft;
 the owner confirms meteors only in `_C140338.ORF` and `_C140344.ORF`. The supplied
 [sample configuration](../config_examples/aircraft_trail_sample.yaml) demonstrates
 matching tolerance adjustment. Both meteor images remain candidates, and
@@ -282,7 +282,8 @@ to discard whole images that may contain both objects. See the
 The v1.6.10 wheel includes the CLI module and installs `detect-meteors`. The
 source distribution includes documentation, configuration examples, and tests.
 RAW images and generated outputs are excluded from the Python distributions;
-the sample RAW files are available in a repository checkout. See [installation](INSTALL.md)
+the sample RAW files are available from [detect_meteors_assets](INSTALL.md#sample-raw-images).
+See [installation](INSTALL.md)
 and the [release build instructions](INSTALL_DEV.md#building-a-release).
 
 ## Version 1.6.8 (2026-01-07) 🌿

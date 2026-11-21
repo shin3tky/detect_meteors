@@ -106,10 +106,11 @@ and lines; `--tune-params` proposes bounded adjustments. Use an explicit
 RAW by filename order. A missing reference reports `reference_missing` and exits
 with status 2 without a decision.
 
-#### Try Tuning with the Repository Sample
+#### Try Tuning with the Aircraft Sample
 
-From a repository checkout, this example deliberately raises the aspect-ratio
-threshold to create a missed candidate, then proposes a relaxation:
+Follow the [sample download instructions](docs/INSTALL.md#sample-raw-images),
+then run this example from the project root. It deliberately raises the
+aspect-ratio threshold to create a missed candidate, then proposes a relaxation:
 
 ```bash
 uv run detect-meteors \
@@ -121,8 +122,7 @@ uv run detect-meteors \
 
 These values demonstrate the workflow; they are not camera or lens presets.
 The sample contains aircraft as well as a confirmed meteor: recovering a
-candidate frame does not identify which trail passed. RAW samples are available
-in the repository and excluded from Python distributions.
+candidate frame does not identify which trail passed.
 
 Add `--analysis-output analysis/review-001` to save a JSON report and PNG evidence
 to a **new** directory. After reviewing the proposals, rerun with the same options
@@ -269,7 +269,7 @@ cross-frame tracks are not restored from previous progress. See the
 [implementation notes](docs/aircraft_light_trails_hook_design.md) for configuration
 and limitations.
 
-For a reproducible local example, use
+After [downloading the aircraft sample](docs/INSTALL.md#sample-raw-images), use
 [`config_examples/aircraft_trail_sample.yaml`](config_examples/aircraft_trail_sample.yaml):
 
 ```bash
@@ -278,13 +278,12 @@ uv run detect-meteors \
   --no-roi --no-resume --debug-image
 ```
 
-The Git-tracked 12-frame sample contains aircraft in every image and owner-confirmed
+The 12-frame sample contains aircraft in every image and owner-confirmed
 meteors in `_C140338.ORF` and `_C140344.ORF`. All 11 analyzed pairs remain
 candidates; the hook is not an aircraft rejection filter. The latter meteor
 frame also receives high aircraft likelihood with the sample settings, so keep
 reviewing mixed images. The RAW files and checksums are available in
-[`rawfiles/2024GEMINI_AIRCRAFT`](rawfiles/2024GEMINI_AIRCRAFT/README.md) in a
-repository checkout; RAW images are excluded from the Python distributions. See the
+[`detect_meteors_assets/rawfiles/2024GEMINI_AIRCRAFT`](https://github.com/shin3tky/detect_meteors_assets/tree/main/rawfiles/2024GEMINI_AIRCRAFT). See the
 [usage and result-reading guide](docs/aircraft_light_trails_hook_design.md#read-the-results)
 and [sample validation results](docs/aircraft_sample_validation.md).
 

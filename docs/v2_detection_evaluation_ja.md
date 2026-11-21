@@ -9,7 +9,7 @@ RAW系列の全露光を目視したラベルを用い、候補削減と取り�
 | C　2024GEMINI後半 | 75 | 1 | 74 |
 | D　2024GEMINI全体 | 327 | 12 | 315 |
 
-各系列の先頭は背景として用い、評価対象外とした。Dには同梱12枚とCの76枚が含まれる。同梱12枚とDの対応ファイルが同一であることをSHA-256で確認した。系列を独立とみなす合算は行わない。各露光の流星の有無は[同梱](../rawfiles/2024GEMINI_AIRCRAFT/README.md)、[2021GEMINI](../rawfiles/2021GEMINI/README.md)、[2024GEMINI](../rawfiles/2024GEMINI/README.md)の各READMEに基づく。
+各系列の先頭は背景として用い、評価対象外とした。Dには同梱12枚とCの76枚が含まれる。同梱12枚とDの対応ファイルが同一であることをSHA-256で確認した。系列を独立とみなす合算は行わない。各露光の流星の有無は[2024GEMINI_AIRCRAFT](https://github.com/shin3tky/detect_meteors_assets/blob/4825b9256adc68452f9ce1efa47548742e921bff/rawfiles/2024GEMINI_AIRCRAFT/README.md)、[2021GEMINI](https://github.com/shin3tky/detect_meteors_assets/blob/4825b9256adc68452f9ce1efa47548742e921bff/rawfiles/2021GEMINI/README.md)、[2024GEMINI](https://github.com/shin3tky/detect_meteors_assets/blob/4825b9256adc68452f9ce1efa47548742e921bff/rawfiles/2024GEMINI/README.md)の各READMEに基づく。
 
 ## 判定と計測
 
@@ -177,7 +177,7 @@ A〜Cから前後とも陰性の異なるペアを3組ずつ選び、768 px角�
 
 ## 再現手順
 
-リポジトリのルートで実行する。実測結果は[ペア別評価と時間](../experiments/region_comparison/results/v2_reviewed/measurements.json)、[疑似光跡144試行のデータ](../experiments/region_comparison/results/v2_reviewed/injections.json)に保存した。READMEと入力RAWのハッシュ、各ペアの判定、被覆率、陽性・陰性の集計を記録している。検出器は実験用ホイール0.11.0を使用した。
+[サンプル RAW 画像の取得手順](INSTALL_ja.md#サンプル-raw-画像)に沿って、3系列を `rawfiles/` に配置してから、リポジトリのルートで実行する。実測結果は[ペア別評価と時間](../experiments/region_comparison/results/v2_reviewed/measurements.json)、[疑似光跡144試行のデータ](../experiments/region_comparison/results/v2_reviewed/injections.json)に保存した。READMEと入力RAWのハッシュ、各ペアの判定、被覆率、陽性・陰性の集計を記録している。検出器は実験用ホイール0.11.0を使用した。
 
 ```bash
 uv sync --locked
