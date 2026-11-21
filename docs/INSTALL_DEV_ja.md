@@ -508,8 +508,14 @@ cp "$artifact_dir/$wheel" "$artifact_dir/$sdist" "$artifact_dir/SHA256SUMS" "$re
    3ファイルをバイト単位で比較し、両配布物を公開された `SHA256SUMS` で照合します。
    [公開配布物の検証](#verify-public-release-downloads)
 
-2.1.1では、見出しを含め、重複を除いた公開リンク先57件を確認しました。タグと添付3点は公開時の記録と一致し、
-公開URLから再取得した3ファイルもビルド成果物とバイト単位で一致しました。
+2.1.1の初回点検では、見出しまで含めたURLを単位として、重複を除く57件の公開リンク先を確認しました。
+その後、Wikiホーム、GitHub Release本文、リリースノートに手順5へのリンクを日英1件ずつ、計6件追加しました。
+既存57件を再点検し、追加した6件から日英2つの手順5の見出しに到達することを確認しました。
+重複を除いた計59件すべてで、目的のページや見出しに到達しました。点検範囲でタグ側の準備中ガイドへの参照は0件でした。
+[Wiki（日本語）](https://github.com/shin3tky/detect_meteors/wiki/Home#211-のインストール) · [Wiki（英語）](https://github.com/shin3tky/detect_meteors/wiki/Home#install-211) · [リリースノート（日本語）](RELEASE_NOTES_2.1_ja.md#version-211) · [リリースノート（英語）](RELEASE_NOTES_2.1.md#version-211)
+
+タグ自体と参照先、添付3点のIDとSHA-256は公開時の記録と一致しました。公開URLから再取得した3ファイルも、
+元のビルド成果物とバイト単位で一致しました。
 [GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [ビルド実行 #44887379412](https://github.com/shin3tky/detect_meteors/actions/runs/44887379412) · [検証実行 #44890775339](https://github.com/shin3tky/detect_meteors/actions/runs/44890775339)
 
 ## コードスタイル

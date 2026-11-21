@@ -565,10 +565,19 @@ Confirm that the release page shows the intended commit and all three assets.
    distributions against the downloaded `SHA256SUMS`.
    [Public download verification](#verify-public-release-downloads)
 
-For 2.1.1, the post-publication review checked 57 distinct public link targets,
-including section fragments. The tag and all three published attachments
-matched the original records. The public files matched the build artifact
-byte for byte.
+The initial 2.1.1 review verified 57 distinct public destinations, counting
+page URLs with different section fragments separately. We added one link
+per language to step 5 in each of the Wiki home page, the GitHub Release
+body, and the release notes. We rechecked the original 57 destinations and
+followed all six new links. Those six links led to two language-specific
+step 5 sections, bringing the total to 59 distinct destinations. Every link
+reached the expected page or section, and the audit found zero references
+to the tagged installation guides from release preparation.
+[Wiki (English)](https://github.com/shin3tky/detect_meteors/wiki/Home#install-211) · [Wiki (Japanese)](https://github.com/shin3tky/detect_meteors/wiki/Home#211-のインストール) · [Release notes (English)](RELEASE_NOTES_2.1.md#version-211) · [Release notes (Japanese)](RELEASE_NOTES_2.1_ja.md#version-211)
+
+The tag object and target commit, attachment IDs, and SHA-256 digests matched
+the original release records. All three public downloads matched the original
+build artifact byte for byte.
 [GitHub Release 2.1.1](https://github.com/shin3tky/detect_meteors/releases/tag/2.1.1) · [Build run #44887379412](https://github.com/shin3tky/detect_meteors/actions/runs/44887379412) · [Verification run #44890775339](https://github.com/shin3tky/detect_meteors/actions/runs/44890775339)
 
 ## Code Style
