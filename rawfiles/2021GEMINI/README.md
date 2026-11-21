@@ -5,7 +5,11 @@ This sequence contains 36 original ORF files, from `_C150295.ORF` through
 
 ## Visually Confirmed Meteors
 
-The following three original frames contain meteors confirmed by visual inspection.
+All original frames were visually inspected. The following three contain meteors.
+All unlisted original frames were visually classified as containing no meteor.
+
+These labels describe the original exposures. A negative exposure can still
+produce a disappearance residual in an adjacent-frame difference.
 
 | File | Meteor |
 |------|--------|
