@@ -399,6 +399,10 @@ judging classification or detection quality across shooting conditions.
 
 ### Evolve the Detector and Hook Contracts
 
+- [x] Add a pre-detection frame-pair hook and use it for opt-in stellar
+  registration before the 1.6.13 Hough workflow.
+  [Workflow and RAW validation](star_registration_workflow_ja.md)
+
 - [ ] Define the result fields that hooks and outputs can share across
   detector types. Preserve the frame pair and candidate decision, identify
   the detector and the meaning of its score, and represent optional evidence

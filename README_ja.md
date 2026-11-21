@@ -224,6 +224,17 @@ pipeline.run()
 - 同じコマンドを再実行すると再開できます。
 - 最初から処理する場合は `--no-resume` を使います。
 
+### 恒星を使った画像ペアの位置合わせ（任意）
+
+`star_registration` フックは、ROI 内の恒星に合わせて直前画像を回転・平行移動してから、通常の検出を実行します。
+[航空機サンプルの RAW](docs/INSTALL_ja.md#サンプル-raw-画像) では次の設定で試せます。
+
+```bash
+uv run detect-meteors --config config_examples/star_registration_sample.yaml --debug-image
+```
+
+[使い方と実 RAW での検証結果](docs/star_registration_workflow_ja.md)
+
 ### 飛行機の光跡解析（任意）
 
 組み込みフックを有効にすると、候補に飛行機の光跡らしさを示す情報を付加します。

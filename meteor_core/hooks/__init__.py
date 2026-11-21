@@ -3,6 +3,7 @@
 from .base import BaseHook, DataclassHook, PydanticHook, _is_valid_hook
 from .aircraft_trail import AircraftTrailHook
 from .file_found import AllowAllFilesFoundHook
+from .star_registration import StarRegistrationHook
 from .registry import HookRegistry
 from .discovery import PLUGIN_DIR, PLUGIN_GROUP
 
@@ -12,6 +13,7 @@ from .discovery import discover_hooks
 __all__ = [
     "AircraftTrailHook",
     "AllowAllFilesFoundHook",
+    "StarRegistrationHook",
     "BaseHook",
     "DataclassHook",
     "PydanticHook",

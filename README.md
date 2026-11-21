@@ -252,6 +252,20 @@ pipeline.run()
 - Resume by running the same command again
 - Use `--no-resume` for a fresh start
 
+### Stellar Registration (Optional)
+
+The `star_registration` hook uses stars in the ROI to rotate and translate the previous exposure
+into the current image's coordinates before detection.
+Try it with the [aircraft sample RAWs](docs/INSTALL.md#sample-raw-images).
+
+```bash
+uv run detect-meteors --config config_examples/star_registration_sample.yaml --debug-image
+```
+
+The sample config sets the sky ROI and enables Hough detection and aircraft trail analysis.
+For your own exposures, use `--hooks star_registration` and select a sky ROI with widely
+distributed stars. See the [workflow and RAW validation results (Japanese)](docs/star_registration_workflow_ja.md).
+
 ### Aircraft Trail Analysis (Optional)
 
 Enable the built-in hook to annotate candidates with aircraft trail likelihood:

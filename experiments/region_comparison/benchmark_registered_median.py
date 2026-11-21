@@ -22,7 +22,7 @@ from meteor_core.schema import DetectionContext
 from registered_median import HISTORY_DEPTH, registered_median
 from review_frt import _crop, _gray, _overlay
 from review_metrics import event_matches, frame_metrics, read_truth
-from star_registration import star_centroids
+from meteor_core.star_registration import star_centroids
 from summarize import trail_coverage
 
 POLICIES = ("adjacent", "median", "registered_median")

@@ -7,7 +7,7 @@ import numpy as np
 from benchmark_registered_median import cutoff, score_sequence
 from benchmark_v2 import temporal_median
 from registered_median import registered_median
-from star_registration import transform_points, warp_reference
+from meteor_core.star_registration import transform_points, warp_reference
 
 
 class RegistrationBackgroundTests(unittest.TestCase):
