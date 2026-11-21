@@ -332,31 +332,23 @@ and [sample validation results](docs/aircraft_sample_validation.md).
 | [Aircraft sample validation](docs/aircraft_sample_validation.md) | Results and limitations on the local 12-frame sequence |
 | [Wiki](https://github.com/shin3tky/detect_meteors/wiki) | Technical details |
 
-## Preparing v2.1.1
+## What's New in v2.1.1
 
-**Scheduled for November 21, 2026 (2026-11-21) · 📺 World Television Day**
+**November 21, 2026 (2026-11-21) · 📺 World Television Day**
 
-The release notes cover the frame-pair hook, switchable configurations for
-conventional Hough, stellar registration, positive differences, and
-experimental FRT retry. They also cover progress compatibility, the 121-pair
-and 2025LEO results, and the plugin interface.
+- Add a frame-pair preprocessing hook and optional stellar registration before detection.
+- Add positive-difference Hough and sample configurations that share the same input, ROI, and Hough thresholds. Conventional absolute-difference Hough remains the default.
+- Offer experimental FRT retry for pairs rejected by unaligned positive-difference Hough.
+- Support Python 3.14 alongside Python 3.12 and 3.13.
+
+See the release notes for migration instructions and the 121-pair and 2025LEO evaluation results.
 [2.1.1 release notes](docs/RELEASE_NOTES_2.1.md#version-211) · [Changelog](docs/CHANGELOG.md#v211)
-
-## What's New in v1.6.13
-
-**November 16, 2026 (2026-11-16).**
-
-- GitHub Actions builds the wheel and source distribution, verifies installation on Python 3.12 and 3.13 and on 3.14 when the release supports it, and generates `SHA256SUMS`.
-- The post-publication workflow compares the public downloads with the build artifacts and repeats the install and CLI startup checks.
-- Updates NumPy to 2.5.5 and the Ruff, ty, and coverage development tools.
-
-See the [release notes](docs/RELEASE_NOTES_1.6.md#version-1613) and
-[changelog](docs/CHANGELOG.md#v1613) for details.
 
 ### Previous Releases
 
 | Version | Highlights | Details |
 |---------|------------|---------|
+| v1.6.13 | Automated distribution builds, checksums, and post-publication verification | [Release notes](docs/RELEASE_NOTES_1.6.md#version-1613) |
 | v1.6.12 | Plugin compatibility, retrying failed pairs, and versioned pipeline settings | [Release notes](docs/RELEASE_NOTES_1.6.md#version-1612) |
 | v1.6.11 | Missed-candidate analysis, parameter tuning, and reusable sessions | [Release notes](docs/RELEASE_NOTES_1.6.md#version-1611-2026-11-07) |
 | v1.6.x | Schema versioning, ML-ready architecture, uv/Ruff toolchain | [RELEASE_NOTES_1.6.md](docs/RELEASE_NOTES_1.6.md) |
