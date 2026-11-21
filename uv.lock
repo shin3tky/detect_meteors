@@ -99,7 +99,7 @@ wheels = [
 
 [[package]]
 name = "detect-meteors"
-version = "1.6.13"
+version = "2.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
